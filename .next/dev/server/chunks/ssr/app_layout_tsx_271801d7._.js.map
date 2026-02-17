@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 4, "column": 0}, "map": {"version":3,"sources":["file:///Users/bekhzod_tokhirjonov/Desktop/Swipe/svayp_website/app/layout.tsx"],"sourcesContent":["import type { Metadata } from 'next';\nimport { redirect } from 'next/navigation';\n\nexport const metadata: Metadata = {\n  title: 'SVΛYP',\n  description: 'Discover Your Style',\n};\n\nexport default function RootLayout({\n  children,\n}: {\n  children: React.ReactNode;\n}) {\n  return children;\n}\n\nexport async function generateStaticParams() {\n  return [];\n}\n"],"names":[],"mappings":";;;;;;;;AAGO,MAAM,WAAqB;IAChC,OAAO;IACP,aAAa;AACf;AAEe,SAAS,WAAW,EACjC,QAAQ,EAGT;IACC,OAAO;AACT;AAEO,eAAe;IACpB,OAAO,EAAE;AACX"}}]
+}
