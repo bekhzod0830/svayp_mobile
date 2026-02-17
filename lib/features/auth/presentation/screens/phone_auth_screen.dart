@@ -60,16 +60,15 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
 
       // Send OTP to the phone number
       final response = await _authService.sendOTP(phoneNumber);
-      
+
       print('✅ OTP sent successfully: ${response.message}');
 
       if (!mounted) return;
 
       // Navigate to OTP verification screen
-      Navigator.of(context).pushNamed(
-        '/otp-verification',
-        arguments: phoneNumber,
-      );
+      Navigator.of(
+        context,
+      ).pushNamed('/otp-verification', arguments: phoneNumber);
     } on ApiException catch (e) {
       print('❌ API Error: ${e.message}');
       if (!mounted) return;
@@ -77,10 +76,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
     } catch (e) {
       print('❌ Unexpected error: $e');
       if (!mounted) return;
-      SnackBarHelper.showError(
-        context,
-        l10n.otpSendError,
-      );
+      SnackBarHelper.showError(context, l10n.otpSendError);
     } finally {
       if (mounted) {
         setState(() {

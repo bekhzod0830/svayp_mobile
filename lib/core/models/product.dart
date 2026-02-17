@@ -270,7 +270,9 @@ class ProductListResponse {
   factory ProductListResponse.fromJson(Map<String, dynamic> json) {
     // Safely parse products list, skipping any that fail
     final productsList = <Product>[];
-    final productsJson = json['products'] as List<dynamic>?;
+
+    // API returns products under 'data' key, not 'products'
+    final productsJson = json['data'] as List<dynamic>?;
 
     if (productsJson != null) {
       for (final productJson in productsJson) {
@@ -284,9 +286,12 @@ class ProductListResponse {
       }
     }
 
-    return ProductListResponse(
-      products: productsList,
-      total: json['total'] as int? ?? 0,
-    );
+    // Get total from pagination object if available, otherwise use products length
+    int totalCount = productsList.length;
+    if (json['pagination'] != null) {
+      totalCount = json['pagination']['total'] as int? ?? productsList.length;
+    }
+
+    return ProductListResponse(products: productsList, total: totalCount);
   }
 }

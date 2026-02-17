@@ -162,27 +162,12 @@ class ProductApiService {
   /// Get recommended products based on user profile
   ///
   /// Parameters:
-  /// - [limit]: Number of recommendations to return (default 20)
-  /// - [minScore]: Minimum match score (0-100, default 25.0)
-  /// - [includeDetails]: Include match details and scoring breakdown
   /// - [token]: Required authentication token
   Future<ProductListResponse> getRecommendedProducts({
-    int limit = 20,
-    double minScore = 25.0,
-    bool includeDetails = false,
     required String token,
   }) async {
     try {
-      // Build query parameters
-      final queryParams = <String, String>{
-        'limit': limit.toString(),
-        'min_score': minScore.toString(),
-        'include_details': includeDetails.toString(),
-      };
-
-      final uri = Uri.parse(
-        '$baseUrl/products/recommended',
-      ).replace(queryParameters: queryParams);
+      final uri = Uri.parse('$baseUrl/products/recommended');
 
       // Build headers with required authentication
       final headers = <String, String>{

@@ -149,8 +149,6 @@ class _OnboardingCompletionScreenState extends State<OnboardingCompletionScreen>
           final apiService = ProductApiService();
 
           final response = await apiService.getRecommendedProducts(
-            limit: 50,
-            minScore: 25.0,
             token: authToken,
           );
 

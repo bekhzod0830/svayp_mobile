@@ -15,7 +15,7 @@ class ProfileCreateRequest extends Equatable {
   final String? dressSize;
   final String? jeanWaistSize;
   final String? shoeSize;
-  
+
   // Bra sizes
   final String? braType;
   final String? braBandSize;
@@ -49,7 +49,7 @@ class ProfileCreateRequest extends Equatable {
   const ProfileCreateRequest({
     required this.gender,
     required this.dateOfBirth,
-    required this.fullName,
+    this.fullName,
     required this.heightCm,
     required this.weightKg,
     required this.bodyType,

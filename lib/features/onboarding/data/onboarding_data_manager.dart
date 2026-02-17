@@ -22,7 +22,7 @@ class OnboardingDataManager extends ChangeNotifier {
   String? _dressSize;
   String? _jeanWaistSize;
   String? _shoeSize;
-  
+
   // Bra Sizes
   String? _braType;
   String? _braBandSize;
@@ -202,50 +202,62 @@ class OnboardingDataManager extends ChangeNotifier {
 
   /// Convert collected data to ProfileCreateRequest format
   ProfileCreateRequest toProfileRequest() {
+    // Ensure stylePreference is never empty (API requires at least 1 item)
+    final stylePrefs = _stylePreference.isNotEmpty
+        ? _stylePreference.map((e) => e.toUpperCase()).toList()
+        : _getDefaultStylePreference();
+
     return ProfileCreateRequest(
-      // Required fields
-      gender: _gender!,
+      // Required fields - convert enums to UPPERCASE
+      gender: _gender!.toUpperCase(),
       dateOfBirth: _dateOfBirth!.toIso8601String().split('T')[0],
       heightCm: _heightCm!,
       weightKg: _weightKg!,
-      bodyType: _bodyType!,
+      bodyType: _bodyType!.toUpperCase(),
 
       // Optional personal info
       fullName: _fullName,
       email: _email,
 
-      // Optional sizes
-      topSize: _topSize,
-      bottomSize: _bottomSize,
-      dressSize: _dressSize,
-      jeanWaistSize: _jeanWaistSize,
-      shoeSize: _shoeSize,
-      
-      // Bra sizes
-      braType: _braType,
-      braBandSize: _braBandSize,
-      braCupSize: _braCupSize,
-      braSupportLevel: _braSupportLevel,
+      // Optional sizes - convert to UPPERCASE
+      topSize: _topSize?.toUpperCase(),
+      bottomSize: _formatPantsSize(_bottomSize),
+      dressSize: _dressSize?.toUpperCase(),
+      jeanWaistSize: _formatPantsSize(_jeanWaistSize),
+      shoeSize: _formatShoeSize(_shoeSize),
 
-      // Muslim fashion preferences
-      hijabPreference: _hijabPreference!,
-      fitPreference: _fitPreference.isNotEmpty ? _fitPreference : [],
-      stylePreference: _stylePreference.isNotEmpty ? _stylePreference : [],
+      // Bra sizes - convert to UPPERCASE
+      braType: _braType?.toUpperCase(),
+      braBandSize: _formatBraBandSize(_braBandSize),
+      braCupSize: _braCupSize?.toUpperCase(),
+      braSupportLevel: _braSupportLevel?.toUpperCase(),
 
-      // Style preferences
-      primaryObjective: _primaryObjective,
-      styleCategories: _styleCategories.isNotEmpty ? _styleCategories : null,
+      // Muslim fashion preferences - convert to UPPERCASE
+      hijabPreference: _hijabPreference!.toUpperCase(),
+      fitPreference: _fitPreference.isNotEmpty
+          ? _fitPreference.map((e) => e.toUpperCase()).toList()
+          : [],
+      stylePreference: stylePrefs, // Use computed stylePrefs with fallback
+      // Style preferences - convert to UPPERCASE
+      primaryObjective: _primaryObjective?.toUpperCase(),
+      styleCategories: _styleCategories.isNotEmpty
+          ? _styleCategories.map((e) => e.toUpperCase()).toList()
+          : null,
       occasionPreference: _occasionPreference.isNotEmpty
-          ? _occasionPreference
+          ? _occasionPreference.map((e) => e.toUpperCase()).toList()
           : null,
       brandPreference: _brandPreference.isNotEmpty ? _brandPreference : null,
       preferredColors: _preferredColors.isNotEmpty ? _preferredColors : null,
       avoidedColors: _avoidedColors.isNotEmpty ? _avoidedColors : null,
-      avoidedPatterns: _avoidedPatterns.isNotEmpty ? _avoidedPatterns : null,
-      avoidedItems: _avoidedItems.isNotEmpty ? _avoidedItems : null,
+      avoidedPatterns: _avoidedPatterns.isNotEmpty
+          ? _avoidedPatterns.map((e) => e.toUpperCase()).toList()
+          : null,
+      avoidedItems: _avoidedItems.isNotEmpty
+          ? _avoidedItems.map((e) => e.toUpperCase()).toList()
+          : null,
 
-      // Budget
-      budgetType: _budgetType,
+      // Budget - convert to UPPERCASE
+      budgetType: _budgetType?.toUpperCase(),
     );
   }
 
@@ -290,5 +302,48 @@ class OnboardingDataManager extends ChangeNotifier {
     _budgetType = null;
     _quizResults = [];
     notifyListeners();
+  }
+
+  /// Format pants size: "24" -> "SIZE_24"
+  String? _formatPantsSize(String? size) {
+    if (size == null) return null;
+    // If already formatted, return as-is
+    if (size.startsWith('SIZE_')) return size.toUpperCase();
+    // Format numeric size
+    return 'SIZE_$size';
+  }
+
+  /// Format shoe size: "37" -> "EU_37"
+  String? _formatShoeSize(String? size) {
+    if (size == null) return null;
+    // If already formatted, return as-is
+    if (size.startsWith('EU_')) return size.toUpperCase();
+    // Format numeric size
+    return 'EU_$size';
+  }
+
+  /// Format bra band size: "70" -> "EU_70"
+  String? _formatBraBandSize(String? size) {
+    if (size == null) return null;
+    // If already formatted, return as-is
+    if (size.startsWith('EU_')) return size.toUpperCase();
+    // Format numeric size
+    return 'EU_$size';
+  }
+
+  /// Get default style preference based on hijab preference
+  List<String> _getDefaultStylePreference() {
+    final hijabPref = _hijabPreference?.toLowerCase();
+
+    if (hijabPref == 'covered') {
+      return ['COVERED'];
+    } else if (hijabPref == 'uncovered') {
+      return ['MODERATE']; // or ['REVEALING'] depending on your app's default
+    } else if (hijabPref == 'not_applicable') {
+      return ['MODERATE'];
+    }
+
+    // Fallback if hijabPreference is somehow null or unexpected
+    return ['COVERED'];
   }
 }

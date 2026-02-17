@@ -91,34 +91,11 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     });
 
     try {
-      // Development mode: Skip OTP verification if flag is enabled
-      if (ApiConfig.skipOtpInDev) {
-        // Simulate a small delay for realistic UX
-        await Future.delayed(const Duration(milliseconds: 500));
-
-        if (!mounted) return;
-
-        // In dev mode, accept any 6-digit code and navigate to onboarding
-        // Change hasProfile to test different flows:
-        // - false: go to onboarding (new user)
-        // - true: go to main app (existing user)
-        // ignore: dead_code
-        const bool hasProfile = false;
-
-        // ignore: dead_code
-        if (hasProfile) {
-          Navigator.of(context).pushReplacementNamed('/main');
-        } else {
-          Navigator.of(context).pushReplacementNamed('/basic-info');
-        }
-        return;
-      }
-
-      // Production mode: Verify OTP with backend API
+      // Verify OTP with backend API
       print('📤 Sending verify request:');
       print('   Phone: ${widget.phoneNumber}');
       print('   OTP: $otpCode');
-      
+
       final tokenResponse = await _authService.verifyOTP(
         phoneNumber: widget.phoneNumber,
         otpCode: otpCode,

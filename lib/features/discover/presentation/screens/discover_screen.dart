@@ -124,21 +124,35 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
         } else {
           // No cached data, fetch from API as usual
           try {
+            print('📡 [Discover] Fetching recommendations from API...');
             final response = await _apiService.getRecommendedProducts(
-              limit: 50, // Load more recommendations
-              minScore: 25.0,
               token: _authToken!,
             );
 
+            print(
+              '✅ [Discover] Received ${response.products.length} products from API',
+            );
+
             // Convert API products to local Product entities
+            int convertedCount = 0;
+            int failedCount = 0;
             for (final apiProduct in response.products) {
               try {
                 final product = _convertApiProduct(apiProduct);
                 loadedProducts.add(product);
+                convertedCount++;
               } catch (e) {
-                // Silently skip failed conversions
+                failedCount++;
+                print('⚠️ [Discover] Failed to convert product: $e');
               }
             }
+
+            print(
+              '📦 [Discover] Converted $convertedCount products, $failedCount failed',
+            );
+            print(
+              '📦 [Discover] Total loadedProducts: ${loadedProducts.length}',
+            );
           } catch (e) {
             // Don't fall back to mock data - rethrow to show error
             rethrow;
@@ -155,9 +169,17 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
           .map((likedProduct) => likedProduct.productId)
           .toSet();
 
+      print(
+        '❤️ [Discover] Filtering out ${likedProductIds.length} liked products',
+      );
+
       final availableProducts = loadedProducts
           .where((product) => !likedProductIds.contains(product.id))
           .toList();
+
+      print(
+        '✨ [Discover] Final available products: ${availableProducts.length}',
+      );
 
       setState(() {
         _products = availableProducts;
@@ -330,8 +352,6 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
         // Get more recommendations - the API should return different products
         // based on what the user has already swiped
         final response = await _apiService.getRecommendedProducts(
-          limit: 20,
-          minScore: 25.0,
           token: _authToken!,
         );
 

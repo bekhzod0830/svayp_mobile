@@ -98,15 +98,15 @@ class _BudgetPreferenceScreenState extends State<BudgetPreferenceScreen> {
     try {
       // Save budget preference to onboarding manager
       final manager = context.read<OnboardingDataManager>();
-      
+
       // Convert budget ID to API format (BUDGET, MODERATE, FLEXIBLE, etc.)
       String budgetType = _selectedBudget.toUpperCase();
       manager.setBudgetType(budgetType);
 
       if (!mounted) return;
 
-      // Navigate directly to onboarding completion
-      Navigator.of(context).pushNamed('/onboarding-completion');
+      // Navigate to budget by items screen (final onboarding step)
+      Navigator.of(context).pushNamed('/budget-by-items');
     } catch (e) {
       if (!mounted) return;
       SnackBarHelper.showError(context, l10n.saveBudgetError);

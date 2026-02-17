@@ -37,9 +37,14 @@ class _ModestyLevelScreenState extends State<ModestyLevelScreen> {
         _gender = args['gender'] as String? ?? 'female';
         _hijabPreference = args['hijabPreference'] as String? ?? 'covered';
 
-        // If user is covered, skip this screen entirely
+        // If user is covered, skip this screen and set default stylePreference
         if (_hijabPreference == 'covered') {
           WidgetsBinding.instance.addPostFrameCallback((_) {
+            // Set stylePreference to 'covered' since hijab is covered
+            final manager = context.read<OnboardingDataManager>();
+            if (manager.stylePreference.isEmpty) {
+              manager.setStylePreference(['covered']);
+            }
             _navigateToNextScreen();
           });
         }
