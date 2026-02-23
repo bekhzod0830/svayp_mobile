@@ -9,8 +9,12 @@ class Product {
   final double rating; // 0.0 to 5.0
   final int reviewCount;
   final String category; // e.g., "Dress", "Shoes", "Accessories"
+  final List<String>? subcategory; // Subcategories
   final List<String> sizes; // Available sizes
   final List<String> colors; // Available colors
+  final List<String>? material; // Materials
+  final List<String>? season; // Seasons
+  final String currency; // Currency code (e.g., "UZS")
   final String? seller; // Seller/retailer name
   final bool isNew; // New arrival badge
   final bool isFeatured; // Featured product
@@ -31,8 +35,12 @@ class Product {
     this.rating = 0.0,
     this.reviewCount = 0,
     required this.category,
+    this.subcategory,
     this.sizes = const [],
     this.colors = const [],
+    this.material,
+    this.season,
+    this.currency = 'UZS',
     this.seller,
     this.isNew = false,
     this.isFeatured = false,
@@ -60,6 +68,9 @@ class Product {
       rating: (json['rating'] as num?)?.toDouble() ?? 0.0,
       reviewCount: json['review_count'] as int? ?? 0,
       category: json['category'] as String,
+      subcategory: (json['subcategory'] as List<dynamic>?)
+          ?.map((e) => e as String)
+          .toList(),
       sizes:
           (json['sizes'] as List<dynamic>?)?.map((e) => e as String).toList() ??
           [],
@@ -68,6 +79,13 @@ class Product {
               ?.map((e) => e as String)
               .toList() ??
           [],
+      material: (json['material'] as List<dynamic>?)
+          ?.map((e) => e as String)
+          .toList(),
+      season: (json['season'] as List<dynamic>?)
+          ?.map((e) => e as String)
+          .toList(),
+      currency: json['currency'] as String? ?? 'UZS',
       seller: json['seller'] as String?,
       isNew: json['is_new'] as bool? ?? false,
       isFeatured: json['is_featured'] as bool? ?? false,
@@ -92,8 +110,12 @@ class Product {
       'rating': rating,
       'review_count': reviewCount,
       'category': category,
+      'subcategory': subcategory,
       'sizes': sizes,
       'colors': colors,
+      'material': material,
+      'season': season,
+      'currency': currency,
       'seller': seller,
       'is_new': isNew,
       'is_featured': isFeatured,
@@ -140,8 +162,12 @@ class Product {
     double? rating,
     int? reviewCount,
     String? category,
+    List<String>? subcategory,
     List<String>? sizes,
     List<String>? colors,
+    List<String>? material,
+    List<String>? season,
+    String? currency,
     String? seller,
     bool? isNew,
     bool? isFeatured,
@@ -162,8 +188,12 @@ class Product {
       rating: rating ?? this.rating,
       reviewCount: reviewCount ?? this.reviewCount,
       category: category ?? this.category,
+      subcategory: subcategory ?? this.subcategory,
       sizes: sizes ?? this.sizes,
       colors: colors ?? this.colors,
+      material: material ?? this.material,
+      season: season ?? this.season,
+      currency: currency ?? this.currency,
       seller: seller ?? this.seller,
       isNew: isNew ?? this.isNew,
       isFeatured: isFeatured ?? this.isFeatured,

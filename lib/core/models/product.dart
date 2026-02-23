@@ -17,7 +17,8 @@ class Product {
   final String currency;
   final List<String> images;
   final List<SizeEnum>? sizes;
-  final List<ColorEnum>? colors;
+  final List<String>?
+  colors; // Changed from ColorEnum to String to support hex codes
   final int? stockQuantity;
   final bool inStock;
   final List<MaterialEnum>? material;
@@ -113,7 +114,9 @@ class Product {
               .toList() ??
           [],
       sizes: EnumHelpers.parseSizeList(json['sizes'] as List<dynamic>?),
-      colors: EnumHelpers.parseColorList(json['colors'] as List<dynamic>?),
+      colors: (json['colors'] as List<dynamic>?)
+          ?.map((e) => e as String)
+          .toList(),
       stockQuantity: json['stock_quantity'] as int?,
       inStock: json['in_stock'] as bool? ?? true,
       material: EnumHelpers.parseMaterialList(
@@ -167,7 +170,7 @@ class Product {
       'currency': currency,
       'images': images,
       'sizes': EnumHelpers.sizeListToJson(sizes),
-      'colors': EnumHelpers.colorListToJson(colors),
+      'colors': colors,
       'stock_quantity': stockQuantity,
       'in_stock': inStock,
       'material': EnumHelpers.materialListToJson(material),

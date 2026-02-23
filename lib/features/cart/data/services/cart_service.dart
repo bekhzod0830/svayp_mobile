@@ -94,6 +94,33 @@ class CartService {
     await _cartBox?.deleteAt(index);
   }
 
+  /// Remove specific item from cart by matching product, size, and color
+  Future<void> removeByMatch({
+    required String productId,
+    required String selectedSize,
+    String? selectedColor,
+  }) async {
+    await init();
+
+    // Find the item that matches
+    final items = _cartBox?.values.toList() ?? [];
+    for (int i = 0; i < items.length; i++) {
+      final item = items[i];
+      if (item.productId == productId &&
+          item.selectedSize == selectedSize &&
+          item.selectedColor == selectedColor) {
+        // If quantity > 1, decrement it; otherwise remove the item
+        if (item.quantity > 1) {
+          final updatedItem = item.copyWith(quantity: item.quantity - 1);
+          await _cartBox?.putAt(i, updatedItem);
+        } else {
+          await _cartBox?.deleteAt(i);
+        }
+        break; // Only remove the first match
+      }
+    }
+  }
+
   /// Clear entire cart
   Future<void> clearCart() async {
     await init();

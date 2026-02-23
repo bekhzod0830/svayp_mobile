@@ -316,7 +316,7 @@ class AppLocalizationsRu extends AppLocalizations {
       'Не удалось сохранить цель. Попробуйте еще раз.';
 
   @override
-  String get fitPreference => 'Предпочтения по посадке';
+  String get fitPreference => 'Предпочтение посадки';
 
   @override
   String get howDoYouPreferClothesToFit =>
@@ -943,7 +943,22 @@ class AppLocalizationsRu extends AppLocalizations {
   String get selectSize => 'Выберите размер';
 
   @override
+  String get selectSizeAndColor => 'Выберите размер и цвет';
+
+  @override
+  String get thatsAllForNow => 'Это все на данный момент!';
+
+  @override
+  String get findingMoreItems => 'Мы ищем больше товаров для вас';
+
+  @override
+  String get refreshFeed => 'Обновить ленту';
+
+  @override
   String get pleaseSelectSize => 'Пожалуйста, выберите размер';
+
+  @override
+  String get pleaseSelectColor => 'Пожалуйста, выберите цвет';
 
   @override
   String get oneSize => 'Универсальный размер';
@@ -1523,7 +1538,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get notificationsComingSoon => 'Уведомления скоро появятся';
 
   @override
-  String get stylePreferences => 'Стилевые предпочтения';
+  String get stylePreferences => 'Предпочтения стиля';
 
   @override
   String get stylePreferencesComingSoon =>
@@ -2023,6 +2038,36 @@ class AppLocalizationsRu extends AppLocalizations {
   String get bodyInformation => 'Информация о теле';
 
   @override
+  String get clothingSizes => 'Размеры одежды';
+
+  @override
+  String get topSize => 'Размер верха';
+
+  @override
+  String get bottomSize => 'Размер низа';
+
+  @override
+  String get dressSize => 'Размер платья';
+
+  @override
+  String get jeanWaistSize => 'Размер талии джинсов';
+
+  @override
+  String get braSizes => 'Размеры бюстгальтера';
+
+  @override
+  String get braBandSize => 'Размер пояса';
+
+  @override
+  String get braCupSize => 'Размер чашки';
+
+  @override
+  String get stylePreferenceLabel => 'Предпочтение стиля';
+
+  @override
+  String get budgetType => 'Тип бюджета';
+
+  @override
   String get shoppingPreferences => 'Предпочтения покупок';
 
   @override
@@ -2042,4 +2087,160 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get notSet => 'Не установлено';
+
+  @override
+  String get enumFemale => 'Женский';
+
+  @override
+  String get enumMale => 'Мужской';
+
+  @override
+  String get enumHourglass => 'Песочные часы';
+
+  @override
+  String get enumTriangle => 'Треугольник';
+
+  @override
+  String get enumRectangle => 'Прямоугольник';
+
+  @override
+  String get enumOval => 'Овал';
+
+  @override
+  String get enumHeart => 'Сердце';
+
+  @override
+  String get enumPreferNotToSay => 'Предпочитаю не говорить';
+
+  @override
+  String get enumCovered => 'Закрытый';
+
+  @override
+  String get enumUncovered => 'Открытый';
+
+  @override
+  String get enumNotApplicable => 'Не применимо';
+
+  @override
+  String get enumLoose => 'Свободный';
+
+  @override
+  String get enumRegular => 'Обычный';
+
+  @override
+  String get enumOversized => 'Оверсайз';
+
+  @override
+  String get enumSlim => 'Облегающий';
+
+  @override
+  String get enumSuperSlim => 'Супер облегающий';
+
+  @override
+  String get enumFitted => 'По фигуре';
+
+  @override
+  String get enumModerate => 'Умеренный';
+
+  @override
+  String get enumRevealing => 'Открытый';
+
+  @override
+  String get enumBudget => 'Бюджетный';
+
+  @override
+  String get enumPremium => 'Премиум';
+
+  @override
+  String get enumLuxury => 'Люкс';
+
+  @override
+  String get enumFlexible => 'Гибкий';
+
+  @override
+  String get enumCasual => 'Повседневный';
+
+  @override
+  String get enumFormal => 'Официальный';
+
+  @override
+  String get enumBusiness => 'Деловой';
+
+  @override
+  String get enumSporty => 'Спортивный';
+
+  @override
+  String get enumElegant => 'Элегантный';
+
+  @override
+  String get enumBohemian => 'Богемный';
+
+  @override
+  String get enumVintage => 'Винтажный';
+
+  @override
+  String get enumModern => 'Современный';
+
+  @override
+  String get enumMinimalist => 'Минималистичный';
+
+  @override
+  String get enumClassic => 'Классический';
+
+  @override
+  String get enumTrendy => 'Трендовый';
+
+  @override
+  String get enumModest => 'Скромный';
+
+  @override
+  String get enumStreetwear => 'Уличный';
+
+  @override
+  String get enumRomantic => 'Романтичный';
+
+  @override
+  String get enumEdgy => 'Дерзкий';
+
+  @override
+  String get enumPreppy => 'Преппи';
+
+  @override
+  String get enumAthleisure => 'Спорт-шик';
+
+  @override
+  String get enumChic => 'Шикарный';
+
+  @override
+  String get enumGlamorous => 'Гламурный';
+
+  @override
+  String get enumSexy => 'Сексуальный';
+
+  @override
+  String get enumRetro => 'Ретро';
+
+  @override
+  String get enumGrunge => 'Гранж';
+
+  @override
+  String get enumGothic => 'Готический';
+
+  @override
+  String get enumHippie => 'Хиппи';
+
+  @override
+  String get enumArtsy => 'Артистичный';
+
+  @override
+  String get enumFeminine => 'Женственный';
+
+  @override
+  String get enumMasculine => 'Мужественный';
+
+  @override
+  String get enumAndrogynous => 'Андрогинный';
+
+  @override
+  String get enumLuxurious => 'Роскошный';
 }

@@ -13,6 +13,8 @@ import 'package:swipe/core/services/visual_search_api_service.dart';
 import 'package:swipe/features/shop/presentation/screens/visual_search_results_screen.dart';
 import 'package:swipe/features/shop/presentation/screens/seller_profile_screen.dart';
 import 'package:swipe/features/shop/presentation/screens/shop_search_results_screen.dart';
+import 'package:swipe/core/di/service_locator.dart';
+import 'package:swipe/core/network/api_client.dart';
 
 /// Shop Screen - Browse and search for products (TikTok Shop style)
 /// Features: 2-column grid, seller info, tabs, ChatGPT-style search
@@ -167,13 +169,16 @@ class _ShopScreenState extends State<ShopScreen> {
       price: apiProduct.price,
       brand: apiProduct.brand,
       category: apiProduct.category.displayName,
+      subcategory: apiProduct.subcategory?.map((s) => s.displayName).toList(),
       images: apiProduct.images.isNotEmpty
           ? apiProduct.images
           : ['placeholder'],
       // Convert enum lists to string lists for the old Product entity
       sizes: apiProduct.sizes?.map((size) => size.displayName).toList() ?? [],
-      colors:
-          apiProduct.colors?.map((color) => color.displayName).toList() ?? [],
+      colors: apiProduct.colors ?? [],
+      material: apiProduct.material?.map((m) => m.displayName).toList(),
+      season: apiProduct.season?.map((s) => s.displayName).toList(),
+      currency: apiProduct.currency,
       rating: apiProduct.rating ?? 4.5,
       reviewCount: apiProduct.reviewCount ?? 0,
       isNew: apiProduct.isNew ?? false,
@@ -185,29 +190,70 @@ class _ShopScreenState extends State<ShopScreen> {
     );
   }
 
-  void _performSearch() {
+  Future<void> _performSearch() async {
     final query = _searchController.text.trim();
     if (query.isEmpty) return;
 
-    // Filter products based on search query
-    final searchResults = _products.where((product) {
-      return product.title.toLowerCase().contains(query.toLowerCase()) ||
-          product.brand.toLowerCase().contains(query.toLowerCase()) ||
-          product.category.toLowerCase().contains(query.toLowerCase());
-    }).toList();
+    try {
+      // Get auth token if available
+      final apiClient = getIt<ApiClient>();
+      final token = apiClient.getToken();
 
-    // Navigate to search results screen
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ShopSearchResultsScreen(
-          query: query,
-          searchResults: searchResults,
-          allProducts: _products,
-          searchController: _searchController,
-        ),
-      ),
-    );
+      // Call the search API
+      final response = await _apiService.searchProductsApi(
+        query: query,
+        limit: 100, // Get more results for search
+        token: token,
+      );
+
+      // Convert API products to local Product entities
+      final searchResults = <Product>[];
+      for (final apiProduct in response.products) {
+        try {
+          final product = _convertApiProduct(apiProduct);
+          searchResults.add(product);
+        } catch (e) {
+          print('Failed to convert product: ${apiProduct.id}, error: $e');
+        }
+      }
+
+      // Navigate to search results screen
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ShopSearchResultsScreen(
+              query: query,
+              searchResults: searchResults,
+              allProducts: _products,
+              searchController: _searchController,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      print('Search error: $e');
+      // Fallback to local filtering if API fails
+      final searchResults = _products.where((product) {
+        return product.title.toLowerCase().contains(query.toLowerCase()) ||
+            product.brand.toLowerCase().contains(query.toLowerCase()) ||
+            product.category.toLowerCase().contains(query.toLowerCase());
+      }).toList();
+
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ShopSearchResultsScreen(
+              query: query,
+              searchResults: searchResults,
+              allProducts: _products,
+              searchController: _searchController,
+            ),
+          ),
+        );
+      }
+    }
   }
 
   void _filterProducts() {
@@ -975,35 +1021,14 @@ class _TikTokProductCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   // Price
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          product.formattedPrice,
-                          style: AppTypography.body2.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: theme.colorScheme.onSurface,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (product.originalPrice != null) ...[
-                        const SizedBox(width: 6),
-                        Text(
-                          _formatPrice(product.originalPrice!),
-                          style: AppTypography.caption.copyWith(
-                            color: isDark
-                                ? AppColors.darkSecondaryText
-                                : AppColors.gray500,
-                            decoration: TextDecoration.lineThrough,
-                            fontSize: 10,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ],
+                  Text(
+                    product.formattedPrice,
+                    style: AppTypography.body2.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 6),
                   // Rating & Seller Name (tappable)

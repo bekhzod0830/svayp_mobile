@@ -34,6 +34,8 @@ class MainScreenState extends State<MainScreen> {
   final GlobalKey<NavigatorState> _profileKey = GlobalKey<NavigatorState>();
 
   // Keys for screens to enable refresh
+  final GlobalKey<DiscoverScreenState> _discoverScreenKey =
+      GlobalKey<DiscoverScreenState>();
   final GlobalKey<LikedScreenState> _likedScreenKey =
       GlobalKey<LikedScreenState>();
   final GlobalKey<OrdersScreenState> _ordersScreenKey =
@@ -50,16 +52,10 @@ class MainScreenState extends State<MainScreen> {
       _currentIndex = index;
     });
 
-    // Refresh screens when navigating to them
+    // Refresh Liked screen when navigating to it to show newly liked items
     if (index == 1) {
-      // Liked tab
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _likedScreenKey.currentState?.refresh();
-      });
-    } else if (index == 3) {
-      // Orders tab
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _ordersScreenKey.currentState?.refresh();
       });
     }
   }
@@ -69,19 +65,6 @@ class MainScreenState extends State<MainScreen> {
     setState(() {
       _currentIndex = index;
     });
-
-    // Refresh screens when navigating to them
-    if (index == 1) {
-      // Liked tab
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _likedScreenKey.currentState?.refresh();
-      });
-    } else if (index == 3) {
-      // Orders tab
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _ordersScreenKey.currentState?.refresh();
-      });
-    }
   }
 
   @override
@@ -140,7 +123,7 @@ class MainScreenState extends State<MainScreen> {
             Navigator(
               key: _discoverKey,
               onGenerateRoute: (settings) => MaterialPageRoute(
-                builder: (context) => const DiscoverScreen(),
+                builder: (context) => DiscoverScreen(key: _discoverScreenKey),
               ),
             ),
             Navigator(

@@ -931,7 +931,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get selectSize => 'Select Size';
 
   @override
+  String get selectSizeAndColor => 'Select Size & Color';
+
+  @override
+  String get thatsAllForNow => 'That\'s All for Now!';
+
+  @override
+  String get findingMoreItems => 'We\'re finding more items you\'ll love';
+
+  @override
+  String get refreshFeed => 'Refresh Feed';
+
+  @override
   String get pleaseSelectSize => 'Please select a size';
+
+  @override
+  String get pleaseSelectColor => 'Please select a color';
 
   @override
   String get oneSize => 'One Size';
@@ -2005,6 +2020,36 @@ class AppLocalizationsEn extends AppLocalizations {
   String get bodyInformation => 'Body Information';
 
   @override
+  String get clothingSizes => 'Clothing Sizes';
+
+  @override
+  String get topSize => 'Top Size';
+
+  @override
+  String get bottomSize => 'Bottom Size';
+
+  @override
+  String get dressSize => 'Dress Size';
+
+  @override
+  String get jeanWaistSize => 'Jean Waist Size';
+
+  @override
+  String get braSizes => 'Bra Sizes';
+
+  @override
+  String get braBandSize => 'Band Size';
+
+  @override
+  String get braCupSize => 'Cup Size';
+
+  @override
+  String get stylePreferenceLabel => 'Style Preference';
+
+  @override
+  String get budgetType => 'Budget Type';
+
+  @override
   String get shoppingPreferences => 'Shopping Preferences';
 
   @override
@@ -2024,4 +2069,160 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get notSet => 'Not set';
+
+  @override
+  String get enumFemale => 'Female';
+
+  @override
+  String get enumMale => 'Male';
+
+  @override
+  String get enumHourglass => 'Hourglass';
+
+  @override
+  String get enumTriangle => 'Triangle';
+
+  @override
+  String get enumRectangle => 'Rectangle';
+
+  @override
+  String get enumOval => 'Oval';
+
+  @override
+  String get enumHeart => 'Heart';
+
+  @override
+  String get enumPreferNotToSay => 'Prefer not to say';
+
+  @override
+  String get enumCovered => 'Covered';
+
+  @override
+  String get enumUncovered => 'Uncovered';
+
+  @override
+  String get enumNotApplicable => 'Not Applicable';
+
+  @override
+  String get enumLoose => 'Loose';
+
+  @override
+  String get enumRegular => 'Regular';
+
+  @override
+  String get enumOversized => 'Oversized';
+
+  @override
+  String get enumSlim => 'Slim';
+
+  @override
+  String get enumSuperSlim => 'Super Slim';
+
+  @override
+  String get enumFitted => 'Fitted';
+
+  @override
+  String get enumModerate => 'Moderate';
+
+  @override
+  String get enumRevealing => 'Revealing';
+
+  @override
+  String get enumBudget => 'Budget';
+
+  @override
+  String get enumPremium => 'Premium';
+
+  @override
+  String get enumLuxury => 'Luxury';
+
+  @override
+  String get enumFlexible => 'Flexible';
+
+  @override
+  String get enumCasual => 'Casual';
+
+  @override
+  String get enumFormal => 'Formal';
+
+  @override
+  String get enumBusiness => 'Business';
+
+  @override
+  String get enumSporty => 'Sporty';
+
+  @override
+  String get enumElegant => 'Elegant';
+
+  @override
+  String get enumBohemian => 'Bohemian';
+
+  @override
+  String get enumVintage => 'Vintage';
+
+  @override
+  String get enumModern => 'Modern';
+
+  @override
+  String get enumMinimalist => 'Minimalist';
+
+  @override
+  String get enumClassic => 'Classic';
+
+  @override
+  String get enumTrendy => 'Trendy';
+
+  @override
+  String get enumModest => 'Modest';
+
+  @override
+  String get enumStreetwear => 'Streetwear';
+
+  @override
+  String get enumRomantic => 'Romantic';
+
+  @override
+  String get enumEdgy => 'Edgy';
+
+  @override
+  String get enumPreppy => 'Preppy';
+
+  @override
+  String get enumAthleisure => 'Athleisure';
+
+  @override
+  String get enumChic => 'Chic';
+
+  @override
+  String get enumGlamorous => 'Glamorous';
+
+  @override
+  String get enumSexy => 'Sexy';
+
+  @override
+  String get enumRetro => 'Retro';
+
+  @override
+  String get enumGrunge => 'Grunge';
+
+  @override
+  String get enumGothic => 'Gothic';
+
+  @override
+  String get enumHippie => 'Hippie';
+
+  @override
+  String get enumArtsy => 'Artsy';
+
+  @override
+  String get enumFeminine => 'Feminine';
+
+  @override
+  String get enumMasculine => 'Masculine';
+
+  @override
+  String get enumAndrogynous => 'Androgynous';
+
+  @override
+  String get enumLuxurious => 'Luxurious';
 }

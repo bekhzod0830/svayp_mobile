@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
@@ -37,6 +38,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   bool _isLiked = false;
   int _quantity = 1;
   int _cartCount = 0;
+  String? _authToken;
 
   @override
   void initState() {
@@ -47,6 +49,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   Future<void> _initServices() async {
     await _cartService.init();
     await _likedService.init();
+
+    // Get authentication token
+    final prefs = await SharedPreferences.getInstance();
+    _authToken = prefs.getString('auth_token');
+
     setState(() {
       _isLiked = _likedService.isLiked(widget.product.id);
       _cartCount = _cartService.getTotalQuantity();
@@ -61,6 +68,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   Future<void> _addToCart() async {
     final l10n = AppLocalizations.of(context)!;
+
+    // Debug: Print product colors and selected color
+    print('🎨 Product colors: ${widget.product.colors}');
+    print('🎨 Selected color: $_selectedColor');
+
     if (_selectedSize == null && widget.product.sizes.isNotEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -72,6 +84,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       return;
     }
 
+    if (_selectedColor == null && widget.product.colors.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.pleaseSelectColor),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    // Add to local cart first (optimistic update)
     await _cartService.addToCart(
       widget.product,
       selectedSize: _selectedSize ?? l10n.oneSize,
@@ -79,10 +103,58 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       quantity: _quantity,
     );
 
-    // Update cart count
-    setState(() {
-      _cartCount = _cartService.getTotalQuantity();
-    });
+    // Send to backend API if authenticated
+    if (_authToken != null && _authToken!.isNotEmpty) {
+      try {
+        // Convert color from display format ("Light Blue") to backend format ("light_blue")
+        // Only send color if one was selected
+        final backendColor = _selectedColor != null
+            ? _selectedColor!.toLowerCase().replaceAll(' ', '_')
+            : null;
+
+        print('🎨 Sending to backend - Color: $backendColor');
+
+        await _apiService.addToCart(
+          productId: widget.product.id,
+          selectedSize: _selectedSize ?? l10n.oneSize,
+          selectedColor: backendColor,
+          quantity: _quantity,
+          token: _authToken!,
+        );
+
+        // Only update cart count after successful API call
+        setState(() {
+          _cartCount = _cartService.getTotalQuantity();
+        });
+      } catch (e) {
+        // Rollback local cart on API failure
+        print('⚠️ Failed to sync cart with backend: $e');
+
+        // Remove the exact item we just added
+        await _cartService.removeByMatch(
+          productId: widget.product.id,
+          selectedSize: _selectedSize ?? l10n.oneSize,
+          selectedColor: _selectedColor,
+        );
+
+        // Show error to user
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to add to cart. Please try again.'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+        return; // Exit early, don't show success message
+      }
+    } else {
+      // Not authenticated - just update local cart count
+      setState(() {
+        _cartCount = _cartService.getTotalQuantity();
+      });
+    }
 
     if (mounted) {
       final l10n = AppLocalizations.of(context)!;
@@ -110,6 +182,25 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     setState(() {
       _isLiked = newLikeState;
     });
+
+    // Send like/dislike to backend if user is authenticated
+    if (_authToken != null && _authToken!.isNotEmpty) {
+      if (_isLiked) {
+        // User liked the product
+        _apiService
+            .likeProduct(productId: widget.product.id, token: _authToken!)
+            .catchError((e) {
+              print('⚠️ Failed to send like: $e');
+            });
+      } else {
+        // User unliked the product - send dislike
+        _apiService
+            .dislikeProduct(productId: widget.product.id, token: _authToken!)
+            .catchError((e) {
+              print('⚠️ Failed to send dislike: $e');
+            });
+      }
+    }
 
     if (mounted) {
       final l10n = AppLocalizations.of(context)!;
@@ -411,9 +502,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
     return Row(
       children: [
-        if (widget.product.discountPercentage != null) ...[
+        if (widget.product.discountPercentage != null &&
+            widget.product.discountPercentage! > 0) ...[
           Text(
-            '${widget.product.originalPrice?.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} UZS',
+            '${widget.product.originalPrice?.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} ${widget.product.currency}',
             style: AppTypography.heading4.copyWith(
               color: isDark ? AppColors.darkSecondaryText : AppColors.gray400,
               decoration: TextDecoration.lineThrough,
@@ -422,13 +514,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           const SizedBox(width: 12),
         ],
         Text(
-          '${widget.product.price.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} UZS',
+          '${widget.product.price.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} ${widget.product.currency}',
           style: AppTypography.heading3.copyWith(
             fontWeight: FontWeight.w700,
             color: theme.colorScheme.onSurface,
           ),
         ),
-        if (widget.product.discountPercentage != null) ...[
+        if (widget.product.discountPercentage != null &&
+            widget.product.discountPercentage! > 0) ...[
           const SizedBox(width: 12),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -538,52 +631,97 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           runSpacing: 12,
           children: widget.product.colors.map((color) {
             final isSelected = _selectedColor == color;
+            final isHexColor = color.startsWith('#');
+
             return GestureDetector(
               onTap: () {
                 setState(() {
                   _selectedColor = color;
                 });
               },
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: isSelected
-                        ? (isDark ? AppColors.darkPrimaryText : AppColors.black)
-                        : (isDark
-                              ? AppColors.darkStandardBorder
-                              : AppColors.gray300),
-                    width: isSelected ? 2 : 1,
-                  ),
-                  borderRadius: BorderRadius.circular(8),
-                  color: isSelected
-                      ? (isDark ? AppColors.darkPrimaryText : AppColors.black)
-                      : (isDark
-                            ? AppColors.darkCardBackground
-                            : AppColors.white),
-                ),
-                child: Text(
-                  color,
-                  style: AppTypography.body2.copyWith(
-                    color: isSelected
-                        ? (isDark ? AppColors.black : AppColors.white)
-                        : (isDark
-                              ? AppColors.darkPrimaryText
-                              : AppColors.black),
-                    fontWeight: isSelected
-                        ? FontWeight.w600
-                        : FontWeight.normal,
-                  ),
-                ),
-              ),
+              child: isHexColor
+                  ? _buildHexColorSwatch(color, isSelected, isDark)
+                  : _buildTextColorOption(color, isSelected, isDark, theme),
             );
           }).toList(),
         ),
       ],
     );
+  }
+
+  Widget _buildHexColorSwatch(String hexColor, bool isSelected, bool isDark) {
+    Color color;
+    try {
+      color = Color(int.parse(hexColor.replaceFirst('#', '0xFF')));
+    } catch (e) {
+      color = Colors.grey;
+    }
+
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color,
+        border: Border.all(
+          color: isSelected
+              ? (isDark ? AppColors.darkPrimaryText : AppColors.black)
+              : (isDark ? AppColors.darkStandardBorder : AppColors.gray300),
+          width: isSelected ? 3 : 2,
+        ),
+        boxShadow: isSelected
+            ? [
+                BoxShadow(
+                  color: (isDark ? AppColors.darkPrimaryText : AppColors.black)
+                      .withOpacity(0.3),
+                  blurRadius: 8,
+                  spreadRadius: 1,
+                ),
+              ]
+            : null,
+      ),
+      child: isSelected
+          ? Icon(Icons.check, color: _getContrastColor(color), size: 24)
+          : null,
+    );
+  }
+
+  Widget _buildTextColorOption(
+    String color,
+    bool isSelected,
+    bool isDark,
+    ThemeData theme,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: isSelected
+              ? (isDark ? AppColors.darkPrimaryText : AppColors.black)
+              : (isDark ? AppColors.darkStandardBorder : AppColors.gray300),
+          width: isSelected ? 2 : 1,
+        ),
+        borderRadius: BorderRadius.circular(8),
+        color: isSelected
+            ? (isDark ? AppColors.darkPrimaryText : AppColors.black)
+            : (isDark ? AppColors.darkCardBackground : AppColors.white),
+      ),
+      child: Text(
+        color,
+        style: AppTypography.body2.copyWith(
+          color: isSelected
+              ? (isDark ? AppColors.black : AppColors.white)
+              : (isDark ? AppColors.darkPrimaryText : AppColors.black),
+          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+        ),
+      ),
+    );
+  }
+
+  Color _getContrastColor(Color backgroundColor) {
+    // Calculate luminance to determine if we need dark or light text
+    final luminance = backgroundColor.computeLuminance();
+    return luminance > 0.5 ? Colors.black : Colors.white;
   }
 
   Widget _buildQuantitySelector() {
@@ -681,12 +819,25 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           label: AppLocalizations.of(context)!.category,
           value: widget.product.category,
         ),
-        if (widget.product.seller != null)
-          _SellerRow(
-            label: AppLocalizations.of(context)!.seller,
-            value: widget.product.seller!,
-            onTap: () => _navigateToSellerProfile(widget.product.seller!),
+        if (widget.product.subcategory != null &&
+            widget.product.subcategory!.isNotEmpty)
+          _DetailRow(
+            label: 'Subcategory',
+            value: widget.product.subcategory!.join(', '),
           ),
+        if (widget.product.material != null &&
+            widget.product.material!.isNotEmpty)
+          _DetailRow(
+            label: 'Material',
+            value: widget.product.material!.join(', '),
+          ),
+        if (widget.product.season != null && widget.product.season!.isNotEmpty)
+          _DetailRow(label: 'Season', value: widget.product.season!.join(', ')),
+        _SellerRow(
+          label: AppLocalizations.of(context)!.seller,
+          value: widget.product.brand,
+          onTap: () => _navigateToSellerProfile(widget.product.brand),
+        ),
         _DetailRow(
           label: AppLocalizations.of(context)!.availability,
           value: widget.product.inStock
@@ -861,12 +1012,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       price: apiProduct.price,
       brand: apiProduct.brand,
       category: apiProduct.category.displayName,
+      subcategory: apiProduct.subcategory?.map((s) => s.displayName).toList(),
       images: apiProduct.images.isNotEmpty
           ? apiProduct.images
           : ['placeholder'],
       sizes: apiProduct.sizes?.map((size) => size.displayName).toList() ?? [],
-      colors:
-          apiProduct.colors?.map((color) => color.displayName).toList() ?? [],
+      colors: apiProduct.colors ?? [],
+      material: apiProduct.material?.map((m) => m.displayName).toList(),
+      season: apiProduct.season?.map((s) => s.displayName).toList(),
+      currency: apiProduct.currency,
       rating: apiProduct.rating ?? 4.5,
       reviewCount: apiProduct.reviewCount ?? 0,
       isNew: apiProduct.isNew ?? false,

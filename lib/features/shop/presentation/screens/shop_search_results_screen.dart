@@ -612,11 +612,7 @@ class _TikTokProductCard extends StatelessWidget {
               sizes:
                   apiProduct.sizes?.map((size) => size.displayName).toList() ??
                   [],
-              colors:
-                  apiProduct.colors
-                      ?.map((color) => color.displayName)
-                      .toList() ??
-                  [],
+              colors: apiProduct.colors ?? [],
               rating: apiProduct.rating ?? 4.5,
               reviewCount: apiProduct.reviewCount ?? 0,
               isNew: apiProduct.isNew ?? false,

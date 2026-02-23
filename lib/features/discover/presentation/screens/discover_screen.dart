@@ -22,16 +22,17 @@ class DiscoverScreen extends StatefulWidget {
   const DiscoverScreen({super.key});
 
   @override
-  State<DiscoverScreen> createState() => _DiscoverScreenState();
+  State<DiscoverScreen> createState() => DiscoverScreenState();
 }
 
-class _DiscoverScreenState extends State<DiscoverScreen> {
+class DiscoverScreenState extends State<DiscoverScreen> {
   final CartService _cartService = CartService();
   final LikedService _likedService = LikedService();
   final ProductApiService _apiService = ProductApiService();
   final ValueNotifier<double> _dragProgressNotifier = ValueNotifier<double>(
     0.0,
   );
+  final Map<String, GlobalKey<SwipeableProductCardState>> _cardKeys = {};
 
   List<Product> _products = [];
   List<Map<String, dynamic>> _swipeHistory =
@@ -163,26 +164,11 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
         loadedProducts = MockProductData.getMockProducts();
       }
 
-      // Filter out products that are already liked
-      final likedProductIds = _likedService
-          .getLikedProducts()
-          .map((likedProduct) => likedProduct.productId)
-          .toSet();
-
-      print(
-        '❤️ [Discover] Filtering out ${likedProductIds.length} liked products',
-      );
-
-      final availableProducts = loadedProducts
-          .where((product) => !likedProductIds.contains(product.id))
-          .toList();
-
-      print(
-        '✨ [Discover] Final available products: ${availableProducts.length}',
-      );
+      // Don't filter liked/disliked products - show all products
+      print('✨ [Discover] Final available products: ${loadedProducts.length}');
 
       setState(() {
-        _products = availableProducts;
+        _products = loadedProducts;
         _isLoading = false;
       });
     } catch (e) {
@@ -209,18 +195,23 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
       price: apiProduct.price,
       brand: apiProduct.brand,
       category: apiProduct.category.displayName,
+      subcategory: apiProduct.subcategory?.map((s) => s.displayName).toList(),
       images: apiProduct.images.isNotEmpty
           ? apiProduct.images
           : ['https://via.placeholder.com/400'],
       sizes: apiProduct.sizes?.map((size) => size.displayName).toList() ?? [],
-      colors:
-          apiProduct.colors?.map((color) => color.displayName).toList() ?? [],
+      colors: apiProduct.colors ?? [],
+      material: apiProduct.material?.map((m) => m.displayName).toList(),
+      season: apiProduct.season?.map((s) => s.displayName).toList(),
+      currency: apiProduct.currency,
       rating: apiProduct.rating ?? 4.5,
       reviewCount: apiProduct.reviewCount ?? 0,
       inStock: apiProduct.inStock,
       isNew: apiProduct.isNew ?? false,
       isFeatured: false, // API doesn't have this field
       seller: apiProduct.seller,
+      discountPercentage: apiProduct.discountPercentage,
+      originalPrice: apiProduct.originalPrice,
     );
   }
 
@@ -238,9 +229,17 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
       _dragProgressNotifier.value = 0.0;
     });
 
-    // Load more if running low
-    if (_currentCardIndex >= _products.length - 3) {
-      _loadMoreProducts();
+    // Clean up old card key
+    _cardKeys.remove(swipedProduct.id);
+
+    // Send dislike to backend if user is authenticated
+    if (_authToken != null && _authToken!.isNotEmpty) {
+      _apiService
+          .dislikeProduct(productId: swipedProduct.id, token: _authToken!)
+          .catchError((e) {
+            // Silently handle error - don't interrupt user experience
+            print('⚠️ Failed to send dislike: $e');
+          });
     }
   }
 
@@ -259,12 +258,20 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
       _dragProgressNotifier.value = 0.0;
     });
 
+    // Clean up old card key
+    _cardKeys.remove(swipedProduct.id);
+
     // Add to liked items in background (don't block UI)
     _likedService.addLike(swipedProduct);
 
-    // Load more if running low
-    if (_currentCardIndex >= _products.length - 3) {
-      _loadMoreProducts();
+    // Send like to backend if user is authenticated
+    if (_authToken != null && _authToken!.isNotEmpty) {
+      _apiService
+          .likeProduct(productId: swipedProduct.id, token: _authToken!)
+          .catchError((e) {
+            // Silently handle error - don't interrupt user experience
+            print('⚠️ Failed to send like: $e');
+          });
     }
   }
 
@@ -274,30 +281,191 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     HapticFeedback.heavyImpact();
 
     final swipedProduct = _products[_currentCardIndex];
-    _swipeHistory.add({'product': swipedProduct, 'action': 'superlike'});
-
-    // Update UI immediately - BEFORE async operations
-    setState(() {
-      _currentCardIndex++;
-      // Reset drag progress in the same setState for atomic update
-      _dragProgressNotifier.value = 0.0;
-    });
-
-    // Show toast
     final l10n = AppLocalizations.of(context)!;
-    _showToast(l10n.addedToCart);
 
-    // Add to cart in background (don't block UI)
-    final defaultSize = swipedProduct.sizes.isNotEmpty
-        ? swipedProduct.sizes.first
-        : 'One Size';
-    _cartService.addToCart(swipedProduct, selectedSize: defaultSize).then((_) {
-      _updateCartCount();
-    });
+    // If product has sizes, show size selection dialog
+    if (swipedProduct.sizes.isNotEmpty) {
+      // Don't advance card yet - let user select size first
+      String? selectedSize;
+      String? selectedColor;
 
-    // Load more if running low
-    if (_currentCardIndex >= _products.length - 3) {
-      _loadMoreProducts();
+      // Show size/color selection dialog
+      final shouldAddToCart = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(l10n.selectSizeAndColor),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Size selection
+              Text(
+                l10n.size,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: swipedProduct.sizes.map((size) {
+                  return ChoiceChip(
+                    label: Text(size),
+                    selected: selectedSize == size,
+                    onSelected: (selected) {
+                      if (selected) {
+                        selectedSize = size;
+                        (context as Element).markNeedsBuild();
+                      }
+                    },
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 16),
+              // Color selection (if available)
+              if (swipedProduct.colors.isNotEmpty) ...[
+                Text(
+                  l10n.color,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: swipedProduct.colors.map((color) {
+                    return ChoiceChip(
+                      label: Text(color),
+                      selected: selectedColor == color,
+                      onSelected: (selected) {
+                        if (selected) {
+                          selectedColor = color;
+                          (context as Element).markNeedsBuild();
+                        }
+                      },
+                    );
+                  }).toList(),
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(l10n.cancel),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (selectedSize != null) {
+                  Navigator.pop(context, true);
+                }
+              },
+              child: Text(l10n.addToCart),
+            ),
+          ],
+        ),
+      );
+
+      if (shouldAddToCart != true || selectedSize == null) {
+        return; // User cancelled or didn't select size
+      }
+
+      // User selected size, proceed with adding to cart
+      _swipeHistory.add({'product': swipedProduct, 'action': 'superlike'});
+
+      setState(() {
+        _currentCardIndex++;
+        _dragProgressNotifier.value = 0.0;
+      });
+
+      // Clean up old card key
+      _cardKeys.remove(swipedProduct.id);
+
+      _showToast(l10n.addedToCart);
+
+      await _cartService.addToCart(
+        swipedProduct,
+        selectedSize: selectedSize!,
+        selectedColor: selectedColor,
+      );
+
+      // Send to backend API if authenticated
+      if (_authToken != null && _authToken!.isNotEmpty) {
+        try {
+          // Convert color from display format ("Light Blue") to backend format ("light_blue")
+          final backendColor = selectedColor?.toLowerCase().replaceAll(
+            ' ',
+            '_',
+          );
+
+          await _apiService.addToCart(
+            productId: swipedProduct.id,
+            selectedSize: selectedSize!,
+            selectedColor: backendColor,
+            quantity: 1,
+            token: _authToken!,
+          );
+
+          // Only update cart count after successful API call
+          _updateCartCount();
+        } catch (e) {
+          print('⚠️ Failed to sync cart with backend: $e');
+
+          // Rollback local cart on API failure
+          await _cartService.removeByMatch(
+            productId: swipedProduct.id,
+            selectedSize: selectedSize!,
+            selectedColor: selectedColor,
+          );
+
+          // Show error toast
+          _showToast('Failed to add to cart');
+        }
+      } else {
+        // Not authenticated - just update local cart count
+        _updateCartCount();
+      }
+    } else {
+      // No sizes available - just add with "One Size"
+      _swipeHistory.add({'product': swipedProduct, 'action': 'superlike'});
+
+      setState(() {
+        _currentCardIndex++;
+        _dragProgressNotifier.value = 0.0;
+      });
+
+      // Clean up old card key
+      _cardKeys.remove(swipedProduct.id);
+
+      _showToast(l10n.addedToCart);
+
+      await _cartService.addToCart(swipedProduct, selectedSize: l10n.oneSize);
+
+      // Send to backend API if authenticated
+      if (_authToken != null && _authToken!.isNotEmpty) {
+        try {
+          await _apiService.addToCart(
+            productId: swipedProduct.id,
+            selectedSize: l10n.oneSize,
+            quantity: 1,
+            token: _authToken!,
+          );
+
+          // Only update cart count after successful API call
+          _updateCartCount();
+        } catch (e) {
+          print('⚠️ Failed to sync cart with backend: $e');
+
+          // Rollback local cart on API failure
+          await _cartService.removeByMatch(
+            productId: swipedProduct.id,
+            selectedSize: l10n.oneSize,
+            selectedColor: null,
+          );
+
+          // Show error toast
+          _showToast('Failed to add to cart');
+        }
+      } else {
+        // Not authenticated - just update local cart count
+        _updateCartCount();
+      }
     }
   }
 
@@ -337,49 +505,6 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     // Update cart count if something was added
     if (result == true) {
       _updateCartCount();
-    }
-  }
-
-  Future<void> _loadMoreProducts() async {
-    // Only load more if we don't already have enough products
-    if (_products.length - _currentCardIndex >= 5) {
-      return;
-    }
-
-    // Load more products from API without triggering full reload
-    if (_authToken != null && _authToken!.isNotEmpty) {
-      try {
-        // Get more recommendations - the API should return different products
-        // based on what the user has already swiped
-        final response = await _apiService.getRecommendedProducts(
-          token: _authToken!,
-        );
-
-        // Filter out products that are already liked or already in the list
-        final likedProductIds = _likedService
-            .getLikedProducts()
-            .map((likedProduct) => likedProduct.productId)
-            .toSet();
-
-        final existingProductIds = _products.map((p) => p.id).toSet();
-
-        final newProducts = response.products
-            .where(
-              (apiProduct) =>
-                  !likedProductIds.contains(apiProduct.id) &&
-                  !existingProductIds.contains(apiProduct.id),
-            )
-            .map((apiProduct) => _convertApiProduct(apiProduct))
-            .toList();
-
-        if (newProducts.isNotEmpty) {
-          setState(() {
-            _products.addAll(newProducts);
-          });
-        }
-      } catch (e) {
-        // Silently handle error
-      }
     }
   }
 
@@ -507,21 +632,29 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                 // Show 3 cards in stack
                 for (int i = 2; i >= 0; i--)
                   if (_currentCardIndex + i < _products.length)
-                    SwipeableProductCard(
-                      key: ValueKey(
-                        'card_${_products[_currentCardIndex + i].id}',
-                      ),
-                      product: _products[_currentCardIndex + i],
-                      isTopCard: i == 0,
-                      stackIndex: i,
-                      onSwipeLeft: i == 0 ? _onSwipeLeft : null,
-                      onSwipeRight: i == 0 ? _onSwipeRight : null,
-                      onSwipeUp: i == 0 ? _onSwipeUp : null,
-                      onTap: i == 0 ? _onCardTap : null,
-                      // Pass drag progress notifier to top card and second card
-                      dragProgressNotifier: (i == 0 || i == 1)
-                          ? _dragProgressNotifier
-                          : null,
+                    Builder(
+                      builder: (context) {
+                        final product = _products[_currentCardIndex + i];
+                        final cardKey = i == 0
+                            ? (_cardKeys[product.id] ??=
+                                  GlobalKey<SwipeableProductCardState>())
+                            : null;
+
+                        return SwipeableProductCard(
+                          key: cardKey ?? ValueKey('card_${product.id}'),
+                          product: product,
+                          isTopCard: i == 0,
+                          stackIndex: i,
+                          onSwipeLeft: i == 0 ? _onSwipeLeft : null,
+                          onSwipeRight: i == 0 ? _onSwipeRight : null,
+                          onSwipeUp: i == 0 ? _onSwipeUp : null,
+                          onTap: i == 0 ? _onCardTap : null,
+                          // Pass drag progress notifier to top card and second card
+                          dragProgressNotifier: (i == 0 || i == 1)
+                              ? _dragProgressNotifier
+                              : null,
+                        );
+                      },
                     ),
               ],
             ),
@@ -596,7 +729,13 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                   : AppColors.gray300,
               size: 56,
               isCompact: true,
-              onPressed: _onSwipeLeft,
+              onPressed: () {
+                if (_currentCardIndex < _products.length) {
+                  final topProduct = _products[_currentCardIndex];
+                  final topCardKey = _cardKeys[topProduct.id];
+                  topCardKey?.currentState?.animateSwipe(SwipeDirection.left);
+                }
+              },
             ),
           ),
 
@@ -613,7 +752,13 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
               borderColor: Colors.transparent,
               size: 56,
               isCompact: true,
-              onPressed: _onSwipeRight,
+              onPressed: () {
+                if (_currentCardIndex < _products.length) {
+                  final topProduct = _products[_currentCardIndex];
+                  final topCardKey = _cardKeys[topProduct.id];
+                  topCardKey?.currentState?.animateSwipe(SwipeDirection.right);
+                }
+              },
             ),
           ),
         ],
@@ -624,6 +769,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
   Widget _buildEmptyState() {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final l10n = AppLocalizations.of(context)!;
 
     return Center(
       child: Padding(
@@ -638,7 +784,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
             ),
             const SizedBox(height: 24),
             Text(
-              'That\'s All for Now!',
+              l10n.thatsAllForNow,
               style: AppTypography.display2.copyWith(
                 color: theme.colorScheme.onSurface,
               ),
@@ -646,7 +792,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              'We\'re finding more items you\'ll love',
+              l10n.findingMoreItems,
               style: AppTypography.body1.copyWith(
                 color: isDark
                     ? AppColors.darkSecondaryText
@@ -658,7 +804,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
             ElevatedButton.icon(
               onPressed: refreshProducts,
               icon: const Icon(Icons.refresh),
-              label: const Text('Refresh Feed'),
+              label: Text(l10n.refreshFeed),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.black,
                 foregroundColor: AppColors.white,

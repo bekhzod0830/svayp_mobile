@@ -317,7 +317,7 @@ class AppLocalizationsUz extends AppLocalizations {
       'Maqsadni saqlashda xatolik. Qayta urinib ko\'ring.';
 
   @override
-  String get fitPreference => 'Kiyim o\'lchami afzalligi';
+  String get fitPreference => 'O\'tirish tanlovi';
 
   @override
   String get howDoYouPreferClothesToFit =>
@@ -438,7 +438,7 @@ class AppLocalizationsUz extends AppLocalizations {
   String get braCup => 'Lif kosasi';
 
   @override
-  String get shoeSize => 'Oyoq kiyim o\'lchami';
+  String get shoeSize => 'Poyabzal o\'lchami';
 
   @override
   String get budgetPreference => 'Byudjet afzalligi';
@@ -944,7 +944,22 @@ class AppLocalizationsUz extends AppLocalizations {
   String get selectSize => 'O\'lchamni tanlang';
 
   @override
+  String get selectSizeAndColor => 'O\'lcham va rang tanlang';
+
+  @override
+  String get thatsAllForNow => 'Hozircha hammasi shu!';
+
+  @override
+  String get findingMoreItems => 'Siz uchun yana ko\'proq mahsulotlar topamiz';
+
+  @override
+  String get refreshFeed => 'Lentani yangilash';
+
+  @override
   String get pleaseSelectSize => 'Iltimos, o\'lchamni tanlang';
+
+  @override
+  String get pleaseSelectColor => 'Iltimos, rangni tanlang';
 
   @override
   String get oneSize => 'Bir o\'lcham';
@@ -1529,7 +1544,7 @@ class AppLocalizationsUz extends AppLocalizations {
       'Bildirishnomalar tez orada paydo bo\'ladi';
 
   @override
-  String get stylePreferences => 'Uslub afzalliklari';
+  String get stylePreferences => 'Stil tanlovlari';
 
   @override
   String get stylePreferencesComingSoon =>
@@ -2033,6 +2048,36 @@ class AppLocalizationsUz extends AppLocalizations {
   String get bodyInformation => 'Tana ma\'lumotlari';
 
   @override
+  String get clothingSizes => 'Kiyim o\'lchamlari';
+
+  @override
+  String get topSize => 'Yuqori kiyim o\'lchami';
+
+  @override
+  String get bottomSize => 'Pastki kiyim o\'lchami';
+
+  @override
+  String get dressSize => 'Ko\'ylak o\'lchami';
+
+  @override
+  String get jeanWaistSize => 'Jins bel o\'lchami';
+
+  @override
+  String get braSizes => 'Byustgalter o\'lchamlari';
+
+  @override
+  String get braBandSize => 'Kamar o\'lchami';
+
+  @override
+  String get braCupSize => 'Chashka o\'lchami';
+
+  @override
+  String get stylePreferenceLabel => 'Stil tanlovi';
+
+  @override
+  String get budgetType => 'Byudjet turi';
+
+  @override
   String get shoppingPreferences => 'Xarid qilish tanlovlari';
 
   @override
@@ -2052,4 +2097,160 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get notSet => 'O\'rnatilmagan';
+
+  @override
+  String get enumFemale => 'Ayol';
+
+  @override
+  String get enumMale => 'Erkak';
+
+  @override
+  String get enumHourglass => 'Qum soati';
+
+  @override
+  String get enumTriangle => 'Uchburchak';
+
+  @override
+  String get enumRectangle => 'To\'rtburchak';
+
+  @override
+  String get enumOval => 'Oval';
+
+  @override
+  String get enumHeart => 'Yurak';
+
+  @override
+  String get enumPreferNotToSay => 'Aytishni xohlamayman';
+
+  @override
+  String get enumCovered => 'Yopiq';
+
+  @override
+  String get enumUncovered => 'Ochiq';
+
+  @override
+  String get enumNotApplicable => 'Tegishli emas';
+
+  @override
+  String get enumLoose => 'Keng';
+
+  @override
+  String get enumRegular => 'Oddiy';
+
+  @override
+  String get enumOversized => 'Juda katta';
+
+  @override
+  String get enumSlim => 'Tor';
+
+  @override
+  String get enumSuperSlim => 'Juda tor';
+
+  @override
+  String get enumFitted => 'O\'lchamli';
+
+  @override
+  String get enumModerate => 'O\'rtacha';
+
+  @override
+  String get enumRevealing => 'Ochiq';
+
+  @override
+  String get enumBudget => 'Byudjet';
+
+  @override
+  String get enumPremium => 'Premium';
+
+  @override
+  String get enumLuxury => 'Hashamatli';
+
+  @override
+  String get enumFlexible => 'Moslashuvchan';
+
+  @override
+  String get enumCasual => 'Kundalik';
+
+  @override
+  String get enumFormal => 'Rasmiy';
+
+  @override
+  String get enumBusiness => 'Biznes';
+
+  @override
+  String get enumSporty => 'Sport';
+
+  @override
+  String get enumElegant => 'Nafis';
+
+  @override
+  String get enumBohemian => 'Bogemiya';
+
+  @override
+  String get enumVintage => 'Vintaj';
+
+  @override
+  String get enumModern => 'Zamonaviy';
+
+  @override
+  String get enumMinimalist => 'Minimalist';
+
+  @override
+  String get enumClassic => 'Klassik';
+
+  @override
+  String get enumTrendy => 'Trend';
+
+  @override
+  String get enumModest => 'Kamtar';
+
+  @override
+  String get enumStreetwear => 'Ko\'cha';
+
+  @override
+  String get enumRomantic => 'Romantik';
+
+  @override
+  String get enumEdgy => 'Dadil';
+
+  @override
+  String get enumPreppy => 'Preppi';
+
+  @override
+  String get enumAthleisure => 'Sport-chic';
+
+  @override
+  String get enumChic => 'Chiroyli';
+
+  @override
+  String get enumGlamorous => 'Ajoyib';
+
+  @override
+  String get enumSexy => 'Jozibali';
+
+  @override
+  String get enumRetro => 'Retro';
+
+  @override
+  String get enumGrunge => 'Granj';
+
+  @override
+  String get enumGothic => 'Gotik';
+
+  @override
+  String get enumHippie => 'Xippi';
+
+  @override
+  String get enumArtsy => 'San\'atkor';
+
+  @override
+  String get enumFeminine => 'Ayollik';
+
+  @override
+  String get enumMasculine => 'Erkaklik';
+
+  @override
+  String get enumAndrogynous => 'Androgin';
+
+  @override
+  String get enumLuxurious => 'Hashamatli';
 }

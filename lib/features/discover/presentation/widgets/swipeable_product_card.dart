@@ -37,10 +37,10 @@ class SwipeableProductCard extends StatefulWidget {
   });
 
   @override
-  State<SwipeableProductCard> createState() => _SwipeableProductCardState();
+  State<SwipeableProductCard> createState() => SwipeableProductCardState();
 }
 
-class _SwipeableProductCardState extends State<SwipeableProductCard>
+class SwipeableProductCardState extends State<SwipeableProductCard>
     with TickerProviderStateMixin {
   final PageController _pageController = PageController();
 
@@ -215,13 +215,30 @@ class _SwipeableProductCardState extends State<SwipeableProductCard>
     }
 
     if (shouldSwipe && direction != null) {
-      _animateSwipeAway(direction, velocity);
+      // For swipe up, call callback first without animating away
+      // This allows the callback to show dialog and cancel if needed
+      if (direction == SwipeDirection.up) {
+        // Don't animate - just reset position and call callback
+        setState(() {
+          _dragOffset = Offset.zero;
+          _dragRotation = 0.0;
+          _swipeDirection = null;
+        });
+        // Call the callback which will show dialog
+        widget.onSwipeUp?.call();
+      } else {
+        _animateSwipeAway(direction, velocity);
+      }
     } else {
       _animateBack();
     }
   }
 
-  void _animateSwipeAway(SwipeDirection direction, Offset velocity) {
+  void _animateSwipeAway(
+    SwipeDirection direction,
+    Offset velocity, {
+    bool useFixedDuration = false,
+  }) {
     final screenSize = MediaQuery.of(context).size;
 
     Offset targetOffset;
@@ -242,16 +259,26 @@ class _SwipeableProductCardState extends State<SwipeableProductCard>
         break;
     }
 
-    // Calculate duration based on velocity (faster swipe = shorter animation)
-    final distance = (targetOffset - _dragOffset).distance;
-    final velocityMag = velocity.distance.clamp(500.0, 3000.0);
-    final duration = Duration(
-      milliseconds: (distance / velocityMag * 1000).clamp(150, 400).toInt(),
-    );
+    // Use fixed duration for button animations, velocity-based for gesture swipes
+    final Duration duration;
+    if (useFixedDuration) {
+      duration = const Duration(
+        milliseconds: 500,
+      ); // Slower fixed duration for buttons
+    } else {
+      // Calculate duration based on velocity (faster swipe = shorter animation)
+      final distance = (targetOffset - _dragOffset).distance;
+      final velocityMag = velocity.distance.clamp(500.0, 3000.0);
+      duration = Duration(
+        milliseconds: (distance / velocityMag * 1000).clamp(150, 400).toInt(),
+      );
+    }
 
     final controller = _swipeController;
     if (controller == null) return;
 
+    // Reset controller to ensure clean state
+    controller.reset();
     controller.duration = duration;
 
     // Create smooth animations
@@ -265,42 +292,58 @@ class _SwipeableProductCardState extends State<SwipeableProductCard>
       end: targetRotation,
     ).animate(CurvedAnimation(parent: controller, curve: Curves.easeOut));
 
-    // Animate drag progress to 1.0 during swipe away
-    if (widget.dragProgressNotifier != null) {
-      controller.addListener(() {
+    // Store listener references for cleanup
+    void progressListener() {
+      if (widget.dragProgressNotifier != null && mounted) {
         final animProgress = controller.value;
         final currentProgress = widget.dragProgressNotifier!.value;
         widget.dragProgressNotifier!.value =
             currentProgress + (1.0 - currentProgress) * animProgress;
-      });
+      }
     }
 
-    controller.forward(from: 0).then((_) {
-      // Trigger callback after animation completes
-      switch (direction) {
-        case SwipeDirection.left:
-          widget.onSwipeLeft?.call();
-          break;
-        case SwipeDirection.right:
-          widget.onSwipeRight?.call();
-          break;
-        case SwipeDirection.up:
-          widget.onSwipeUp?.call();
-          break;
+    void animationListener() {
+      if (mounted) {
+        _updateFromAnimation();
       }
-      // DON'T reset the card here - let it stay swiped away
-      // The notifier will be reset by the parent after card removal
-    });
+    }
 
-    // Update state during animation
-    controller.addListener(_updateFromAnimation);
+    // Add listeners
+    if (widget.dragProgressNotifier != null) {
+      controller.addListener(progressListener);
+    }
+    controller.addListener(animationListener);
+
+    controller.forward(from: 0).then((_) {
+      // Remove listeners to prevent leaks
+      if (widget.dragProgressNotifier != null) {
+        controller.removeListener(progressListener);
+      }
+      controller.removeListener(animationListener);
+
+      // Trigger callback after animation completes (for left/right only)
+      if (mounted) {
+        switch (direction) {
+          case SwipeDirection.left:
+            widget.onSwipeLeft?.call();
+            break;
+          case SwipeDirection.right:
+            widget.onSwipeRight?.call();
+            break;
+          case SwipeDirection.up:
+            // Handled separately in _onDragEnd
+            break;
+        }
+      }
+    });
   }
 
   void _animateBack() {
     final controller = _swipeController;
     if (controller == null) return;
 
-    // Smooth animation without bounce/zoom
+    // Reset controller to ensure clean state
+    controller.reset();
     controller.duration = const Duration(milliseconds: 250);
 
     final startOffset = _dragOffset;
@@ -316,20 +359,31 @@ class _SwipeableProductCardState extends State<SwipeableProductCard>
       end: 0.0,
     ).animate(CurvedAnimation(parent: controller, curve: Curves.easeOut));
 
+    // Store listener reference for cleanup
+    void animationListener() {
+      if (mounted) {
+        _updateFromAnimation();
+      }
+    }
+
     // Animate drag progress back to 0.0
     if (widget.dragProgressNotifier != null) {
       final startProgress = widget.dragProgressNotifier!.value;
       controller.addListener(() {
-        widget.dragProgressNotifier!.value =
-            startProgress * (1.0 - controller.value);
+        if (mounted && widget.dragProgressNotifier != null) {
+          widget.dragProgressNotifier!.value =
+              startProgress * (1.0 - controller.value);
+        }
       });
     }
 
+    controller.addListener(animationListener);
+
     controller.forward(from: 0).then((_) {
+      // Remove animation listener
+      controller.removeListener(animationListener);
       _resetCard();
     });
-
-    controller.addListener(_updateFromAnimation);
   }
 
   void _updateFromAnimation() {
@@ -352,6 +406,15 @@ class _SwipeableProductCardState extends State<SwipeableProductCard>
       // Don't reset drag progress here - it causes glitches
       // The parent widget will reset it after the card is removed
     }
+  }
+
+  /// Public method to programmatically trigger a swipe animation
+  /// Used when action buttons are pressed
+  void animateSwipe(SwipeDirection direction) {
+    if (!widget.isTopCard) return;
+
+    // Trigger the swipe animation with fixed duration for smoother button animations
+    _animateSwipeAway(direction, Offset.zero, useFixedDuration: true);
   }
 
   double _getCardScale() {

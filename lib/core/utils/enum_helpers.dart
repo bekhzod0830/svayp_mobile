@@ -20,20 +20,6 @@ class EnumHelpers {
     return enumList?.map((e) => e.value).toList();
   }
 
-  /// Convert list of enum strings to List of ColorEnum
-  static List<ColorEnum>? parseColorList(List<dynamic>? jsonList) {
-    if (jsonList == null) return null;
-    return jsonList
-        .map((e) => ColorEnum.fromString(e as String?))
-        .whereType<ColorEnum>()
-        .toList();
-  }
-
-  /// Convert list of ColorEnum to list of strings for JSON
-  static List<String>? colorListToJson(List<ColorEnum>? enumList) {
-    return enumList?.map((e) => e.value).toList();
-  }
-
   /// Convert list of enum strings to List of StyleTagEnum
   static List<StyleTagEnum>? parseStyleTagList(List<dynamic>? jsonList) {
     if (jsonList == null) return null;
@@ -163,9 +149,9 @@ class EnumHelpers {
   }
 
   /// Get comma-separated display names from color list
-  static String colorsDisplayText(List<ColorEnum>? colors) {
+  static String colorsDisplayText(List<String>? colors) {
     if (colors == null || colors.isEmpty) return 'N/A';
-    return colors.map((c) => c.displayName).join(', ');
+    return colors.join(', ');
   }
 
   /// Get comma-separated display names from style tag list

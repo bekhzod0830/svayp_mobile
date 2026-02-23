@@ -205,11 +205,33 @@ class UserProfileResponse extends Equatable {
   final String id;
   final String userId;
   final String gender;
+  final String? fullName;
+  final String? dateOfBirth;
   final int? age;
   final int? heightCm;
+  final double? weightKg;
   final String? bodyType;
+
+  // Clothing sizes
+  final String? topSize;
+  final String? bottomSize;
+  final String? dressSize;
+  final String? jeanWaistSize;
+  final String? shoeSize;
+
+  // Bra sizes
+  final String? braType;
+  final String? braBandSize;
+  final String? braCupSize;
+  final String? braSupportLevel;
+
+  // Preferences
   final String hijabPreference;
+  final List<String>? fitPreference;
   final List<String>? styleCategories;
+  final List<String>? stylePreference;
+  final String? budgetType;
+
   final int? budgetMin;
   final int? budgetMax;
   final bool styleQuizCompleted;
@@ -219,11 +241,26 @@ class UserProfileResponse extends Equatable {
     required this.id,
     required this.userId,
     required this.gender,
+    this.fullName,
+    this.dateOfBirth,
     this.age,
     this.heightCm,
+    this.weightKg,
     this.bodyType,
+    this.topSize,
+    this.bottomSize,
+    this.dressSize,
+    this.jeanWaistSize,
+    this.shoeSize,
+    this.braType,
+    this.braBandSize,
+    this.braCupSize,
+    this.braSupportLevel,
     required this.hijabPreference,
+    this.fitPreference,
     this.styleCategories,
+    this.stylePreference,
+    this.budgetType,
     this.budgetMin,
     this.budgetMax,
     required this.styleQuizCompleted,
@@ -235,13 +272,34 @@ class UserProfileResponse extends Equatable {
       id: json['id'] as String,
       userId: json['user_id'] as String,
       gender: json['gender'] as String,
+      fullName: json['full_name'] as String?,
+      dateOfBirth: json['date_of_birth'] as String?,
       age: json['age'] as int?,
       heightCm: json['height_cm'] as int?,
+      weightKg: json['weight_kg'] != null
+          ? (json['weight_kg'] as num).toDouble()
+          : null,
       bodyType: json['body_type'] as String?,
+      topSize: json['top_size'] as String?,
+      bottomSize: json['bottom_size'] as String?,
+      dressSize: json['dress_size'] as String?,
+      jeanWaistSize: json['jean_waist_size'] as String?,
+      shoeSize: json['shoe_size'] as String?,
+      braType: json['bra_type'] as String?,
+      braBandSize: json['bra_band_size'] as String?,
+      braCupSize: json['bra_cup_size'] as String?,
+      braSupportLevel: json['bra_support_level'] as String?,
       hijabPreference: json['hijab_preference'] as String,
+      fitPreference: json['fit_preference'] != null
+          ? List<String>.from(json['fit_preference'] as List)
+          : null,
       styleCategories: json['style_categories'] != null
           ? List<String>.from(json['style_categories'] as List)
           : null,
+      stylePreference: json['style_preference'] != null
+          ? List<String>.from(json['style_preference'] as List)
+          : null,
+      budgetType: json['budget_type'] as String?,
       budgetMin: json['budget_min'] as int?,
       budgetMax: json['budget_max'] as int?,
       styleQuizCompleted: json['style_quiz_completed'] as bool,
@@ -254,11 +312,26 @@ class UserProfileResponse extends Equatable {
     id,
     userId,
     gender,
+    fullName,
+    dateOfBirth,
     age,
     heightCm,
+    weightKg,
     bodyType,
+    topSize,
+    bottomSize,
+    dressSize,
+    jeanWaistSize,
+    shoeSize,
+    braType,
+    braBandSize,
+    braCupSize,
+    braSupportLevel,
     hijabPreference,
+    fitPreference,
     styleCategories,
+    stylePreference,
+    budgetType,
     budgetMin,
     budgetMax,
     styleQuizCompleted,

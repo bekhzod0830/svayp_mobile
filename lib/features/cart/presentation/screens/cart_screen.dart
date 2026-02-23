@@ -8,6 +8,9 @@ import 'package:swipe/features/checkout/presentation/screens/checkout_screen.dar
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:swipe/core/cache/image_cache_manager.dart';
 import 'package:swipe/features/main/presentation/screens/main_screen.dart';
+import 'package:swipe/core/services/product_api_service.dart';
+import 'package:swipe/core/di/service_locator.dart';
+import 'package:swipe/core/network/api_client.dart';
 
 /// Cart Screen - Shopping cart with checkout
 class CartScreen extends StatefulWidget {
@@ -19,8 +22,12 @@ class CartScreen extends StatefulWidget {
 
 class _CartScreenState extends State<CartScreen> {
   final CartService _cartService = CartService();
+  final ProductApiService _apiService = ProductApiService();
   List<CartItemModel> _cartItems = [];
+  Map<int, String> _cartItemIds = {}; // Map index to cart item ID from API
   bool _isLoading = true;
+  double _subtotal = 0.0;
+  int _totalItems = 0;
 
   @override
   void initState() {
@@ -33,10 +40,66 @@ class _CartScreenState extends State<CartScreen> {
       _isLoading = true;
     });
 
-    await _cartService.init();
+    try {
+      // Get auth token
+      final apiClient = getIt<ApiClient>();
+      final token = apiClient.getToken();
+
+      if (token != null && token.isNotEmpty) {
+        // Fetch cart from API
+        print('📡 Fetching cart from API...');
+        final cartData = await _apiService.getCart(token: token);
+
+        final items = cartData['items'] as List<dynamic>;
+        final summary = cartData['summary'] as Map<String, dynamic>;
+
+        _subtotal = (summary['subtotal'] as num).toDouble();
+        _totalItems = summary['total_items'] as int;
+
+        // Convert API items to CartItemModel and store their IDs
+        _cartItemIds.clear();
+        _cartItems = items.asMap().entries.map((entry) {
+          final index = entry.key;
+          final item = entry.value;
+          final product = item['product'] as Map<String, dynamic>;
+
+          // Store the cart item ID for deletion
+          _cartItemIds[index] = item['id'] as String;
+
+          return CartItemModel(
+            productId: product['id'] as String,
+            brand: product['brand'] as String,
+            title: product['title'] as String,
+            price: product['price'] as int,
+            imageUrl: (product['images'] as List).isNotEmpty
+                ? product['images'][0] as String
+                : '',
+            quantity: item['quantity'] as int,
+            selectedSize: item['selected_size'] as String,
+            selectedColor: item['selected_color'] as String?,
+            category: '', // Not provided in API response
+            addedAt: DateTime.parse(item['created_at'] as String),
+          );
+        }).toList();
+
+        print('✅ Loaded ${_cartItems.length} items from API');
+      } else {
+        // Not authenticated, use local cache
+        await _cartService.init();
+        _cartItems = _cartService.getCartItems();
+        _subtotal = _cartService.getSubtotal();
+        _totalItems = _cartItems.fold(0, (sum, item) => sum + item.quantity);
+      }
+    } catch (e) {
+      print('❌ Error loading cart: $e');
+      // Fallback to local cache
+      await _cartService.init();
+      _cartItems = _cartService.getCartItems();
+      _subtotal = _cartService.getSubtotal();
+      _totalItems = _cartItems.fold(0, (sum, item) => sum + item.quantity);
+    }
 
     setState(() {
-      _cartItems = _cartService.getCartItems();
       _isLoading = false;
     });
   }
@@ -44,14 +107,61 @@ class _CartScreenState extends State<CartScreen> {
   Future<void> _updateQuantity(int index, int delta) async {
     final newQuantity = _cartItems[index].quantity + delta;
     if (newQuantity > 0 && newQuantity <= 10) {
-      await _cartService.updateQuantity(index, newQuantity);
+      try {
+        // Get auth token
+        final apiClient = getIt<ApiClient>();
+        final token = apiClient.getToken();
+
+        if (token != null &&
+            token.isNotEmpty &&
+            _cartItemIds.containsKey(index)) {
+          // Update via API
+          final cartItemId = _cartItemIds[index]!;
+          await _apiService.updateCartItem(
+            itemId: cartItemId,
+            quantity: newQuantity,
+            token: token,
+          );
+          print('✅ Updated cart item quantity via API');
+        } else {
+          // Update local cache
+          await _cartService.updateQuantity(index, newQuantity);
+        }
+      } catch (e) {
+        print('❌ Error updating quantity: $e');
+        // Fallback to local cache
+        await _cartService.updateQuantity(index, newQuantity);
+      }
+
       await _loadCart();
     }
   }
 
   Future<void> _removeItem(int index) async {
     final item = _cartItems[index];
-    await _cartService.removeItem(index);
+
+    try {
+      // Get auth token
+      final apiClient = getIt<ApiClient>();
+      final token = apiClient.getToken();
+
+      if (token != null &&
+          token.isNotEmpty &&
+          _cartItemIds.containsKey(index)) {
+        // Delete from API
+        final cartItemId = _cartItemIds[index]!;
+        await _apiService.deleteCartItem(itemId: cartItemId, token: token);
+        print('✅ Deleted cart item from API');
+      } else {
+        // Delete from local cache
+        await _cartService.removeItem(index);
+      }
+    } catch (e) {
+      print('❌ Error removing item: $e');
+      // Fallback to local cache
+      await _cartService.removeItem(index);
+    }
+
     await _loadCart();
 
     if (mounted) {
@@ -77,13 +187,31 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   Future<void> _clearCart() async {
-    await _cartService.clearCart();
+    try {
+      // Get auth token
+      final apiClient = getIt<ApiClient>();
+      final token = apiClient.getToken();
+
+      if (token != null && token.isNotEmpty) {
+        // Clear from API
+        await _apiService.clearCart(token: token);
+        print('✅ Cleared cart via API');
+      } else {
+        // Clear from local cache
+        await _cartService.clearCart();
+      }
+    } catch (e) {
+      print('❌ Error clearing cart: $e');
+      // Fallback to local cache
+      await _cartService.clearCart();
+    }
+
     await _loadCart();
   }
 
-  double get _subtotal => _cartService.getSubtotal();
-  double get _shipping => _cartService.getShippingCost();
-  double get _total => _cartService.getTotal();
+  double get subtotal => _subtotal;
+  double get _shipping => 0.0; // TODO: Get from API
+  double get _total => _subtotal + _shipping;
 
   Future<void> _proceedToCheckout() async {
     // Navigate to checkout screen
@@ -260,7 +388,7 @@ class _CartScreenState extends State<CartScreen> {
                     ),
                   ),
                   Text(
-                    '${_subtotal.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} UZS',
+                    '${subtotal.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} UZS',
                     style: AppTypography.body1.copyWith(
                       fontWeight: FontWeight.w600,
                       color: theme.colorScheme.onSurface,

@@ -1888,11 +1888,41 @@ abstract class AppLocalizations {
   /// **'Select Size'**
   String get selectSize;
 
+  /// No description provided for @selectSizeAndColor.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Size & Color'**
+  String get selectSizeAndColor;
+
+  /// No description provided for @thatsAllForNow.
+  ///
+  /// In en, this message translates to:
+  /// **'That\'s All for Now!'**
+  String get thatsAllForNow;
+
+  /// No description provided for @findingMoreItems.
+  ///
+  /// In en, this message translates to:
+  /// **'We\'re finding more items you\'ll love'**
+  String get findingMoreItems;
+
+  /// No description provided for @refreshFeed.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh Feed'**
+  String get refreshFeed;
+
   /// No description provided for @pleaseSelectSize.
   ///
   /// In en, this message translates to:
   /// **'Please select a size'**
   String get pleaseSelectSize;
+
+  /// No description provided for @pleaseSelectColor.
+  ///
+  /// In en, this message translates to:
+  /// **'Please select a color'**
+  String get pleaseSelectColor;
 
   /// No description provided for @oneSize.
   ///
@@ -3946,6 +3976,66 @@ abstract class AppLocalizations {
   /// **'Body Information'**
   String get bodyInformation;
 
+  /// No description provided for @clothingSizes.
+  ///
+  /// In en, this message translates to:
+  /// **'Clothing Sizes'**
+  String get clothingSizes;
+
+  /// No description provided for @topSize.
+  ///
+  /// In en, this message translates to:
+  /// **'Top Size'**
+  String get topSize;
+
+  /// No description provided for @bottomSize.
+  ///
+  /// In en, this message translates to:
+  /// **'Bottom Size'**
+  String get bottomSize;
+
+  /// No description provided for @dressSize.
+  ///
+  /// In en, this message translates to:
+  /// **'Dress Size'**
+  String get dressSize;
+
+  /// No description provided for @jeanWaistSize.
+  ///
+  /// In en, this message translates to:
+  /// **'Jean Waist Size'**
+  String get jeanWaistSize;
+
+  /// No description provided for @braSizes.
+  ///
+  /// In en, this message translates to:
+  /// **'Bra Sizes'**
+  String get braSizes;
+
+  /// No description provided for @braBandSize.
+  ///
+  /// In en, this message translates to:
+  /// **'Band Size'**
+  String get braBandSize;
+
+  /// No description provided for @braCupSize.
+  ///
+  /// In en, this message translates to:
+  /// **'Cup Size'**
+  String get braCupSize;
+
+  /// No description provided for @stylePreferenceLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Style Preference'**
+  String get stylePreferenceLabel;
+
+  /// No description provided for @budgetType.
+  ///
+  /// In en, this message translates to:
+  /// **'Budget Type'**
+  String get budgetType;
+
   /// No description provided for @shoppingPreferences.
   ///
   /// In en, this message translates to:
@@ -3987,6 +4077,318 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Not set'**
   String get notSet;
+
+  /// No description provided for @enumFemale.
+  ///
+  /// In en, this message translates to:
+  /// **'Female'**
+  String get enumFemale;
+
+  /// No description provided for @enumMale.
+  ///
+  /// In en, this message translates to:
+  /// **'Male'**
+  String get enumMale;
+
+  /// No description provided for @enumHourglass.
+  ///
+  /// In en, this message translates to:
+  /// **'Hourglass'**
+  String get enumHourglass;
+
+  /// No description provided for @enumTriangle.
+  ///
+  /// In en, this message translates to:
+  /// **'Triangle'**
+  String get enumTriangle;
+
+  /// No description provided for @enumRectangle.
+  ///
+  /// In en, this message translates to:
+  /// **'Rectangle'**
+  String get enumRectangle;
+
+  /// No description provided for @enumOval.
+  ///
+  /// In en, this message translates to:
+  /// **'Oval'**
+  String get enumOval;
+
+  /// No description provided for @enumHeart.
+  ///
+  /// In en, this message translates to:
+  /// **'Heart'**
+  String get enumHeart;
+
+  /// No description provided for @enumPreferNotToSay.
+  ///
+  /// In en, this message translates to:
+  /// **'Prefer not to say'**
+  String get enumPreferNotToSay;
+
+  /// No description provided for @enumCovered.
+  ///
+  /// In en, this message translates to:
+  /// **'Covered'**
+  String get enumCovered;
+
+  /// No description provided for @enumUncovered.
+  ///
+  /// In en, this message translates to:
+  /// **'Uncovered'**
+  String get enumUncovered;
+
+  /// No description provided for @enumNotApplicable.
+  ///
+  /// In en, this message translates to:
+  /// **'Not Applicable'**
+  String get enumNotApplicable;
+
+  /// No description provided for @enumLoose.
+  ///
+  /// In en, this message translates to:
+  /// **'Loose'**
+  String get enumLoose;
+
+  /// No description provided for @enumRegular.
+  ///
+  /// In en, this message translates to:
+  /// **'Regular'**
+  String get enumRegular;
+
+  /// No description provided for @enumOversized.
+  ///
+  /// In en, this message translates to:
+  /// **'Oversized'**
+  String get enumOversized;
+
+  /// No description provided for @enumSlim.
+  ///
+  /// In en, this message translates to:
+  /// **'Slim'**
+  String get enumSlim;
+
+  /// No description provided for @enumSuperSlim.
+  ///
+  /// In en, this message translates to:
+  /// **'Super Slim'**
+  String get enumSuperSlim;
+
+  /// No description provided for @enumFitted.
+  ///
+  /// In en, this message translates to:
+  /// **'Fitted'**
+  String get enumFitted;
+
+  /// No description provided for @enumModerate.
+  ///
+  /// In en, this message translates to:
+  /// **'Moderate'**
+  String get enumModerate;
+
+  /// No description provided for @enumRevealing.
+  ///
+  /// In en, this message translates to:
+  /// **'Revealing'**
+  String get enumRevealing;
+
+  /// No description provided for @enumBudget.
+  ///
+  /// In en, this message translates to:
+  /// **'Budget'**
+  String get enumBudget;
+
+  /// No description provided for @enumPremium.
+  ///
+  /// In en, this message translates to:
+  /// **'Premium'**
+  String get enumPremium;
+
+  /// No description provided for @enumLuxury.
+  ///
+  /// In en, this message translates to:
+  /// **'Luxury'**
+  String get enumLuxury;
+
+  /// No description provided for @enumFlexible.
+  ///
+  /// In en, this message translates to:
+  /// **'Flexible'**
+  String get enumFlexible;
+
+  /// No description provided for @enumCasual.
+  ///
+  /// In en, this message translates to:
+  /// **'Casual'**
+  String get enumCasual;
+
+  /// No description provided for @enumFormal.
+  ///
+  /// In en, this message translates to:
+  /// **'Formal'**
+  String get enumFormal;
+
+  /// No description provided for @enumBusiness.
+  ///
+  /// In en, this message translates to:
+  /// **'Business'**
+  String get enumBusiness;
+
+  /// No description provided for @enumSporty.
+  ///
+  /// In en, this message translates to:
+  /// **'Sporty'**
+  String get enumSporty;
+
+  /// No description provided for @enumElegant.
+  ///
+  /// In en, this message translates to:
+  /// **'Elegant'**
+  String get enumElegant;
+
+  /// No description provided for @enumBohemian.
+  ///
+  /// In en, this message translates to:
+  /// **'Bohemian'**
+  String get enumBohemian;
+
+  /// No description provided for @enumVintage.
+  ///
+  /// In en, this message translates to:
+  /// **'Vintage'**
+  String get enumVintage;
+
+  /// No description provided for @enumModern.
+  ///
+  /// In en, this message translates to:
+  /// **'Modern'**
+  String get enumModern;
+
+  /// No description provided for @enumMinimalist.
+  ///
+  /// In en, this message translates to:
+  /// **'Minimalist'**
+  String get enumMinimalist;
+
+  /// No description provided for @enumClassic.
+  ///
+  /// In en, this message translates to:
+  /// **'Classic'**
+  String get enumClassic;
+
+  /// No description provided for @enumTrendy.
+  ///
+  /// In en, this message translates to:
+  /// **'Trendy'**
+  String get enumTrendy;
+
+  /// No description provided for @enumModest.
+  ///
+  /// In en, this message translates to:
+  /// **'Modest'**
+  String get enumModest;
+
+  /// No description provided for @enumStreetwear.
+  ///
+  /// In en, this message translates to:
+  /// **'Streetwear'**
+  String get enumStreetwear;
+
+  /// No description provided for @enumRomantic.
+  ///
+  /// In en, this message translates to:
+  /// **'Romantic'**
+  String get enumRomantic;
+
+  /// No description provided for @enumEdgy.
+  ///
+  /// In en, this message translates to:
+  /// **'Edgy'**
+  String get enumEdgy;
+
+  /// No description provided for @enumPreppy.
+  ///
+  /// In en, this message translates to:
+  /// **'Preppy'**
+  String get enumPreppy;
+
+  /// No description provided for @enumAthleisure.
+  ///
+  /// In en, this message translates to:
+  /// **'Athleisure'**
+  String get enumAthleisure;
+
+  /// No description provided for @enumChic.
+  ///
+  /// In en, this message translates to:
+  /// **'Chic'**
+  String get enumChic;
+
+  /// No description provided for @enumGlamorous.
+  ///
+  /// In en, this message translates to:
+  /// **'Glamorous'**
+  String get enumGlamorous;
+
+  /// No description provided for @enumSexy.
+  ///
+  /// In en, this message translates to:
+  /// **'Sexy'**
+  String get enumSexy;
+
+  /// No description provided for @enumRetro.
+  ///
+  /// In en, this message translates to:
+  /// **'Retro'**
+  String get enumRetro;
+
+  /// No description provided for @enumGrunge.
+  ///
+  /// In en, this message translates to:
+  /// **'Grunge'**
+  String get enumGrunge;
+
+  /// No description provided for @enumGothic.
+  ///
+  /// In en, this message translates to:
+  /// **'Gothic'**
+  String get enumGothic;
+
+  /// No description provided for @enumHippie.
+  ///
+  /// In en, this message translates to:
+  /// **'Hippie'**
+  String get enumHippie;
+
+  /// No description provided for @enumArtsy.
+  ///
+  /// In en, this message translates to:
+  /// **'Artsy'**
+  String get enumArtsy;
+
+  /// No description provided for @enumFeminine.
+  ///
+  /// In en, this message translates to:
+  /// **'Feminine'**
+  String get enumFeminine;
+
+  /// No description provided for @enumMasculine.
+  ///
+  /// In en, this message translates to:
+  /// **'Masculine'**
+  String get enumMasculine;
+
+  /// No description provided for @enumAndrogynous.
+  ///
+  /// In en, this message translates to:
+  /// **'Androgynous'**
+  String get enumAndrogynous;
+
+  /// No description provided for @enumLuxurious.
+  ///
+  /// In en, this message translates to:
+  /// **'Luxurious'**
+  String get enumLuxurious;
 }
 
 class _AppLocalizationsDelegate
