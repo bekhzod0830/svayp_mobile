@@ -760,20 +760,14 @@ class _ProductMessageBubble extends StatelessWidget {
       images: apiProduct.images.isNotEmpty ? apiProduct.images : [''],
       rating: safeRating,
       reviewCount: apiProduct.reviewCount ?? 0,
-      category: apiProduct.category.toString().split('.').last,
-      subcategory: apiProduct.subcategory
-          ?.map((e) => e.toString().split('.').last)
-          .toList(),
-      sizes:
-          apiProduct.sizes?.map((e) => e.toString().split('.').last).toList() ??
-          [],
+      category:
+          apiProduct.originalCategoryString ??
+          apiProduct.category.value, // Use original string if available
+      subcategory: apiProduct.subcategory?.map((e) => e.displayName).toList(),
+      sizes: apiProduct.sizes?.map((e) => e.displayName).toList() ?? [],
       colors: apiProduct.colors ?? [],
-      material: apiProduct.material
-          ?.map((e) => e.toString().split('.').last)
-          .toList(),
-      season: apiProduct.season
-          ?.map((e) => e.toString().split('.').last)
-          .toList(),
+      material: apiProduct.material?.map((e) => e.displayName).toList(),
+      season: apiProduct.season?.map((e) => e.displayName).toList(),
       currency: apiProduct.currency,
       seller: apiProduct.seller ?? 'Unknown Seller',
       sellerId: apiProduct.sellerId,

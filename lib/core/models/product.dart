@@ -10,6 +10,7 @@ class Product {
   final String title;
   final String? description;
   final CategoryEnum category;
+  final String? originalCategoryString; // Preserve original API string
   final List<SubcategoryEnum>? subcategory;
   final int price;
   final int? originalPrice;
@@ -49,6 +50,7 @@ class Product {
     required this.title,
     this.description,
     required this.category,
+    this.originalCategoryString,
     this.subcategory,
     required this.price,
     this.originalPrice,
@@ -107,6 +109,7 @@ class Product {
       title: safeGetString(json['title']) ?? 'Untitled',
       description: safeGetString(json['description']),
       category: category,
+      originalCategoryString: categoryString, // Preserve original string
       subcategory: EnumHelpers.parseSubcategoryList(
         json['subcategory'] as List<dynamic>?,
       ),

@@ -203,7 +203,9 @@ class _ShopScreenState extends State<ShopScreen>
       description: apiProduct.description ?? '',
       price: apiProduct.price,
       brand: displayBrand,
-      category: apiProduct.category.displayName,
+      category:
+          apiProduct.originalCategoryString ??
+          apiProduct.category.value, // Use original string if available
       subcategory: apiProduct.subcategory?.map((s) => s.displayName).toList(),
       images: apiProduct.images.isNotEmpty
           ? apiProduct.images

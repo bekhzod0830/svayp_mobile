@@ -514,53 +514,62 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   Widget _buildPriceSection() {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final hasDiscount =
+        widget.product.discountPercentage != null &&
+        widget.product.discountPercentage! > 0;
 
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        if (widget.product.discountPercentage != null &&
-            widget.product.discountPercentage! > 0) ...[
-          Flexible(
-            child: Text(
-              '${widget.product.originalPrice?.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} ${widget.product.currency}',
-              style: AppTypography.heading4.copyWith(
-                color: isDark ? AppColors.darkSecondaryText : AppColors.gray400,
-                decoration: TextDecoration.lineThrough,
+        // Final price and discount badge in a row
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Final price
+            Flexible(
+              child: Text(
+                '${widget.product.price.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} ${widget.product.currency}',
+                style: AppTypography.heading3.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: theme.colorScheme.onSurface,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
             ),
-          ),
-          const SizedBox(width: 8),
-        ],
-        Flexible(
-          child: Text(
-            '${widget.product.price.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} ${widget.product.currency}',
-            style: AppTypography.heading3.copyWith(
-              fontWeight: FontWeight.w700,
-              color: theme.colorScheme.onSurface,
+            // Discount badge next to final price
+            if (hasDiscount) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  '-${widget.product.discountPercentage}%',
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+        // Original price below (strikethrough)
+        if (hasDiscount) ...[
+          const SizedBox(height: 4),
+          Text(
+            '${widget.product.originalPrice?.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} ${widget.product.currency}',
+            style: AppTypography.heading4.copyWith(
+              color: isDark ? AppColors.darkSecondaryText : AppColors.gray400,
+              decoration: TextDecoration.lineThrough,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        if (widget.product.discountPercentage != null &&
-            widget.product.discountPercentage! > 0) ...[
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.red,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              '-${widget.product.discountPercentage}%',
-              style: AppTypography.caption.copyWith(
-                color: AppColors.white,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
           ),
         ],
       ],
@@ -942,12 +951,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   Widget _buildDetails() {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          AppLocalizations.of(context)!.productDetails,
+          l10n.productDetails,
           style: AppTypography.body1.copyWith(
             fontWeight: FontWeight.w600,
             color: theme.colorScheme.onSurface,
@@ -955,41 +965,123 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         ),
         const SizedBox(height: 12),
         _DetailRow(
-          label: AppLocalizations.of(context)!.category,
-          value: widget.product.category,
+          label: l10n.category,
+          value: _getTranslatedCategory(widget.product.category, l10n),
         ),
         if (widget.product.subcategory != null &&
             widget.product.subcategory!.isNotEmpty)
           _DetailRow(
-            label: 'Subcategory',
+            label: l10n.subcategory,
             value: widget.product.subcategory!.join(', '),
           ),
         if (widget.product.material != null &&
             widget.product.material!.isNotEmpty)
           _DetailRow(
-            label: 'Material',
+            label: l10n.material,
             value: widget.product.material!.join(', '),
           ),
         if (widget.product.season != null && widget.product.season!.isNotEmpty)
-          _DetailRow(label: 'Season', value: widget.product.season!.join(', ')),
+          _DetailRow(
+            label: l10n.season,
+            value: widget.product.season!.join(', '),
+          ),
+        if (widget.product.countryOfOrigin != null &&
+            widget.product.countryOfOrigin!.isNotEmpty)
+          _DetailRow(
+            label: l10n.countryOfOrigin,
+            value: widget.product.countryOfOrigin!,
+          ),
         _DetailRow(
-          label: AppLocalizations.of(context)!.availability,
-          value: widget.product.inStock
-              ? AppLocalizations.of(context)!.inStock
-              : AppLocalizations.of(context)!.outOfStock,
+          label: l10n.availability,
+          value: widget.product.inStock ? l10n.inStock : l10n.outOfStock,
         ),
         if (widget.product.fitMatch != null)
-          _DetailRow(
-            label: AppLocalizations.of(context)!.fitMatch,
-            value: widget.product.fitMatch!,
-          ),
+          _DetailRow(label: l10n.fitMatch, value: widget.product.fitMatch!),
         if (widget.product.styleMatch != null)
-          _DetailRow(
-            label: AppLocalizations.of(context)!.styleMatch,
-            value: widget.product.styleMatch!,
-          ),
+          _DetailRow(label: l10n.styleMatch, value: widget.product.styleMatch!),
       ],
     );
+  }
+
+  /// Translate category from enum value to localized string
+  String _getTranslatedCategory(String categoryValue, AppLocalizations l10n) {
+    // Convert category value to translated string
+    // Handle both lowercase enum values and display names
+    final lowerValue = categoryValue.toLowerCase().trim();
+
+    switch (lowerValue) {
+      case 'dress':
+      case 'dresses':
+        return l10n.categoryDress;
+      case 'hijab':
+      case 'hijabs':
+        return l10n.categoryHijab;
+      case 'abaya':
+      case 'abayas':
+        return l10n.categoryAbaya;
+      case 'tunic':
+      case 'tunics':
+        return l10n.categoryTunic;
+      case 'top':
+      case 'tops':
+        return l10n.categoryTop;
+      case 'blouse':
+      case 'blouses':
+        return l10n.categoryBlouse;
+      case 'shirt':
+      case 'shirts':
+        return l10n.categoryShirt;
+      case 'pants':
+        return l10n.categoryPants;
+      case 'jeans':
+        return l10n.categoryJeans;
+      case 'skirt':
+      case 'skirts':
+        return l10n.categorySkirt;
+      case 'jacket':
+      case 'jackets':
+        return l10n.categoryJacket;
+      case 'coat':
+      case 'coats':
+        return l10n.categoryCoat;
+      case 'cardigan':
+      case 'cardigans':
+        return l10n.categoryCardigan;
+      case 'sweater':
+      case 'sweaters':
+        return l10n.categorySweater;
+      case 'activewear':
+        return l10n.categoryActivewear;
+      case 'jumpsuit':
+      case 'jumpsuits':
+        return l10n.categoryJumpsuit;
+      case 'scarf':
+      case 'scarves':
+      case 'scarfs':
+        return l10n.categoryScarf;
+      case 'shawl':
+      case 'shawls':
+        return l10n.categoryShawl;
+      case 'accessories':
+      case 'accessory':
+        return l10n.categoryAccessories;
+      case 'shoes':
+      case 'shoe':
+        return l10n.categoryShoes;
+      case 'bags':
+      case 'bag':
+        return l10n.categoryBags;
+      case 'jewelry':
+      case 'jewellery':
+        return l10n.categoryJewelry;
+      case 'underwear':
+        return l10n.categoryUnderwear;
+      case 'outerwear':
+        return l10n.categoryOuterwear;
+      default:
+        // Fallback to capitalized value if translation not found
+        return categoryValue[0].toUpperCase() + categoryValue.substring(1);
+    }
   }
 
   /// Navigate to seller profile with all their products
@@ -1155,7 +1247,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       description: apiProduct.description ?? '',
       price: apiProduct.price,
       brand: displayBrand,
-      category: apiProduct.category.displayName,
+      category:
+          apiProduct.originalCategoryString ??
+          apiProduct.category.value, // Use original string if available
       subcategory: apiProduct.subcategory?.map((s) => s.displayName).toList(),
       images: apiProduct.images.isNotEmpty
           ? apiProduct.images
@@ -1174,6 +1268,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       sellerId: apiProduct.sellerId,
       discountPercentage: apiProduct.discountPercentage,
       originalPrice: apiProduct.originalPrice,
+      countryOfOrigin: apiProduct.countryOfOrigin,
     );
   }
 

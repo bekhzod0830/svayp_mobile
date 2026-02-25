@@ -205,7 +205,9 @@ class DiscoverScreenState extends State<DiscoverScreen> {
       description: apiProduct.description ?? '',
       price: apiProduct.price,
       brand: displayBrand,
-      category: apiProduct.category.displayName,
+      category:
+          apiProduct.originalCategoryString ??
+          apiProduct.category.value, // Use original string if available
       subcategory: apiProduct.subcategory?.map((s) => s.displayName).toList(),
       images: apiProduct.images.isNotEmpty
           ? apiProduct.images
@@ -633,51 +635,53 @@ class DiscoverScreenState extends State<DiscoverScreen> {
   }
 
   Widget _buildCardStack() {
-    return Column(
-      children: [
-        // Card Stack Area
-        Expanded(
-          child: Center(
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                // Show 3 cards in stack
-                for (int i = 2; i >= 0; i--)
-                  if (_currentCardIndex + i < _products.length)
-                    Builder(
-                      builder: (context) {
-                        final product = _products[_currentCardIndex + i];
-                        final cardKey = i == 0
-                            ? (_cardKeys[product.id] ??=
-                                  GlobalKey<SwipeableProductCardState>())
-                            : null;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Column(
+          children: [
+            // Card Stack Area - flexible space
+            Expanded(
+              child: Center(
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Show 3 cards in stack
+                    for (int i = 2; i >= 0; i--)
+                      if (_currentCardIndex + i < _products.length)
+                        Builder(
+                          builder: (context) {
+                            final product = _products[_currentCardIndex + i];
+                            final cardKey = i == 0
+                                ? (_cardKeys[product.id] ??=
+                                      GlobalKey<SwipeableProductCardState>())
+                                : null;
 
-                        return SwipeableProductCard(
-                          key: cardKey ?? ValueKey('card_${product.id}'),
-                          product: product,
-                          isTopCard: i == 0,
-                          stackIndex: i,
-                          onSwipeLeft: i == 0 ? _onSwipeLeft : null,
-                          onSwipeRight: i == 0 ? _onSwipeRight : null,
-                          onSwipeUp: i == 0 ? _onSwipeUp : null,
-                          onTap: i == 0 ? _onCardTap : null,
-                          // Pass drag progress notifier to top card and second card
-                          dragProgressNotifier: (i == 0 || i == 1)
-                              ? _dragProgressNotifier
-                              : null,
-                        );
-                      },
-                    ),
-              ],
+                            return SwipeableProductCard(
+                              key: cardKey ?? ValueKey('card_${product.id}'),
+                              product: product,
+                              isTopCard: i == 0,
+                              stackIndex: i,
+                              onSwipeLeft: i == 0 ? _onSwipeLeft : null,
+                              onSwipeRight: i == 0 ? _onSwipeRight : null,
+                              onSwipeUp: i == 0 ? _onSwipeUp : null,
+                              onTap: i == 0 ? _onCardTap : null,
+                              // Pass drag progress notifier to top card and second card
+                              dragProgressNotifier: (i == 0 || i == 1)
+                                  ? _dragProgressNotifier
+                                  : null,
+                            );
+                          },
+                        ),
+                  ],
+                ),
+              ),
             ),
-          ),
-        ),
 
-        const SizedBox(height: 16),
-
-        // Action Buttons
-        _buildActionButtons(),
-      ],
+            // Action Buttons - no fixed spacing above
+            _buildActionButtons(),
+          ],
+        );
+      },
     );
   }
 
@@ -686,11 +690,14 @@ class DiscoverScreenState extends State<DiscoverScreen> {
     final horizontalPadding = ResponsiveUtils.getHorizontalPadding(context);
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: horizontalPadding,
-        vertical: 20,
+      padding: EdgeInsets.only(
+        left: horizontalPadding,
+        right: horizontalPadding,
+        top: 12,
+        bottom: bottomPadding > 0 ? bottomPadding + 8 : 12,
       ),
       decoration: BoxDecoration(
         color: isDark ? AppColors.darkCardBackground : AppColors.white,

@@ -2014,6 +2014,30 @@ abstract class AppLocalizations {
   /// **'Category'**
   String get category;
 
+  /// No description provided for @subcategory.
+  ///
+  /// In en, this message translates to:
+  /// **'Subcategory'**
+  String get subcategory;
+
+  /// No description provided for @material.
+  ///
+  /// In en, this message translates to:
+  /// **'Material'**
+  String get material;
+
+  /// No description provided for @season.
+  ///
+  /// In en, this message translates to:
+  /// **'Season'**
+  String get season;
+
+  /// No description provided for @countryOfOrigin.
+  ///
+  /// In en, this message translates to:
+  /// **'Country of Origin'**
+  String get countryOfOrigin;
+
   /// No description provided for @seller.
   ///
   /// In en, this message translates to:

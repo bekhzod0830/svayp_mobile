@@ -1008,6 +1008,18 @@ class AppLocalizationsRu extends AppLocalizations {
   String get category => 'Категория';
 
   @override
+  String get subcategory => 'Подкатегория';
+
+  @override
+  String get material => 'Материал';
+
+  @override
+  String get season => 'Сезон';
+
+  @override
+  String get countryOfOrigin => 'Страна производства';
+
+  @override
   String get seller => 'Продавец';
 
   @override

@@ -572,6 +572,12 @@ class SwipeableProductCardState extends State<SwipeableProductCard>
   }
 
   Widget _buildCardContent(double cardWidth, double cardHeight) {
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    // Calculate info section height based on screen size
+    // Smaller screens get less space for image to ensure info doesn't overflow
+    final infoHeight = screenHeight < 700 ? 130.0 : 140.0;
+
     return Container(
       width: cardWidth,
       height: cardHeight,
@@ -585,13 +591,10 @@ class SwipeableProductCardState extends State<SwipeableProductCard>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Product Images Section
-            Expanded(
-              flex: MediaQuery.of(context).size.width >= 600 ? 4 : 3,
-              child: _buildImageSection(),
-            ),
-            // Product Info Section
-            Expanded(flex: 1, child: _buildInfoSection()),
+            // Product Images Section - takes remaining space
+            Expanded(child: _buildImageSection()),
+            // Product Info Section - fixed height to prevent overflow
+            SizedBox(height: infoHeight, child: _buildInfoSection()),
           ],
         ),
       ),
@@ -721,25 +724,36 @@ class SwipeableProductCardState extends State<SwipeableProductCard>
   Widget _buildInfoSection() {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    // Reduce padding on smaller screens
+    final verticalPadding = screenHeight < 700 ? 12.0 : 16.0;
+    final horizontalPadding = screenHeight < 700 ? 16.0 : 20.0;
 
     return Container(
       color: isDark ? AppColors.darkCardBackground : AppColors.white,
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.symmetric(
+        horizontal: horizontalPadding,
+        vertical: verticalPadding,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
           // Title
-          Text(
-            widget.product.title,
-            style: AppTypography.body1.copyWith(
-              fontWeight: FontWeight.w600,
-              color: isDark ? AppColors.white : AppColors.black,
+          Flexible(
+            child: Text(
+              widget.product.title,
+              style: AppTypography.body1.copyWith(
+                fontWeight: FontWeight.w600,
+                color: isDark ? AppColors.white : AppColors.black,
+                height: 1.2,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: screenHeight < 700 ? 2 : 4),
           // Seller Name
           Text(
             widget.product.seller ?? 'SVAYP',
@@ -750,67 +764,110 @@ class SwipeableProductCardState extends State<SwipeableProductCard>
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: screenHeight < 700 ? 6 : 8),
           // Price & Rating Row
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Price
+              // Price Column with Discount Badge
               Flexible(
-                flex: 3,
+                flex: widget.product.reviewCount > 0 ? 3 : 1,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      widget.product.formattedPrice,
-                      style: AppTypography.heading3.copyWith(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 18,
-                        color: isDark ? AppColors.white : AppColors.black,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (widget.product.hasDiscount)
-                      Text(
-                        widget.product.formattedDiscountPrice ?? '',
-                        style: AppTypography.caption.copyWith(
-                          color: isDark ? AppColors.gray400 : AppColors.gray500,
-                          decoration: TextDecoration.lineThrough,
+                    // Final price and discount badge row
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            widget.product.formattedPrice,
+                            style: AppTypography.heading3.copyWith(
+                              fontWeight: FontWeight.w700,
+                              fontSize: screenHeight < 700 ? 16 : 18,
+                              color: isDark ? AppColors.white : AppColors.black,
+                              height: 1.0,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        // Discount badge next to final price
+                        if (widget.product.hasDiscount &&
+                            widget.product.discountPercentage != null) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.red,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              '-${widget.product.discountPercentage}%',
+                              style: AppTypography.caption.copyWith(
+                                color: AppColors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    // Original price below (strikethrough)
+                    if (widget.product.hasDiscount)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          widget.product.formattedDiscountPrice ?? '',
+                          style: AppTypography.caption.copyWith(
+                            color: isDark
+                                ? AppColors.gray400
+                                : AppColors.gray500,
+                            decoration: TextDecoration.lineThrough,
+                            fontSize: 11,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                   ],
                 ),
               ),
               // Rating
               if (widget.product.reviewCount > 0) ...[
-                const SizedBox(width: 6),
+                const SizedBox(width: 8),
                 Flexible(
                   flex: 2,
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const Icon(Icons.star, size: 16, color: Colors.amber),
-                      const SizedBox(width: 4),
+                      const Icon(Icons.star, size: 15, color: Colors.amber),
+                      const SizedBox(width: 3),
                       Flexible(
                         child: Text(
                           widget.product.formattedRating,
                           style: AppTypography.body2.copyWith(
                             fontWeight: FontWeight.w600,
+                            fontSize: 13,
                             color: isDark ? AppColors.white : AppColors.black,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: 2),
                       Flexible(
                         child: Text(
                           '(${widget.product.reviewCount})',
                           style: AppTypography.caption.copyWith(
+                            fontSize: 11,
                             color: isDark
                                 ? AppColors.gray400
                                 : AppColors.gray600,

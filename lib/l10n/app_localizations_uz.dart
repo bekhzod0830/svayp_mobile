@@ -1009,6 +1009,18 @@ class AppLocalizationsUz extends AppLocalizations {
   String get category => 'Kategoriya';
 
   @override
+  String get subcategory => 'Subkategoriya';
+
+  @override
+  String get material => 'Material';
+
+  @override
+  String get season => 'Mavsum';
+
+  @override
+  String get countryOfOrigin => 'Ishlab chiqarish mamlakati';
+
+  @override
   String get seller => 'Sotuvchi';
 
   @override

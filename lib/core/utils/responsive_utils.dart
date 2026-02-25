@@ -52,10 +52,22 @@ class ResponsiveUtils {
   /// Get card height for swipeable cards
   static double getCardHeight(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
+
     if (isMobile(context)) {
-      return screenHeight * 0.65; // 65% on mobile
+      // More conservative heights to prevent overflow
+      if (screenHeight < 700) {
+        // Small screens (iPhone SE, etc.) - 58% with max 380px
+        return (screenHeight * 0.58).clamp(0, 380);
+      } else if (screenHeight < 800) {
+        // Medium screens - 62% with max 500px
+        return (screenHeight * 0.62).clamp(0, 500);
+      } else {
+        // Large screens - 65% with max 550px
+        return (screenHeight * 0.65).clamp(0, 550);
+      }
     } else {
-      return screenHeight * 0.7; // 70% on tablet/desktop (more vertical space)
+      // Tablet/Desktop - 70% with max 600px
+      return (screenHeight * 0.70).clamp(0, 600);
     }
   }
 

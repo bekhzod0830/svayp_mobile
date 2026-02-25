@@ -25,6 +25,7 @@ class Product {
   final String? styleMatch; // AI style match text
   final bool inStock;
   final String? productUrl; // External link to product
+  final String? countryOfOrigin; // Country where product is made
 
   Product({
     required this.id,
@@ -52,6 +53,7 @@ class Product {
     this.styleMatch,
     this.inStock = true,
     this.productUrl,
+    this.countryOfOrigin,
   });
 
   /// Create Product from JSON
@@ -98,6 +100,7 @@ class Product {
       styleMatch: json['style_match'] as String?,
       inStock: json['in_stock'] as bool? ?? true,
       productUrl: json['product_url'] as String?,
+      countryOfOrigin: json['country_of_origin'] as String?,
     );
   }
 
@@ -129,6 +132,7 @@ class Product {
       'style_match': styleMatch,
       'in_stock': inStock,
       'product_url': productUrl,
+      'country_of_origin': countryOfOrigin,
     };
   }
 
@@ -182,6 +186,7 @@ class Product {
     String? styleMatch,
     bool? inStock,
     String? productUrl,
+    String? countryOfOrigin,
   }) {
     return Product(
       id: id ?? this.id,
@@ -209,6 +214,7 @@ class Product {
       styleMatch: styleMatch ?? this.styleMatch,
       inStock: inStock ?? this.inStock,
       productUrl: productUrl ?? this.productUrl,
+      countryOfOrigin: countryOfOrigin ?? this.countryOfOrigin,
     );
   }
 }
