@@ -28,23 +28,13 @@ class AuthService {
       // Normalize phone number to remove spaces
       final normalizedPhone = _normalizePhoneNumber(phoneNumber);
 
-      print('📱 Sending OTP to: $normalizedPhone');
-      print('🌐 API Endpoint: ${ApiConfig.baseUrl}${ApiConfig.authSendOtp}');
-
       final response = await _apiClient.post(
         ApiConfig.authSendOtp,
         data: {'phoneNumber': normalizedPhone},
       );
 
-      print('📨 Backend Response: ${response.data}');
-      print('✅ OTP API call successful - Check if SMS was actually sent!');
-      print(
-        '⚠️  If SMS not received, check backend logs and SMS provider configuration',
-      );
-
       return MessageResponse.fromJson(response.data);
     } catch (e) {
-      print('❌ OTP Send Error: $e');
       rethrow;
     }
   }
@@ -69,8 +59,6 @@ class AuthService {
       // Normalize phone number to remove spaces
       final normalizedPhone = _normalizePhoneNumber(phoneNumber);
 
-      print('🔍 Verifying OTP - Phone: $normalizedPhone, OTP: $otpCode');
-
       final response = await _apiClient.post(
         ApiConfig.authVerifyOtp,
         data: {'phoneNumber': normalizedPhone, 'otpCode': otpCode},
@@ -87,11 +75,7 @@ class AuthService {
       }
 
       // Debug: Verify token was saved
-      print('💾 Token saved to storage');
       final savedToken = _apiClient.getToken();
-      print(
-        '✓ Verified token in storage: ${savedToken != null ? "YES" : "NO"}',
-      );
 
       return tokenResponse;
     } catch (e) {
@@ -115,22 +99,10 @@ class AuthService {
       // Handle wrapped response
       final data = response.data['data'] ?? response.data;
 
-      print('📡 [AuthService] getCurrentUser API response:');
-      print('   Raw response data: $data');
-      print('   Score field: ${data['score']}');
-      print('   Cashback balance field: ${data['cashback_balance']}');
-
       final userResponse = UserResponse.fromJson(data);
-
-      print('   ✅ Parsed UserResponse:');
-      print('      - ID: ${userResponse.id}');
-      print(
-        '      - Cashback Balance (from score): ${userResponse.cashbackBalance}',
-      );
 
       return userResponse;
     } catch (e) {
-      print('❌ [AuthService] Error in getCurrentUser: $e');
       rethrow;
     }
   }
@@ -192,7 +164,6 @@ class AuthService {
           }
         } catch (e) {
           // Continue with local logout even if API call fails
-          print('⚠️ Logout API call failed: $e');
         }
       }
 
@@ -236,8 +207,6 @@ class AuthService {
         data: {'username': username.trim(), 'password': password},
       );
 
-      print('📦 Admin login raw response: ${response.data}');
-
       final loginResponse = AdminLoginResponse.fromJson(
         response.data as Map<String, dynamic>,
       );
@@ -256,7 +225,6 @@ class AuthService {
       }
       await _apiClient.saveUserRole(loginResponse.user.role);
 
-      print('✅ Partner login successful: ${loginResponse.user.role}');
       return loginResponse;
     } catch (e) {
       rethrow;

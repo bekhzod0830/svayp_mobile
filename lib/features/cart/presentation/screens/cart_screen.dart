@@ -52,7 +52,6 @@ class _CartScreenState extends State<CartScreen> {
 
       if (token != null && token.isNotEmpty) {
         // Fetch cart from API
-        print('📡 Fetching cart from API...');
         final cartData = await _apiService.getCart(token: token);
 
         final items = cartData['items'] as List<dynamic>;
@@ -89,8 +88,6 @@ class _CartScreenState extends State<CartScreen> {
                 : DateTime.now(),
           );
         }).toList();
-
-        print('✅ Loaded ${cartItems.length} items from API');
       } else {
         // Not authenticated, use local cache
         await _cartService.init();
@@ -99,7 +96,6 @@ class _CartScreenState extends State<CartScreen> {
         totalItems = cartItems.fold(0, (sum, item) => sum + item.quantity);
       }
     } catch (e) {
-      print('❌ Error loading cart: $e');
       // Fallback to local cache
       await _cartService.init();
       cartItems = _cartService.getCartItems();
@@ -134,13 +130,11 @@ class _CartScreenState extends State<CartScreen> {
             quantity: newQuantity,
             token: token,
           );
-          print('✅ Updated cart item quantity via API');
         } else {
           // Update local cache
           await _cartService.updateQuantity(index, newQuantity);
         }
       } catch (e) {
-        print('❌ Error updating quantity: $e');
         // Fallback to local cache
         await _cartService.updateQuantity(index, newQuantity);
       }
@@ -163,13 +157,11 @@ class _CartScreenState extends State<CartScreen> {
         // Delete from API
         final cartItemId = _cartItemIds[index]!;
         await _apiService.deleteCartItem(itemId: cartItemId, token: token);
-        print('✅ Deleted cart item from API');
       } else {
         // Delete from local cache
         await _cartService.removeItem(index);
       }
     } catch (e) {
-      print('❌ Error removing item: $e');
       // Fallback to local cache
       await _cartService.removeItem(index);
     }
@@ -207,13 +199,11 @@ class _CartScreenState extends State<CartScreen> {
       if (token != null && token.isNotEmpty) {
         // Clear from API
         await _apiService.clearCart(token: token);
-        print('✅ Cleared cart via API');
       } else {
         // Clear from local cache
         await _cartService.clearCart();
       }
     } catch (e) {
-      print('❌ Error clearing cart: $e');
       // Fallback to local cache
       await _cartService.clearCart();
     }
@@ -541,6 +531,8 @@ class _CartItemCard extends StatelessWidget {
                   height: 80,
                   fit: BoxFit.contain,
                   cacheManager: ImageCacheManager.instance,
+                  memCacheWidth: 160,
+                  memCacheHeight: 160,
                   placeholder: (context, url) => Container(
                     color: isDark
                         ? AppColors.darkTertiaryText

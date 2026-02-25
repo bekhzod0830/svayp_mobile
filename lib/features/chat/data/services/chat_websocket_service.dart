@@ -48,15 +48,10 @@ class ChatWebSocketService {
       const wsBaseUrl = 'wss://app.svaypai.com';
       final wsUrl = '$wsBaseUrl/ws/chats/$chatId';
 
-      print('🔌 [WebSocket] Connecting to: $wsUrl (with token)');
-      print('🔌 [WebSocket] Token length: ${authToken.length}');
-
       // Connect to WebSocket with token as query parameter
       final uri = Uri.parse(
         wsUrl,
       ).replace(queryParameters: {'token': authToken});
-
-      print('🔌 [WebSocket] Final URI: $uri');
 
       _channel = WebSocketChannel.connect(uri);
 
@@ -73,9 +68,7 @@ class ChatWebSocketService {
 
       _reconnectAttempts = 0;
       _isConnecting = false;
-      print('✅ [WebSocket] Connected to chat $chatId');
     } catch (e) {
-      print('❌ [WebSocket] Connection error: $e');
       _isConnecting = false;
       _scheduleReconnect();
     }
@@ -84,46 +77,37 @@ class ChatWebSocketService {
   /// Handle incoming messages
   void _onMessage(dynamic data) {
     try {
-      print('📨 [WebSocket] Received message: $data');
 
       final jsonData = json.decode(data as String);
       final message = ChatMessageResponse.fromJson(jsonData);
 
       _messageController.add(message);
-      print('✅ [WebSocket] Message parsed and added to stream');
     } catch (e) {
-      print('❌ [WebSocket] Error parsing message: $e');
     }
   }
 
   /// Handle WebSocket errors
   void _onError(Object error, [StackTrace? stackTrace]) {
-    print('❌ [WebSocket] Error: $error');
     if (stackTrace != null) {
-      print('❌ [WebSocket] Stack trace: $stackTrace');
     }
     _scheduleReconnect();
   }
 
   /// Handle WebSocket connection closed
   void _onDone() {
-    print('🔌 [WebSocket] Connection closed');
     _scheduleReconnect();
   }
 
   /// Send a message through WebSocket
   Future<void> sendMessage(SendMessageRequest request) async {
     if (!isConnected) {
-      print('❌ [WebSocket] Not connected, cannot send message');
       throw Exception('WebSocket not connected');
     }
 
     try {
       final data = json.encode(request.toJson());
       _channel?.sink.add(data);
-      print('📤 [WebSocket] Message sent: $data');
     } catch (e) {
-      print('❌ [WebSocket] Error sending message: $e');
       rethrow;
     }
   }
@@ -135,9 +119,7 @@ class ChatWebSocketService {
       if (isConnected) {
         try {
           _channel?.sink.add(json.encode({'type': 'ping'}));
-          print('🏓 [WebSocket] Ping sent');
         } catch (e) {
-          print('❌ [WebSocket] Error sending ping: $e');
         }
       }
     });
@@ -147,14 +129,10 @@ class ChatWebSocketService {
   void _scheduleReconnect() {
     if (_isDisposed || _reconnectTimer?.isActive == true) return;
     if (_reconnectAttempts >= _maxReconnectAttempts) {
-      print('❌ [WebSocket] Max reconnect attempts reached');
       return;
     }
 
     _reconnectAttempts++;
-    print(
-      '🔄 [WebSocket] Scheduling reconnect attempt $_reconnectAttempts/$_maxReconnectAttempts',
-    );
 
     _reconnectTimer = Timer(_reconnectDelay, () {
       if (!_isDisposed && _currentChatId != null && _authToken != null) {
@@ -165,7 +143,6 @@ class ChatWebSocketService {
 
   /// Disconnect from WebSocket
   Future<void> disconnect() async {
-    print('🔌 [WebSocket] Disconnecting...');
 
     _pingTimer?.cancel();
     _pingTimer = null;
@@ -176,7 +153,6 @@ class ChatWebSocketService {
     try {
       await _channel?.sink.close(status.goingAway);
     } catch (e) {
-      print('❌ [WebSocket] Error closing connection: $e');
     }
 
     _channel = null;
@@ -184,18 +160,15 @@ class ChatWebSocketService {
     _authToken = null;
     _reconnectAttempts = 0;
 
-    print('✅ [WebSocket] Disconnected');
   }
 
   /// Dispose the service
   Future<void> dispose() async {
-    print('🗑️ [WebSocket] Disposing service...');
     _isDisposed = true;
 
     await disconnect();
 
     await _messageController.close();
 
-    print('✅ [WebSocket] Service disposed');
   }
 }

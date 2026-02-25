@@ -31,9 +31,7 @@ class RecommendationCacheService {
       );
       await prefs.setBool(_isFirstLaunchKey, true);
 
-      print('✅ Cached ${products.length} recommendations');
     } catch (e) {
-      print('❌ Failed to cache recommendations: $e');
     }
   }
 
@@ -46,7 +44,6 @@ class RecommendationCacheService {
       // Check if this is the first launch after onboarding
       final isFirstLaunch = prefs.getBool(_isFirstLaunchKey) ?? false;
       if (!isFirstLaunch) {
-        print('📭 Not first launch - no cached recommendations');
         return null;
       }
 
@@ -55,7 +52,6 @@ class RecommendationCacheService {
       final timestamp = prefs.getInt(_cacheTimestampKey);
 
       if (jsonString == null || timestamp == null) {
-        print('📭 No cached recommendations found');
         return null;
       }
 
@@ -65,9 +61,6 @@ class RecommendationCacheService {
       final age = now.difference(cacheTime);
 
       if (age > _cacheValidity) {
-        print(
-          '⏰ Cached recommendations expired (${age.inMinutes} minutes old)',
-        );
         await clearCache(); // Clear expired cache
         return null;
       }
@@ -78,12 +71,8 @@ class RecommendationCacheService {
           .map((json) => Product.fromJson(json))
           .toList();
 
-      print(
-        '✅ Retrieved ${products.length} cached recommendations (${age.inMinutes} minutes old)',
-      );
       return products;
     } catch (e) {
-      print('❌ Failed to retrieve cached recommendations: $e');
       await clearCache(); // Clear corrupted cache
       return null;
     }
@@ -95,11 +84,7 @@ class RecommendationCacheService {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_isFirstLaunchKey, false);
-      print(
-        '✅ Marked cache as used - will fetch fresh recommendations next time',
-      );
     } catch (e) {
-      print('❌ Failed to mark cache as used: $e');
     }
   }
 
@@ -110,9 +95,7 @@ class RecommendationCacheService {
       await prefs.remove(_cacheKey);
       await prefs.remove(_cacheTimestampKey);
       await prefs.remove(_isFirstLaunchKey);
-      print('🗑️ Cleared recommendation cache');
     } catch (e) {
-      print('❌ Failed to clear cache: $e');
     }
   }
 

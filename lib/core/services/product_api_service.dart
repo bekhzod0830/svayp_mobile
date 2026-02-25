@@ -70,7 +70,6 @@ class ProductApiService {
         );
       }
     } catch (e) {
-      print('❌ Error fetching products: $e');
       rethrow;
     }
   }
@@ -90,11 +89,7 @@ class ProductApiService {
         headers['Authorization'] = 'Bearer $token';
       }
 
-      print('📡 GET $uri');
-
       final response = await http.get(uri, headers: headers);
-
-      print('📡 Response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
@@ -111,7 +106,6 @@ class ProductApiService {
         );
       }
     } catch (e) {
-      print('❌ Error fetching product: $e');
       rethrow;
     }
   }
@@ -163,11 +157,7 @@ class ProductApiService {
         headers['Authorization'] = 'Bearer $token';
       }
 
-      print('📡 GET $uri');
-
       final response = await http.get(uri, headers: headers);
-
-      print('📡 Response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
@@ -178,7 +168,6 @@ class ProductApiService {
         );
       }
     } catch (e) {
-      print('❌ Error searching products: $e');
       rethrow;
     }
   }
@@ -228,11 +217,7 @@ class ProductApiService {
         'Authorization': 'Bearer $token',
       };
 
-      print('📡 GET $uri');
-
       final response = await http.get(uri, headers: headers);
-
-      print('📡 Response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
@@ -245,7 +230,6 @@ class ProductApiService {
         );
       }
     } catch (e) {
-      print('❌ Error fetching recommendations: $e');
       rethrow;
     }
   }
@@ -267,11 +251,7 @@ class ProductApiService {
         'Authorization': 'Bearer $token',
       };
 
-      print('📡 POST $uri');
-
       final response = await http.post(uri, headers: headers);
-
-      print('📡 Response status: ${response.statusCode}');
 
       if (response.statusCode != 200 && response.statusCode != 201) {
         throw Exception(
@@ -279,7 +259,6 @@ class ProductApiService {
         );
       }
     } catch (e) {
-      print('❌ Error liking product: $e');
       rethrow;
     }
   }
@@ -301,11 +280,7 @@ class ProductApiService {
         'Authorization': 'Bearer $token',
       };
 
-      print('📡 POST $uri');
-
       final response = await http.post(uri, headers: headers);
-
-      print('📡 Response status: ${response.statusCode}');
 
       if (response.statusCode != 200 && response.statusCode != 201) {
         throw Exception(
@@ -313,7 +288,6 @@ class ProductApiService {
         );
       }
     } catch (e) {
-      print('❌ Error disliking product: $e');
       rethrow;
     }
   }
@@ -333,31 +307,20 @@ class ProductApiService {
         'Authorization': 'Bearer $token',
       };
 
-      print('📡 GET $uri');
-
       final response = await http.get(uri, headers: headers);
-
-      print('📡 Response status: ${response.statusCode}');
-      print('📡 Response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
-        print('📡 Decoded JSON type: ${jsonData.runtimeType}');
-        print(
-          '📡 JSON keys: ${jsonData is Map ? jsonData.keys.toList() : "Not a map"}',
-        );
 
         // The favorites endpoint returns nested data: {"data": {"data": [...], "total": ...}}
         // Extract the inner data object
         final innerData = jsonData['data'] as Map<String, dynamic>;
-        print('📡 Inner data keys: ${innerData.keys.toList()}');
 
         return ProductListResponse.fromJson(innerData);
       } else if (response.statusCode == 401) {
         throw Exception('Authentication required for favorites');
       } else if (response.statusCode == 404) {
         // Endpoint doesn't exist yet - return empty list
-        print('⚠️ Favorites endpoint not found (404) - returning empty list');
         return ProductListResponse(products: [], total: 0);
       } else {
         throw Exception(
@@ -365,7 +328,6 @@ class ProductApiService {
         );
       }
     } catch (e) {
-      print('❌ Error fetching favorites: $e');
       rethrow;
     }
   }
@@ -383,11 +345,7 @@ class ProductApiService {
         'Authorization': 'Bearer $token',
       };
 
-      print('📡 GET $uri');
-
       final response = await http.get(uri, headers: headers);
-
-      print('📡 Response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
@@ -400,7 +358,6 @@ class ProductApiService {
         );
       }
     } catch (e) {
-      print('❌ Error fetching cart: $e');
       rethrow;
     }
   }
@@ -422,14 +379,9 @@ class ProductApiService {
         'Authorization': 'Bearer $token',
       };
 
-      print('📡 DELETE $uri');
-
       final response = await http.delete(uri, headers: headers);
 
-      print('📡 Response status: ${response.statusCode}');
-
       if (response.statusCode == 200 || response.statusCode == 204) {
-        print('✅ Successfully deleted cart item');
       } else if (response.statusCode == 401) {
         throw Exception('Authentication required to delete cart item');
       } else {
@@ -438,7 +390,6 @@ class ProductApiService {
         );
       }
     } catch (e) {
-      print('❌ Error deleting cart item: $e');
       rethrow;
     }
   }
@@ -464,15 +415,9 @@ class ProductApiService {
 
       final body = json.encode({'quantity': quantity});
 
-      print('📡 PATCH $uri');
-      print('📦 Update data: $body');
-
       final response = await http.patch(uri, headers: headers, body: body);
 
-      print('📡 Response status: ${response.statusCode}');
-
       if (response.statusCode == 200) {
-        print('✅ Successfully updated cart item');
       } else if (response.statusCode == 401) {
         throw Exception('Authentication required to update cart item');
       } else {
@@ -481,7 +426,6 @@ class ProductApiService {
         );
       }
     } catch (e) {
-      print('❌ Error updating cart item: $e');
       rethrow;
     }
   }
@@ -499,14 +443,9 @@ class ProductApiService {
         'Authorization': 'Bearer $token',
       };
 
-      print('📡 DELETE $uri');
-
       final response = await http.delete(uri, headers: headers);
 
-      print('📡 Response status: ${response.statusCode}');
-
       if (response.statusCode == 200 || response.statusCode == 204) {
-        print('✅ Successfully cleared cart');
       } else if (response.statusCode == 401) {
         throw Exception('Authentication required to clear cart');
       } else {
@@ -515,7 +454,6 @@ class ProductApiService {
         );
       }
     } catch (e) {
-      print('❌ Error clearing cart: $e');
       rethrow;
     }
   }
@@ -550,15 +488,9 @@ class ProductApiService {
         'quantity': quantity,
       });
 
-      print('📡 POST $uri');
-      print('📦 Cart data: $body');
-
       final response = await http.post(uri, headers: headers, body: body);
 
-      print('📡 Response status: ${response.statusCode}');
-
       if (response.statusCode == 200 || response.statusCode == 201) {
-        print('✅ Successfully added to cart');
       } else if (response.statusCode == 401) {
         throw Exception('Authentication required to add to cart');
       } else {
@@ -567,7 +499,6 @@ class ProductApiService {
         );
       }
     } catch (e) {
-      print('❌ Error adding to cart: $e');
       rethrow;
     }
   }

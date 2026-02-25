@@ -7,7 +7,6 @@ import 'package:swipe/features/liked/data/models/liked_product_model.dart';
 import 'package:swipe/features/liked/data/services/liked_service.dart';
 import 'package:swipe/features/product/presentation/screens/product_detail_screen.dart';
 import 'package:swipe/features/discover/domain/entities/product.dart';
-import 'package:swipe/features/discover/data/mock_product_data.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:swipe/core/cache/image_cache_manager.dart';
 import 'package:swipe/core/services/product_api_service.dart';
@@ -77,17 +76,13 @@ class LikedScreenState extends State<LikedScreen>
 
     // First, load from local storage
     final localLikedProducts = _likedService.getLikedProducts();
-    print('💾 Loaded ${localLikedProducts.length} products from local storage');
 
     // If user is authenticated, try to fetch favorites from API
     if (_authToken != null && _authToken!.isNotEmpty) {
-      print('📡 Fetching favorites from API...');
       try {
         final response = await _apiService.getFavoriteProducts(
           token: _authToken!,
         );
-
-        print('✅ Received ${response.products.length} favorites from API');
 
         // Sync backend favorites with local storage
         // This ensures the local storage is up-to-date with backend
@@ -150,7 +145,6 @@ class LikedScreenState extends State<LikedScreen>
         });
       } catch (e) {
         // If API call fails, use local data
-        print('⚠️ Failed to fetch favorites from API: $e');
         setState(() {
           _likedProducts = localLikedProducts;
           _isLoading = false;
@@ -171,14 +165,11 @@ class LikedScreenState extends State<LikedScreen>
     // If user is authenticated, send dislike request to API
     if (_authToken != null && _authToken!.isNotEmpty) {
       try {
-        print('📡 Sending dislike request for product ${product.productId}...');
         await _apiService.dislikeProduct(
           productId: product.productId,
           token: _authToken!,
         );
-        print('✅ Product disliked successfully');
       } catch (e) {
-        print('⚠️ Failed to dislike product via API: $e');
         // Continue with local removal even if API fails
       }
     }
@@ -217,22 +208,15 @@ class LikedScreenState extends State<LikedScreen>
 
     // If user is authenticated, send dislike requests for all products
     if (_authToken != null && _authToken!.isNotEmpty) {
-      print(
-        '📡 Sending dislike requests for all ${_likedProducts.length} products...',
-      );
-
       // Send dislike requests in parallel (but don't wait for all to complete)
       final futures = _likedProducts.map((product) {
         return _apiService
             .dislikeProduct(productId: product.productId, token: _authToken!)
-            .catchError((e) {
-              print('⚠️ Failed to dislike product ${product.productId}: $e');
-            });
+            .catchError((e) {});
       }).toList();
 
       // Wait for all requests to complete (or fail)
       await Future.wait(futures);
-      print('✅ All dislike requests completed');
     }
 
     // Clear local storage
@@ -262,7 +246,6 @@ class LikedScreenState extends State<LikedScreen>
       );
     } else {
       // Fallback: create product from liked product model data
-      print('⚠️ Full product not found in cache for ${likedProduct.productId}');
 
       // Use SVAYP if brand is Unknown
       final sellerName =
@@ -496,35 +479,41 @@ class _TikTokLikedProductCard extends StatelessWidget {
                       color: isDark
                           ? AppColors.darkMainBackground
                           : Colors.white,
-                      child: CachedNetworkImage(
-                        imageUrl: product.imageUrl,
-                        fit: BoxFit.contain,
-                        cacheManager: ImageCacheManager.instance,
-                        placeholder: (context, url) => Container(
-                          color: isDark
-                              ? AppColors.darkMainBackground
-                              : AppColors.gray100,
-                          child: Center(
-                            child: CircularProgressIndicator(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final cacheWidth = (constraints.maxWidth * 2).toInt();
+                          return CachedNetworkImage(
+                            imageUrl: product.imageUrl,
+                            fit: BoxFit.contain,
+                            cacheManager: ImageCacheManager.instance,
+                            memCacheWidth: cacheWidth,
+                            placeholder: (context, url) => Container(
                               color: isDark
-                                  ? AppColors.darkPrimaryText
-                                  : AppColors.gray400,
-                              strokeWidth: 2,
+                                  ? AppColors.darkMainBackground
+                                  : AppColors.gray100,
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  color: isDark
+                                      ? AppColors.darkPrimaryText
+                                      : AppColors.gray400,
+                                  strokeWidth: 2,
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                        errorWidget: (context, url, error) => Container(
-                          color: isDark
-                              ? AppColors.darkMainBackground
-                              : AppColors.gray100,
-                          child: Icon(
-                            Icons.image_outlined,
-                            size: 32,
-                            color: isDark
-                                ? AppColors.darkSecondaryText
-                                : AppColors.gray400,
-                          ),
-                        ),
+                            errorWidget: (context, url, error) => Container(
+                              color: isDark
+                                  ? AppColors.darkMainBackground
+                                  : AppColors.gray100,
+                              child: Icon(
+                                Icons.image_outlined,
+                                size: 32,
+                                color: isDark
+                                    ? AppColors.darkSecondaryText
+                                    : AppColors.gray400,
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ),
@@ -693,6 +682,8 @@ class _LikedProductCard extends StatelessWidget {
                       imageUrl: product.imageUrl,
                       fit: BoxFit.contain,
                       cacheManager: ImageCacheManager.instance,
+                      memCacheWidth: 200,
+                      memCacheHeight: 240,
                       placeholder: (context, url) => Container(
                         color: isDark
                             ? AppColors.darkMainBackground

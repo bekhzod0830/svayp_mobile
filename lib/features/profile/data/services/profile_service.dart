@@ -29,17 +29,11 @@ class ProfileService {
   /// ```
   Future<MessageResponse> createProfile(ProfileCreateRequest request) async {
     try {
-      print('🚀 [ProfileService] Creating profile...');
-      print('📤 [ProfileService] Endpoint: ${ApiConfig.userProfile}');
-      print('📦 [ProfileService] Request data: ${request.toJson()}');
 
       final response = await _apiClient.post(
         ApiConfig.userProfile,
         data: request.toJson(),
       );
-
-      print('✅ [ProfileService] Profile created successfully');
-      print('📥 [ProfileService] Response: ${response.data}');
 
       // Backend returns UserProfileResponse, but we just need to confirm success
       // Return a simple success message instead of parsing the full response
@@ -48,7 +42,6 @@ class ProfileService {
         success: true,
       );
     } catch (e) {
-      print('❌ [ProfileService] Error creating profile: $e');
       rethrow;
     }
   }

@@ -116,27 +116,22 @@ class _OnboardingCompletionScreenState extends State<OnboardingCompletionScreen>
 
   /// Auto-start loading process when screen loads
   Future<void> _startLoadingProcess() async {
-    print('🚀 Starting loading process...');
 
     try {
       if (!mounted) {
-        print('⚠️ Widget not mounted, aborting loading');
         return;
       }
 
       final l10n = AppLocalizations.of(context);
       if (l10n == null) {
-        print('⚠️ Localization not available, using fallback');
         _showSuccessImmediately();
         return;
       }
 
-      print('📊 Step 1: Initialize (10%)');
       // Step 1: Initialize (10%)
       _updateProgress(0.1, l10n.preparingYourFeed);
       await Future.delayed(const Duration(milliseconds: 300));
 
-      print('📊 Step 2: Fetching recommendations (30%)');
       // Step 2: Fetch recommendations (50%)
       _updateProgress(0.3, l10n.preparingYourFeed);
 
@@ -145,14 +140,12 @@ class _OnboardingCompletionScreenState extends State<OnboardingCompletionScreen>
 
       if (authToken != null && authToken.isNotEmpty) {
         try {
-          print('🎯 Fetching recommendations for first-time user...');
           final apiService = ProductApiService();
 
           final response = await apiService.getRecommendedProducts(
             token: authToken,
           );
 
-          print('✅ Received ${response.products.length} recommendations');
           _updateProgress(0.6, l10n.preparingYourFeed);
 
           // Step 3: Cache recommendations (70%)
@@ -166,9 +159,7 @@ class _OnboardingCompletionScreenState extends State<OnboardingCompletionScreen>
             await _preloadImagesWithProgress(response.products);
           }
 
-          print('✅ Cached and preloaded recommendations');
         } catch (e) {
-          print('⚠️ Failed to fetch recommendations: $e');
           // Continue anyway
         }
       }
@@ -193,8 +184,6 @@ class _OnboardingCompletionScreenState extends State<OnboardingCompletionScreen>
       // Start success animation sequence
       _startSuccessAnimationSequence();
     } catch (e, stackTrace) {
-      print('⚠️ Error in loading process: $e');
-      print('Stack trace: $stackTrace');
 
       if (!mounted) return;
 
@@ -205,7 +194,6 @@ class _OnboardingCompletionScreenState extends State<OnboardingCompletionScreen>
 
   /// Show success screen immediately (fallback for errors)
   void _showSuccessImmediately() {
-    print('🎯 Showing success immediately');
 
     if (!mounted) return;
 
@@ -219,7 +207,6 @@ class _OnboardingCompletionScreenState extends State<OnboardingCompletionScreen>
   }
 
   void _startSuccessAnimationSequence() async {
-    print('✨ Starting success animation sequence');
     // Sephora-style entrance: icon pops in, then text fades in
     await Future.delayed(const Duration(milliseconds: 200));
     _scaleController.forward();
@@ -273,7 +260,6 @@ class _OnboardingCompletionScreenState extends State<OnboardingCompletionScreen>
   /// Preload only 5 product images with progress tracking
   Future<void> _preloadImagesWithProgress(List<dynamic> products) async {
     try {
-      print('🖼️ Preloading product images...');
 
       // Preload only first 5 images
       final imagesToPreload = products.take(5).toList();
@@ -299,14 +285,11 @@ class _OnboardingCompletionScreenState extends State<OnboardingCompletionScreen>
               );
             }
           } catch (e) {
-            print('⚠️ Failed to preload image: ${product.images!.first}');
           }
         }
       }
 
-      print('✅ Preloaded $preloadedCount images');
     } catch (e) {
-      print('⚠️ Error preloading images: $e');
     }
   }
 

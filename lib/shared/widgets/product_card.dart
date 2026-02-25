@@ -70,34 +70,40 @@ class ProductCard extends StatelessWidget {
             children: [
               // Product Image
               Positioned.fill(
-                child: CachedNetworkImage(
-                  imageUrl: imageUrl,
-                  fit: BoxFit.cover,
-                  cacheManager: ImageCacheManager.instance,
-                  placeholder: (context, url) => Container(
-                    color: isDark
-                        ? AppColors.darkCardBackground
-                        : AppColors.gray100,
-                    child: Center(
-                      child: CircularProgressIndicator(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final cacheWidth = (constraints.maxWidth * 2).toInt();
+                    return CachedNetworkImage(
+                      imageUrl: imageUrl,
+                      fit: BoxFit.cover,
+                      cacheManager: ImageCacheManager.instance,
+                      memCacheWidth: cacheWidth,
+                      placeholder: (context, url) => Container(
                         color: isDark
-                            ? AppColors.darkPrimaryText
-                            : AppColors.black,
+                            ? AppColors.darkCardBackground
+                            : AppColors.gray100,
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            color: isDark
+                                ? AppColors.darkPrimaryText
+                                : AppColors.black,
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                  errorWidget: (context, url, error) => Container(
-                    color: isDark
-                        ? AppColors.darkCardBackground
-                        : AppColors.gray100,
-                    child: Icon(
-                      Icons.image_not_supported_outlined,
-                      color: isDark
-                          ? AppColors.darkSecondaryText
-                          : AppColors.gray400,
-                      size: 64,
-                    ),
-                  ),
+                      errorWidget: (context, url, error) => Container(
+                        color: isDark
+                            ? AppColors.darkCardBackground
+                            : AppColors.gray100,
+                        child: Icon(
+                          Icons.image_not_supported_outlined,
+                          color: isDark
+                              ? AppColors.darkSecondaryText
+                              : AppColors.gray400,
+                          size: 64,
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
 
@@ -319,19 +325,25 @@ class ProductCardCompact extends StatelessWidget {
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(16),
                     ),
-                    child: CachedNetworkImage(
-                      imageUrl: imageUrl,
-                      fit: BoxFit.cover,
-                      cacheManager: ImageCacheManager.instance,
-                      placeholder: (context, url) =>
-                          Container(color: AppColors.gray100),
-                      errorWidget: (context, url, error) => Container(
-                        color: AppColors.gray100,
-                        child: const Icon(
-                          Icons.image_not_supported_outlined,
-                          color: AppColors.gray400,
-                        ),
-                      ),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final cacheWidth = (constraints.maxWidth * 2).toInt();
+                        return CachedNetworkImage(
+                          imageUrl: imageUrl,
+                          fit: BoxFit.cover,
+                          cacheManager: ImageCacheManager.instance,
+                          memCacheWidth: cacheWidth,
+                          placeholder: (context, url) =>
+                              Container(color: AppColors.gray100),
+                          errorWidget: (context, url, error) => Container(
+                            color: AppColors.gray100,
+                            child: const Icon(
+                              Icons.image_not_supported_outlined,
+                              color: AppColors.gray400,
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ),
@@ -511,6 +523,8 @@ class ProductCardHorizontal extends StatelessWidget {
                 height: 80,
                 fit: BoxFit.cover,
                 cacheManager: ImageCacheManager.instance,
+                memCacheWidth: 160,
+                memCacheHeight: 160,
                 placeholder: (context, url) =>
                     Container(color: AppColors.gray100),
                 errorWidget: (context, url, error) => Container(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:async';
 import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/core/constants/app_colors.dart';
@@ -39,13 +40,35 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     _authService = getIt<AuthService>();
     _startResendTimer();
 
-    // Listen to first field for autofill (when SMS contains full OTP)
-    _otpControllers[0].addListener(_handleAutofill);
+    // Focus the first field as soon as the screen is shown
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _otpFocusNodes[0].requestFocus();
+    });
+
+    // Listen to every field for paste / SMS autofill of full OTP
+    for (int i = 0; i < 6; i++) {
+      final idx = i;
+      _otpControllers[i].addListener(() => _handlePasteOrAutofill(idx));
+    }
+
+    // Detect backspace on already-empty fields so user can delete backwards
+    // without needing to tap each field manually.
+    for (int i = 1; i < 6; i++) {
+      final idx = i;
+      _otpFocusNodes[i].onKeyEvent = (node, event) {
+        if (event is KeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.backspace &&
+            _otpControllers[idx].text.isEmpty) {
+          _otpFocusNodes[idx - 1].requestFocus();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      };
+    }
   }
 
   @override
   void dispose() {
-    _otpControllers[0].removeListener(_handleAutofill);
     for (var controller in _otpControllers) {
       controller.dispose();
     }
@@ -56,31 +79,31 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     super.dispose();
   }
 
-  /// Handle autofill when system provides full OTP code
-  void _handleAutofill() {
-    final text = _otpControllers[0].text;
+  /// Handle paste or SMS autofill — any field may receive the full OTP string
+  void _handlePasteOrAutofill(int index) {
+    final text = _otpControllers[index].text;
 
-    // If autofill provides full 6-digit code in first field
-    if (text.length >= 6) {
-      final digits = text.replaceAll(RegExp(r'\D'), '');
+    if (text.length < 2) return; // Normal single-digit input — ignore
 
-      if (digits.length >= 6) {
-        // Distribute first 6 digits across all fields
-        for (int i = 0; i < 6; i++) {
-          _otpControllers[i].text = digits[i];
-        }
+    final digits = text.replaceAll(RegExp(r'\D'), '');
+    if (digits.length < 6) return;
 
-        // Focus on last field
-        _otpFocusNodes[5].requestFocus();
-
-        // Auto-verify after a brief delay
-        Future.delayed(const Duration(milliseconds: 100), () {
-          if (mounted) {
-            _verifyOTP();
-          }
-        });
-      }
+    // Distribute first 6 digits starting from position 0 (regardless of
+    // which field received the autofill / paste)
+    for (int i = 0; i < 6; i++) {
+      _otpControllers[i].text = digits[i];
+      _otpControllers[i].selection = TextSelection.fromPosition(
+        TextPosition(offset: 1),
+      );
     }
+
+    // Move focus to last field and dismiss the keyboard
+    _otpFocusNodes[5].requestFocus();
+
+    // Auto-verify after a brief delay so the UI settles first
+    Future.delayed(const Duration(milliseconds: 150), () {
+      if (mounted) _verifyOTP();
+    });
   }
 
   String _getOtpCode() {
@@ -143,9 +166,6 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 
     try {
       // Verify OTP with backend API
-      print('📤 Sending verify request:');
-      print('   Phone: ${widget.phoneNumber}');
-      print('   OTP: $otpCode');
 
       final tokenResponse = await _authService.verifyOTP(
         phoneNumber: widget.phoneNumber,
@@ -153,11 +173,6 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       );
 
       // Debug: Verify token was saved
-      print(
-        '🔐 Token received: ${tokenResponse.accessToken.substring(0, 20)}...',
-      );
-      print('✅ User authenticated: ${tokenResponse.user.phoneNumber}');
-      print('📋 Has profile: ${tokenResponse.user.hasProfile}');
 
       if (!mounted) return;
 
@@ -239,207 +254,205 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
         child: AutofillGroup(
           child: Form(
             key: _formKey,
-            child: ListView(
-              padding: const EdgeInsets.all(24),
+            child: Column(
               children: [
-                // Title
-                Text(
-                  l10n.verifyPhoneNumber,
-                  style: AppTypography.display2.copyWith(height: 1.2),
-                ),
-                const SizedBox(height: 12),
-
-                // Subtitle with phone number
-                Text.rich(
-                  TextSpan(
-                    text: l10n.enterDigitCode,
-                    style: AppTypography.body1.copyWith(
-                      color: AppColors.secondaryText,
-                    ),
+                // Scrollable content
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.all(24),
                     children: [
-                      TextSpan(
-                        text: _formatPhoneNumber(widget.phoneNumber),
-                        style: AppTypography.body1.copyWith(
-                          color: AppColors.black,
-                          fontWeight: FontWeight.w600,
+                      // Title
+                      Text(
+                        l10n.verifyPhoneNumber,
+                        style: AppTypography.display2.copyWith(height: 1.2),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Subtitle with phone number
+                      Text.rich(
+                        TextSpan(
+                          text: l10n.enterDigitCode,
+                          style: AppTypography.body1.copyWith(
+                            color: AppColors.secondaryText,
+                          ),
+                          children: [
+                            TextSpan(
+                              text: _formatPhoneNumber(widget.phoneNumber),
+                              style: AppTypography.body1.copyWith(
+                                color: AppColors.black,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
+                      ),
+                      const SizedBox(height: 48),
+
+                      // OTP Input (6 digits)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: List.generate(
+                          6,
+                          (index) => SizedBox(
+                            width: 48,
+                            height: 56,
+                            child: TextField(
+                              controller: _otpControllers[index],
+                              focusNode: _otpFocusNodes[index],
+                              keyboardType: TextInputType.number,
+                              textAlign: TextAlign.center,
+                              textAlignVertical: TextAlignVertical.center,
+                              maxLength:
+                                  6, // All fields accept up to 6 chars for autofill/paste
+                              autofillHints: const [AutofillHints.oneTimeCode],
+                              style: AppTypography.heading3.copyWith(
+                                height: 1.0,
+                              ),
+                              decoration: InputDecoration(
+                                counterText: '',
+                                filled: true,
+                                fillColor: AppColors.gray50,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 0,
+                                  vertical: 16,
+                                ),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: const BorderSide(
+                                    color: AppColors.standardBorder,
+                                    width: 1.5,
+                                  ),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: const BorderSide(
+                                    color: AppColors.standardBorder,
+                                    width: 1.5,
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: const BorderSide(
+                                    color: AppColors.black,
+                                    width: 2,
+                                  ),
+                                ),
+                                errorBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: const BorderSide(
+                                    color: Colors.red,
+                                    width: 1.5,
+                                  ),
+                                ),
+                              ),
+                              onChanged: (value) {
+                                // Multi-char input (paste / autofill) is handled
+                                // by the per-controller listener; skip here.
+                                if (value.length > 1) return;
+
+                                // Handle forward movement (typing single digit)
+                                if (value.length == 1 && index < 5) {
+                                  _otpFocusNodes[index + 1].requestFocus();
+                                }
+
+                                // Handle backward movement (deletion/backspace)
+                                if (value.isEmpty && index > 0) {
+                                  _otpFocusNodes[index - 1].requestFocus();
+                                  _otpControllers[index - 1].clear();
+                                }
+
+                                // Auto-verify when last digit is entered manually
+                                if (index == 5 && value.length == 1) {
+                                  _verifyOTP();
+                                }
+                              },
+                              onTap: () {
+                                // Select all text when tapped for easier editing
+                                _otpControllers[index].selection =
+                                    TextSelection(
+                                      baseOffset: 0,
+                                      extentOffset:
+                                          _otpControllers[index].text.length,
+                                    );
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+
+                      // Development Mode Indicator
+                      if (ApiConfig.skipOtpInDev)
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          margin: const EdgeInsets.only(bottom: 24),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.shade50,
+                            border: Border.all(color: Colors.amber.shade300),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.developer_mode,
+                                color: Colors.amber.shade700,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '🔓 DEV MODE: Any 6-digit code works',
+                                  style: AppTypography.body2.copyWith(
+                                    color: Colors.amber.shade900,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                      // Resend Code
+                      Center(
+                        child: _canResend
+                            ? TextButton(
+                                onPressed: _isLoading ? null : _resendOTP,
+                                child: Text(
+                                  l10n.resendCode,
+                                  style: AppTypography.button.copyWith(
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                ),
+                              )
+                            : Text(
+                                l10n.resendCodeIn(_secondsRemaining),
+                                style: AppTypography.body2.copyWith(
+                                  color: AppColors.tertiaryText,
+                                ),
+                              ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 48),
 
-                // OTP Input (6 digits)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: List.generate(
-                    6,
-                    (index) => SizedBox(
-                      width: 48,
-                      height: 56,
-                      child: TextField(
-                        controller: _otpControllers[index],
-                        focusNode: _otpFocusNodes[index],
-                        keyboardType: TextInputType.number,
-                        textAlign: TextAlign.center,
-                        textAlignVertical: TextAlignVertical.center,
-                        maxLength: index == 0
-                            ? 6
-                            : 1, // First field accepts 6 for autofill
-                        autofillHints: index == 0
-                            ? [AutofillHints.oneTimeCode]
-                            : null,
-                        style: AppTypography.heading3.copyWith(height: 1.0),
-                        decoration: InputDecoration(
-                          counterText: '',
-                          filled: true,
-                          fillColor: AppColors.gray50,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 0,
-                            vertical: 16,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(
-                              color: AppColors.standardBorder,
-                              width: 1.5,
-                            ),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(
-                              color: AppColors.standardBorder,
-                              width: 1.5,
-                            ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(
-                              color: AppColors.black,
-                              width: 2,
-                            ),
-                          ),
-                          errorBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(
-                              color: Colors.red,
-                              width: 1.5,
-                            ),
-                          ),
-                        ),
-                        onChanged: (value) {
-                          // If multiple digits pasted/autofilled in first field
-                          if (index == 0 && value.length > 1) {
-                            // Let _handleAutofill listener handle distribution
-                            return;
-                          }
-
-                          // Handle forward movement (typing single digit)
-                          if (value.length == 1 && index < 5) {
-                            _otpFocusNodes[index + 1].requestFocus();
-                          }
-
-                          // Handle backward movement (deletion/backspace)
-                          if (value.isEmpty && index > 0) {
-                            // Move to previous field
-                            _otpFocusNodes[index - 1].requestFocus();
-                            // Clear previous field to allow immediate deletion
-                            _otpControllers[index - 1].clear();
-                          }
-
-                          // Auto-verify when last digit is entered
-                          if (index == 5 && value.length == 1) {
-                            _verifyOTP();
-                          }
-                        },
-                        onTap: () {
-                          // Select all text when tapped for easier editing
-                          _otpControllers[index].selection = TextSelection(
-                            baseOffset: 0,
-                            extentOffset: _otpControllers[index].text.length,
-                          );
-                        },
+                // Sticky bottom Verify button
+                Container(
+                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+                  decoration: BoxDecoration(
+                    color: AppColors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, -2),
                       ),
-                    ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 32),
-
-                // Development Mode Indicator
-                if (ApiConfig.skipOtpInDev)
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    margin: const EdgeInsets.only(bottom: 24),
-                    decoration: BoxDecoration(
-                      color: Colors.amber.shade50,
-                      border: Border.all(color: Colors.amber.shade300),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.developer_mode,
-                          color: Colors.amber.shade700,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            '🔓 DEV MODE: Any 6-digit code works',
-                            style: AppTypography.body2.copyWith(
-                              color: Colors.amber.shade900,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                // Resend Code
-                Center(
-                  child: _canResend
-                      ? TextButton(
-                          onPressed: _isLoading ? null : _resendOTP,
-                          child: Text(
-                            l10n.resendCode,
-                            style: AppTypography.button.copyWith(
-                              decoration: TextDecoration.underline,
-                            ),
-                          ),
-                        )
-                      : Text(
-                          l10n.resendCodeIn(_secondsRemaining),
-                          style: AppTypography.body2.copyWith(
-                            color: AppColors.tertiaryText,
-                          ),
-                        ),
-                ),
-                const SizedBox(height: 32),
-
-                // Verify Button
-                PrimaryButton(
-                  text: l10n.verify,
-                  onPressed: _verifyOTP,
-                  isLoading: _isLoading,
-                  isFullWidth: true,
-                ),
-                const SizedBox(height: 16),
-
-                // Wrong Number
-                Center(
-                  child: TextButton(
-                    onPressed: _isLoading
-                        ? null
-                        : () {
-                            Navigator.of(context).pop();
-                          },
-                    child: Text(
-                      l10n.wrongNumber,
-                      style: AppTypography.body2.copyWith(
-                        color: AppColors.tertiaryText,
-                      ),
-                    ),
+                  child: PrimaryButton(
+                    text: l10n.verify,
+                    onPressed: _verifyOTP,
+                    isLoading: _isLoading,
+                    isFullWidth: true,
                   ),
                 ),
               ],

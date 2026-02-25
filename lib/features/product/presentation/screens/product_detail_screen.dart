@@ -45,10 +45,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     _initServices();
 
     // Debug: Print product seller information
-    print('🏪 Product Seller Info:');
-    print('   Seller Name: ${widget.product.seller}');
-    print('   Seller ID: ${widget.product.sellerId}');
-    print('   Brand: ${widget.product.brand}');
   }
 
   Future<void> _initServices() async {
@@ -75,8 +71,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final l10n = AppLocalizations.of(context)!;
 
     // Debug: Print product colors and selected color
-    print('🎨 Product colors: ${widget.product.colors}');
-    print('🎨 Selected color: $_selectedColor');
 
     if (_selectedSize == null && widget.product.sizes.isNotEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -117,8 +111,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             ? _selectedColor!.toLowerCase().replaceAll(' ', '_')
             : null;
 
-        print('🎨 Sending to backend - Color: $backendColor');
-
         await _apiService.addToCart(
           productId: widget.product.id,
           selectedSize: _selectedSize ?? l10n.oneSize,
@@ -133,7 +125,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         });
       } catch (e) {
         // Rollback local cart on API failure
-        print('⚠️ Failed to sync cart with backend: $e');
 
         // Remove the exact item we just added
         await _cartService.removeByMatch(
@@ -194,16 +185,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         // User liked the product
         _apiService
             .likeProduct(productId: widget.product.id, token: _authToken!)
-            .catchError((e) {
-              print('⚠️ Failed to send like: $e');
-            });
+            .catchError((e) {});
       } else {
         // User unliked the product - send dislike
         _apiService
             .dislikeProduct(productId: widget.product.id, token: _authToken!)
-            .catchError((e) {
-              print('⚠️ Failed to send dislike: $e');
-            });
+            .catchError((e) {});
       }
     }
 
@@ -391,20 +378,26 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           return const Icon(Icons.error);
                         },
                       )
-                    : CachedNetworkImage(
-                        imageUrl: imagePath,
-                        fit: BoxFit.contain,
-                        cacheManager: ImageCacheManager.instance,
-                        placeholder: (context, url) => Center(
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: isDark
-                                ? AppColors.darkPrimaryText
-                                : AppColors.black,
-                          ),
-                        ),
-                        errorWidget: (context, url, error) =>
-                            const Icon(Icons.error),
+                    : LayoutBuilder(
+                        builder: (context, constraints) {
+                          final cacheWidth = (constraints.maxWidth * 2).toInt();
+                          return CachedNetworkImage(
+                            imageUrl: imagePath,
+                            fit: BoxFit.contain,
+                            cacheManager: ImageCacheManager.instance,
+                            memCacheWidth: cacheWidth,
+                            placeholder: (context, url) => Center(
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: isDark
+                                    ? AppColors.darkPrimaryText
+                                    : AppColors.black,
+                              ),
+                            ),
+                            errorWidget: (context, url, error) =>
+                                const Icon(Icons.error),
+                          );
+                        },
                       ),
               );
             },
@@ -1091,8 +1084,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     String sellerId,
     String sellerName,
   ) async {
-    print('🔍 Navigating to seller profile: $sellerName (ID: $sellerId)');
-
     // Show loading indicator
     showDialog(
       context: context,
@@ -1128,22 +1119,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
 
     try {
-      print('📡 Fetching seller details from API...');
-
       // Fetch seller details using the seller detail endpoint
       final response = await _apiService
           .getBrandDetail(brandId: sellerId, token: _authToken)
           .timeout(
             const Duration(seconds: 10),
             onTimeout: () {
-              print('⏰ API request timed out');
               throw Exception('Request timed out');
             },
           );
-
-      print(
-        '✅ Received ${response.products.length} products for seller: $sellerName (ID: $sellerId)',
-      );
 
       // Convert API products to local Product entities
       final sellerProducts = <Product>[];
@@ -1151,30 +1135,19 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         try {
           final product = _convertApiProduct(apiProduct);
           sellerProducts.add(product);
-        } catch (e) {
-          print('❌ Failed to convert product: ${apiProduct.id}, error: $e');
-        }
+        } catch (e) {}
       }
-
-      print(
-        '🎯 Converted ${sellerProducts.length} products for seller: $sellerName (ID: $sellerId)',
-      );
 
       // Close loading dialog - try multiple methods to ensure it closes
       if (mounted) {
         // First try popping with root navigator
         try {
           Navigator.of(context, rootNavigator: true).pop();
-          print('✓ Dialog closed with rootNavigator');
         } catch (e) {
-          print('Failed to close with rootNavigator: $e');
           // Fallback to regular pop
           try {
             Navigator.of(context).pop();
-            print('✓ Dialog closed with regular navigator');
-          } catch (e2) {
-            print('Failed to close with regular navigator: $e2');
-          }
+          } catch (e2) {}
         }
       }
 
@@ -1184,7 +1157,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       // Navigate to seller profile if we have products
       if (mounted) {
         if (sellerProducts.isEmpty) {
-          print('⚠️ No products found for seller');
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('No products found for $sellerName'),
@@ -1194,7 +1166,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           return;
         }
 
-        print('🚀 Navigating to seller profile screen');
         await Navigator.of(context).push(
           MaterialPageRoute(
             builder: (context) => SellerProfileScreen(
@@ -1204,19 +1175,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             ),
           ),
         );
-        print('✅ Returned from seller profile screen');
       }
     } catch (e, stackTrace) {
-      print('❌ Error in _navigateToSellerProfile: $e');
-      print('Stack trace: $stackTrace');
-
       // Close loading dialog - use root navigator to ensure it closes
       if (mounted) {
         try {
           Navigator.of(context, rootNavigator: true).pop();
-        } catch (popError) {
-          print('Error closing dialog: $popError');
-        }
+        } catch (popError) {}
       }
 
       // Small delay before showing error

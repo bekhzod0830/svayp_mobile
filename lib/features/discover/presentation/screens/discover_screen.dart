@@ -125,13 +125,8 @@ class DiscoverScreenState extends State<DiscoverScreen> {
         } else {
           // No cached data, fetch from API as usual
           try {
-            print('📡 [Discover] Fetching recommendations from API...');
             final response = await _apiService.getRecommendedProducts(
               token: _authToken!,
-            );
-
-            print(
-              '✅ [Discover] Received ${response.products.length} products from API',
             );
 
             // Convert API products to local Product entities
@@ -144,16 +139,9 @@ class DiscoverScreenState extends State<DiscoverScreen> {
                 convertedCount++;
               } catch (e) {
                 failedCount++;
-                print('⚠️ [Discover] Failed to convert product: $e');
               }
             }
 
-            print(
-              '📦 [Discover] Converted $convertedCount products, $failedCount failed',
-            );
-            print(
-              '📦 [Discover] Total loadedProducts: ${loadedProducts.length}',
-            );
           } catch (e) {
             // Don't fall back to mock data - rethrow to show error
             rethrow;
@@ -165,7 +153,6 @@ class DiscoverScreenState extends State<DiscoverScreen> {
       }
 
       // Don't filter liked/disliked products - show all products
-      print('✨ [Discover] Final available products: ${loadedProducts.length}');
 
       setState(() {
         _products = loadedProducts;
@@ -252,7 +239,6 @@ class DiscoverScreenState extends State<DiscoverScreen> {
           .dislikeProduct(productId: swipedProduct.id, token: _authToken!)
           .catchError((e) {
             // Silently handle error - don't interrupt user experience
-            print('⚠️ Failed to send dislike: $e');
           });
     }
   }
@@ -284,7 +270,6 @@ class DiscoverScreenState extends State<DiscoverScreen> {
           .likeProduct(productId: swipedProduct.id, token: _authToken!)
           .catchError((e) {
             // Silently handle error - don't interrupt user experience
-            print('⚠️ Failed to send like: $e');
           });
     }
   }
@@ -427,7 +412,6 @@ class DiscoverScreenState extends State<DiscoverScreen> {
           // Only update cart count after successful API call
           _updateCartCount();
         } catch (e) {
-          print('⚠️ Failed to sync cart with backend: $e');
 
           // Rollback local cart on API failure
           await _cartService.removeByMatch(
@@ -472,7 +456,6 @@ class DiscoverScreenState extends State<DiscoverScreen> {
           // Only update cart count after successful API call
           _updateCartCount();
         } catch (e) {
-          print('⚠️ Failed to sync cart with backend: $e');
 
           // Rollback local cart on API failure
           await _cartService.removeByMatch(

@@ -292,9 +292,6 @@ class ProductListResponse {
     // Safely parse products list, skipping any that fail
     final productsList = <Product>[];
 
-    print('📦 ProductListResponse.fromJson - JSON keys: ${json.keys}');
-    print('📦 Full JSON structure: $json');
-
     // Handle different response structures:
     // 1. /products/all returns: {"data": {"data": [...], "total": X}}
     // 2. /recommendations returns: {"data": [...]}
@@ -303,11 +300,8 @@ class ProductListResponse {
     List<dynamic>? productsJson;
 
     final dataField = json['data'];
-    print('📦 dataField type: ${dataField.runtimeType}');
     if (dataField is Map) {
-      print('📦 dataField keys: ${dataField.keys}');
     } else {
-      print('📦 dataField is not a Map');
     }
 
     if (dataField is Map<String, dynamic>) {
@@ -315,18 +309,10 @@ class ProductListResponse {
       productsJson =
           dataField['data'] as List<dynamic>? ??
           dataField['products'] as List<dynamic>?;
-      print(
-        '📦 Looking for data/products in Map, found: ${productsJson != null}',
-      );
     } else if (dataField is List<dynamic>) {
       // Structure 2: {"data": [...]}
       productsJson = dataField;
-      print('📦 dataField is directly a List');
     }
-
-    print(
-      '📦 productsJson type: ${productsJson.runtimeType}, isNull: ${productsJson == null}, length: ${productsJson?.length}',
-    );
 
     if (productsJson != null) {
       for (final productJson in productsJson) {
@@ -334,7 +320,6 @@ class ProductListResponse {
           final product = Product.fromJson(productJson as Map<String, dynamic>);
           productsList.add(product);
         } catch (e) {
-          print('Warning: Failed to parse product: $e');
           // Skip products that fail to parse
         }
       }
@@ -346,8 +331,6 @@ class ProductListResponse {
         dataWrapper?['total'] as int? ??
         dataWrapper?['pagination']?['total'] as int? ??
         productsList.length;
-
-    print('📦 Parsed ${productsList.length} products, total: $totalCount');
 
     return ProductListResponse(products: productsList, total: totalCount);
   }

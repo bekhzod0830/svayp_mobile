@@ -219,20 +219,6 @@ class _AddressListScreenState extends State<AddressListScreen> {
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 32),
-            ElevatedButton.icon(
-              onPressed: _addNewAddress,
-              icon: const Icon(Icons.add),
-              label: Text(l10n.addAddress),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: isDark ? AppColors.white : AppColors.black,
-                foregroundColor: isDark ? AppColors.black : AppColors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 12,
-                ),
-              ),
-            ),
           ],
         ),
       ),

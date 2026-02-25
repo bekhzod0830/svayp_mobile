@@ -118,7 +118,6 @@ class MainScreenState extends State<MainScreen> {
       },
       child: Builder(
         builder: (context) {
-          print('📱 MainScreen: Building with index $_currentIndex');
           return Scaffold(
             body: IndexedStack(
               index: _currentIndex,
@@ -144,9 +143,6 @@ class MainScreenState extends State<MainScreen> {
                     );
                   },
                   onUnknownRoute: (settings) {
-                    print(
-                      '🛍️ MainScreen: Unknown route for Shop, creating ShopScreen',
-                    );
                     return MaterialPageRoute(
                       builder: (context) => const ShopScreen(),
                     );

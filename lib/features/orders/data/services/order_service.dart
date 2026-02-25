@@ -33,7 +33,6 @@ class OrderService {
         // Flat structure: {"data": [...]}
         ordersData = data;
       } else {
-        print('⚠️ Unexpected data structure in response');
         ordersData = [];
       }
 
@@ -42,18 +41,14 @@ class OrderService {
         try {
           orders.add(OrderModel.fromJson(orderJson as Map<String, dynamic>));
         } catch (e) {
-          print('⚠️ Failed to parse order: $e');
-          print('   Order JSON: $orderJson');
         }
       }
 
       // Sort by date, newest first
       orders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-      print('✅ Parsed ${orders.length} orders');
       return orders;
     } catch (e) {
-      print('❌ Error fetching orders: $e');
       rethrow;
     }
   }
@@ -65,7 +60,6 @@ class OrderService {
     }
 
     try {
-      print('📦 Fetching order $id from API');
 
       final endpoint = ApiConfig.orderDetail.replaceAll('{id}', id);
       final response = await _apiClient.get(endpoint);
@@ -73,7 +67,6 @@ class OrderService {
       final orderData = response.data['data'];
       return OrderModel.fromJson(orderData as Map<String, dynamic>);
     } catch (e) {
-      print('❌ Error fetching order $id: $e');
       return null;
     }
   }
@@ -118,22 +111,16 @@ class OrderService {
         requestBody['addressId'] = addressId;
       }
 
-      print('📦 Placing order via API: ${ApiConfig.orders}');
-      print('📤 Request body: $requestBody');
-
       final response = await _apiClient.post(
         ApiConfig.orders,
         data: requestBody,
       );
-
-      print('✅ Order placed successfully: ${response.data}');
 
       // Extract order data from response
       // API typically returns: {data: {...order data}, message: "..."}
       final orderData = response.data['data'] ?? response.data;
       return orderData as Map<String, dynamic>;
     } catch (e) {
-      print('❌ Error placing order: $e');
       rethrow;
     }
   }

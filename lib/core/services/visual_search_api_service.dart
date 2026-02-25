@@ -53,16 +53,11 @@ class VisualSearchApiService {
         'apply_user_preferences': token != null,
       });
 
-      print('📡 POST $uri');
-      print('📝 Request: $requestBody');
-
       final response = await http.post(
         uri,
         headers: headers,
         body: requestBody,
       );
-
-      print('📡 Response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
@@ -74,7 +69,6 @@ class VisualSearchApiService {
         );
       }
     } catch (e) {
-      print('❌ Error performing visual search: $e');
       rethrow;
     }
   }
@@ -101,23 +95,17 @@ class VisualSearchApiService {
       );
       request.files.add(file);
 
-      print('📤 Uploading image to $uri');
-
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
-
-      print('📤 Upload status: ${response.statusCode}');
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final jsonData = json.decode(response.body);
         final imageUrl = jsonData['url'] as String;
-        print('✅ Image uploaded: $imageUrl');
         return imageUrl;
       } else {
         throw Exception('Failed to upload image: ${response.statusCode}');
       }
     } catch (e) {
-      print('❌ Error uploading image: $e');
       rethrow;
     }
   }
@@ -134,12 +122,10 @@ class VisualSearchApiService {
       );
 
       if (image != null) {
-        print('📸 Image selected: ${image.path}');
       }
 
       return image;
     } catch (e) {
-      print('❌ Error picking image: $e');
       rethrow;
     }
   }
@@ -149,8 +135,6 @@ class VisualSearchApiService {
   Future<VisualSearchResponse> _getMockVisualSearchResponse() async {
     // Simulate network delay
     await Future.delayed(const Duration(seconds: 2));
-
-    print('🎭 Using mock visual search data with local images');
 
     final now = DateTime.now();
 

@@ -9,6 +9,7 @@ import 'package:swipe/features/chat/data/services/chat_websocket_service.dart';
 import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/core/network/api_client.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:swipe/core/cache/image_cache_manager.dart';
 import 'package:swipe/features/auth/data/services/auth_service.dart';
 import 'package:swipe/core/services/product_api_service.dart';
 import 'package:swipe/features/product/presentation/screens/product_detail_screen.dart';
@@ -59,8 +60,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     if (_isInitialized) return;
 
     try {
-      print('🔄 [ChatDetailScreen] Initializing chat ${widget.chatId}');
-
       // Get current user ID
       final authService = getIt<AuthService>();
       final currentUser = await authService.getCurrentUser();
@@ -77,10 +76,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       _startPolling();
 
       _isInitialized = true;
-      print('✅ [ChatDetailScreen] Chat initialized successfully');
     } catch (e, stackTrace) {
-      print('❌ [ChatDetailScreen] Error initializing chat: $e');
-      print('❌ [ChatDetailScreen] Stack trace: $stackTrace');
       if (mounted) {
         setState(() {
           _errorMessage = 'Failed to load chat: ${e.toString()}';
@@ -117,14 +113,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
           // Mark as read
           _chatService.markAsRead(widget.chatId);
-          print('🔄 [ChatDetailScreen] Polling: Found new messages');
         }
-      } catch (e) {
-        print('❌ [ChatDetailScreen] Polling error: $e');
-      }
+      } catch (e) {}
     });
-
-    print('🔄 [ChatDetailScreen] Started polling for new messages');
   }
 
   Future<void> _loadChat() async {
@@ -136,7 +127,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         });
       }
     } catch (e) {
-      print('❌ Error loading chat: $e');
       rethrow;
     }
   }
@@ -158,7 +148,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         });
       }
     } catch (e) {
-      print('❌ Error loading messages: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -182,7 +171,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       );
 
       // Send via REST API
-      print('📤 [ChatDetailScreen] Sending via REST API');
       final newMessage = await _chatService.sendMessage(widget.chatId, request);
 
       if (mounted) {
@@ -199,7 +187,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         _scrollToBottom();
       }
     } catch (e) {
-      print('❌ Error sending message: $e');
       if (mounted) {
         setState(() {
           _isSending = false;
@@ -720,7 +707,6 @@ class _ProductMessageBubble extends StatelessWidget {
         );
       }
     } catch (e) {
-      print('❌ Error opening product details: $e');
       // Close loading dialog
       if (context.mounted) {
         Navigator.of(context, rootNavigator: true).pop();
@@ -813,6 +799,9 @@ class _ProductMessageBubble extends StatelessWidget {
                       width: 60,
                       height: 60,
                       fit: BoxFit.cover,
+                      cacheManager: ImageCacheManager.instance,
+                      memCacheWidth: 120,
+                      memCacheHeight: 120,
                     ),
                   ),
                 const SizedBox(width: 12),

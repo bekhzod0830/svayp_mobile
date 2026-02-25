@@ -390,35 +390,43 @@ class _TikTokProductCard extends StatelessWidget {
                           ? AppColors.darkMainBackground
                           : Colors.white,
                       child: product.images.isNotEmpty
-                          ? CachedNetworkImage(
-                              imageUrl: product.images.first,
-                              fit: BoxFit.contain,
-                              cacheManager: ImageCacheManager.instance,
-                              placeholder: (context, url) => Container(
-                                color: isDark
-                                    ? AppColors.darkMainBackground
-                                    : AppColors.gray100,
-                                child: Center(
-                                  child: CircularProgressIndicator(
+                          ? LayoutBuilder(
+                              builder: (context, constraints) {
+                                final cacheWidth = (constraints.maxWidth * 2)
+                                    .toInt();
+                                return CachedNetworkImage(
+                                  imageUrl: product.images.first,
+                                  fit: BoxFit.contain,
+                                  cacheManager: ImageCacheManager.instance,
+                                  memCacheWidth: cacheWidth,
+                                  placeholder: (context, url) => Container(
                                     color: isDark
-                                        ? AppColors.darkPrimaryText
-                                        : AppColors.gray400,
-                                    strokeWidth: 2,
+                                        ? AppColors.darkMainBackground
+                                        : AppColors.gray100,
+                                    child: Center(
+                                      child: CircularProgressIndicator(
+                                        color: isDark
+                                            ? AppColors.darkPrimaryText
+                                            : AppColors.gray400,
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ),
-                              errorWidget: (context, url, error) => Container(
-                                color: isDark
-                                    ? AppColors.darkMainBackground
-                                    : AppColors.gray100,
-                                child: Icon(
-                                  Icons.image_outlined,
-                                  size: 32,
-                                  color: isDark
-                                      ? AppColors.darkSecondaryText
-                                      : AppColors.gray400,
-                                ),
-                              ),
+                                  errorWidget: (context, url, error) =>
+                                      Container(
+                                        color: isDark
+                                            ? AppColors.darkMainBackground
+                                            : AppColors.gray100,
+                                        child: Icon(
+                                          Icons.image_outlined,
+                                          size: 32,
+                                          color: isDark
+                                              ? AppColors.darkSecondaryText
+                                              : AppColors.gray400,
+                                        ),
+                                      ),
+                                );
+                              },
                             )
                           : Container(
                               color: isDark
@@ -657,9 +665,7 @@ class _TikTokProductCard extends StatelessWidget {
           ),
         ),
       );
-    } catch (e) {
-      print('Error loading seller products: $e');
-    }
+    } catch (e) {}
   }
 
   List<Color> _getGradientColors(String name) {

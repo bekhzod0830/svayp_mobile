@@ -101,13 +101,7 @@ class PartnerService {
             .toList(),
       };
 
-      print('💰 [PartnerService] Recording cashback for user: $customerId');
-      print('   Items count: ${products.length}');
-
       final response = await _apiClient.post('/qr-sale', data: requestBody);
-
-      print('✅ [PartnerService] QR Sale response received:');
-      print('   Response data: ${response.data}');
 
       if (response.data is Map<String, dynamic>) {
         return response.data as Map<String, dynamic>;
@@ -115,7 +109,6 @@ class PartnerService {
 
       return {'success': true, 'data': response.data};
     } catch (e) {
-      print('❌ [PartnerService] Error recording cashback: $e');
       rethrow;
     }
   }

@@ -67,14 +67,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // Fetch user data
       final user = await authService.getCurrentUser();
 
-      print('📊 [ProfileScreen] Raw user data from API:');
-      print('   - User ID: ${user.id}');
-      print('   - Full Name: ${user.fullName}');
-      print('   - Phone: ${user.phoneNumber}');
-      print('   - Cashback Balance: ${user.cashbackBalance}');
-      print('   - Role: ${user.role}');
-      print('   - Is Active: ${user.isActive}');
-
       // Try to fetch profile for non-partners, but don't fail if it doesn't exist
       UserProfileResponse? profile;
       if (!isPartner) {
@@ -98,12 +90,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _cashbackBalance = user.cashbackBalance;
         _isLoading = false;
       });
-
-      print('✅ [ProfileScreen] User data loaded successfully');
-      print('   Profile available: ${profile != null}');
-      print('   Cashback balance: $_cashbackBalance');
     } catch (e) {
-      print('❌ Error loading user data: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -797,7 +784,6 @@ class _FullPageQrViewState extends State<_FullPageQrView> {
       try {
         _originalBrightness = await screenBrightness.current;
       } catch (e) {
-        debugPrint('Could not get current brightness: $e');
         // Continue without storing original brightness
       }
 
@@ -806,12 +792,9 @@ class _FullPageQrViewState extends State<_FullPageQrView> {
         await screenBrightness.setScreenBrightness(1.0);
         _brightnessChanged = true;
       } catch (e) {
-        debugPrint('Could not set brightness: $e');
         // Continue without brightness control
       }
-    } catch (e) {
-      debugPrint('Brightness control not available: $e');
-    }
+    } catch (e) {}
   }
 
   Future<void> _restoreBrightness() async {
@@ -819,9 +802,7 @@ class _FullPageQrViewState extends State<_FullPageQrView> {
 
     try {
       await ScreenBrightness().setScreenBrightness(_originalBrightness!);
-    } catch (e) {
-      debugPrint('Failed to restore brightness: $e');
-    }
+    } catch (e) {}
   }
 
   @override
@@ -902,20 +883,6 @@ class _FullPageQrViewState extends State<_FullPageQrView> {
                           dataModuleShape: QrDataModuleShape.square,
                           color: AppColors.black,
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 40),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 40),
-                      child: Text(
-                        'ID: ${widget.userId}',
-                        style: AppTypography.caption.copyWith(
-                          color: isDark
-                              ? AppColors.darkSecondaryText
-                              : AppColors.gray500,
-                          fontFamily: 'monospace',
-                        ),
-                        textAlign: TextAlign.center,
                       ),
                     ),
                     const SizedBox(height: 80),

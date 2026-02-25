@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/features/auth/presentation/screens/partner_login_screen.dart';
 import 'package:swipe/core/constants/app_colors.dart';
@@ -28,6 +30,13 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
   bool _agreedToTerms = false;
   late final AuthService _authService;
   Timer? _longPressTimer;
+
+  Future<void> _launchUrl(String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
 
   @override
   void initState() {
@@ -71,8 +80,6 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
       // Send OTP to the phone number
       final response = await _authService.sendOTP(phoneNumber);
 
-      print('✅ OTP sent successfully: ${response.message}');
-
       if (!mounted) return;
 
       // Navigate to OTP verification screen
@@ -80,11 +87,9 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
         context,
       ).pushNamed('/otp-verification', arguments: phoneNumber);
     } on ApiException catch (e) {
-      print('❌ API Error: ${e.message}');
       if (!mounted) return;
       SnackBarHelper.showError(context, e.message);
     } catch (e) {
-      print('❌ Unexpected error: $e');
       if (!mounted) return;
       SnackBarHelper.showError(context, l10n.otpSendError);
     } finally {
@@ -101,6 +106,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final locale = Localizations.localeOf(context).languageCode;
     final horizontalPadding = ResponsiveUtils.getHorizontalPadding(context);
     final maxWidth = ResponsiveUtils.responsive<double>(
       context: context,
@@ -264,6 +270,10 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                                                 TextDecoration.underline,
                                             fontWeight: FontWeight.w600,
                                           ),
+                                          recognizer: TapGestureRecognizer()
+                                            ..onTap = () => _launchUrl(
+                                              'https://svaypai.com/$locale/terms',
+                                            ),
                                         ),
                                         TextSpan(
                                           text: l10n.and,
@@ -283,6 +293,10 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                                                 TextDecoration.underline,
                                             fontWeight: FontWeight.w600,
                                           ),
+                                          recognizer: TapGestureRecognizer()
+                                            ..onTap = () => _launchUrl(
+                                              'https://svaypai.com/$locale/privacy',
+                                            ),
                                         ),
                                       ],
                                     ),
@@ -322,17 +336,6 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                         onPressed: _sendOTP,
                         isLoading: _isLoading,
                         isFullWidth: true,
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Help Text
-                      Text(
-                        l10n.contactSupport,
-                        style: AppTypography.body2.copyWith(
-                          color: isDark
-                              ? AppColors.darkTertiaryText
-                              : AppColors.tertiaryText,
-                        ),
                       ),
                     ],
                   ),

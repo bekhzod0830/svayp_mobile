@@ -66,9 +66,7 @@ class _ShopScreenState extends State<ShopScreen>
         _hasLoadedOnce = true;
         await _loadProducts();
       }
-    } catch (e) {
-      print('❌ ShopScreen: Error in _initAuth: $e');
-    }
+    } catch (e) {}
   }
 
   @override
@@ -114,7 +112,6 @@ class _ShopScreenState extends State<ShopScreen>
           products.add(product);
         } catch (e) {
           // Skip products that fail to convert
-          print('Failed to convert product: ${apiProduct.id}, error: $e');
         }
       }
 
@@ -131,7 +128,6 @@ class _ShopScreenState extends State<ShopScreen>
         _errorMessage =
             'Unable to load products. Please check your connection and try again.';
       });
-      print('Error loading products: $e');
     }
   }
 
@@ -154,9 +150,7 @@ class _ShopScreenState extends State<ShopScreen>
         try {
           final product = _convertApiProduct(apiProduct);
           newProducts.add(product);
-        } catch (e) {
-          print('Failed to convert product: ${apiProduct.id}, error: $e');
-        }
+        } catch (e) {}
       }
 
       // Filter out duplicates
@@ -185,7 +179,6 @@ class _ShopScreenState extends State<ShopScreen>
       setState(() {
         _isLoadingMore = false;
       });
-      print('Error loading more products: $e');
     }
   }
 
@@ -250,9 +243,7 @@ class _ShopScreenState extends State<ShopScreen>
         try {
           final product = _convertApiProduct(apiProduct);
           searchResults.add(product);
-        } catch (e) {
-          print('Failed to convert product: ${apiProduct.id}, error: $e');
-        }
+        } catch (e) {}
       }
 
       // Navigate to search results screen
@@ -270,7 +261,6 @@ class _ShopScreenState extends State<ShopScreen>
         );
       }
     } catch (e) {
-      print('Search error: $e');
       // Fallback to local filtering if API fails
       final searchResults = _products.where((product) {
         return product.title.toLowerCase().contains(query.toLowerCase()) ||
@@ -439,8 +429,6 @@ class _ShopScreenState extends State<ShopScreen>
           ),
         );
       }
-
-      print('Visual search error: $e');
     }
   }
 
@@ -953,37 +941,43 @@ class _TikTokProductCard extends StatelessWidget {
                       color: isDark
                           ? AppColors.darkMainBackground
                           : Colors.white,
-                      child: CachedNetworkImage(
-                        imageUrl: product.images.isNotEmpty
-                            ? product.images.first
-                            : 'https://via.placeholder.com/400',
-                        fit: BoxFit.contain,
-                        cacheManager: ImageCacheManager.instance,
-                        placeholder: (context, url) => Container(
-                          color: isDark
-                              ? AppColors.darkMainBackground
-                              : AppColors.gray100,
-                          child: Center(
-                            child: CircularProgressIndicator(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final cacheWidth = (constraints.maxWidth * 2).toInt();
+                          return CachedNetworkImage(
+                            imageUrl: product.images.isNotEmpty
+                                ? product.images.first
+                                : 'https://via.placeholder.com/400',
+                            fit: BoxFit.contain,
+                            cacheManager: ImageCacheManager.instance,
+                            memCacheWidth: cacheWidth,
+                            placeholder: (context, url) => Container(
                               color: isDark
-                                  ? AppColors.darkPrimaryText
-                                  : AppColors.gray400,
-                              strokeWidth: 2,
+                                  ? AppColors.darkMainBackground
+                                  : AppColors.gray100,
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  color: isDark
+                                      ? AppColors.darkPrimaryText
+                                      : AppColors.gray400,
+                                  strokeWidth: 2,
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                        errorWidget: (context, url, error) => Container(
-                          color: isDark
-                              ? AppColors.darkMainBackground
-                              : AppColors.gray100,
-                          child: Icon(
-                            Icons.image_outlined,
-                            size: 32,
-                            color: isDark
-                                ? AppColors.darkSecondaryText
-                                : AppColors.gray400,
-                          ),
-                        ),
+                            errorWidget: (context, url, error) => Container(
+                              color: isDark
+                                  ? AppColors.darkMainBackground
+                                  : AppColors.gray100,
+                              child: Icon(
+                                Icons.image_outlined,
+                                size: 32,
+                                color: isDark
+                                    ? AppColors.darkSecondaryText
+                                    : AppColors.gray400,
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ),

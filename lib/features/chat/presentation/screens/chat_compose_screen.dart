@@ -8,6 +8,7 @@ import 'package:swipe/features/chat/presentation/screens/chat_detail_screen.dart
 import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/core/network/api_client.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:swipe/core/cache/image_cache_manager.dart';
 import 'package:swipe/core/services/product_api_service.dart';
 import 'package:swipe/features/product/presentation/screens/product_detail_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -96,7 +97,6 @@ class _ChatComposeScreenState extends State<ChatComposeScreen> {
         );
       }
     } catch (e) {
-      print('❌ Error opening product details: $e');
       // Close loading dialog
       if (mounted) {
         Navigator.of(context, rootNavigator: true).pop();
@@ -182,9 +182,7 @@ class _ChatComposeScreenState extends State<ChatComposeScreen> {
         quantity: 1,
       );
 
-      print('📱 Creating chat with first message...');
       final chat = await chatService.createChat(request);
-      print('✅ Chat created: ${chat.id}');
 
       if (mounted) {
         // Navigate to the actual chat screen
@@ -195,9 +193,6 @@ class _ChatComposeScreenState extends State<ChatComposeScreen> {
         );
       }
     } catch (e, stackTrace) {
-      print('❌ Error creating chat: $e');
-      print('❌ Stack trace: $stackTrace');
-
       if (mounted) {
         setState(() {
           _isSending = false;
@@ -254,6 +249,9 @@ class _ChatComposeScreenState extends State<ChatComposeScreen> {
                       child: CachedNetworkImage(
                         imageUrl: widget.sellerLogo!,
                         fit: BoxFit.cover,
+                        cacheManager: ImageCacheManager.instance,
+                        memCacheWidth: 80,
+                        memCacheHeight: 80,
                         errorWidget: (context, url, error) => Center(
                           child: Text(
                             widget.sellerName[0].toUpperCase(),
@@ -339,6 +337,9 @@ class _ChatComposeScreenState extends State<ChatComposeScreen> {
                         child: CachedNetworkImage(
                           imageUrl: widget.productImage!,
                           fit: BoxFit.cover,
+                          cacheManager: ImageCacheManager.instance,
+                          memCacheWidth: 120,
+                          memCacheHeight: 120,
                           placeholder: (context, url) => Center(
                             child: CircularProgressIndicator(strokeWidth: 2),
                           ),

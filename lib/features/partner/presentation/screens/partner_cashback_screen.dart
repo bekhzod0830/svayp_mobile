@@ -11,6 +11,8 @@ import 'package:swipe/features/auth/data/models/auth_models.dart';
 import 'package:swipe/features/partner/data/services/partner_service.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/shared/widgets/widgets.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:swipe/core/cache/image_cache_manager.dart';
 
 /// Partner Cashback Screen
 /// Partners scan a customer's unique QR code, verify the user,
@@ -183,7 +185,6 @@ class _QrScannerPageState extends State<_QrScannerPage> {
           _controller.dispose();
         })
         .catchError((error) {
-          print('⚠️ Error stopping camera: $error');
           _controller.dispose();
         });
     super.dispose();
@@ -705,12 +706,15 @@ class _ProductListItem extends StatelessWidget {
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: product.images.isNotEmpty
-                  ? Image.network(
-                      product.images.first,
+                  ? CachedNetworkImage(
+                      imageUrl: product.images.first,
                       width: 60,
                       height: 60,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => const _PlaceholderImage(),
+                      cacheManager: ImageCacheManager.instance,
+                      memCacheWidth: 120,
+                      memCacheHeight: 120,
+                      errorWidget: (_, __, ___) => const _PlaceholderImage(),
                     )
                   : const _PlaceholderImage(),
             ),
@@ -1091,12 +1095,15 @@ class _ProductFormCard extends StatelessWidget {
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: product.images.isNotEmpty
-                    ? Image.network(
-                        product.images.first,
+                    ? CachedNetworkImage(
+                        imageUrl: product.images.first,
                         width: 50,
                         height: 50,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const _PlaceholderImage(),
+                        cacheManager: ImageCacheManager.instance,
+                        memCacheWidth: 100,
+                        memCacheHeight: 100,
+                        errorWidget: (_, __, ___) => const _PlaceholderImage(),
                       )
                     : const _PlaceholderImage(),
               ),

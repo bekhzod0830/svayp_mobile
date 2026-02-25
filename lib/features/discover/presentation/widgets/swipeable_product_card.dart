@@ -623,30 +623,36 @@ class SwipeableProductCardState extends State<SwipeableProductCard>
                 : const NeverScrollableScrollPhysics(),
             itemCount: widget.product.images.length,
             itemBuilder: (context, index) {
-              return CachedNetworkImage(
-                key: ValueKey('img_${widget.product.id}_$index'),
-                imageUrl: widget.product.images[index],
-                fit: BoxFit.contain,
-                cacheManager: ImageCacheManager.instance,
-                fadeInDuration: Duration.zero,
-                fadeOutDuration: Duration.zero,
-                placeholder: (context, url) => Container(
-                  color: isDark
-                      ? AppColors.darkMainBackground
-                      : AppColors.gray100,
-                ),
-                errorWidget: (context, url, error) => Container(
-                  color: isDark
-                      ? AppColors.darkCardBackground
-                      : AppColors.gray200,
-                  child: Icon(
-                    Icons.image_outlined,
-                    size: 64,
-                    color: isDark
-                        ? AppColors.darkSecondaryText
-                        : AppColors.gray500,
-                  ),
-                ),
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  final cacheWidth = (constraints.maxWidth * 2).toInt();
+                  return CachedNetworkImage(
+                    key: ValueKey('img_${widget.product.id}_$index'),
+                    imageUrl: widget.product.images[index],
+                    fit: BoxFit.contain,
+                    cacheManager: ImageCacheManager.instance,
+                    memCacheWidth: cacheWidth,
+                    fadeInDuration: Duration.zero,
+                    fadeOutDuration: Duration.zero,
+                    placeholder: (context, url) => Container(
+                      color: isDark
+                          ? AppColors.darkMainBackground
+                          : AppColors.gray100,
+                    ),
+                    errorWidget: (context, url, error) => Container(
+                      color: isDark
+                          ? AppColors.darkCardBackground
+                          : AppColors.gray200,
+                      child: Icon(
+                        Icons.image_outlined,
+                        size: 64,
+                        color: isDark
+                            ? AppColors.darkSecondaryText
+                            : AppColors.gray500,
+                      ),
+                    ),
+                  );
+                },
               );
             },
           ),

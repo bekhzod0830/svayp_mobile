@@ -107,14 +107,12 @@ class _BudgetByItemsScreenState extends State<BudgetByItemsScreen> {
   }
 
   Future<void> _continue() async {
-    print('🎯 [Budget By Items] Continue button pressed');
 
     setState(() {
       _isLoading = true;
     });
 
     try {
-      print('📊 [Budget By Items] Getting dependencies...');
       // Import required dependencies at the top of the file
       final manager = context.read<OnboardingDataManager>();
       final profileService = getIt<ProfileService>();
@@ -122,9 +120,7 @@ class _BudgetByItemsScreenState extends State<BudgetByItemsScreen> {
       final l10n = AppLocalizations.of(context)!;
 
       // CRITICAL: Check if user is authenticated before creating profile
-      print('🔐 [Budget By Items] Checking authentication...');
       if (!apiClient.isAuthenticated()) {
-        print('❌ [Budget By Items] User not authenticated!');
         if (!mounted) return;
         SnackBarHelper.showError(context, l10n.authenticationRequired);
         // Navigate back to login
@@ -133,34 +129,21 @@ class _BudgetByItemsScreenState extends State<BudgetByItemsScreen> {
         ).pushNamedAndRemoveUntil('/phone-auth', (route) => false);
         return;
       }
-      print('✅ [Budget By Items] User is authenticated');
 
       // Validate required fields
-      print('📋 [Budget By Items] Validating required fields...');
       if (!manager.hasRequiredFields) {
-        print('❌ [Budget By Items] Missing required fields!');
         SnackBarHelper.showError(context, l10n.pleaseCompleteAllFields);
         setState(() {
           _isLoading = false;
         });
         return;
       }
-      print('✅ [Budget By Items] All required fields present');
 
       // Convert collected data to API format
-      print('🔄 [Budget By Items] Converting data to API format...');
       final profileRequest = manager.toProfileRequest();
-      print('📦 [Budget By Items] Profile request created');
-      print('   Gender: ${profileRequest.gender}');
-      print('   DOB: ${profileRequest.dateOfBirth}');
-      print('   Body Type: ${profileRequest.bodyType}');
-      print('   Hijab: ${profileRequest.hijabPreference}');
-      print('   Style Prefs: ${profileRequest.stylePreference}');
 
       // Submit profile to backend BEFORE navigating to completion screen
-      print('📤 [Budget By Items] Sending profile creation request...');
       await profileService.createProfile(profileRequest);
-      print('✅ [Budget By Items] Profile created successfully!');
 
       // TODO: Submit quiz results once real products are in database
       // Style quiz currently uses placeholder images (1, 2, 3...) not real product IDs
@@ -172,10 +155,8 @@ class _BudgetByItemsScreenState extends State<BudgetByItemsScreen> {
       if (!mounted) return;
 
       // Navigate to onboarding completion screen only after successful profile creation
-      print('🎉 [Budget By Items] Navigating to completion screen...');
       Navigator.of(context).pushNamed('/onboarding-completion');
     } catch (e) {
-      print('❌ [Budget By Items] Error: $e');
       if (!mounted) return;
       final l10n = AppLocalizations.of(context)!;
       SnackBarHelper.showError(

@@ -8,6 +8,8 @@ import 'package:swipe/features/main/presentation/screens/main_screen.dart';
 import 'package:swipe/features/chat/presentation/screens/chat_list_screen.dart';
 import 'package:swipe/core/network/api_client.dart';
 import 'package:swipe/core/di/service_locator.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:swipe/core/cache/image_cache_manager.dart';
 
 /// Refreshable interface for orders screen
 abstract class Refreshable {
@@ -78,8 +80,6 @@ class OrdersScreenState extends State<OrdersScreen>
         _isLoading = false;
       });
     } catch (e) {
-      print('❌ Error loading orders: $e');
-
       if (!mounted) return;
 
       setState(() {
@@ -787,12 +787,15 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                     if (item.productImage != null)
                       ClipRRect(
                         borderRadius: BorderRadius.circular(8),
-                        child: Image.network(
-                          item.productImage!,
+                        child: CachedNetworkImage(
+                          imageUrl: item.productImage!,
                           width: 60,
                           height: 60,
                           fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
+                          cacheManager: ImageCacheManager.instance,
+                          memCacheWidth: 120,
+                          memCacheHeight: 120,
+                          errorWidget: (context, url, error) {
                             return Container(
                               width: 60,
                               height: 60,

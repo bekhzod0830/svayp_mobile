@@ -6,11 +6,6 @@ import 'package:swipe/core/constants/app_typography.dart';
 import 'package:swipe/features/product/presentation/screens/product_detail_screen.dart';
 import 'package:swipe/features/discover/domain/entities/product.dart' as domain;
 import 'package:swipe/l10n/app_localizations.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:swipe/core/cache/image_cache_manager.dart';
-import 'package:swipe/features/shop/presentation/screens/seller_profile_screen.dart';
-import 'package:swipe/core/services/product_api_service.dart';
-import 'package:swipe/features/discover/domain/entities/product.dart';
 
 /// Visual Search Results Screen
 class VisualSearchResultsScreen extends StatelessWidget {
@@ -25,7 +20,6 @@ class VisualSearchResultsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;

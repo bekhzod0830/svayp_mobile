@@ -350,37 +350,43 @@ class _TikTokProductCard extends StatelessWidget {
                       color: isDark
                           ? AppColors.darkMainBackground
                           : Colors.white,
-                      child: CachedNetworkImage(
-                        imageUrl: product.images.isNotEmpty
-                            ? product.images.first
-                            : 'https://via.placeholder.com/400',
-                        fit: BoxFit.contain,
-                        cacheManager: ImageCacheManager.instance,
-                        placeholder: (context, url) => Container(
-                          color: isDark
-                              ? AppColors.darkMainBackground
-                              : AppColors.gray100,
-                          child: Center(
-                            child: CircularProgressIndicator(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final cacheWidth = (constraints.maxWidth * 2).toInt();
+                          return CachedNetworkImage(
+                            imageUrl: product.images.isNotEmpty
+                                ? product.images.first
+                                : 'https://via.placeholder.com/400',
+                            fit: BoxFit.contain,
+                            cacheManager: ImageCacheManager.instance,
+                            memCacheWidth: cacheWidth,
+                            placeholder: (context, url) => Container(
                               color: isDark
-                                  ? AppColors.darkPrimaryText
-                                  : AppColors.gray400,
-                              strokeWidth: 2,
+                                  ? AppColors.darkMainBackground
+                                  : AppColors.gray100,
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  color: isDark
+                                      ? AppColors.darkPrimaryText
+                                      : AppColors.gray400,
+                                  strokeWidth: 2,
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                        errorWidget: (context, url, error) => Container(
-                          color: isDark
-                              ? AppColors.darkMainBackground
-                              : AppColors.gray100,
-                          child: Icon(
-                            Icons.image_outlined,
-                            size: 32,
-                            color: isDark
-                                ? AppColors.darkSecondaryText
-                                : AppColors.gray400,
-                          ),
-                        ),
+                            errorWidget: (context, url, error) => Container(
+                              color: isDark
+                                  ? AppColors.darkMainBackground
+                                  : AppColors.gray100,
+                              child: Icon(
+                                Icons.image_outlined,
+                                size: 32,
+                                color: isDark
+                                    ? AppColors.darkSecondaryText
+                                    : AppColors.gray400,
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ),

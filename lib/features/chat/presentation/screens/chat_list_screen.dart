@@ -37,7 +37,6 @@ class _ChatListScreenState extends State<ChatListScreen>
 
   void _checkUserRole() {
     _isAdmin = _apiClient.isPartnerLogin();
-    print('🔍 [ChatListScreen] User is admin/seller: $_isAdmin');
   }
 
   @override
@@ -76,9 +75,7 @@ class _ChatListScreenState extends State<ChatListScreen>
     });
 
     try {
-      print('🔄 [ChatListScreen] Loading chats...');
       final chats = await _chatService.getChats();
-      print('✅ [ChatListScreen] Loaded ${chats.length} chats');
 
       if (!mounted) return;
 
@@ -87,8 +84,6 @@ class _ChatListScreenState extends State<ChatListScreen>
         _isLoading = false;
       });
     } catch (e, stackTrace) {
-      print('❌ [ChatListScreen] Error loading chats: $e');
-      print('❌ [ChatListScreen] Stack trace: $stackTrace');
 
       if (!mounted) return;
 

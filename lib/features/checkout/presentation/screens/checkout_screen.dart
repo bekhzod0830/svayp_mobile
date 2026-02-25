@@ -71,7 +71,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
       if (token != null && token.isNotEmpty) {
         // Fetch cart from API
-        print('📡 Fetching cart from API for checkout...');
         final cartData = await _apiService.getCart(token: token);
 
         final items = cartData['items'] as List<dynamic>;
@@ -102,8 +101,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 : DateTime.now(),
           );
         }).toList();
-
-        print('✅ Loaded ${cartItems.length} items from API for checkout');
       } else {
         // Not authenticated, use local cache
         await _cartService.init();
@@ -111,7 +108,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         subtotal = _cartService.getSubtotal();
       }
     } catch (e) {
-      print('❌ Error loading cart for checkout: $e');
       // Fallback to local cache
       await _cartService.init();
       cartItems = _cartService.getCartItems();
@@ -783,6 +779,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 height: 60,
                 fit: BoxFit.contain,
                 cacheManager: ImageCacheManager.instance,
+                memCacheWidth: 120,
+                memCacheHeight: 120,
               ),
             ),
           ),
