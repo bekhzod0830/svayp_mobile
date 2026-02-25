@@ -35,7 +35,7 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
     final isDark = theme.brightness == Brightness.dark;
 
     // Mock seller data
-    final sellerRating = 4.8;
+    // final sellerRating = 4.8; // COMMENTED OUT - for future use
     final totalProducts = widget.products.length;
     final totalSold = totalProducts * 156; // Mock sold count
 
@@ -112,13 +112,14 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          _buildStatChip(
-                            icon: Icons.star_rounded,
-                            label: sellerRating.toStringAsFixed(1),
-                            color: Colors.amber,
-                            isDark: isDark,
-                          ),
-                          const SizedBox(width: 16),
+                          // COMMENTED OUT - Seller rating (for future use)
+                          // _buildStatChip(
+                          //   icon: Icons.star_rounded,
+                          //   label: sellerRating.toStringAsFixed(1),
+                          //   color: Colors.amber,
+                          //   isDark: isDark,
+                          // ),
+                          // const SizedBox(width: 16),
                           _buildStatChip(
                             icon: Icons.inventory_2_outlined,
                             label: '$totalProducts',
@@ -518,23 +519,24 @@ class _TikTokProductCard extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 6),
+                  // COMMENTED OUT - Product rating (for future use)
                   // Rating & Seller
                   Row(
                     children: [
-                      Icon(Icons.star_rounded, size: 12, color: Colors.amber),
-                      const SizedBox(width: 2),
-                      Text(
-                        product.rating.toStringAsFixed(1),
-                        style: AppTypography.caption.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: isDark
-                              ? AppColors.darkSecondaryText
-                              : AppColors.gray600,
-                          fontSize: 11,
-                        ),
-                      ),
+                      // Icon(Icons.star_rounded, size: 12, color: Colors.amber),
+                      // const SizedBox(width: 2),
+                      // Text(
+                      //   product.rating.toStringAsFixed(1),
+                      //   style: AppTypography.caption.copyWith(
+                      //     fontWeight: FontWeight.w600,
+                      //     color: isDark
+                      //         ? AppColors.darkSecondaryText
+                      //         : AppColors.gray600,
+                      //     fontSize: 11,
+                      //   ),
+                      // ),
                       if (showSeller) ...[
-                        const SizedBox(width: 6),
+                        // const SizedBox(width: 6),
                         Flexible(
                           child: Text(
                             '• $sellerName',

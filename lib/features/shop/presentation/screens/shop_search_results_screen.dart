@@ -553,29 +553,30 @@ class _TikTokProductCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 6),
+                  // COMMENTED OUT - Rating display (for future use)
                   // Rating & Seller
                   Row(
                     children: [
-                      const Icon(
-                        Icons.star_rounded,
-                        size: 12,
-                        color: Colors.amber,
-                      ),
-                      const SizedBox(width: 2),
-                      Text(
-                        product.rating.toStringAsFixed(1),
-                        style: AppTypography.caption.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: isDark
-                              ? AppColors.darkSecondaryText
-                              : AppColors.gray600,
-                          fontSize: 11,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
+                      // const Icon(
+                      //   Icons.star_rounded,
+                      //   size: 12,
+                      //   color: Colors.amber,
+                      // ),
+                      // const SizedBox(width: 2),
+                      // Text(
+                      //   product.rating.toStringAsFixed(1),
+                      //   style: AppTypography.caption.copyWith(
+                      //     fontWeight: FontWeight.w600,
+                      //     color: isDark
+                      //         ? AppColors.darkSecondaryText
+                      //         : AppColors.gray600,
+                      //     fontSize: 11,
+                      //   ),
+                      // ),
+                      // const SizedBox(width: 6),
                       Flexible(
                         child: Text(
-                          '• $sellerName',
+                          sellerName,
                           style: AppTypography.caption.copyWith(
                             color: isDark
                                 ? AppColors.darkSecondaryText

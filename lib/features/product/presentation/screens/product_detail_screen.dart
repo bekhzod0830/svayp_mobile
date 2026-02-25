@@ -335,8 +335,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         _buildDescription(),
                         const SizedBox(height: 24),
                         _buildDetails(),
-                        const SizedBox(height: 24),
-                        _buildReviews(),
+                        // COMMENTED OUT - Reviews section (for future use)
+                        // const SizedBox(height: 24),
+                        // _buildReviews(),
                         const SizedBox(height: 100), // Space for bottom button
                       ],
                     ),
@@ -478,35 +479,36 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           maxLines: 3,
           overflow: TextOverflow.ellipsis,
         ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            const Icon(Icons.star, color: Colors.amber, size: 20),
-            const SizedBox(width: 4),
-            Text(
-              widget.product.rating.toStringAsFixed(1),
-              style: AppTypography.body1.copyWith(
-                fontWeight: FontWeight.w600,
-                color: theme.colorScheme.onSurface,
-              ),
-            ),
-            const SizedBox(width: 4),
-            Flexible(
-              child: Text(
-                AppLocalizations.of(
-                  context,
-                )!.reviewsCount(widget.product.reviewCount),
-                style: AppTypography.body1.copyWith(
-                  color: isDark
-                      ? AppColors.darkSecondaryText
-                      : AppColors.gray600,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
+        // COMMENTED OUT - Rating display (for future use)
+        // const SizedBox(height: 8),
+        // Row(
+        //   children: [
+        //     const Icon(Icons.star, color: Colors.amber, size: 20),
+        //     const SizedBox(width: 4),
+        //     Text(
+        //       widget.product.rating.toStringAsFixed(1),
+        //       style: AppTypography.body1.copyWith(
+        //         fontWeight: FontWeight.w600,
+        //         color: theme.colorScheme.onSurface,
+        //       ),
+        //     ),
+        //     const SizedBox(width: 4),
+        //     Flexible(
+        //       child: Text(
+        //         AppLocalizations.of(
+        //           context,
+        //         )!.reviewsCount(widget.product.reviewCount),
+        //         style: AppTypography.body1.copyWith(
+        //           color: isDark
+        //               ? AppColors.darkSecondaryText
+        //               : AppColors.gray600,
+        //         ),
+        //         maxLines: 1,
+        //         overflow: TextOverflow.ellipsis,
+        //       ),
+        //     ),
+        //   ],
+        // ),
       ],
     );
   }
@@ -1272,80 +1274,81 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 
-  Widget _buildReviews() {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              AppLocalizations.of(context)!.reviews,
-              style: AppTypography.body1.copyWith(
-                fontWeight: FontWeight.w600,
-                color: theme.colorScheme.onSurface,
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                // TODO: Navigate to reviews screen
-              },
-              child: Text(
-                AppLocalizations.of(context)!.seeAll,
-                style: AppTypography.body1.copyWith(
-                  color: isDark ? AppColors.darkPrimaryText : AppColors.black,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: isDark ? AppColors.darkCardBackground : AppColors.gray50,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.star, color: Colors.amber, size: 16),
-                  const SizedBox(width: 4),
-                  Text(
-                    widget.product.rating.toStringAsFixed(1),
-                    style: AppTypography.body1.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: theme.colorScheme.onSurface,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${widget.product.reviewCount} reviews',
-                    style: AppTypography.caption.copyWith(
-                      color: isDark
-                          ? AppColors.darkSecondaryText
-                          : AppColors.gray600,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                AppLocalizations.of(context)!.customerReviewPrompt,
-                style: AppTypography.caption.copyWith(color: AppColors.gray600),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
+  // COMMENTED OUT - Reviews section (for future use)
+  // Widget _buildReviews() {
+  //   final theme = Theme.of(context);
+  //   final isDark = theme.brightness == Brightness.dark;
+  //
+  //   return Column(
+  //     crossAxisAlignment: CrossAxisAlignment.start,
+  //     children: [
+  //       Row(
+  //         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  //         children: [
+  //           Text(
+  //             AppLocalizations.of(context)!.reviews,
+  //             style: AppTypography.body1.copyWith(
+  //               fontWeight: FontWeight.w600,
+  //               color: theme.colorScheme.onSurface,
+  //             ),
+  //           ),
+  //           TextButton(
+  //             onPressed: () {
+  //               // TODO: Navigate to reviews screen
+  //             },
+  //             child: Text(
+  //               AppLocalizations.of(context)!.seeAll,
+  //               style: AppTypography.body1.copyWith(
+  //                 color: isDark ? AppColors.darkPrimaryText : AppColors.black,
+  //                 fontWeight: FontWeight.w600,
+  //               ),
+  //             ),
+  //           ),
+  //         ],
+  //       ),
+  //       const SizedBox(height: 12),
+  //       Container(
+  //         padding: const EdgeInsets.all(16),
+  //         decoration: BoxDecoration(
+  //           color: isDark ? AppColors.darkCardBackground : AppColors.gray50,
+  //           borderRadius: BorderRadius.circular(12),
+  //         ),
+  //         child: Column(
+  //           crossAxisAlignment: CrossAxisAlignment.start,
+  //           children: [
+  //             Row(
+  //               children: [
+  //                 const Icon(Icons.star, color: Colors.amber, size: 16),
+  //                 const SizedBox(width: 4),
+  //                 Text(
+  //                   widget.product.rating.toStringAsFixed(1),
+  //                   style: AppTypography.body1.copyWith(
+  //                     fontWeight: FontWeight.w600,
+  //                     color: theme.colorScheme.onSurface,
+  //                   ),
+  //                 ),
+  //                 const SizedBox(width: 8),
+  //                 Text(
+  //                   '${widget.product.reviewCount} reviews',
+  //                   style: AppTypography.caption.copyWith(
+  //                     color: isDark
+  //                         ? AppColors.darkSecondaryText
+  //                         : AppColors.gray600,
+  //                   ),
+  //                 ),
+  //               ],
+  //             ),
+  //             const SizedBox(height: 8),
+  //             Text(
+  //               AppLocalizations.of(context)!.customerReviewPrompt,
+  //               style: AppTypography.caption.copyWith(color: AppColors.gray600),
+  //             ),
+  //           ],
+  //         ),
+  //       ),
+  //     ],
+  //   );
+  // }
 
   Widget _buildBottomBar() {
     final theme = Theme.of(context);

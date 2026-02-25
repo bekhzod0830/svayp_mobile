@@ -771,7 +771,8 @@ class SwipeableProductCardState extends State<SwipeableProductCard>
             children: [
               // Price Column with Discount Badge
               Flexible(
-                flex: widget.product.reviewCount > 0 ? 3 : 1,
+                // flex: widget.product.reviewCount > 0 ? 3 : 1,
+                flex: 1,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
@@ -839,47 +840,47 @@ class SwipeableProductCardState extends State<SwipeableProductCard>
                   ],
                 ),
               ),
-              // Rating
-              if (widget.product.reviewCount > 0) ...[
-                const SizedBox(width: 8),
-                Flexible(
-                  flex: 2,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.star, size: 15, color: Colors.amber),
-                      const SizedBox(width: 3),
-                      Flexible(
-                        child: Text(
-                          widget.product.formattedRating,
-                          style: AppTypography.body2.copyWith(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                            color: isDark ? AppColors.white : AppColors.black,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 2),
-                      Flexible(
-                        child: Text(
-                          '(${widget.product.reviewCount})',
-                          style: AppTypography.caption.copyWith(
-                            fontSize: 11,
-                            color: isDark
-                                ? AppColors.gray400
-                                : AppColors.gray600,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+              // COMMENTED OUT - Rating display (for future use)
+              // if (widget.product.reviewCount > 0) ...[
+              //   const SizedBox(width: 8),
+              //   Flexible(
+              //     flex: 2,
+              //     child: Row(
+              //       mainAxisSize: MainAxisSize.min,
+              //       crossAxisAlignment: CrossAxisAlignment.center,
+              //       children: [
+              //         const Icon(Icons.star, size: 15, color: Colors.amber),
+              //         const SizedBox(width: 3),
+              //         Flexible(
+              //           child: Text(
+              //             widget.product.formattedRating,
+              //             style: AppTypography.body2.copyWith(
+              //               fontWeight: FontWeight.w600,
+              //               fontSize: 13,
+              //               color: isDark ? AppColors.white : AppColors.black,
+              //             ),
+              //             maxLines: 1,
+              //             overflow: TextOverflow.ellipsis,
+              //           ),
+              //         ),
+              //         const SizedBox(width: 2),
+              //         Flexible(
+              //           child: Text(
+              //             '(${widget.product.reviewCount})',
+              //             style: AppTypography.caption.copyWith(
+              //               fontSize: 11,
+              //               color: isDark
+              //                   ? AppColors.gray400
+              //                   : AppColors.gray600,
+              //             ),
+              //             maxLines: 1,
+              //             overflow: TextOverflow.ellipsis,
+              //           ),
+              //         ),
+              //       ],
+              // //     ),
+              //   ),
+              // ],
             ],
           ),
         ],

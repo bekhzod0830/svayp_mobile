@@ -821,20 +821,47 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                             overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 4),
+                          // Size and Color
                           if (item.selectedSize != null ||
                               item.selectedColor != null)
-                            Text(
-                              [
-                                if (item.selectedSize != null)
-                                  '${l10n.size}: ${item.selectedSize}',
-                                if (item.selectedColor != null)
-                                  item.selectedColor,
-                              ].join(' • '),
-                              style: AppTypography.caption.copyWith(
-                                color: isDark
-                                    ? AppColors.darkSecondaryText
-                                    : AppColors.gray600,
-                              ),
+                            Row(
+                              children: [
+                                if (item.selectedSize != null) ...[
+                                  Text(
+                                    '${l10n.size}: ${item.selectedSize}',
+                                    style: AppTypography.caption.copyWith(
+                                      color: isDark
+                                          ? AppColors.darkSecondaryText
+                                          : AppColors.gray600,
+                                    ),
+                                  ),
+                                ],
+                                if (item.selectedSize != null &&
+                                    item.selectedColor != null) ...[
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '\u2022',
+                                    style: AppTypography.caption.copyWith(
+                                      color: isDark
+                                          ? AppColors.darkSecondaryText
+                                          : AppColors.gray600,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                ],
+                                if (item.selectedColor != null) ...[
+                                  Text(
+                                    '${l10n.color}:',
+                                    style: AppTypography.caption.copyWith(
+                                      color: isDark
+                                          ? AppColors.darkSecondaryText
+                                          : AppColors.gray600,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  _buildColorCircle(item.selectedColor!),
+                                ],
+                              ],
                             ),
                           const SizedBox(height: 4),
                           Row(
@@ -868,6 +895,27 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
 
           const SizedBox(height: 24),
         ],
+      ),
+    );
+  }
+
+  /// Build color circle widget from hex color string
+  Widget _buildColorCircle(String hexColor) {
+    Color color;
+    try {
+      final hex = hexColor.replaceAll('#', '');
+      color = Color(int.parse('0xFF$hex'));
+    } catch (e) {
+      color = Colors.grey;
+    }
+
+    return Container(
+      width: 20,
+      height: 20,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.grey.shade400, width: 1),
       ),
     );
   }

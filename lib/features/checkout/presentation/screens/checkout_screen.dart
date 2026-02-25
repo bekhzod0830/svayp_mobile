@@ -811,16 +811,41 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 const SizedBox(height: 4),
                 Row(
                   children: [
+                    // Size and Color
                     Expanded(
-                      child: Text(
-                        '${l10n.size}: ${item.selectedSize}${item.selectedColor != null ? ' • ${l10n.color}: ${item.selectedColor}' : ''}',
-                        style: AppTypography.caption.copyWith(
-                          color: isDark
-                              ? AppColors.darkSecondaryText
-                              : AppColors.gray600,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      child: Row(
+                        children: [
+                          Text(
+                            '${l10n.size}: ${item.selectedSize}',
+                            style: AppTypography.caption.copyWith(
+                              color: isDark
+                                  ? AppColors.darkSecondaryText
+                                  : AppColors.gray600,
+                            ),
+                          ),
+                          if (item.selectedColor != null) ...[
+                            const SizedBox(width: 8),
+                            Text(
+                              '\u2022',
+                              style: AppTypography.caption.copyWith(
+                                color: isDark
+                                    ? AppColors.darkSecondaryText
+                                    : AppColors.gray600,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${l10n.color}:',
+                              style: AppTypography.caption.copyWith(
+                                color: isDark
+                                    ? AppColors.darkSecondaryText
+                                    : AppColors.gray600,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            _buildColorCircle(item.selectedColor!),
+                          ],
+                        ],
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -976,6 +1001,31 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   ),
                 ),
         ),
+      ),
+    );
+  }
+
+  /// Build a small color circle widget for hex colors
+  Widget _buildColorCircle(String hexColor) {
+    Color color;
+    try {
+      color = Color(int.parse(hexColor.replaceFirst('#', '0xFF')));
+    } catch (e) {
+      // If not a valid hex color, return empty container
+      return Container(
+        width: 20,
+        height: 20,
+        decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.grey),
+      );
+    }
+
+    return Container(
+      width: 20,
+      height: 20,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color,
+        border: Border.all(color: Colors.grey.withOpacity(0.3), width: 1),
       ),
     );
   }

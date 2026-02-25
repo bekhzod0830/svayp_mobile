@@ -342,17 +342,25 @@ class DiscoverScreenState extends State<DiscoverScreen> {
                 ),
                 const SizedBox(height: 8),
                 Wrap(
-                  spacing: 8,
+                  spacing: 12,
+                  runSpacing: 12,
                   children: swipedProduct.colors.map((color) {
-                    return ChoiceChip(
-                      label: Text(color),
-                      selected: selectedColor == color,
-                      onSelected: (selected) {
-                        if (selected) {
-                          selectedColor = color;
-                          (context as Element).markNeedsBuild();
-                        }
+                    final isSelected = selectedColor == color;
+                    final isHexColor = color.startsWith('#');
+
+                    return GestureDetector(
+                      onTap: () {
+                        selectedColor = color;
+                        (context as Element).markNeedsBuild();
                       },
+                      child: isHexColor
+                          ? _buildColorCircle(color, isSelected, context)
+                          : Chip(
+                              label: Text(color),
+                              backgroundColor: isSelected
+                                  ? Theme.of(context).primaryColor
+                                  : null,
+                            ),
                     );
                   }).toList(),
                 ),
@@ -840,6 +848,56 @@ class DiscoverScreenState extends State<DiscoverScreen> {
         ),
       ),
     );
+  }
+
+  /// Build a color circle widget for hex colors
+  Widget _buildColorCircle(
+    String hexColor,
+    bool isSelected,
+    BuildContext context,
+  ) {
+    Color color;
+    try {
+      color = Color(int.parse(hexColor.replaceFirst('#', '0xFF')));
+    } catch (e) {
+      color = Colors.grey;
+    }
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color,
+        border: Border.all(
+          color: isSelected
+              ? (isDark ? AppColors.darkPrimaryText : AppColors.black)
+              : (isDark ? AppColors.darkStandardBorder : AppColors.gray300),
+          width: isSelected ? 3 : 2,
+        ),
+        boxShadow: isSelected
+            ? [
+                BoxShadow(
+                  color: (isDark ? AppColors.darkPrimaryText : AppColors.black)
+                      .withOpacity(0.3),
+                  blurRadius: 8,
+                  spreadRadius: 1,
+                ),
+              ]
+            : null,
+      ),
+      child: isSelected
+          ? Icon(Icons.check, color: _getContrastColor(color), size: 20)
+          : null,
+    );
+  }
+
+  /// Get contrasting color for checkmark visibility
+  Color _getContrastColor(Color backgroundColor) {
+    final luminance = backgroundColor.computeLuminance();
+    return luminance > 0.5 ? Colors.black : Colors.white;
   }
 }
 
