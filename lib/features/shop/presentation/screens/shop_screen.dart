@@ -15,6 +15,7 @@ import 'package:swipe/features/shop/presentation/screens/seller_profile_screen.d
 import 'package:swipe/features/shop/presentation/screens/shop_search_results_screen.dart';
 import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/core/network/api_client.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Shop Screen - Browse and search for products (TikTok Shop style)
 /// Features: 2-column grid, seller info, tabs, ChatGPT-style search
@@ -25,7 +26,11 @@ class ShopScreen extends StatefulWidget {
   State<ShopScreen> createState() => _ShopScreenState();
 }
 
-class _ShopScreenState extends State<ShopScreen> {
+class _ShopScreenState extends State<ShopScreen>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   final TextEditingController _searchController = TextEditingController();
   final ProductApiService _apiService = ProductApiService();
   final VisualSearchApiService _visualSearchService = VisualSearchApiService();
@@ -40,12 +45,30 @@ class _ShopScreenState extends State<ShopScreen> {
   final int _pageSize = 20;
   String? _errorMessage;
   int _selectedTab = 0; // 0: All, 1: Trending, 2: New, 3: Sale
+  bool _hasLoadedOnce = false;
+  String? _authToken;
 
   @override
   void initState() {
     super.initState();
-    _loadProducts();
     _scrollController.addListener(_onScroll);
+    _initAuth();
+  }
+
+  Future<void> _initAuth() async {
+    try {
+      // Get authentication token from SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      _authToken = prefs.getString('auth_token');
+
+      // Load products after auth is initialized
+      if (!_hasLoadedOnce) {
+        _hasLoadedOnce = true;
+        await _loadProducts();
+      }
+    } catch (e) {
+      print('❌ ShopScreen: Error in _initAuth: $e');
+    }
   }
 
   @override
@@ -77,7 +100,11 @@ class _ShopScreenState extends State<ShopScreen> {
 
     try {
       // Fetch products from API with pagination
-      final response = await _apiService.getProducts(skip: 0, limit: _pageSize);
+      final response = await _apiService.getProducts(
+        page: 0,
+        size: _pageSize,
+        token: _authToken,
+      );
 
       // Convert API products to local Product entities
       final products = <Product>[];
@@ -101,7 +128,8 @@ class _ShopScreenState extends State<ShopScreen> {
     } catch (e) {
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Error fetching products: $e';
+        _errorMessage =
+            'Unable to load products. Please check your connection and try again.';
       });
       print('Error loading products: $e');
     }
@@ -116,8 +144,9 @@ class _ShopScreenState extends State<ShopScreen> {
 
     try {
       final response = await _apiService.getProducts(
-        skip: _currentPage * _pageSize,
-        limit: _pageSize,
+        page: _currentPage,
+        size: _pageSize,
+        token: _authToken,
       );
 
       final newProducts = <Product>[];
@@ -162,12 +191,18 @@ class _ShopScreenState extends State<ShopScreen> {
 
   /// Convert API product model to local Product entity
   Product _convertApiProduct(api_models.Product apiProduct) {
+    // Use seller if brand is "Unknown" or if seller is available
+    final displayBrand =
+        (apiProduct.brand == 'Unknown' || apiProduct.brand.isEmpty)
+        ? (apiProduct.seller ?? apiProduct.brand)
+        : apiProduct.brand;
+
     return Product(
       id: apiProduct.id,
       title: apiProduct.title,
       description: apiProduct.description ?? '',
       price: apiProduct.price,
-      brand: apiProduct.brand,
+      brand: displayBrand,
       category: apiProduct.category.displayName,
       subcategory: apiProduct.subcategory?.map((s) => s.displayName).toList(),
       images: apiProduct.images.isNotEmpty
@@ -185,6 +220,7 @@ class _ShopScreenState extends State<ShopScreen> {
       isFeatured: apiProduct.isFeatured ?? false,
       inStock: apiProduct.inStock,
       seller: apiProduct.seller,
+      sellerId: apiProduct.sellerId,
       discountPercentage: apiProduct.discountPercentage,
       originalPrice: apiProduct.originalPrice,
     );
@@ -202,7 +238,7 @@ class _ShopScreenState extends State<ShopScreen> {
       // Call the search API
       final response = await _apiService.searchProductsApi(
         query: query,
-        limit: 100, // Get more results for search
+        size: 100, // Get more results for search
         token: token,
       );
 
@@ -303,10 +339,14 @@ class _ShopScreenState extends State<ShopScreen> {
 
     if (sellerProducts.isEmpty) return;
 
+    // Get sellerId from first product (all products from same seller should have same sellerId)
+    final sellerId = sellerProducts.first.sellerId ?? 'unknown';
+
     // Navigate to seller profile
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => SellerProfileScreen(
+          sellerId: sellerId,
           sellerName: sellerName,
           products: sellerProducts,
         ),
@@ -404,6 +444,8 @@ class _ShopScreenState extends State<ShopScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
+
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
@@ -528,9 +570,33 @@ class _ShopScreenState extends State<ShopScreen> {
                   child: _isLoading
                       ? _buildLoadingState(isDark)
                       : _errorMessage != null
-                      ? _buildErrorState(l10n)
+                      ? RefreshIndicator(
+                          onRefresh: _loadProducts,
+                          color: isDark
+                              ? AppColors.darkPrimaryText
+                              : AppColors.black,
+                          child: SingleChildScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            child: SizedBox(
+                              height: MediaQuery.of(context).size.height - 200,
+                              child: _buildErrorState(l10n),
+                            ),
+                          ),
+                        )
                       : _filteredProducts.isEmpty
-                      ? _buildEmptyState(l10n)
+                      ? RefreshIndicator(
+                          onRefresh: _loadProducts,
+                          color: isDark
+                              ? AppColors.darkPrimaryText
+                              : AppColors.black,
+                          child: SingleChildScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            child: SizedBox(
+                              height: MediaQuery.of(context).size.height - 200,
+                              child: _buildEmptyState(l10n),
+                            ),
+                          ),
+                        )
                       : RefreshIndicator(
                           onRefresh: _loadProducts,
                           color: isDark
@@ -538,6 +604,7 @@ class _ShopScreenState extends State<ShopScreen> {
                               : AppColors.black,
                           child: GridView.builder(
                             controller: _scrollController,
+                            physics: const AlwaysScrollableScrollPhysics(),
                             padding: const EdgeInsets.fromLTRB(12, 0, 12, 100),
                             gridDelegate:
                                 const SliverGridDelegateWithFixedCrossAxisCount(
@@ -919,36 +986,37 @@ class _TikTokProductCard extends StatelessWidget {
                     ),
                   ),
                   // Seller Avatar (TikTok-style - bottom left, tappable)
-                  Positioned(
-                    bottom: 8,
-                    left: 8,
-                    child: GestureDetector(
-                      onTap: onSellerTap,
-                      child: Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: _getGradientColors(sellerName),
-                          ),
-                          border: Border.all(color: Colors.white, width: 2),
-                        ),
-                        child: Center(
-                          child: Text(
-                            sellerName[0].toUpperCase(),
-                            style: AppTypography.caption.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+                  // COMMENTED OUT - TikTok style circle
+                  // Positioned(
+                  //   bottom: 8,
+                  //   left: 8,
+                  //   child: GestureDetector(
+                  //     onTap: onSellerTap,
+                  //     child: Container(
+                  //       width: 32,
+                  //       height: 32,
+                  //       decoration: BoxDecoration(
+                  //         shape: BoxShape.circle,
+                  //         gradient: LinearGradient(
+                  //           begin: Alignment.topLeft,
+                  //           end: Alignment.bottomRight,
+                  //           colors: _getGradientColors(sellerName),
+                  //         ),
+                  //         border: Border.all(color: Colors.white, width: 2),
+                  //       ),
+                  //       child: Center(
+                  //         child: Text(
+                  //           sellerName[0].toUpperCase(),
+                  //           style: AppTypography.caption.copyWith(
+                  //             color: Colors.white,
+                  //             fontWeight: FontWeight.bold,
+                  //             fontSize: 12,
+                  //           ),
+                  //         ),
+                  //       ),
+                  //     ),
+                  //   ),
+                  // ),
                   // NEW Badge
                   if (product.isNew)
                     Positioned(
@@ -1007,6 +1075,7 @@ class _TikTokProductCard extends StatelessWidget {
               padding: const EdgeInsets.all(10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   // Title
                   Text(
@@ -1020,51 +1089,81 @@ class _TikTokProductCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 6),
-                  // Price
+                  // Price with optional discount
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        product.formattedPrice,
+                        style: AppTypography.body2.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (product.hasDiscount)
+                        Text(
+                          product.formattedDiscountPrice ?? '',
+                          style: AppTypography.caption.copyWith(
+                            color: isDark
+                                ? AppColors.gray400
+                                : AppColors.gray500,
+                            decoration: TextDecoration.lineThrough,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  // Seller Name
                   Text(
-                    product.formattedPrice,
-                    style: AppTypography.body2.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: theme.colorScheme.onSurface,
+                    sellerName,
+                    style: AppTypography.caption.copyWith(
+                      color: isDark
+                          ? AppColors.darkSecondaryText
+                          : AppColors.gray600,
+                      fontSize: 11,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 6),
-                  // Rating & Seller Name (tappable)
-                  Row(
-                    children: [
-                      Icon(Icons.star_rounded, size: 12, color: Colors.amber),
-                      const SizedBox(width: 2),
-                      Text(
-                        product.rating.toStringAsFixed(1),
-                        style: AppTypography.caption.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: isDark
-                              ? AppColors.darkSecondaryText
-                              : AppColors.gray600,
-                          fontSize: 11,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Flexible(
-                        child: GestureDetector(
-                          onTap: onSellerTap,
-                          child: Text(
-                            '• $sellerName',
-                            style: AppTypography.caption.copyWith(
-                              color: isDark
-                                  ? AppColors.darkSecondaryText
-                                  : AppColors.gray600,
-                              fontSize: 11,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                  // COMMENTED OUT - Rating display
+                  // Row(
+                  //   children: [
+                  //     Icon(Icons.star_rounded, size: 12, color: Colors.amber),
+                  //     const SizedBox(width: 2),
+                  //     Text(
+                  //       product.rating.toStringAsFixed(1),
+                  //       style: AppTypography.caption.copyWith(
+                  //         fontWeight: FontWeight.w600,
+                  //         color: isDark
+                  //             ? AppColors.darkSecondaryText
+                  //             : AppColors.gray600,
+                  //         fontSize: 11,
+                  //       ),
+                  //     ),
+                  //     const SizedBox(width: 6),
+                  //     Flexible(
+                  //       child: GestureDetector(
+                  //         onTap: onSellerTap,
+                  //         child: Text(
+                  //           '• $sellerName',
+                  //           style: AppTypography.caption.copyWith(
+                  //             color: isDark
+                  //                 ? AppColors.darkSecondaryText
+                  //                 : AppColors.gray600,
+                  //             fontSize: 11,
+                  //           ),
+                  //           maxLines: 1,
+                  //           overflow: TextOverflow.ellipsis,
+                  //         ),
+                  //       ),
+                  //     ),
+                  //   ],
+                  // ),
                 ],
               ),
             ),
@@ -1074,22 +1173,23 @@ class _TikTokProductCard extends StatelessWidget {
     );
   }
 
-  String _formatPrice(int price) {
-    return '${price.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (match) => '${match[1]} ')} UZS';
-  }
+  // COMMENTED OUT - Helper methods for TikTok-style features
+  // String _formatPrice(int price) {
+  //   return '${price.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (match) => '${match[1]} ')} UZS';
+  // }
 
-  List<Color> _getGradientColors(String name) {
-    final hash = name.hashCode;
-    final gradients = [
-      [const Color(0xFF667eea), const Color(0xFF764ba2)],
-      [const Color(0xFFf093fb), const Color(0xFFF5576c)],
-      [const Color(0xFF4facfe), const Color(0xFF00f2fe)],
-      [const Color(0xFF43e97b), const Color(0xFF38f9d7)],
-      [const Color(0xFFfa709a), const Color(0xFFfee140)],
-      [const Color(0xFF30cfd0), const Color(0xFF330867)],
-      [const Color(0xFFa8edea), const Color(0xFFfed6e3)],
-      [const Color(0xFFff9a9e), const Color(0xFFfecfef)],
-    ];
-    return gradients[hash.abs() % gradients.length];
-  }
+  // List<Color> _getGradientColors(String name) {
+  //   final hash = name.hashCode;
+  //   final gradients = [
+  //     [const Color(0xFF667eea), const Color(0xFF764ba2)],
+  //     [const Color(0xFFf093fb), const Color(0xFFF5576c)],
+  //     [const Color(0xFF4facfe), const Color(0xFF00f2fe)],
+  //     [const Color(0xFF43e97b), const Color(0xFF38f9d7)],
+  //     [const Color(0xFFfa709a), const Color(0xFFfee140)],
+  //     [const Color(0xFF30cfd0), const Color(0xFF330867)],
+  //     [const Color(0xFFa8edea), const Color(0xFFfed6e3)],
+  //     [const Color(0xFFff9a9e), const Color(0xFFfecfef)],
+  //   ];
+  //   return gradients[hash.abs() % gradients.length];
+  // }
 }

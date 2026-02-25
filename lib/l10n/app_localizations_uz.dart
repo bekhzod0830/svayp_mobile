@@ -1012,6 +1012,12 @@ class AppLocalizationsUz extends AppLocalizations {
   String get seller => 'Sotuvchi';
 
   @override
+  String get visitShop => 'Do\'konga tashrif';
+
+  @override
+  String get viewAllProducts => 'Barcha mahsulotlarni ko\'rish';
+
+  @override
   String get availability => 'Mavjudlik';
 
   @override
@@ -1083,6 +1089,12 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get noOrdersYet => 'Hali buyurtmalar yo\'q';
+
+  @override
+  String get errorLoadingOrders => 'Buyurtmalarni yuklashda xatolik';
+
+  @override
+  String get retry => 'Qayta urinib ko\'rish';
 
   @override
   String get startShoppingToSeeOrders =>
@@ -1189,6 +1201,12 @@ class AppLocalizationsUz extends AppLocalizations {
   String get typeMessage => 'Xabar yozing...';
 
   @override
+  String get typeAMessage => 'Xabaringizni yozing...';
+
+  @override
+  String get newMessage => 'Yangi xabar';
+
+  @override
   String get sendMessage => 'Yuborish';
 
   @override
@@ -1262,6 +1280,12 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get cashOnDelivery => 'Qabul qilishda naqd';
+
+  @override
+  String get cardPayment => 'Karta bilan to\'lash';
+
+  @override
+  String get pickup => 'Olib ketish';
 
   @override
   String get payWhenYouReceive => 'Buyurtmani qabul qilganda to\'lang';
@@ -1507,6 +1531,13 @@ class AppLocalizationsUz extends AppLocalizations {
   @override
   String get editProfileComingSoon =>
       'Profilni tahrirlash funksiyasi tez orada paydo bo\'ladi';
+
+  @override
+  String get myQrCode => 'Mening QR kodim';
+
+  @override
+  String get scanQrForCashback =>
+      'Keshbek olish uchun bu QR kodni hamkorlarga ko\'rsating';
 
   @override
   String get personalInfo => 'Shaxsiy ma\'lumotlar';
@@ -2253,4 +2284,170 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get enumLuxurious => 'Hashamatli';
+
+  @override
+  String get partnerPortal => 'Hamkor portali';
+
+  @override
+  String get partnerWelcomeBack => 'Qaytganingiz bilan';
+
+  @override
+  String get partnerSignInSubtitle =>
+      'Do\'koningizni boshqarish, mijozlarga javob berish va cashback berish uchun kiring.';
+
+  @override
+  String get partnerUsernameLabel => 'Foydalanuvchi nomi yoki Email';
+
+  @override
+  String get partnerUsernameHint =>
+      'Foydalanuvchi nomini yoki emailni kiriting';
+
+  @override
+  String get partnerPasswordLabel => 'Parol';
+
+  @override
+  String get partnerPasswordHint => 'Parolni kiriting';
+
+  @override
+  String get partnerForgotPassword => 'Parolni unutdingizmi?';
+
+  @override
+  String get partnerSignIn => 'Kirish';
+
+  @override
+  String get partnerNeedAccess =>
+      'Kirish kerakmi? Menejeringiz bilan bog\'laning.';
+
+  @override
+  String get partnerLoginFailed =>
+      'Kirish muvaffaqiyatsiz. Ma\'lumotlarni tekshiring.';
+
+  @override
+  String get partnerCashbackTitle => 'Cashback';
+
+  @override
+  String get partnerCashbackSubtitle =>
+      'Sotuv qayd etish va cashback berish uchun mijozning QR-kodini skanlang.';
+
+  @override
+  String get partnerScanQr => 'QR skanerlash';
+
+  @override
+  String get partnerTapToOpenCamera => 'Kamerani ochish uchun bosing';
+
+  @override
+  String get partnerIdentifyCustomer => 'Mijozni aniqlash';
+
+  @override
+  String get partnerSelectProduct => 'Mahsulot tanlash';
+
+  @override
+  String get partnerApplyDiscount => 'Chegirma qo\'llash';
+
+  @override
+  String get partnerConfirmCashback => 'Cashback tasdiqlash';
+
+  @override
+  String get partnerRecordCashback => 'Cashback qayd etish';
+
+  @override
+  String get partnerProductLabel => 'Mahsulot';
+
+  @override
+  String get partnerProductHint => 'Mahsulot nomi yoki SKU kodni kiriting';
+
+  @override
+  String get partnerSizeLabel => 'O\'lcham';
+
+  @override
+  String get partnerColorLabel => 'Rang';
+
+  @override
+  String get partnerPricingLabel => 'Narx';
+
+  @override
+  String get partnerOriginalPriceHint => 'Asosiy narx (UZS)';
+
+  @override
+  String get partnerDiscountPercent => 'Chegirma %';
+
+  @override
+  String get partnerDiscountAmount => 'Chegirma miqdori';
+
+  @override
+  String get partnerFinalPriceLabel => 'Yakuniy narx: ';
+
+  @override
+  String get partnerNotesLabel => 'Izohlar (ixtiyoriy)';
+
+  @override
+  String get partnerNotesHint => 'Qo\'shimcha izohlar...';
+
+  @override
+  String get partnerCustomerPrefix => 'Mijoz: ';
+
+  @override
+  String get partnerPointCamera => 'Kamerani mijozning QR-kodiga yo\'naltiring';
+
+  @override
+  String get partnerCashbackSuccess => 'Cashback qayd etildi!';
+
+  @override
+  String get partnerEnterProduct => 'Iltimos, mahsulot nomini kiriting.';
+
+  @override
+  String get partnerEnterPrice => 'Iltimos, asosiy narxni kiriting.';
+
+  @override
+  String get partnerCashbackFailed => 'Cashback qayd etilmadi.';
+
+  @override
+  String get partnerVerifyingUser => 'Foydalanuvchi tekshirilmoqda...';
+
+  @override
+  String get partnerUserNotFound =>
+      'Foydalanuvchi topilmadi. QR-kodni tekshiring.';
+
+  @override
+  String get partnerUserVerified => 'Foydalanuvchi muvaffaqiyatli tasdiqlandi';
+
+  @override
+  String get partnerSelectProducts => 'Mahsulotlarni tanlang';
+
+  @override
+  String get partnerSearchProducts => 'Mahsulotlarni qidirish...';
+
+  @override
+  String get partnerNoProducts => 'Mahsulotlar topilmadi';
+
+  @override
+  String get partnerAddProduct => 'Mahsulot qo\'shish';
+
+  @override
+  String get partnerProductsSelected => 'mahsulot tanlandi';
+
+  @override
+  String get partnerContinue => 'Davom etish';
+
+  @override
+  String get partnerRemoveProduct => 'O\'chirish';
+
+  @override
+  String get partnerTotal => 'Jami';
+
+  @override
+  String get partnerEnterDiscount => 'Chegirma kiriting';
+
+  @override
+  String get partnerApplyingCashback => 'Cashback qo\'llanilmoqda...';
+
+  @override
+  String get partnerSelectAtLeastOne =>
+      'Iltimos, kamida bitta mahsulotni tanlang.';
+
+  @override
+  String get partnerLoadingProducts => 'Mahsulotlar yuklanmoqda...';
+
+  @override
+  String get points => 'ball';
 }

@@ -116,86 +116,103 @@ class MainScreenState extends State<MainScreen> {
           Navigator.of(context).pop();
         }
       },
-      child: Scaffold(
-        body: IndexedStack(
-          index: _currentIndex,
-          children: [
-            Navigator(
-              key: _discoverKey,
-              onGenerateRoute: (settings) => MaterialPageRoute(
-                builder: (context) => DiscoverScreen(key: _discoverScreenKey),
-              ),
+      child: Builder(
+        builder: (context) {
+          print('📱 MainScreen: Building with index $_currentIndex');
+          return Scaffold(
+            body: IndexedStack(
+              index: _currentIndex,
+              children: [
+                Navigator(
+                  key: _discoverKey,
+                  onGenerateRoute: (settings) => MaterialPageRoute(
+                    builder: (context) =>
+                        DiscoverScreen(key: _discoverScreenKey),
+                  ),
+                ),
+                Navigator(
+                  key: _likedKey,
+                  onGenerateRoute: (settings) => MaterialPageRoute(
+                    builder: (context) => LikedScreen(key: _likedScreenKey),
+                  ),
+                ),
+                Navigator(
+                  key: _shopKey,
+                  onGenerateRoute: (settings) {
+                    return MaterialPageRoute(
+                      builder: (context) => const ShopScreen(),
+                    );
+                  },
+                  onUnknownRoute: (settings) {
+                    print(
+                      '🛍️ MainScreen: Unknown route for Shop, creating ShopScreen',
+                    );
+                    return MaterialPageRoute(
+                      builder: (context) => const ShopScreen(),
+                    );
+                  },
+                ),
+                Navigator(
+                  key: _ordersKey,
+                  onGenerateRoute: (settings) => MaterialPageRoute(
+                    builder: (context) => OrdersScreen(key: _ordersScreenKey),
+                  ),
+                ),
+                Navigator(
+                  key: _profileKey,
+                  onGenerateRoute: (settings) => MaterialPageRoute(
+                    builder: (context) => const ProfileScreen(),
+                  ),
+                ),
+              ],
             ),
-            Navigator(
-              key: _likedKey,
-              onGenerateRoute: (settings) => MaterialPageRoute(
-                builder: (context) => LikedScreen(key: _likedScreenKey),
-              ),
+            bottomNavigationBar: BottomNavigationBar(
+              currentIndex: _currentIndex,
+              onTap: _onTabTapped,
+              type: BottomNavigationBarType.fixed,
+              backgroundColor: isDark
+                  ? AppColors.darkCardBackground
+                  : AppColors.white,
+              selectedItemColor: isDark
+                  ? AppColors.darkPrimaryText
+                  : AppColors.black,
+              unselectedItemColor: isDark
+                  ? AppColors.darkSecondaryText
+                  : AppColors.gray600,
+              selectedFontSize: 12 * fontScale,
+              unselectedFontSize: 11 * fontScale,
+              iconSize: 24 * iconScale,
+              elevation: 8,
+              items: [
+                BottomNavigationBarItem(
+                  icon: const Icon(Icons.explore_outlined),
+                  activeIcon: const Icon(Icons.explore),
+                  label: l10n.discover,
+                ),
+                BottomNavigationBarItem(
+                  icon: const Icon(Icons.favorite_border),
+                  activeIcon: const Icon(Icons.favorite),
+                  label: l10n.liked,
+                ),
+                BottomNavigationBarItem(
+                  icon: const Icon(Icons.search),
+                  activeIcon: const Icon(Icons.search),
+                  label: l10n.shop,
+                ),
+                BottomNavigationBarItem(
+                  icon: const Icon(Icons.chat_bubble_outline),
+                  activeIcon: const Icon(Icons.chat_bubble),
+                  label: l10n.chat,
+                ),
+                BottomNavigationBarItem(
+                  icon: const Icon(Icons.person_outline),
+                  activeIcon: const Icon(Icons.person),
+                  label: l10n.profile,
+                ),
+              ],
             ),
-            Navigator(
-              key: _shopKey,
-              onGenerateRoute: (settings) =>
-                  MaterialPageRoute(builder: (context) => const ShopScreen()),
-            ),
-            Navigator(
-              key: _ordersKey,
-              onGenerateRoute: (settings) => MaterialPageRoute(
-                builder: (context) => OrdersScreen(key: _ordersScreenKey),
-              ),
-            ),
-            Navigator(
-              key: _profileKey,
-              onGenerateRoute: (settings) => MaterialPageRoute(
-                builder: (context) => const ProfileScreen(),
-              ),
-            ),
-          ],
-        ),
-        bottomNavigationBar: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          onTap: _onTabTapped,
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: isDark
-              ? AppColors.darkCardBackground
-              : AppColors.white,
-          selectedItemColor: isDark
-              ? AppColors.darkPrimaryText
-              : AppColors.black,
-          unselectedItemColor: isDark
-              ? AppColors.darkSecondaryText
-              : AppColors.gray600,
-          selectedFontSize: 12 * fontScale,
-          unselectedFontSize: 11 * fontScale,
-          iconSize: 24 * iconScale,
-          elevation: 8,
-          items: [
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.explore_outlined),
-              activeIcon: const Icon(Icons.explore),
-              label: l10n.discover,
-            ),
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.favorite_border),
-              activeIcon: const Icon(Icons.favorite),
-              label: l10n.liked,
-            ),
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.search),
-              activeIcon: const Icon(Icons.search),
-              label: l10n.shop,
-            ),
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.receipt_long_outlined),
-              activeIcon: const Icon(Icons.receipt_long),
-              label: l10n.orders,
-            ),
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.person_outline),
-              activeIcon: const Icon(Icons.person),
-              label: l10n.profile,
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

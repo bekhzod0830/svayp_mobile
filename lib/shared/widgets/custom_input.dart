@@ -283,20 +283,54 @@ class _PhoneNumberFormatter extends TextInputFormatter {
     TextEditingValue oldValue,
     TextEditingValue newValue,
   ) {
-    final text = newValue.text;
-    final buffer = StringBuffer();
+    // Remove all non-digit characters
+    final digitsOnly = newValue.text.replaceAll(RegExp(r'\D'), '');
 
-    for (int i = 0; i < text.length; i++) {
-      buffer.write(text[i]);
+    // Build formatted string: "90 123 45 67"
+    final buffer = StringBuffer();
+    for (int i = 0; i < digitsOnly.length; i++) {
+      buffer.write(digitsOnly[i]);
+      // Add space after positions 2, 5, 7 (indices 1, 4, 6)
       if (i == 1 || i == 4 || i == 6) {
         buffer.write(' ');
       }
     }
 
     final formatted = buffer.toString();
+
+    // Calculate cursor position
+    int cursorPosition = newValue.selection.baseOffset;
+    int newCursorPosition = cursorPosition;
+
+    // If user is typing (text getting longer), place cursor at end
+    if (newValue.text.length >= oldValue.text.length) {
+      newCursorPosition = formatted.length;
+    } else {
+      // If user is deleting, adjust cursor position accounting for spaces
+      final digitsBeforeCursor = newValue.text
+          .substring(0, cursorPosition)
+          .replaceAll(RegExp(r'\D'), '')
+          .length;
+
+      // Count characters including spaces up to this digit position
+      int charCount = 0;
+      int digitCount = 0;
+      for (
+        int i = 0;
+        i < formatted.length && digitCount < digitsBeforeCursor;
+        i++
+      ) {
+        charCount++;
+        if (formatted[i] != ' ') {
+          digitCount++;
+        }
+      }
+      newCursorPosition = charCount;
+    }
+
     return TextEditingValue(
       text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
+      selection: TextSelection.collapsed(offset: newCursorPosition),
     );
   }
 }

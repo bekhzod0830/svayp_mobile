@@ -43,6 +43,7 @@ dependencies:
   pretty_dio_logger: ^1.4.0
   connectivity_plus: ^6.0.5
   http: ^1.1.0
+  web_socket_channel: ^3.0.1
   
   # Local Storage
   hive: ^2.2.3
@@ -78,6 +79,15 @@ dependencies:
   
   # Image Picker
   image_picker: ^1.1.2
+
+  # QR Code Scanner (partner cashback feature)
+  mobile_scanner: ^6.0.0
+  
+  # QR Code Generator
+  qr_flutter: ^4.1.0
+  
+  # Screen Brightness
+  screen_brightness: ^1.0.1
   
   # Permissions
   permission_handler: ^11.3.1

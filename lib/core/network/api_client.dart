@@ -10,6 +10,7 @@ class ApiClient {
 
   static const String _tokenKey = 'auth_token';
   static const String _refreshTokenKey = 'refresh_token';
+  static const String _userRoleKey = 'user_role';
 
   ApiClient(this._prefs) {
     _dio = Dio(
@@ -99,6 +100,30 @@ class ApiClient {
   /// Clear refresh token
   Future<void> clearRefreshToken() async {
     await _prefs.remove(_refreshTokenKey);
+  }
+
+  // ==================== Partner Role Management ====================
+
+  /// Save the authenticated user's role (e.g. 'client', 'admin', 'seller')
+  Future<void> saveUserRole(String role) async {
+    await _prefs.setString(_userRoleKey, role);
+  }
+
+  /// Get the saved user role, or null if not set
+  String? getUserRole() {
+    return _prefs.getString(_userRoleKey);
+  }
+
+  /// Clear saved user role (call on logout)
+  Future<void> clearUserRole() async {
+    await _prefs.remove(_userRoleKey);
+  }
+
+  /// Returns true when the logged-in user is NOT a regular client
+  bool isPartnerLogin() {
+    final role = getUserRole();
+    if (role == null) return false;
+    return role.toLowerCase() != 'client';
   }
 
   /// Check if user is authenticated

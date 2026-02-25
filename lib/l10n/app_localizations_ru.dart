@@ -1011,6 +1011,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String get seller => 'Продавец';
 
   @override
+  String get visitShop => 'Посетить магазин';
+
+  @override
+  String get viewAllProducts => 'Смотреть все товары';
+
+  @override
   String get availability => 'Наличие';
 
   @override
@@ -1081,6 +1087,12 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get noOrdersYet => 'Пока нет заказов';
+
+  @override
+  String get errorLoadingOrders => 'Ошибка загрузки заказов';
+
+  @override
+  String get retry => 'Повторить';
 
   @override
   String get startShoppingToSeeOrders =>
@@ -1187,6 +1199,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String get typeMessage => 'Введите сообщение...';
 
   @override
+  String get typeAMessage => 'Введите ваше сообщение...';
+
+  @override
+  String get newMessage => 'Новое сообщение';
+
+  @override
   String get sendMessage => 'Отправить';
 
   @override
@@ -1260,6 +1278,12 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get cashOnDelivery => 'Наличными при получении';
+
+  @override
+  String get cardPayment => 'Оплата картой';
+
+  @override
+  String get pickup => 'Самовывоз';
 
   @override
   String get payWhenYouReceive => 'Оплата при получении заказа';
@@ -1503,6 +1527,13 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get editProfileComingSoon =>
       'Функция редактирования профиля скоро появится';
+
+  @override
+  String get myQrCode => 'Мой QR-код';
+
+  @override
+  String get scanQrForCashback =>
+      'Покажите этот QR-код партнерам для получения кэшбэка';
 
   @override
   String get personalInfo => 'Личная информация';
@@ -2243,4 +2274,166 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get enumLuxurious => 'Роскошный';
+
+  @override
+  String get partnerPortal => 'Партнёрский портал';
+
+  @override
+  String get partnerWelcomeBack => 'С возвращением';
+
+  @override
+  String get partnerSignInSubtitle =>
+      'Войдите, чтобы управлять магазином, отвечать клиентам и начислять кэшбэк.';
+
+  @override
+  String get partnerUsernameLabel => 'Имя пользователя или Email';
+
+  @override
+  String get partnerUsernameHint => 'Введите имя пользователя или email';
+
+  @override
+  String get partnerPasswordLabel => 'Пароль';
+
+  @override
+  String get partnerPasswordHint => 'Введите пароль';
+
+  @override
+  String get partnerForgotPassword => 'Забыли пароль?';
+
+  @override
+  String get partnerSignIn => 'Войти';
+
+  @override
+  String get partnerNeedAccess => 'Нужен доступ? Свяжитесь с вашим менеджером.';
+
+  @override
+  String get partnerLoginFailed => 'Ошибка входа. Проверьте данные.';
+
+  @override
+  String get partnerCashbackTitle => 'Кэшбэк';
+
+  @override
+  String get partnerCashbackSubtitle =>
+      'Отсканируйте QR-код покупателя, чтобы зарегистрировать продажу и начислить кэшбэк.';
+
+  @override
+  String get partnerScanQr => 'Сканировать QR';
+
+  @override
+  String get partnerTapToOpenCamera => 'Нажмите, чтобы открыть камеру';
+
+  @override
+  String get partnerIdentifyCustomer => 'Определить покупателя';
+
+  @override
+  String get partnerSelectProduct => 'Выбрать товар';
+
+  @override
+  String get partnerApplyDiscount => 'Применить скидку';
+
+  @override
+  String get partnerConfirmCashback => 'Подтвердить кэшбэк';
+
+  @override
+  String get partnerRecordCashback => 'Записать кэшбэк';
+
+  @override
+  String get partnerProductLabel => 'Товар';
+
+  @override
+  String get partnerProductHint => 'Введите название товара или код (SKU)';
+
+  @override
+  String get partnerSizeLabel => 'Размер';
+
+  @override
+  String get partnerColorLabel => 'Цвет';
+
+  @override
+  String get partnerPricingLabel => 'Цена';
+
+  @override
+  String get partnerOriginalPriceHint => 'Исходная цена (UZS)';
+
+  @override
+  String get partnerDiscountPercent => 'Скидка %';
+
+  @override
+  String get partnerDiscountAmount => 'Сумма скидки';
+
+  @override
+  String get partnerFinalPriceLabel => 'Итоговая цена: ';
+
+  @override
+  String get partnerNotesLabel => 'Примечания (необязательно)';
+
+  @override
+  String get partnerNotesHint => 'Дополнительные примечания...';
+
+  @override
+  String get partnerCustomerPrefix => 'Покупатель: ';
+
+  @override
+  String get partnerPointCamera => 'Наведите камеру на QR-код покупателя';
+
+  @override
+  String get partnerCashbackSuccess => 'Кэшбэк записан!';
+
+  @override
+  String get partnerEnterProduct => 'Пожалуйста, введите название товара.';
+
+  @override
+  String get partnerEnterPrice => 'Пожалуйста, введите исходную цену.';
+
+  @override
+  String get partnerCashbackFailed => 'Не удалось записать кэшбэк.';
+
+  @override
+  String get partnerVerifyingUser => 'Проверка пользователя...';
+
+  @override
+  String get partnerUserNotFound => 'Пользователь не найден. Проверьте QR-код.';
+
+  @override
+  String get partnerUserVerified => 'Пользователь успешно подтвержден';
+
+  @override
+  String get partnerSelectProducts => 'Выберите товары';
+
+  @override
+  String get partnerSearchProducts => 'Поиск товаров...';
+
+  @override
+  String get partnerNoProducts => 'Товары не найдены';
+
+  @override
+  String get partnerAddProduct => 'Добавить товар';
+
+  @override
+  String get partnerProductsSelected => 'товаров выбрано';
+
+  @override
+  String get partnerContinue => 'Продолжить';
+
+  @override
+  String get partnerRemoveProduct => 'Удалить';
+
+  @override
+  String get partnerTotal => 'Итого';
+
+  @override
+  String get partnerEnterDiscount => 'Введите скидку для';
+
+  @override
+  String get partnerApplyingCashback => 'Применение кэшбэка...';
+
+  @override
+  String get partnerSelectAtLeastOne =>
+      'Пожалуйста, выберите хотя бы один товар.';
+
+  @override
+  String get partnerLoadingProducts => 'Загрузка товаров...';
+
+  @override
+  String get points => 'балл';
 }

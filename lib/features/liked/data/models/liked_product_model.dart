@@ -36,6 +36,12 @@ class LikedProductModel extends HiveObject {
   @HiveField(9)
   int? discountPercentage;
 
+  @HiveField(10)
+  int? originalPrice;
+
+  @HiveField(11)
+  String? sellerId;
+
   LikedProductModel({
     required this.productId,
     required this.brand,
@@ -47,6 +53,8 @@ class LikedProductModel extends HiveObject {
     DateTime? likedAt,
     this.isNew = false,
     this.discountPercentage,
+    this.originalPrice,
+    this.sellerId,
   }) : likedAt = likedAt ?? DateTime.now();
 
   @override

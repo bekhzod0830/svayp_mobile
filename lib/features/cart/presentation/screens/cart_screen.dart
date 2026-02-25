@@ -40,6 +40,11 @@ class _CartScreenState extends State<CartScreen> {
       _isLoading = true;
     });
 
+    List<CartItemModel> cartItems = [];
+    Map<int, String> cartItemIds = {};
+    double subtotal = 0.0;
+    int totalItems = 0;
+
     try {
       // Get auth token
       final apiClient = getIt<ApiClient>();
@@ -53,53 +58,60 @@ class _CartScreenState extends State<CartScreen> {
         final items = cartData['items'] as List<dynamic>;
         final summary = cartData['summary'] as Map<String, dynamic>;
 
-        _subtotal = (summary['subtotal'] as num).toDouble();
-        _totalItems = summary['total_items'] as int;
+        subtotal = (summary['subtotal'] as num).toDouble();
+        totalItems = summary['total_items'] as int;
 
         // Convert API items to CartItemModel and store their IDs
-        _cartItemIds.clear();
-        _cartItems = items.asMap().entries.map((entry) {
+        cartItems = items.asMap().entries.map((entry) {
           final index = entry.key;
           final item = entry.value;
           final product = item['product'] as Map<String, dynamic>;
 
-          // Store the cart item ID for deletion
-          _cartItemIds[index] = item['id'] as String;
+          // Store the cart item ID for deletion (handle both int and String)
+          final itemId = item['id'];
+          cartItemIds[index] = itemId?.toString() ?? '';
 
           return CartItemModel(
-            productId: product['id'] as String,
-            brand: product['brand'] as String,
-            title: product['title'] as String,
-            price: product['price'] as int,
-            imageUrl: (product['images'] as List).isNotEmpty
-                ? product['images'][0] as String
+            productId: (product['id']?.toString() ?? ''),
+            brand: (product['brand'] as String? ?? ''),
+            title: (product['title'] as String? ?? 'Unknown'),
+            price: (product['price'] as int? ?? 0),
+            imageUrl: (product['images'] as List?)?.isNotEmpty == true
+                ? (product['images'][0] as String? ?? '')
                 : '',
-            quantity: item['quantity'] as int,
-            selectedSize: item['selected_size'] as String,
+            quantity: (item['quantity'] as int? ?? 1),
+            selectedSize: (item['selected_size'] as String? ?? ''),
             selectedColor: item['selected_color'] as String?,
             category: '', // Not provided in API response
-            addedAt: DateTime.parse(item['created_at'] as String),
+            addedAt: item['created_at'] != null
+                ? DateTime.tryParse(item['created_at'] as String) ??
+                      DateTime.now()
+                : DateTime.now(),
           );
         }).toList();
 
-        print('✅ Loaded ${_cartItems.length} items from API');
+        print('✅ Loaded ${cartItems.length} items from API');
       } else {
         // Not authenticated, use local cache
         await _cartService.init();
-        _cartItems = _cartService.getCartItems();
-        _subtotal = _cartService.getSubtotal();
-        _totalItems = _cartItems.fold(0, (sum, item) => sum + item.quantity);
+        cartItems = _cartService.getCartItems();
+        subtotal = _cartService.getSubtotal();
+        totalItems = cartItems.fold(0, (sum, item) => sum + item.quantity);
       }
     } catch (e) {
       print('❌ Error loading cart: $e');
       // Fallback to local cache
       await _cartService.init();
-      _cartItems = _cartService.getCartItems();
-      _subtotal = _cartService.getSubtotal();
-      _totalItems = _cartItems.fold(0, (sum, item) => sum + item.quantity);
+      cartItems = _cartService.getCartItems();
+      subtotal = _cartService.getSubtotal();
+      totalItems = cartItems.fold(0, (sum, item) => sum + item.quantity);
     }
 
     setState(() {
+      _cartItems = cartItems;
+      _cartItemIds = cartItemIds;
+      _subtotal = subtotal;
+      _totalItems = totalItems;
       _isLoading = false;
     });
   }

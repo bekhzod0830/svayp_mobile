@@ -26,6 +26,7 @@ class ApiConfig {
   static const String authRefreshToken = '/auth/token/refresh';
   static const String authLogout = '/auth/logout';
   static const String authMe = '/auth/me';
+  static const String authAdminLogin = '/auth/admin/login';
 
   // ==================== User Endpoints ====================
   static const String userProfile = '/users/profile';
@@ -44,6 +45,7 @@ class ApiConfig {
 
   // ==================== Product Endpoints ====================
   static const String products = '/products';
+  static const String productsAll = '/products/all';
   static const String productsRecommended = '/products/recommendations';
   static const String productsSearch = '/products/search';
   static const String productsSearchHistory = '/products/search/history';

@@ -999,6 +999,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get seller => 'Seller';
 
   @override
+  String get visitShop => 'Visit Shop';
+
+  @override
+  String get viewAllProducts => 'View all products';
+
+  @override
   String get availability => 'Availability';
 
   @override
@@ -1068,6 +1074,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get noOrdersYet => 'No Orders Yet';
+
+  @override
+  String get errorLoadingOrders => 'Error Loading Orders';
+
+  @override
+  String get retry => 'Retry';
 
   @override
   String get startShoppingToSeeOrders =>
@@ -1174,6 +1186,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get typeMessage => 'Type a message...';
 
   @override
+  String get typeAMessage => 'Type your message...';
+
+  @override
+  String get newMessage => 'New Message';
+
+  @override
   String get sendMessage => 'Send';
 
   @override
@@ -1247,6 +1265,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get cashOnDelivery => 'Cash on Delivery';
+
+  @override
+  String get cardPayment => 'Card Payment';
+
+  @override
+  String get pickup => 'Pickup';
 
   @override
   String get payWhenYouReceive => 'Pay when you receive your order';
@@ -1487,6 +1511,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get editProfileComingSoon => 'Edit profile feature coming soon';
+
+  @override
+  String get myQrCode => 'My QR Code';
+
+  @override
+  String get scanQrForCashback =>
+      'Show this QR code to partners to receive cashback';
 
   @override
   String get personalInfo => 'Personal Information';
@@ -2225,4 +2256,166 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get enumLuxurious => 'Luxurious';
+
+  @override
+  String get partnerPortal => 'Partner Portal';
+
+  @override
+  String get partnerWelcomeBack => 'Welcome back';
+
+  @override
+  String get partnerSignInSubtitle =>
+      'Sign in to manage your store, reply to customers and issue cashback.';
+
+  @override
+  String get partnerUsernameLabel => 'Username or Email';
+
+  @override
+  String get partnerUsernameHint => 'Enter your username or email';
+
+  @override
+  String get partnerPasswordLabel => 'Password';
+
+  @override
+  String get partnerPasswordHint => 'Enter your password';
+
+  @override
+  String get partnerForgotPassword => 'Forgot password?';
+
+  @override
+  String get partnerSignIn => 'Sign In';
+
+  @override
+  String get partnerNeedAccess => 'Need access? Contact your account manager.';
+
+  @override
+  String get partnerLoginFailed =>
+      'Login failed. Please check your credentials.';
+
+  @override
+  String get partnerCashbackTitle => 'Cashback';
+
+  @override
+  String get partnerCashbackSubtitle =>
+      'Scan a customer QR code to record a sale and issue cashback.';
+
+  @override
+  String get partnerScanQr => 'Scan QR';
+
+  @override
+  String get partnerTapToOpenCamera => 'Tap to open camera';
+
+  @override
+  String get partnerIdentifyCustomer => 'Identify customer';
+
+  @override
+  String get partnerSelectProduct => 'Select product';
+
+  @override
+  String get partnerApplyDiscount => 'Apply discount';
+
+  @override
+  String get partnerConfirmCashback => 'Confirm cashback';
+
+  @override
+  String get partnerRecordCashback => 'Record Cashback';
+
+  @override
+  String get partnerProductLabel => 'Product';
+
+  @override
+  String get partnerProductHint => 'Enter product name or SKU';
+
+  @override
+  String get partnerSizeLabel => 'Size';
+
+  @override
+  String get partnerColorLabel => 'Color';
+
+  @override
+  String get partnerPricingLabel => 'Pricing';
+
+  @override
+  String get partnerOriginalPriceHint => 'Original price (UZS)';
+
+  @override
+  String get partnerDiscountPercent => 'Discount %';
+
+  @override
+  String get partnerDiscountAmount => 'Discount amount';
+
+  @override
+  String get partnerFinalPriceLabel => 'Final price: ';
+
+  @override
+  String get partnerNotesLabel => 'Notes (optional)';
+
+  @override
+  String get partnerNotesHint => 'Any additional notes...';
+
+  @override
+  String get partnerCustomerPrefix => 'Customer: ';
+
+  @override
+  String get partnerPointCamera => 'Point at the customer\'s QR code';
+
+  @override
+  String get partnerCashbackSuccess => 'Cashback recorded!';
+
+  @override
+  String get partnerEnterProduct => 'Please enter a product name.';
+
+  @override
+  String get partnerEnterPrice => 'Please enter the original price.';
+
+  @override
+  String get partnerCashbackFailed => 'Failed to record cashback.';
+
+  @override
+  String get partnerVerifyingUser => 'Verifying user...';
+
+  @override
+  String get partnerUserNotFound => 'User not found. Please check the QR code.';
+
+  @override
+  String get partnerUserVerified => 'User verified successfully';
+
+  @override
+  String get partnerSelectProducts => 'Select Products';
+
+  @override
+  String get partnerSearchProducts => 'Search products...';
+
+  @override
+  String get partnerNoProducts => 'No products found';
+
+  @override
+  String get partnerAddProduct => 'Add Product';
+
+  @override
+  String get partnerProductsSelected => 'products selected';
+
+  @override
+  String get partnerContinue => 'Continue';
+
+  @override
+  String get partnerRemoveProduct => 'Remove';
+
+  @override
+  String get partnerTotal => 'Total';
+
+  @override
+  String get partnerEnterDiscount => 'Enter discount for';
+
+  @override
+  String get partnerApplyingCashback => 'Applying cashback...';
+
+  @override
+  String get partnerSelectAtLeastOne => 'Please select at least one product.';
+
+  @override
+  String get partnerLoadingProducts => 'Loading products...';
+
+  @override
+  String get points => 'pts';
 }

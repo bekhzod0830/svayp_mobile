@@ -10,11 +10,13 @@ import 'package:swipe/core/cache/image_cache_manager.dart';
 /// Seller Profile Screen - Shows all products from a specific seller
 /// Similar to TikTok Shop seller pages
 class SellerProfileScreen extends StatefulWidget {
+  final String sellerId;
   final String sellerName;
   final List<Product> products;
 
   const SellerProfileScreen({
     super.key,
+    required this.sellerId,
     required this.sellerName,
     required this.products,
   });
@@ -468,6 +470,7 @@ class _TikTokProductCard extends StatelessWidget {
               padding: const EdgeInsets.all(10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   // Title
                   Text(
@@ -497,17 +500,19 @@ class _TikTokProductCard extends StatelessWidget {
                       ),
                       if (product.originalPrice != null) ...[
                         const SizedBox(width: 6),
-                        Text(
-                          _formatPrice(product.originalPrice!),
-                          style: AppTypography.caption.copyWith(
-                            color: isDark
-                                ? AppColors.darkSecondaryText
-                                : AppColors.gray500,
-                            decoration: TextDecoration.lineThrough,
-                            fontSize: 10,
+                        Flexible(
+                          child: Text(
+                            _formatPrice(product.originalPrice!),
+                            style: AppTypography.caption.copyWith(
+                              color: isDark
+                                  ? AppColors.darkSecondaryText
+                                  : AppColors.gray500,
+                              decoration: TextDecoration.lineThrough,
+                              fontSize: 10,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ],

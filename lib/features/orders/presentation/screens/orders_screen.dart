@@ -6,6 +6,8 @@ import 'package:swipe/features/orders/data/models/order_model.dart';
 import 'package:swipe/features/orders/data/services/order_service.dart';
 import 'package:swipe/features/main/presentation/screens/main_screen.dart';
 import 'package:swipe/features/chat/presentation/screens/chat_list_screen.dart';
+import 'package:swipe/core/network/api_client.dart';
+import 'package:swipe/core/di/service_locator.dart';
 
 /// Refreshable interface for orders screen
 abstract class Refreshable {
@@ -23,9 +25,10 @@ class OrdersScreen extends StatefulWidget {
 class OrdersScreenState extends State<OrdersScreen>
     with AutomaticKeepAliveClientMixin, WidgetsBindingObserver
     implements Refreshable {
-  final OrderService _orderService = OrderService();
+  late final OrderService _orderService;
   List<OrderModel> _orders = [];
   bool _isLoading = true;
+  String? _errorMessage;
   int _selectedTabIndex = 0; // 0 = Chat, 1 = Orders
   int _chatRefreshKey = 0; // Counter to force ChatListScreen rebuild
 
@@ -36,6 +39,9 @@ class OrdersScreenState extends State<OrdersScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Initialize OrderService with ApiClient
+    final apiClient = getIt<ApiClient>();
+    _orderService = OrderService(apiClient);
     _loadOrders();
   }
 
@@ -58,16 +64,30 @@ class OrdersScreenState extends State<OrdersScreen>
 
     setState(() {
       _isLoading = true;
+      _errorMessage = null;
     });
 
-    await _orderService.init();
+    try {
+      // Fetch orders from API
+      final orders = await _orderService.fetchOrders();
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    setState(() {
-      _orders = _orderService.getOrders();
-      _isLoading = false;
-    });
+      setState(() {
+        _orders = orders;
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('❌ Error loading orders: $e');
+
+      if (!mounted) return;
+
+      setState(() {
+        _errorMessage =
+            'Unable to load orders. Please check your connection and try again.';
+        _isLoading = false;
+      });
+    }
   }
 
   /// Public method to refresh orders (can be called from parent)
@@ -230,6 +250,8 @@ class OrdersScreenState extends State<OrdersScreen>
                             : AppColors.black,
                       ),
                     )
+                  : _errorMessage != null
+                  ? _buildErrorState(l10n, _errorMessage!)
                   : _orders.isEmpty
                   ? _buildEmptyState(l10n)
                   : RefreshIndicator(
@@ -250,6 +272,68 @@ class OrdersScreenState extends State<OrdersScreen>
                         },
                       ),
                     ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorState(AppLocalizations l10n, String errorMessage) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(40),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 100,
+              color: isDark ? AppColors.darkSecondaryText : AppColors.gray400,
+            ),
+            const SizedBox(height: 24),
+            Text(
+              l10n.errorLoadingOrders,
+              style: AppTypography.heading3.copyWith(
+                color: theme.colorScheme.onSurface,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              errorMessage,
+              style: AppTypography.body1.copyWith(
+                color: isDark
+                    ? AppColors.darkSecondaryText
+                    : AppColors.secondaryText,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
+            ElevatedButton(
+              onPressed: _loadOrders,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isDark
+                    ? AppColors.darkPrimaryText
+                    : AppColors.black,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 16,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
+              ),
+              child: Text(
+                l10n.retry,
+                style: AppTypography.body1.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? AppColors.black : AppColors.white,
+                ),
+              ),
             ),
           ],
         ),
@@ -381,11 +465,27 @@ class _OrderCard extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    order.id,
-                    style: AppTypography.body1.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: theme.colorScheme.onSurface,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.order,
+                          style: AppTypography.caption.copyWith(
+                            color: isDark
+                                ? AppColors.darkSecondaryText
+                                : AppColors.gray600,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          order.orderNumber,
+                          style: AppTypography.body1.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   Container(
@@ -410,6 +510,51 @@ class _OrderCard extends StatelessWidget {
 
               const SizedBox(height: 12),
 
+              // Delivery Method and Payment Method
+              Row(
+                children: [
+                  Icon(
+                    order.deliveryMethod.toUpperCase() == 'PICKUP'
+                        ? Icons.store_outlined
+                        : Icons.local_shipping_outlined,
+                    size: 14,
+                    color: isDark
+                        ? AppColors.darkSecondaryText
+                        : AppColors.gray600,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    order.getLocalizedDeliveryMethod(context),
+                    style: AppTypography.body2.copyWith(
+                      color: isDark
+                          ? AppColors.darkSecondaryText
+                          : AppColors.gray600,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Icon(
+                    order.paymentMethod.toUpperCase() == 'CASH'
+                        ? Icons.money_outlined
+                        : Icons.credit_card_outlined,
+                    size: 14,
+                    color: isDark
+                        ? AppColors.darkSecondaryText
+                        : AppColors.gray600,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    order.getLocalizedPaymentMethod(context),
+                    style: AppTypography.body2.copyWith(
+                      color: isDark
+                          ? AppColors.darkSecondaryText
+                          : AppColors.gray600,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 8),
+
               // Date and Item Count
               Row(
                 children: [
@@ -422,7 +567,7 @@ class _OrderCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    _formatDate(order.orderDate),
+                    _formatDate(order.createdAt),
                     style: AppTypography.body2.copyWith(
                       color: isDark
                           ? AppColors.darkSecondaryText
@@ -509,10 +654,17 @@ class _OrderCard extends StatelessWidget {
 }
 
 /// Order Detail Bottom Sheet
-class _OrderDetailSheet extends StatelessWidget {
+class _OrderDetailSheet extends StatefulWidget {
   final OrderModel order;
 
   const _OrderDetailSheet({required this.order});
+
+  @override
+  State<_OrderDetailSheet> createState() => _OrderDetailSheetState();
+}
+
+class _OrderDetailSheetState extends State<_OrderDetailSheet> {
+  bool _itemsExpanded = false;
 
   @override
   Widget build(BuildContext context) {
@@ -543,9 +695,9 @@ class _OrderDetailSheet extends StatelessWidget {
           ),
           const SizedBox(height: 24),
 
-          // Order ID
+          // Order Number
           Text(
-            '${l10n.order} ${order.id}',
+            '${l10n.order} ${widget.order.orderNumber}',
             style: AppTypography.heading4.copyWith(
               fontWeight: FontWeight.w700,
               color: theme.colorScheme.onSurface,
@@ -557,13 +709,13 @@ class _OrderDetailSheet extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: order.statusColor.withOpacity(0.1),
+              color: widget.order.statusColor.withOpacity(0.1),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
-              order.getLocalizedStatus(context),
+              widget.order.getLocalizedStatus(context),
               style: AppTypography.body2.copyWith(
-                color: order.statusColor,
+                color: widget.order.statusColor,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -571,50 +723,150 @@ class _OrderDetailSheet extends StatelessWidget {
 
           const SizedBox(height: 24),
 
-          // Tracking Number
-          if (order.trackingNumber != null) ...[
-            _DetailRow(
-              label: l10n.trackingNumber,
-              value: order.trackingNumber!,
-            ),
-            const SizedBox(height: 12),
-          ],
-
-          // Item Count
+          // Delivery Method
           _DetailRow(
-            label: l10n.items,
-            value: '${order.itemCount} ${l10n.products}',
+            label: l10n.deliveryMethod,
+            value: widget.order.getLocalizedDeliveryMethod(context),
           ),
           const SizedBox(height: 12),
 
-          // Total
-          _DetailRow(label: l10n.total, value: order.formattedTotal),
+          // Payment Method
+          _DetailRow(
+            label: l10n.paymentMethod,
+            value: widget.order.getLocalizedPaymentMethod(context),
+          ),
+          const SizedBox(height: 12),
+
+          // Total Amount
+          _DetailRow(label: l10n.total, value: widget.order.formattedTotal),
 
           const SizedBox(height: 24),
 
-          // Action Button
-          if (order.trackingNumber != null)
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  // TODO: Track order
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(l10n.trackingComingSoon)),
-                  );
-                },
-                icon: const Icon(Icons.location_on_outlined, size: 18),
-                label: Text(l10n.track),
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(
-                    color: isDark ? AppColors.white : AppColors.black,
+          // Items Section
+          InkWell(
+            onTap: () {
+              setState(() {
+                _itemsExpanded = !_itemsExpanded;
+              });
+            },
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '${l10n.items} (${widget.order.itemCount})',
+                  style: AppTypography.body1.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.onSurface,
                   ),
-                  foregroundColor: theme.colorScheme.onSurface,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
-              ),
+                Icon(
+                  _itemsExpanded ? Icons.expand_less : Icons.expand_more,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ],
             ),
+          ),
+
+          // Expandable Items List
+          if (_itemsExpanded) ...[
+            const SizedBox(height: 16),
+            ...widget.order.items.map((item) {
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? AppColors.darkMainBackground
+                      : AppColors.gray100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Product Image
+                    if (item.productImage != null)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          item.productImage!,
+                          width: 60,
+                          height: 60,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              width: 60,
+                              height: 60,
+                              color: isDark
+                                  ? AppColors.darkSecondaryText
+                                  : AppColors.gray300,
+                              child: const Icon(Icons.image),
+                            );
+                          },
+                        ),
+                      ),
+                    const SizedBox(width: 12),
+
+                    // Product Details
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.productTitle,
+                            style: AppTypography.body2.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: theme.colorScheme.onSurface,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          if (item.selectedSize != null ||
+                              item.selectedColor != null)
+                            Text(
+                              [
+                                if (item.selectedSize != null)
+                                  '${l10n.size}: ${item.selectedSize}',
+                                if (item.selectedColor != null)
+                                  item.selectedColor,
+                              ].join(' • '),
+                              style: AppTypography.caption.copyWith(
+                                color: isDark
+                                    ? AppColors.darkSecondaryText
+                                    : AppColors.gray600,
+                              ),
+                            ),
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '${l10n.qty}: ${item.quantity}',
+                                style: AppTypography.body2.copyWith(
+                                  color: isDark
+                                      ? AppColors.darkSecondaryText
+                                      : AppColors.gray600,
+                                ),
+                              ),
+                              Text(
+                                '${item.subtotal.toStringAsFixed(0)} ${widget.order.currency}',
+                                style: AppTypography.body2.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: theme.colorScheme.onSurface,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ],
+
+          const SizedBox(height: 24),
         ],
       ),
     );

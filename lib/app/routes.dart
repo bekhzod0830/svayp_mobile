@@ -3,6 +3,8 @@ import 'package:swipe/features/onboarding/presentation/screens/splash_screen.dar
 import 'package:swipe/features/onboarding/presentation/screens/welcome_screen.dart';
 import 'package:swipe/features/auth/presentation/screens/phone_auth_screen.dart';
 import 'package:swipe/features/auth/presentation/screens/otp_verification_screen.dart';
+import 'package:swipe/features/auth/presentation/screens/partner_login_screen.dart';
+import 'package:swipe/features/partner/presentation/screens/partner_main_screen.dart';
 import 'package:swipe/features/onboarding/presentation/screens/basic_info_screen.dart';
 import 'package:swipe/features/onboarding/presentation/screens/hijab_preference_screen.dart';
 // import 'package:swipe/features/onboarding/presentation/screens/primary_objective_screen.dart'; // DISABLED
@@ -67,6 +69,8 @@ class AppRoutes {
   static const String settings = '/settings';
   static const String editProfile = '/edit-profile';
   static const String notifications = '/notifications';
+  static const String partnerLogin = '/partner-login';
+  static const String partnerMain = '/partner-main';
 
   /// Generate routes
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
@@ -178,6 +182,12 @@ class AppRoutes {
 
       case budgetByItems:
         return MaterialPageRoute(builder: (_) => const BudgetByItemsScreen());
+
+      case partnerLogin:
+        return MaterialPageRoute(builder: (_) => const PartnerLoginScreen());
+
+      case partnerMain:
+        return MaterialPageRoute(builder: (_) => const PartnerMainScreen());
 
       case main:
         return MaterialPageRoute(builder: (_) => MainScreen());

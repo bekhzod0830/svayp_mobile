@@ -84,9 +84,11 @@ class _SplashScreenState extends State<SplashScreen>
 
     if (!mounted) return;
 
-    // Priority 1: If user is authenticated, go to main app
+    // Priority 1: If user is authenticated, go to correct home screen
     if (isAuthenticated) {
-      Navigator.of(context).pushReplacementNamed('/main');
+      final destination =
+          apiClient.isPartnerLogin() ? '/partner-main' : '/main';
+      Navigator.of(context).pushReplacementNamed(destination);
     }
     // Priority 2: If user completed onboarding but not authenticated (shouldn't happen)
     // Still send to main, they might have cleared auth but kept onboarding flag

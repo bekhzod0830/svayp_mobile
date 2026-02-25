@@ -6,7 +6,6 @@ import 'package:swipe/features/cart/data/models/cart_item_model.dart';
 import 'package:swipe/features/liked/data/models/liked_product_model.dart';
 import 'package:swipe/features/address/data/models/address_model.dart';
 import 'package:swipe/features/payment/data/models/payment_method_model.dart';
-import 'package:swipe/features/orders/data/models/order_model.dart';
 import 'package:swipe/core/localization/models/language_model.dart';
 import 'package:swipe/core/di/service_locator.dart';
 
@@ -28,7 +27,6 @@ void main() async {
   Hive.registerAdapter(LikedProductModelAdapter());
   Hive.registerAdapter(AddressModelAdapter());
   Hive.registerAdapter(PaymentMethodModelAdapter());
-  Hive.registerAdapter(OrderModelAdapter());
   Hive.registerAdapter(LanguageModelAdapter());
 
   // Initialize dependencies (API client, services, etc.)

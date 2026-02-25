@@ -2020,6 +2020,18 @@ abstract class AppLocalizations {
   /// **'Seller'**
   String get seller;
 
+  /// No description provided for @visitShop.
+  ///
+  /// In en, this message translates to:
+  /// **'Visit Shop'**
+  String get visitShop;
+
+  /// No description provided for @viewAllProducts.
+  ///
+  /// In en, this message translates to:
+  /// **'View all products'**
+  String get viewAllProducts;
+
   /// No description provided for @availability.
   ///
   /// In en, this message translates to:
@@ -2151,6 +2163,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No Orders Yet'**
   String get noOrdersYet;
+
+  /// No description provided for @errorLoadingOrders.
+  ///
+  /// In en, this message translates to:
+  /// **'Error Loading Orders'**
+  String get errorLoadingOrders;
+
+  /// No description provided for @retry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get retry;
 
   /// No description provided for @startShoppingToSeeOrders.
   ///
@@ -2332,6 +2356,18 @@ abstract class AppLocalizations {
   /// **'Type a message...'**
   String get typeMessage;
 
+  /// No description provided for @typeAMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Type your message...'**
+  String get typeAMessage;
+
+  /// No description provided for @newMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'New Message'**
+  String get newMessage;
+
   /// No description provided for @sendMessage.
   ///
   /// In en, this message translates to:
@@ -2475,6 +2511,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Cash on Delivery'**
   String get cashOnDelivery;
+
+  /// No description provided for @cardPayment.
+  ///
+  /// In en, this message translates to:
+  /// **'Card Payment'**
+  String get cardPayment;
+
+  /// No description provided for @pickup.
+  ///
+  /// In en, this message translates to:
+  /// **'Pickup'**
+  String get pickup;
 
   /// No description provided for @payWhenYouReceive.
   ///
@@ -2931,6 +2979,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Edit profile feature coming soon'**
   String get editProfileComingSoon;
+
+  /// No description provided for @myQrCode.
+  ///
+  /// In en, this message translates to:
+  /// **'My QR Code'**
+  String get myQrCode;
+
+  /// No description provided for @scanQrForCashback.
+  ///
+  /// In en, this message translates to:
+  /// **'Show this QR code to partners to receive cashback'**
+  String get scanQrForCashback;
 
   /// No description provided for @personalInfo.
   ///
@@ -4389,6 +4449,324 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Luxurious'**
   String get enumLuxurious;
+
+  /// No description provided for @partnerPortal.
+  ///
+  /// In en, this message translates to:
+  /// **'Partner Portal'**
+  String get partnerPortal;
+
+  /// No description provided for @partnerWelcomeBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Welcome back'**
+  String get partnerWelcomeBack;
+
+  /// No description provided for @partnerSignInSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to manage your store, reply to customers and issue cashback.'**
+  String get partnerSignInSubtitle;
+
+  /// No description provided for @partnerUsernameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Username or Email'**
+  String get partnerUsernameLabel;
+
+  /// No description provided for @partnerUsernameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your username or email'**
+  String get partnerUsernameHint;
+
+  /// No description provided for @partnerPasswordLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Password'**
+  String get partnerPasswordLabel;
+
+  /// No description provided for @partnerPasswordHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your password'**
+  String get partnerPasswordHint;
+
+  /// No description provided for @partnerForgotPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Forgot password?'**
+  String get partnerForgotPassword;
+
+  /// No description provided for @partnerSignIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign In'**
+  String get partnerSignIn;
+
+  /// No description provided for @partnerNeedAccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Need access? Contact your account manager.'**
+  String get partnerNeedAccess;
+
+  /// No description provided for @partnerLoginFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Login failed. Please check your credentials.'**
+  String get partnerLoginFailed;
+
+  /// No description provided for @partnerCashbackTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Cashback'**
+  String get partnerCashbackTitle;
+
+  /// No description provided for @partnerCashbackSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan a customer QR code to record a sale and issue cashback.'**
+  String get partnerCashbackSubtitle;
+
+  /// No description provided for @partnerScanQr.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan QR'**
+  String get partnerScanQr;
+
+  /// No description provided for @partnerTapToOpenCamera.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to open camera'**
+  String get partnerTapToOpenCamera;
+
+  /// No description provided for @partnerIdentifyCustomer.
+  ///
+  /// In en, this message translates to:
+  /// **'Identify customer'**
+  String get partnerIdentifyCustomer;
+
+  /// No description provided for @partnerSelectProduct.
+  ///
+  /// In en, this message translates to:
+  /// **'Select product'**
+  String get partnerSelectProduct;
+
+  /// No description provided for @partnerApplyDiscount.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply discount'**
+  String get partnerApplyDiscount;
+
+  /// No description provided for @partnerConfirmCashback.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm cashback'**
+  String get partnerConfirmCashback;
+
+  /// No description provided for @partnerRecordCashback.
+  ///
+  /// In en, this message translates to:
+  /// **'Record Cashback'**
+  String get partnerRecordCashback;
+
+  /// No description provided for @partnerProductLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Product'**
+  String get partnerProductLabel;
+
+  /// No description provided for @partnerProductHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter product name or SKU'**
+  String get partnerProductHint;
+
+  /// No description provided for @partnerSizeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Size'**
+  String get partnerSizeLabel;
+
+  /// No description provided for @partnerColorLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Color'**
+  String get partnerColorLabel;
+
+  /// No description provided for @partnerPricingLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Pricing'**
+  String get partnerPricingLabel;
+
+  /// No description provided for @partnerOriginalPriceHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Original price (UZS)'**
+  String get partnerOriginalPriceHint;
+
+  /// No description provided for @partnerDiscountPercent.
+  ///
+  /// In en, this message translates to:
+  /// **'Discount %'**
+  String get partnerDiscountPercent;
+
+  /// No description provided for @partnerDiscountAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Discount amount'**
+  String get partnerDiscountAmount;
+
+  /// No description provided for @partnerFinalPriceLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Final price: '**
+  String get partnerFinalPriceLabel;
+
+  /// No description provided for @partnerNotesLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Notes (optional)'**
+  String get partnerNotesLabel;
+
+  /// No description provided for @partnerNotesHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Any additional notes...'**
+  String get partnerNotesHint;
+
+  /// No description provided for @partnerCustomerPrefix.
+  ///
+  /// In en, this message translates to:
+  /// **'Customer: '**
+  String get partnerCustomerPrefix;
+
+  /// No description provided for @partnerPointCamera.
+  ///
+  /// In en, this message translates to:
+  /// **'Point at the customer\'s QR code'**
+  String get partnerPointCamera;
+
+  /// No description provided for @partnerCashbackSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Cashback recorded!'**
+  String get partnerCashbackSuccess;
+
+  /// No description provided for @partnerEnterProduct.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter a product name.'**
+  String get partnerEnterProduct;
+
+  /// No description provided for @partnerEnterPrice.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter the original price.'**
+  String get partnerEnterPrice;
+
+  /// No description provided for @partnerCashbackFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to record cashback.'**
+  String get partnerCashbackFailed;
+
+  /// No description provided for @partnerVerifyingUser.
+  ///
+  /// In en, this message translates to:
+  /// **'Verifying user...'**
+  String get partnerVerifyingUser;
+
+  /// No description provided for @partnerUserNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'User not found. Please check the QR code.'**
+  String get partnerUserNotFound;
+
+  /// No description provided for @partnerUserVerified.
+  ///
+  /// In en, this message translates to:
+  /// **'User verified successfully'**
+  String get partnerUserVerified;
+
+  /// No description provided for @partnerSelectProducts.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Products'**
+  String get partnerSelectProducts;
+
+  /// No description provided for @partnerSearchProducts.
+  ///
+  /// In en, this message translates to:
+  /// **'Search products...'**
+  String get partnerSearchProducts;
+
+  /// No description provided for @partnerNoProducts.
+  ///
+  /// In en, this message translates to:
+  /// **'No products found'**
+  String get partnerNoProducts;
+
+  /// No description provided for @partnerAddProduct.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Product'**
+  String get partnerAddProduct;
+
+  /// No description provided for @partnerProductsSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'products selected'**
+  String get partnerProductsSelected;
+
+  /// No description provided for @partnerContinue.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get partnerContinue;
+
+  /// No description provided for @partnerRemoveProduct.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get partnerRemoveProduct;
+
+  /// No description provided for @partnerTotal.
+  ///
+  /// In en, this message translates to:
+  /// **'Total'**
+  String get partnerTotal;
+
+  /// No description provided for @partnerEnterDiscount.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter discount for'**
+  String get partnerEnterDiscount;
+
+  /// No description provided for @partnerApplyingCashback.
+  ///
+  /// In en, this message translates to:
+  /// **'Applying cashback...'**
+  String get partnerApplyingCashback;
+
+  /// No description provided for @partnerSelectAtLeastOne.
+  ///
+  /// In en, this message translates to:
+  /// **'Please select at least one product.'**
+  String get partnerSelectAtLeastOne;
+
+  /// No description provided for @partnerLoadingProducts.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading products...'**
+  String get partnerLoadingProducts;
+
+  /// No description provided for @points.
+  ///
+  /// In en, this message translates to:
+  /// **'pts'**
+  String get points;
 }
 
 class _AppLocalizationsDelegate

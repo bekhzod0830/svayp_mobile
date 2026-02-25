@@ -227,11 +227,19 @@ class _SellerCard extends StatelessWidget {
 
     return GestureDetector(
       onTap: () {
+        // Get sellerId from first product
+        final sellerId = products.isNotEmpty
+            ? (products.first.sellerId ?? 'unknown')
+            : 'unknown';
+
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) =>
-                SellerProfileScreen(sellerName: sellerName, products: products),
+            builder: (_) => SellerProfileScreen(
+              sellerId: sellerId,
+              sellerName: sellerName,
+              products: products,
+            ),
           ),
         );
       },
@@ -516,6 +524,7 @@ class _TikTokProductCard extends StatelessWidget {
               padding: const EdgeInsets.all(10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   // Title
                   Text(
@@ -593,18 +602,24 @@ class _TikTokProductCard extends StatelessWidget {
 
     try {
       // Fetch all products
-      final response = await apiService.getProducts(skip: 0, limit: 100);
+      final response = await apiService.getProducts(page: 0, size: 100);
 
       // Filter products by seller
       final sellerProducts = response.products
           .where((p) => p.seller == sellerName)
-          .map(
-            (apiProduct) => Product(
+          .map((apiProduct) {
+            // Use seller if brand is "Unknown" or if seller is available
+            final displayBrand =
+                (apiProduct.brand == 'Unknown' || apiProduct.brand.isEmpty)
+                ? (apiProduct.seller ?? apiProduct.brand)
+                : apiProduct.brand;
+
+            return Product(
               id: apiProduct.id,
               title: apiProduct.title,
               description: apiProduct.description ?? '',
               price: apiProduct.price,
-              brand: apiProduct.brand,
+              brand: displayBrand,
               category: apiProduct.category.displayName,
               images: apiProduct.images.isNotEmpty
                   ? apiProduct.images
@@ -619,18 +634,23 @@ class _TikTokProductCard extends StatelessWidget {
               isFeatured: apiProduct.isFeatured ?? false,
               inStock: apiProduct.inStock,
               seller: apiProduct.seller,
+              sellerId: apiProduct.sellerId,
               discountPercentage: apiProduct.discountPercentage,
               originalPrice: apiProduct.originalPrice,
-            ),
-          )
+            );
+          })
           .toList();
 
       if (sellerProducts.isEmpty) return;
+
+      // Get sellerId from first product
+      final sellerId = sellerProducts.first.sellerId ?? 'unknown';
 
       // Navigate to seller profile
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (context) => SellerProfileScreen(
+            sellerId: sellerId,
             sellerName: sellerName,
             products: sellerProducts,
           ),

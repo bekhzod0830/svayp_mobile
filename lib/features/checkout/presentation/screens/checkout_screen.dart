@@ -9,11 +9,14 @@ import 'package:swipe/features/address/data/services/address_service.dart';
 import 'package:swipe/features/address/presentation/screens/address_list_screen.dart';
 import 'package:swipe/features/payment/data/models/payment_method_model.dart';
 import 'package:swipe/features/payment/data/services/payment_method_service.dart';
-import 'package:swipe/features/orders/data/models/order_model.dart';
 import 'package:swipe/features/orders/data/services/order_service.dart';
 import 'package:swipe/features/checkout/presentation/screens/order_confirmation_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:swipe/core/cache/image_cache_manager.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:swipe/core/network/api_client.dart';
+import 'package:swipe/core/services/product_api_service.dart';
+import 'package:swipe/core/di/service_locator.dart';
 
 /// Checkout Screen - Final review before placing order
 class CheckoutScreen extends StatefulWidget {
@@ -27,7 +30,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final CartService _cartService = CartService();
   final AddressService _addressService = AddressService();
   final PaymentMethodService _paymentMethodService = PaymentMethodService();
-  final OrderService _orderService = OrderService();
+  final ProductApiService _apiService = ProductApiService();
+  late final OrderService _orderService;
 
   List<CartItemModel> _cartItems = [];
   AddressModel? _selectedAddress;
@@ -35,11 +39,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   String _deliveryMethod = 'pickup'; // pickup is now the default
   bool _isLoading = true;
   bool _isPlacingOrder = false;
+  double _subtotalAmount = 0.0;
 
   @override
   void initState() {
     super.initState();
-    _loadCheckoutData();
+    _initializeServices();
+  }
+
+  Future<void> _initializeServices() async {
+    // Initialize ApiClient for OrderService
+    final prefs = await SharedPreferences.getInstance();
+    final apiClient = ApiClient(prefs);
+    _orderService = OrderService(apiClient);
+
+    await _loadCheckoutData();
   }
 
   Future<void> _loadCheckoutData() async {
@@ -47,12 +61,69 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       _isLoading = true;
     });
 
-    await _cartService.init();
+    List<CartItemModel> cartItems = [];
+    double subtotal = 0.0;
+
+    try {
+      // Get auth token
+      final apiClient = getIt<ApiClient>();
+      final token = apiClient.getToken();
+
+      if (token != null && token.isNotEmpty) {
+        // Fetch cart from API
+        print('📡 Fetching cart from API for checkout...');
+        final cartData = await _apiService.getCart(token: token);
+
+        final items = cartData['items'] as List<dynamic>;
+        final summary = cartData['summary'] as Map<String, dynamic>;
+
+        // Get subtotal from API response
+        subtotal = (summary['subtotal'] as num?)?.toDouble() ?? 0.0;
+
+        // Convert API items to CartItemModel
+        cartItems = items.map((item) {
+          final product = item['product'] as Map<String, dynamic>;
+
+          return CartItemModel(
+            productId: (product['id']?.toString() ?? ''),
+            brand: (product['brand'] as String? ?? ''),
+            title: (product['title'] as String? ?? 'Unknown'),
+            price: (product['price'] as int? ?? 0),
+            imageUrl: (product['images'] as List?)?.isNotEmpty == true
+                ? (product['images'][0] as String? ?? '')
+                : '',
+            quantity: (item['quantity'] as int? ?? 1),
+            selectedSize: (item['selected_size'] as String? ?? ''),
+            selectedColor: item['selected_color'] as String?,
+            category: '',
+            addedAt: item['created_at'] != null
+                ? DateTime.tryParse(item['created_at'] as String) ??
+                      DateTime.now()
+                : DateTime.now(),
+          );
+        }).toList();
+
+        print('✅ Loaded ${cartItems.length} items from API for checkout');
+      } else {
+        // Not authenticated, use local cache
+        await _cartService.init();
+        cartItems = _cartService.getCartItems();
+        subtotal = _cartService.getSubtotal();
+      }
+    } catch (e) {
+      print('❌ Error loading cart for checkout: $e');
+      // Fallback to local cache
+      await _cartService.init();
+      cartItems = _cartService.getCartItems();
+      subtotal = _cartService.getSubtotal();
+    }
+
     await _addressService.init();
     await _paymentMethodService.init();
 
     setState(() {
-      _cartItems = _cartService.getCartItems();
+      _cartItems = cartItems;
+      _subtotalAmount = subtotal;
       _selectedAddress = _addressService.getDefaultAddress();
       _selectedPaymentMethod = _paymentMethodService.getDefaultPaymentMethod();
       _isLoading = false;
@@ -84,7 +155,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     ).showSnackBar(SnackBar(content: Text(l10n.paymentSelectionComingSoon)));
   }
 
-  double get _subtotal => _cartService.getSubtotal();
+  double get _subtotal => _subtotalAmount;
 
   double get _deliveryFee {
     switch (_deliveryMethod) {
@@ -132,55 +203,28 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     });
 
     try {
-      // Simulate API call to place order
-      await Future.delayed(const Duration(seconds: 2));
+      // Place order via API (cart items are read from server-side cart)
+      final orderResponse = await _orderService.placeOrderApi(
+        addressId: _selectedAddress?.id,
+        deliveryMethod: _deliveryMethod,
+        paymentMethod: _selectedPaymentMethod!.id,
+      );
 
-      // Generate order ID
-      final orderId =
+      // Extract order details from response
+      final orderNumber =
+          orderResponse['orderNumber']?.toString() ??
+          orderResponse['order_number']?.toString() ??
           '#SW${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
 
-      // Calculate estimated delivery date based on delivery method
-      int deliveryDays;
-      switch (_deliveryMethod) {
-        case 'pickup':
-          deliveryDays = 0; // Available immediately for pickup
-          break;
-        case 'sameday':
-          deliveryDays = 1;
-          break;
-        case 'express':
-          deliveryDays = 2;
-          break;
-        default:
-          deliveryDays = 5;
-      }
-      final estimatedDelivery = DateTime.now().add(
-        Duration(days: deliveryDays),
-      );
+      // Parse status from response or default to confirmed
+      final status = orderResponse['status']?.toString() ?? 'confirmed';
 
-      // Create order model
-      final order = OrderModel(
-        id: orderId,
-        items: List.from(_cartItems), // Create a copy of items
-        orderDate: DateTime.now(),
-        status: 'confirmed',
-        subtotal: _subtotal,
-        deliveryFee: _deliveryFee,
-        total: _total,
-        deliveryAddressId: _selectedAddress?.id ?? 'pickup',
-        deliveryAddressName: _selectedAddress?.fullName ?? l10n.pickupInStore,
-        deliveryAddressPhone: _selectedAddress?.phoneNumber ?? '',
-        deliveryAddressFormatted:
-            _selectedAddress?.formattedAddress ?? l10n.availableForPickup,
-        paymentMethodId: _selectedPaymentMethod!.id,
-        paymentMethodName: _selectedPaymentMethod!.displayName,
-        deliveryMethod: _deliveryMethod,
-        estimatedDeliveryDate: estimatedDelivery,
-      );
+      // Get items count from response or local cart
+      final responseItems = orderResponse['items'] as List?;
+      final itemsCount = responseItems?.length ?? _cartItems.length;
 
-      // Save order to database
-      await _orderService.init();
-      await _orderService.addOrder(order);
+      // Order is already saved on the server via placeOrderApi()
+      // No need to save locally anymore - orders are fetched from API
 
       // Clear cart after successful order
       await _cartService.clearCart();
@@ -189,8 +233,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         // Navigate to order confirmation
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (context) =>
-                OrderConfirmationScreen(orderId: orderId, totalAmount: _total),
+            builder: (context) => OrderConfirmationScreen(
+              orderNumber: orderNumber,
+              totalAmount: _total,
+              status: status,
+              itemsCount: itemsCount,
+            ),
           ),
         );
       }

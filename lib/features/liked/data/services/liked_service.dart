@@ -56,9 +56,19 @@ class LikedService {
       return;
     }
 
+    // Use seller as fallback when brand is "Unknown" or empty
+    String displayBrand = (product.brand == 'Unknown' || product.brand.isEmpty)
+        ? (product.seller ?? product.brand)
+        : product.brand;
+
+    // If still "Unknown" or empty, use SVAYP as default
+    if (displayBrand == 'Unknown' || displayBrand.isEmpty) {
+      displayBrand = 'SVAYP';
+    }
+
     final likedProduct = LikedProductModel(
       productId: product.id,
-      brand: product.brand,
+      brand: displayBrand,
       title: product.title,
       price: product.price,
       imageUrl: product.images.isNotEmpty ? product.images.first : '',
@@ -66,6 +76,8 @@ class LikedService {
       rating: product.rating,
       isNew: product.isNew,
       discountPercentage: product.discountPercentage,
+      originalPrice: product.originalPrice,
+      sellerId: product.sellerId,
     );
 
     await _likedBox?.add(likedProduct);

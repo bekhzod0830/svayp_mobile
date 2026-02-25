@@ -16,6 +16,7 @@ class Product {
   final List<String>? season; // Seasons
   final String currency; // Currency code (e.g., "UZS")
   final String? seller; // Seller/retailer name
+  final String? sellerId; // Seller UUID
   final bool isNew; // New arrival badge
   final bool isFeatured; // Featured product
   final int? discountPercentage; // Discount if any
@@ -42,6 +43,7 @@ class Product {
     this.season,
     this.currency = 'UZS',
     this.seller,
+    this.sellerId,
     this.isNew = false,
     this.isFeatured = false,
     this.discountPercentage,
@@ -87,6 +89,7 @@ class Product {
           .toList(),
       currency: json['currency'] as String? ?? 'UZS',
       seller: json['seller'] as String?,
+      sellerId: json['seller_id'] as String? ?? json['sellerId'] as String?,
       isNew: json['is_new'] as bool? ?? false,
       isFeatured: json['is_featured'] as bool? ?? false,
       discountPercentage: json['discount_percentage'] as int?,
@@ -117,6 +120,7 @@ class Product {
       'season': season,
       'currency': currency,
       'seller': seller,
+      'seller_id': sellerId,
       'is_new': isNew,
       'is_featured': isFeatured,
       'discount_percentage': discountPercentage,
@@ -169,6 +173,7 @@ class Product {
     List<String>? season,
     String? currency,
     String? seller,
+    String? sellerId,
     bool? isNew,
     bool? isFeatured,
     int? discountPercentage,
@@ -195,6 +200,7 @@ class Product {
       season: season ?? this.season,
       currency: currency ?? this.currency,
       seller: seller ?? this.seller,
+      sellerId: sellerId ?? this.sellerId,
       isNew: isNew ?? this.isNew,
       isFeatured: isFeatured ?? this.isFeatured,
       discountPercentage: discountPercentage ?? this.discountPercentage,

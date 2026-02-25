@@ -5,6 +5,8 @@ import 'package:swipe/core/constants/app_typography.dart';
 import 'package:swipe/features/chat/data/models/chat_model.dart';
 import 'package:swipe/features/chat/presentation/screens/chat_detail_screen.dart';
 import 'package:swipe/features/chat/data/services/chat_service.dart';
+import 'package:swipe/core/di/service_locator.dart';
+import 'package:swipe/core/network/api_client.dart';
 
 /// Chat List Screen - Shows conversations with sellers
 class ChatListScreen extends StatefulWidget {
@@ -16,28 +18,39 @@ class ChatListScreen extends StatefulWidget {
 
 class _ChatListScreenState extends State<ChatListScreen>
     with WidgetsBindingObserver {
-  final ChatService _chatService = ChatService();
-  List<ChatModel> _chats = [];
+  late final ChatService _chatService;
+  late final ApiClient _apiClient;
+  List<ChatResponse> _chats = [];
   bool _isLoading = true;
-  bool _isInitialized = false;
+  String? _errorMessage;
+  bool _isAdmin = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _chatService = ChatService(getIt<ApiClient>());
+    _apiClient = getIt<ApiClient>();
+    _checkUserRole();
+    _loadChats();
+  }
+
+  void _checkUserRole() {
+    _isAdmin = _apiClient.isPartnerLogin();
+    print('🔍 [ChatListScreen] User is admin/seller: $_isAdmin');
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Always reload chats when dependencies change (e.g., when tab becomes visible)
+    // Reload chats when dependencies change
     _loadChats();
   }
 
   @override
   void didUpdateWidget(ChatListScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Reload chats when widget is rebuilt (e.g., when tab is switched)
+    // Reload chats when widget is rebuilt
     _loadChats();
   }
 
@@ -59,17 +72,31 @@ class _ChatListScreenState extends State<ChatListScreen>
 
     setState(() {
       _isLoading = true;
+      _errorMessage = null;
     });
 
-    await _chatService.init();
-    final chats = await _chatService.getChats();
+    try {
+      print('🔄 [ChatListScreen] Loading chats...');
+      final chats = await _chatService.getChats();
+      print('✅ [ChatListScreen] Loaded ${chats.length} chats');
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    setState(() {
-      _chats = chats;
-      _isLoading = false;
-    });
+      setState(() {
+        _chats = chats;
+        _isLoading = false;
+      });
+    } catch (e, stackTrace) {
+      print('❌ [ChatListScreen] Error loading chats: $e');
+      print('❌ [ChatListScreen] Stack trace: $stackTrace');
+
+      if (!mounted) return;
+
+      setState(() {
+        _errorMessage = 'Failed to load chats: ${e.toString()}';
+        _isLoading = false;
+      });
+    }
   }
 
   Future<void> _refreshChats() async {
@@ -84,6 +111,10 @@ class _ChatListScreenState extends State<ChatListScreen>
 
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_errorMessage != null) {
+      return _buildErrorState(l10n, isDark);
     }
 
     if (_chats.isEmpty) {
@@ -101,9 +132,40 @@ class _ChatListScreenState extends State<ChatListScreen>
             chat: chat,
             isDark: isDark,
             l10n: l10n,
+            isAdmin: _isAdmin,
             onChatDeleted: _refreshChats,
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildErrorState(AppLocalizations l10n, bool isDark) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(40),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 100,
+              color: isDark ? AppColors.darkSecondaryText : AppColors.gray400,
+            ),
+            const SizedBox(height: 24),
+            Text(
+              _errorMessage ?? 'Error loading chats',
+              style: AppTypography.body1.copyWith(
+                color: isDark
+                    ? AppColors.darkSecondaryText
+                    : AppColors.secondaryText,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(onPressed: _refreshChats, child: Text(l10n.retry)),
+          ],
+        ),
       ),
     );
   }
@@ -147,15 +209,17 @@ class _ChatListScreenState extends State<ChatListScreen>
 
 /// Chat List Item Widget
 class _ChatListItem extends StatelessWidget {
-  final ChatModel chat;
+  final ChatResponse chat;
   final bool isDark;
   final AppLocalizations l10n;
+  final bool isAdmin;
   final VoidCallback onChatDeleted;
 
   const _ChatListItem({
     required this.chat,
     required this.isDark,
     required this.l10n,
+    required this.isAdmin,
     required this.onChatDeleted,
   });
 
@@ -178,6 +242,8 @@ class _ChatListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final lastMessageTime = chat.lastMessageAt ?? chat.createdAt;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -194,7 +260,7 @@ class _ChatListItem extends StatelessWidget {
           onTap: () async {
             await Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (context) => ChatDetailScreen(chat: chat),
+                builder: (context) => ChatDetailScreen(chatId: chat.id),
               ),
             );
             // Refresh chat list when returning from chat detail
@@ -206,7 +272,7 @@ class _ChatListItem extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Avatar with gradient
+                // Avatar with first letter - shows user/seller based on role
                 Container(
                   width: 56,
                   height: 56,
@@ -215,12 +281,21 @@ class _ChatListItem extends StatelessWidget {
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: _getGradientColors(chat.sellerName),
+                      colors: _getGradientColors(
+                        isAdmin ? (chat.userName ?? 'User') : chat.sellerName,
+                      ),
                     ),
                   ),
                   child: Center(
                     child: Text(
-                      chat.sellerAvatar,
+                      () {
+                        final displayName = isAdmin
+                            ? (chat.userName ?? 'U')
+                            : chat.sellerName;
+                        return displayName.isNotEmpty
+                            ? displayName[0].toUpperCase()
+                            : (isAdmin ? 'U' : 'S');
+                      }(),
                       style: AppTypography.heading4.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.w700,
@@ -237,9 +312,12 @@ class _ChatListItem extends StatelessWidget {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          // Seller name
+                          // Display name based on user role
+                          // Admin/Seller sees user name, User sees seller name
                           Text(
-                            chat.sellerName,
+                            isAdmin
+                                ? (chat.userName ?? 'Unknown User')
+                                : chat.sellerName,
                             style: AppTypography.body1.copyWith(
                               fontWeight: FontWeight.w700,
                               color: isDark
@@ -249,7 +327,7 @@ class _ChatListItem extends StatelessWidget {
                           ),
                           // Time
                           Text(
-                            _formatTime(chat.lastMessageTime),
+                            _formatTime(lastMessageTime),
                             style: AppTypography.caption.copyWith(
                               color: isDark
                                   ? AppColors.darkSecondaryText
@@ -258,27 +336,13 @@ class _ChatListItem extends StatelessWidget {
                           ),
                         ],
                       ),
-                      if (chat.productName != null) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          l10n.aboutProduct(chat.productName!),
-                          style: AppTypography.caption.copyWith(
-                            color: isDark
-                                ? AppColors.darkSecondaryText
-                                : AppColors.gray600,
-                            fontStyle: FontStyle.italic,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
                       const SizedBox(height: 6),
                       // Last message
                       Row(
                         children: [
                           Expanded(
                             child: Text(
-                              chat.lastMessage,
+                              chat.lastMessagePreview ?? 'No messages yet',
                               style: AppTypography.body2.copyWith(
                                 color: chat.unreadCount > 0
                                     ? (isDark

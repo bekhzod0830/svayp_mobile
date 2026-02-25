@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:flutter/physics.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
 import 'package:swipe/core/utils/responsive_utils.dart';
@@ -58,8 +57,6 @@ class SwipeableProductCardState extends State<SwipeableProductCard>
 
   // Gesture tracking
   bool _isDragging = false;
-  Offset _startPosition = Offset.zero;
-  DateTime? _dragStartTime;
 
   // Thresholds
   static const double _swipeThreshold = 100.0;
@@ -133,8 +130,6 @@ class SwipeableProductCardState extends State<SwipeableProductCard>
     _swipeController?.stop();
 
     _isDragging = true;
-    _startPosition = details.globalPosition;
-    _dragStartTime = DateTime.now();
   }
 
   void _onPanUpdate(DragUpdateDetails details) {
@@ -532,38 +527,47 @@ class SwipeableProductCardState extends State<SwipeableProductCard>
         : stackOffset;
     final rotation = widget.isTopCard ? _dragRotation * (math.pi / 180) : 0.0;
 
-    return RepaintBoundary(
-      child: Transform(
-        transform: Matrix4.identity()
-          ..translate(totalOffset.dx, totalOffset.dy)
-          ..rotateZ(rotation)
-          ..scale(cardScale),
-        alignment: Alignment.center,
-        child: Opacity(
-          opacity: cardOpacity,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onPanStart: _onPanStart,
-            onPanUpdate: _onPanUpdate,
-            onPanEnd: _onPanEnd,
-            onTap: widget.isTopCard ? widget.onTap : null,
-            child: SizedBox(
-              width: cardWidth,
-              height: cardHeight,
-              child: Stack(
-                children: [
-                  // Main Card Content
-                  _buildCardContent(cardWidth, cardHeight),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Ensure we have valid constraints before rendering
+        if (!constraints.hasBoundedWidth || !constraints.hasBoundedHeight) {
+          return const SizedBox.shrink();
+        }
 
-                  // Swipe Direction Overlay
-                  if (widget.isTopCard && _swipeDirection != null)
-                    _buildSwipeOverlay(),
-                ],
+        return RepaintBoundary(
+          child: Transform(
+            transform: Matrix4.identity()
+              ..translate(totalOffset.dx, totalOffset.dy)
+              ..rotateZ(rotation)
+              ..scale(cardScale),
+            alignment: Alignment.center,
+            child: Opacity(
+              opacity: cardOpacity,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onPanStart: _onPanStart,
+                onPanUpdate: _onPanUpdate,
+                onPanEnd: _onPanEnd,
+                onTap: widget.isTopCard ? widget.onTap : null,
+                child: SizedBox(
+                  width: cardWidth,
+                  height: cardHeight,
+                  child: Stack(
+                    children: [
+                      // Main Card Content
+                      _buildCardContent(cardWidth, cardHeight),
+
+                      // Swipe Direction Overlay
+                      if (widget.isTopCard && _swipeDirection != null)
+                        _buildSwipeOverlay(),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -723,82 +727,102 @@ class SwipeableProductCardState extends State<SwipeableProductCard>
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Brand & Title
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                widget.product.brand.toUpperCase(),
-                style: AppTypography.caption.copyWith(
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.5,
-                  color: isDark ? AppColors.white : AppColors.gray700,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                widget.product.title,
-                style: AppTypography.body1.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? AppColors.white : AppColors.black,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
+          // Title
+          Text(
+            widget.product.title,
+            style: AppTypography.body1.copyWith(
+              fontWeight: FontWeight.w600,
+              color: isDark ? AppColors.white : AppColors.black,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
+          const SizedBox(height: 4),
+          // Seller Name
+          Text(
+            widget.product.seller ?? 'SVAYP',
+            style: AppTypography.caption.copyWith(
+              color: isDark ? AppColors.gray400 : AppColors.gray600,
+              fontSize: 12,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 8),
           // Price & Rating Row
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Price
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.product.formattedPrice,
-                    style: AppTypography.heading3.copyWith(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 18,
-                      color: isDark ? AppColors.white : AppColors.black,
-                    ),
-                  ),
-                  if (widget.product.hasDiscount)
-                    Text(
-                      widget.product.formattedDiscountPrice ?? '',
-                      style: AppTypography.caption.copyWith(
-                        color: isDark ? AppColors.gray400 : AppColors.gray500,
-                        decoration: TextDecoration.lineThrough,
-                      ),
-                    ),
-                ],
-              ),
-              // Rating
-              if (widget.product.reviewCount > 0)
-                Row(
+              Flexible(
+                flex: 3,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.star, size: 16, color: Colors.amber),
-                    const SizedBox(width: 4),
                     Text(
-                      widget.product.formattedRating,
-                      style: AppTypography.body2.copyWith(
-                        fontWeight: FontWeight.w600,
+                      widget.product.formattedPrice,
+                      style: AppTypography.heading3.copyWith(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 18,
                         color: isDark ? AppColors.white : AppColors.black,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '(${widget.product.reviewCount})',
-                      style: AppTypography.caption.copyWith(
-                        color: isDark ? AppColors.gray400 : AppColors.gray600,
+                    if (widget.product.hasDiscount)
+                      Text(
+                        widget.product.formattedDiscountPrice ?? '',
+                        style: AppTypography.caption.copyWith(
+                          color: isDark ? AppColors.gray400 : AppColors.gray500,
+                          decoration: TextDecoration.lineThrough,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
                   ],
                 ),
+              ),
+              // Rating
+              if (widget.product.reviewCount > 0) ...[
+                const SizedBox(width: 6),
+                Flexible(
+                  flex: 2,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.star, size: 16, color: Colors.amber),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          widget.product.formattedRating,
+                          style: AppTypography.body2.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? AppColors.white : AppColors.black,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          '(${widget.product.reviewCount})',
+                          style: AppTypography.caption.copyWith(
+                            color: isDark
+                                ? AppColors.gray400
+                                : AppColors.gray600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ],
           ),
         ],

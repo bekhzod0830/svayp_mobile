@@ -28,13 +28,23 @@ class AuthService {
       // Normalize phone number to remove spaces
       final normalizedPhone = _normalizePhoneNumber(phoneNumber);
 
+      print('📱 Sending OTP to: $normalizedPhone');
+      print('🌐 API Endpoint: ${ApiConfig.baseUrl}${ApiConfig.authSendOtp}');
+
       final response = await _apiClient.post(
         ApiConfig.authSendOtp,
         data: {'phoneNumber': normalizedPhone},
       );
 
+      print('📨 Backend Response: ${response.data}');
+      print('✅ OTP API call successful - Check if SMS was actually sent!');
+      print(
+        '⚠️  If SMS not received, check backend logs and SMS provider configuration',
+      );
+
       return MessageResponse.fromJson(response.data);
     } catch (e) {
+      print('❌ OTP Send Error: $e');
       rethrow;
     }
   }
@@ -101,11 +111,26 @@ class AuthService {
   Future<UserResponse> getCurrentUser() async {
     try {
       final response = await _apiClient.get(ApiConfig.authMe);
-      
+
       // Handle wrapped response
       final data = response.data['data'] ?? response.data;
-      return UserResponse.fromJson(data);
+
+      print('📡 [AuthService] getCurrentUser API response:');
+      print('   Raw response data: $data');
+      print('   Score field: ${data['score']}');
+      print('   Cashback balance field: ${data['cashback_balance']}');
+
+      final userResponse = UserResponse.fromJson(data);
+
+      print('   ✅ Parsed UserResponse:');
+      print('      - ID: ${userResponse.id}');
+      print(
+        '      - Cashback Balance (from score): ${userResponse.cashbackBalance}',
+      );
+
+      return userResponse;
     } catch (e) {
+      print('❌ [AuthService] Error in getCurrentUser: $e');
       rethrow;
     }
   }
@@ -170,10 +195,11 @@ class AuthService {
           print('⚠️ Logout API call failed: $e');
         }
       }
-      
-      // Clear tokens from local storage
+
+      // Clear tokens and role from local storage
       await _apiClient.clearToken();
       await _apiClient.clearRefreshToken();
+      await _apiClient.clearUserRole();
     } catch (e) {
       rethrow;
     }
@@ -191,5 +217,49 @@ class AuthService {
   /// ```
   bool isAuthenticated() {
     return _apiClient.isAuthenticated();
+  }
+
+  /// Admin / Partner Login
+  ///
+  /// Authenticates a partner (seller / sales rep / admin) with username + password.
+  /// Saves the returned access token and refresh token for subsequent requests.
+  ///
+  /// Endpoint: POST /api/v1/auth/admin/login
+  /// Body: { "username": "...", "password": "..." }
+  Future<AdminLoginResponse> adminLogin({
+    required String username,
+    required String password,
+  }) async {
+    try {
+      final response = await _apiClient.post(
+        ApiConfig.authAdminLogin,
+        data: {'username': username.trim(), 'password': password},
+      );
+
+      print('📦 Admin login raw response: ${response.data}');
+
+      final loginResponse = AdminLoginResponse.fromJson(
+        response.data as Map<String, dynamic>,
+      );
+
+      if (loginResponse.accessToken.isEmpty) {
+        throw ApiException(
+          message: 'Invalid response from server. Please try again.',
+          statusCode: 500,
+        );
+      }
+
+      // Persist tokens and role
+      await _apiClient.saveToken(loginResponse.accessToken);
+      if (loginResponse.refreshToken != null) {
+        await _apiClient.saveRefreshToken(loginResponse.refreshToken!);
+      }
+      await _apiClient.saveUserRole(loginResponse.user.role);
+
+      print('✅ Partner login successful: ${loginResponse.user.role}');
+      return loginResponse;
+    } catch (e) {
+      rethrow;
+    }
   }
 }

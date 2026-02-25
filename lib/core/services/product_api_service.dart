@@ -14,8 +14,8 @@ class ProductApiService {
   /// Get list of products with optional filters
   ///
   /// Parameters:
-  /// - [skip]: Number of items to skip (for pagination)
-  /// - [limit]: Number of items to return (default 20)
+  /// - [page]: Page number (for pagination, starts from 0)
+  /// - [size]: Number of items to return per page (default 20)
   /// - [category]: Filter by category
   /// - [gender]: Filter by gender target
   /// - [hijabAppropriate]: Filter hijab-appropriate items
@@ -24,8 +24,8 @@ class ProductApiService {
   /// - [search]: Search query
   /// - [token]: Optional authentication token
   Future<ProductListResponse> getProducts({
-    int skip = 0,
-    int limit = 20,
+    int page = 0,
+    int size = 20,
     String? category,
     String? gender,
     bool? hijabAppropriate,
@@ -37,8 +37,8 @@ class ProductApiService {
     try {
       // Build query parameters
       final queryParams = <String, String>{
-        'skip': skip.toString(),
-        'limit': limit.toString(),
+        'page': page.toString(),
+        'size': size.toString(),
       };
 
       if (category != null) queryParams['category'] = category;
@@ -50,7 +50,7 @@ class ProductApiService {
       if (search != null) queryParams['search'] = search;
 
       final uri = Uri.parse(
-        '$baseUrl/products',
+        '$baseUrl/products/all',
       ).replace(queryParameters: queryParams);
 
       // Build headers
@@ -59,11 +59,7 @@ class ProductApiService {
         headers['Authorization'] = 'Bearer $token';
       }
 
-      print('📡 GET $uri');
-
       final response = await http.get(uri, headers: headers);
-
-      print('📡 Response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
@@ -102,7 +98,11 @@ class ProductApiService {
 
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
-        return Product.fromJson(jsonData);
+
+        // Check if data is nested in "data" field
+        final productData = jsonData['data'] ?? jsonData;
+
+        return Product.fromJson(productData);
       } else if (response.statusCode == 404) {
         throw Exception('Product not found');
       } else {
@@ -120,37 +120,37 @@ class ProductApiService {
   ///
   /// Parameters:
   /// - [query]: Search query
-  /// - [skip]: Number of items to skip (for pagination)
-  /// - [limit]: Number of items to return
+  /// - [page]: Page number (for pagination, starts from 0)
+  /// - [size]: Number of items to return per page
   /// - [token]: Optional authentication token
   Future<ProductListResponse> searchProducts({
     required String query,
-    int skip = 0,
-    int limit = 20,
+    int page = 0,
+    int size = 20,
     String? token,
   }) async {
-    return getProducts(skip: skip, limit: limit, search: query, token: token);
+    return getProducts(page: page, size: size, search: query, token: token);
   }
 
   /// Search products using the /products/search endpoint
   ///
   /// Parameters:
   /// - [query]: Search query string
-  /// - [skip]: Number of items to skip (for pagination)
-  /// - [limit]: Number of items to return (default 20)
+  /// - [page]: Page number (for pagination, starts from 0)
+  /// - [size]: Number of items to return per page (default 20)
   /// - [token]: Optional authentication token
   Future<ProductListResponse> searchProductsApi({
     required String query,
-    int skip = 0,
-    int limit = 20,
+    int page = 0,
+    int size = 20,
     String? token,
   }) async {
     try {
       // Build query parameters
       final queryParams = <String, String>{
         'q': query,
-        'skip': skip.toString(),
-        'limit': limit.toString(),
+        'page': page.toString(),
+        'size': size.toString(),
       };
 
       final uri = Uri.parse(
@@ -171,13 +171,7 @@ class ProductApiService {
 
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
-        print('📡 Search response structure: ${jsonData.keys}');
-
-        // The search endpoint might return data directly or wrapped differently
-        // Check if the response has a 'data' wrapper
-        final responseData = jsonData['data'] ?? jsonData;
-
-        return ProductListResponse.fromJson(responseData);
+        return ProductListResponse.fromJson(jsonData);
       } else {
         throw Exception(
           'Failed to search products: ${response.statusCode} ${response.body}',
@@ -192,13 +186,13 @@ class ProductApiService {
   /// Get products by category
   Future<ProductListResponse> getProductsByCategory({
     required String category,
-    int skip = 0,
-    int limit = 20,
+    int page = 0,
+    int size = 20,
     String? token,
   }) async {
     return getProducts(
-      skip: skip,
-      limit: limit,
+      page: page,
+      size: size,
       category: category,
       token: token,
     );
@@ -206,13 +200,13 @@ class ProductApiService {
 
   /// Get featured products
   Future<List<Product>> getFeaturedProducts({String? token}) async {
-    final response = await getProducts(limit: 10, token: token);
+    final response = await getProducts(size: 10, token: token);
     return response.products.where((p) => p.isFeatured == true).toList();
   }
 
   /// Get new arrivals
   Future<List<Product>> getNewArrivals({String? token}) async {
-    final response = await getProducts(limit: 10, token: token);
+    final response = await getProducts(size: 10, token: token);
     return response.products.where((p) => p.isNew == true).toList();
   }
 
@@ -574,6 +568,58 @@ class ProductApiService {
       }
     } catch (e) {
       print('❌ Error adding to cart: $e');
+      rethrow;
+    }
+  }
+
+  /// Get seller details with all products
+  ///
+  /// Endpoint: /api/v1/sellers/{sellerId}/detail
+  ///
+  /// Parameters:
+  /// - [brandId]: Seller name or ID (kept as brandId for backward compatibility)
+  /// - [skip]: Number of items to skip (for pagination)
+  /// - [limit]: Number of items to return (default 20)
+  /// - [sort]: Sort order (e.g., 'newest', 'price_asc', 'price_desc')
+  /// - [token]: Optional authentication token
+  Future<ProductListResponse> getBrandDetail({
+    required String brandId,
+    int skip = 0,
+    int limit = 20,
+    String sort = 'newest',
+    String? token,
+  }) async {
+    try {
+      // Build query parameters
+      final queryParams = <String, String>{
+        'skip': skip.toString(),
+        'limit': limit.toString(),
+        'sort': sort,
+      };
+
+      final uri = Uri.parse(
+        '$baseUrl/sellers/$brandId/detail',
+      ).replace(queryParameters: queryParams);
+
+      // Build headers
+      final headers = <String, String>{'Content-Type': 'application/json'};
+      if (token != null) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+
+      final response = await http.get(uri, headers: headers);
+
+      if (response.statusCode == 200) {
+        final jsonData = json.decode(response.body);
+        return ProductListResponse.fromJson(jsonData);
+      } else if (response.statusCode == 404) {
+        throw Exception('Seller not found');
+      } else {
+        throw Exception(
+          'Failed to load seller details: ${response.statusCode} ${response.body}',
+        );
+      }
+    } catch (e) {
       rethrow;
     }
   }

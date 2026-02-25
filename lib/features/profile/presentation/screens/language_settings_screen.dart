@@ -55,10 +55,13 @@ class _LanguageSettingsScreenState extends State<LanguageSettingsScreen> {
       });
 
       // Show success message
+      final isDark = Theme.of(context).brightness == Brightness.dark;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(_getSuccessMessage(languageCode)),
-          backgroundColor: AppColors.black,
+          backgroundColor: isDark
+              ? AppColors.darkCardBackground
+              : AppColors.black,
           duration: const Duration(seconds: 2),
         ),
       );
@@ -94,25 +97,39 @@ class _LanguageSettingsScreenState extends State<LanguageSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: AppColors.pageBackground,
+      backgroundColor: isDark
+          ? AppColors.darkMainBackground
+          : AppColors.pageBackground,
       appBar: AppBar(
-        backgroundColor: AppColors.white,
+        backgroundColor: isDark
+            ? AppColors.darkCardBackground
+            : AppColors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.black),
+          icon: Icon(
+            Icons.arrow_back,
+            color: isDark ? AppColors.darkPrimaryText : AppColors.black,
+          ),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
           l10n.language,
-          style: AppTypography.heading3.copyWith(fontWeight: FontWeight.w700),
+          style: AppTypography.heading3.copyWith(
+            fontWeight: FontWeight.w700,
+            color: isDark ? AppColors.darkPrimaryText : AppColors.black,
+          ),
         ),
         centerTitle: true,
       ),
       body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: AppColors.black),
+          ? Center(
+              child: CircularProgressIndicator(
+                color: isDark ? AppColors.darkPrimaryText : AppColors.black,
+              ),
             )
           : ListView(
               padding: const EdgeInsets.all(16),
@@ -127,10 +144,18 @@ class _LanguageSettingsScreenState extends State<LanguageSettingsScreen> {
                   return Container(
                     margin: const EdgeInsets.only(bottom: 12),
                     decoration: BoxDecoration(
-                      color: AppColors.white,
+                      color: isDark
+                          ? AppColors.darkCardBackground
+                          : AppColors.white,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: isSelected ? AppColors.black : AppColors.gray300,
+                        color: isSelected
+                            ? (isDark
+                                  ? AppColors.darkPrimaryText
+                                  : AppColors.black)
+                            : (isDark
+                                  ? AppColors.darkSecondaryText.withOpacity(0.3)
+                                  : AppColors.gray300),
                         width: isSelected ? 2 : 1,
                       ),
                     ),
@@ -161,13 +186,18 @@ class _LanguageSettingsScreenState extends State<LanguageSettingsScreen> {
                                         fontWeight: isSelected
                                             ? FontWeight.w700
                                             : FontWeight.w500,
+                                        color: isDark
+                                            ? AppColors.darkPrimaryText
+                                            : AppColors.black,
                                       ),
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
                                       name,
                                       style: AppTypography.caption.copyWith(
-                                        color: AppColors.secondaryText,
+                                        color: isDark
+                                            ? AppColors.darkSecondaryText
+                                            : AppColors.secondaryText,
                                       ),
                                     ),
                                   ],
@@ -179,13 +209,17 @@ class _LanguageSettingsScreenState extends State<LanguageSettingsScreen> {
                                 Container(
                                   width: 24,
                                   height: 24,
-                                  decoration: const BoxDecoration(
-                                    color: AppColors.black,
+                                  decoration: BoxDecoration(
+                                    color: isDark
+                                        ? AppColors.darkPrimaryText
+                                        : AppColors.black,
                                     shape: BoxShape.circle,
                                   ),
-                                  child: const Icon(
+                                  child: Icon(
                                     Icons.check,
-                                    color: Colors.white,
+                                    color: isDark
+                                        ? AppColors.darkMainBackground
+                                        : Colors.white,
                                     size: 16,
                                   ),
                                 ),

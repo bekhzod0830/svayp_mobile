@@ -1,120 +1,251 @@
 import 'package:flutter/material.dart';
-import 'package:hive/hive.dart';
 import 'package:swipe/l10n/app_localizations.dart';
-import 'package:swipe/features/cart/data/models/cart_item_model.dart';
 
-part 'order_model.g.dart';
-
-/// Order Status Enum
+/// Order Status Enum - matches API values
 enum OrderStatus {
-  pending,
+  created,
   confirmed,
   processing,
   shipped,
-  outForDelivery,
   delivered,
   cancelled,
 }
 
-/// Order Model for Hive Persistence
-@HiveType(typeId: 4)
-class OrderModel extends HiveObject {
-  @HiveField(0)
-  late String id;
+/// Payment Status Enum - matches API values
+enum PaymentStatus { pending, paid, failed, refunded }
 
-  @HiveField(1)
-  late List<CartItemModel> items;
+/// Order Item Model - represents items in an order
+class OrderItemModel {
+  final String id;
+  final String productId;
+  final String productTitle;
+  final String? productImage;
+  final String? productSku;
+  final String? selectedSize;
+  final String? selectedColor;
+  final double unitPrice;
+  final int quantity;
+  final double subtotal;
 
-  @HiveField(2)
-  late DateTime orderDate;
+  OrderItemModel({
+    required this.id,
+    required this.productId,
+    required this.productTitle,
+    this.productImage,
+    this.productSku,
+    this.selectedSize,
+    this.selectedColor,
+    required this.unitPrice,
+    required this.quantity,
+    required this.subtotal,
+  });
 
-  @HiveField(3)
-  late String status; // Store as string for Hive compatibility
+  factory OrderItemModel.fromJson(Map<String, dynamic> json) {
+    return OrderItemModel(
+      id: json['id'] ?? '',
+      productId: json['productId'] ?? '',
+      productTitle: json['productTitle'] ?? '',
+      productImage: json['productImage'],
+      productSku: json['productSku'],
+      selectedSize: json['selectedSize'],
+      selectedColor: json['selectedColor'],
+      unitPrice: (json['unitPrice'] ?? 0).toDouble(),
+      quantity: json['quantity'] ?? 0,
+      subtotal: (json['subtotal'] ?? 0).toDouble(),
+    );
+  }
 
-  @HiveField(4)
-  late double subtotal;
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'productId': productId,
+      'productTitle': productTitle,
+      'productImage': productImage,
+      'productSku': productSku,
+      'selectedSize': selectedSize,
+      'selectedColor': selectedColor,
+      'unitPrice': unitPrice,
+      'quantity': quantity,
+      'subtotal': subtotal,
+    };
+  }
+}
 
-  @HiveField(5)
-  late double deliveryFee;
+/// Status History Model
+class StatusHistoryModel {
+  final String status;
+  final String? note;
+  final DateTime createdAt;
 
-  @HiveField(6)
-  late double total;
+  StatusHistoryModel({
+    required this.status,
+    this.note,
+    required this.createdAt,
+  });
 
-  @HiveField(7)
-  late String deliveryAddressId;
+  factory StatusHistoryModel.fromJson(Map<String, dynamic> json) {
+    return StatusHistoryModel(
+      status: json['status'] ?? '',
+      note: json['note'],
+      createdAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'])
+          : DateTime.now(),
+    );
+  }
 
-  @HiveField(8)
-  late String deliveryAddressName;
+  Map<String, dynamic> toJson() {
+    return {
+      'status': status,
+      'note': note,
+      'createdAt': createdAt.toIso8601String(),
+    };
+  }
+}
 
-  @HiveField(9)
-  late String deliveryAddressPhone;
-
-  @HiveField(10)
-  late String deliveryAddressFormatted;
-
-  @HiveField(11)
-  late String paymentMethodId;
-
-  @HiveField(12)
-  late String paymentMethodName;
-
-  @HiveField(13)
-  late String deliveryMethod; // standard, express, sameday
-
-  @HiveField(14)
-  String? trackingNumber;
-
-  @HiveField(15)
-  DateTime? estimatedDeliveryDate;
-
-  @HiveField(16)
-  DateTime? deliveredDate;
+/// Order Model - matches API response structure
+class OrderModel {
+  final String id;
+  final String orderNumber;
+  final String deliveryMethod; // DELIVERY or PICKUP
+  final String? shippingFullName;
+  final String? shippingPhone;
+  final String? shippingAddress;
+  final String? shippingCity;
+  final double subtotal;
+  final double shippingCost;
+  final double discountAmount;
+  final double totalAmount;
+  final String currency;
+  final String
+  status; // CREATED, CONFIRMED, PROCESSING, SHIPPED, DELIVERED, CANCELLED
+  final String paymentMethod; // CASH, CARD, etc.
+  final String paymentStatus; // PENDING, PAID, FAILED, REFUNDED
+  final String? customerNotes;
+  final List<OrderItemModel> items;
+  final List<StatusHistoryModel> statusHistory;
+  final DateTime? paidAt;
+  final DateTime? shippedAt;
+  final DateTime? deliveredAt;
+  final DateTime? cancelledAt;
+  final String? cancellationReason;
+  final DateTime createdAt;
 
   OrderModel({
     required this.id,
-    required this.items,
-    required this.orderDate,
-    required this.status,
-    required this.subtotal,
-    required this.deliveryFee,
-    required this.total,
-    required this.deliveryAddressId,
-    required this.deliveryAddressName,
-    required this.deliveryAddressPhone,
-    required this.deliveryAddressFormatted,
-    required this.paymentMethodId,
-    required this.paymentMethodName,
+    required this.orderNumber,
     required this.deliveryMethod,
-    this.trackingNumber,
-    this.estimatedDeliveryDate,
-    this.deliveredDate,
+    this.shippingFullName,
+    this.shippingPhone,
+    this.shippingAddress,
+    this.shippingCity,
+    required this.subtotal,
+    required this.shippingCost,
+    required this.discountAmount,
+    required this.totalAmount,
+    required this.currency,
+    required this.status,
+    required this.paymentMethod,
+    required this.paymentStatus,
+    this.customerNotes,
+    required this.items,
+    required this.statusHistory,
+    this.paidAt,
+    this.shippedAt,
+    this.deliveredAt,
+    this.cancelledAt,
+    this.cancellationReason,
+    required this.createdAt,
   });
+
+  /// Factory constructor from JSON - matches API response
+  factory OrderModel.fromJson(Map<String, dynamic> json) {
+    return OrderModel(
+      id: json['id'] ?? '',
+      orderNumber: json['orderNumber'] ?? '',
+      deliveryMethod: json['deliveryMethod'] ?? 'DELIVERY',
+      shippingFullName: json['shippingFullName'],
+      shippingPhone: json['shippingPhone'],
+      shippingAddress: json['shippingAddress'],
+      shippingCity: json['shippingCity'],
+      subtotal: (json['subtotal'] ?? 0).toDouble(),
+      shippingCost: (json['shippingCost'] ?? 0).toDouble(),
+      discountAmount: (json['discountAmount'] ?? 0).toDouble(),
+      totalAmount: (json['totalAmount'] ?? 0).toDouble(),
+      currency: json['currency'] ?? 'UZS',
+      status: json['status'] ?? 'CREATED',
+      paymentMethod: json['paymentMethod'] ?? 'CASH',
+      paymentStatus: json['paymentStatus'] ?? 'PENDING',
+      customerNotes: json['customerNotes'],
+      items:
+          (json['items'] as List<dynamic>?)
+              ?.map(
+                (item) => OrderItemModel.fromJson(item as Map<String, dynamic>),
+              )
+              .toList() ??
+          [],
+      statusHistory:
+          (json['statusHistory'] as List<dynamic>?)
+              ?.map(
+                (status) =>
+                    StatusHistoryModel.fromJson(status as Map<String, dynamic>),
+              )
+              .toList() ??
+          [],
+      paidAt: json['paidAt'] != null ? DateTime.parse(json['paidAt']) : null,
+      shippedAt: json['shippedAt'] != null
+          ? DateTime.parse(json['shippedAt'])
+          : null,
+      deliveredAt: json['deliveredAt'] != null
+          ? DateTime.parse(json['deliveredAt'])
+          : null,
+      cancelledAt: json['cancelledAt'] != null
+          ? DateTime.parse(json['cancelledAt'])
+          : null,
+      cancellationReason: json['cancellationReason'],
+      createdAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'])
+          : DateTime.now(),
+    );
+  }
 
   /// Get order status enum
   OrderStatus get orderStatus {
-    switch (status.toLowerCase()) {
-      case 'pending':
-        return OrderStatus.pending;
-      case 'confirmed':
+    switch (status.toUpperCase()) {
+      case 'CREATED':
+        return OrderStatus.created;
+      case 'CONFIRMED':
         return OrderStatus.confirmed;
-      case 'processing':
+      case 'PROCESSING':
         return OrderStatus.processing;
-      case 'shipped':
+      case 'SHIPPED':
         return OrderStatus.shipped;
-      case 'outfordelivery':
-        return OrderStatus.outForDelivery;
-      case 'delivered':
+      case 'DELIVERED':
         return OrderStatus.delivered;
-      case 'cancelled':
+      case 'CANCELLED':
         return OrderStatus.cancelled;
       default:
-        return OrderStatus.pending;
+        return OrderStatus.created;
+    }
+  }
+
+  /// Get payment status enum
+  PaymentStatus get paymentStatusEnum {
+    switch (paymentStatus.toUpperCase()) {
+      case 'PAID':
+        return PaymentStatus.paid;
+      case 'FAILED':
+        return PaymentStatus.failed;
+      case 'REFUNDED':
+        return PaymentStatus.refunded;
+      case 'PENDING':
+      default:
+        return PaymentStatus.pending;
     }
   }
 
   /// Get formatted total
   String get formattedTotal {
-    return '${total.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} UZS';
+    return '${totalAmount.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} $currency';
   }
 
   /// Get formatted order date
@@ -133,7 +264,7 @@ class OrderModel extends HiveObject {
       'Nov',
       'Dec',
     ];
-    return '${orderDate.day} ${months[orderDate.month - 1]}, ${orderDate.year}';
+    return '${createdAt.day} ${months[createdAt.month - 1]}, ${createdAt.year}';
   }
 
   /// Get item count
@@ -144,14 +275,12 @@ class OrderModel extends HiveObject {
   /// Get status color
   Color get statusColor {
     switch (orderStatus) {
-      case OrderStatus.pending:
+      case OrderStatus.created:
       case OrderStatus.confirmed:
         return const Color(0xFFFFA500); // Orange
       case OrderStatus.processing:
       case OrderStatus.shipped:
         return const Color(0xFF2196F3); // Blue
-      case OrderStatus.outForDelivery:
-        return const Color(0xFF9C27B0); // Purple
       case OrderStatus.delivered:
         return const Color(0xFF4CAF50); // Green
       case OrderStatus.cancelled:
@@ -163,7 +292,7 @@ class OrderModel extends HiveObject {
   String getLocalizedStatus(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     switch (orderStatus) {
-      case OrderStatus.pending:
+      case OrderStatus.created:
         return l10n.pending;
       case OrderStatus.confirmed:
         return l10n.confirmed;
@@ -171,8 +300,6 @@ class OrderModel extends HiveObject {
         return l10n.processing;
       case OrderStatus.shipped:
         return l10n.shipped;
-      case OrderStatus.outForDelivery:
-        return l10n.outForDelivery;
       case OrderStatus.delivered:
         return l10n.delivered;
       case OrderStatus.cancelled:
@@ -180,69 +307,58 @@ class OrderModel extends HiveObject {
     }
   }
 
-  /// Copy with method
-  OrderModel copyWith({
-    String? id,
-    List<CartItemModel>? items,
-    DateTime? orderDate,
-    String? status,
-    double? subtotal,
-    double? deliveryFee,
-    double? total,
-    String? deliveryAddressId,
-    String? deliveryAddressName,
-    String? deliveryAddressPhone,
-    String? deliveryAddressFormatted,
-    String? paymentMethodId,
-    String? paymentMethodName,
-    String? deliveryMethod,
-    String? trackingNumber,
-    DateTime? estimatedDeliveryDate,
-    DateTime? deliveredDate,
-  }) {
-    return OrderModel(
-      id: id ?? this.id,
-      items: items ?? this.items,
-      orderDate: orderDate ?? this.orderDate,
-      status: status ?? this.status,
-      subtotal: subtotal ?? this.subtotal,
-      deliveryFee: deliveryFee ?? this.deliveryFee,
-      total: total ?? this.total,
-      deliveryAddressId: deliveryAddressId ?? this.deliveryAddressId,
-      deliveryAddressName: deliveryAddressName ?? this.deliveryAddressName,
-      deliveryAddressPhone: deliveryAddressPhone ?? this.deliveryAddressPhone,
-      deliveryAddressFormatted:
-          deliveryAddressFormatted ?? this.deliveryAddressFormatted,
-      paymentMethodId: paymentMethodId ?? this.paymentMethodId,
-      paymentMethodName: paymentMethodName ?? this.paymentMethodName,
-      deliveryMethod: deliveryMethod ?? this.deliveryMethod,
-      trackingNumber: trackingNumber ?? this.trackingNumber,
-      estimatedDeliveryDate:
-          estimatedDeliveryDate ?? this.estimatedDeliveryDate,
-      deliveredDate: deliveredDate ?? this.deliveredDate,
-    );
+  /// Get delivery method display text
+  String getLocalizedDeliveryMethod(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    switch (deliveryMethod.toUpperCase()) {
+      case 'PICKUP':
+        return l10n.pickup;
+      case 'DELIVERY':
+      default:
+        return l10n.delivery;
+    }
   }
 
-  /// Convert to JSON (simplified - items stored as Hive objects)
+  /// Get payment method display text
+  String getLocalizedPaymentMethod(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    switch (paymentMethod.toUpperCase()) {
+      case 'CASH':
+        return l10n.cashOnDelivery;
+      case 'CARD':
+        return l10n.cardPayment;
+      default:
+        return paymentMethod;
+    }
+  }
+
+  /// Convert to JSON
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'itemCount': items.length,
-      'orderDate': orderDate.toIso8601String(),
-      'status': status,
-      'subtotal': subtotal,
-      'deliveryFee': deliveryFee,
-      'total': total,
-      'deliveryAddressId': deliveryAddressId,
-      'deliveryAddressName': deliveryAddressName,
-      'deliveryAddressPhone': deliveryAddressPhone,
-      'deliveryAddressFormatted': deliveryAddressFormatted,
-      'paymentMethodId': paymentMethodId,
-      'paymentMethodName': paymentMethodName,
+      'orderNumber': orderNumber,
       'deliveryMethod': deliveryMethod,
-      'trackingNumber': trackingNumber,
-      'estimatedDeliveryDate': estimatedDeliveryDate?.toIso8601String(),
-      'deliveredDate': deliveredDate?.toIso8601String(),
+      'shippingFullName': shippingFullName,
+      'shippingPhone': shippingPhone,
+      'shippingAddress': shippingAddress,
+      'shippingCity': shippingCity,
+      'subtotal': subtotal,
+      'shippingCost': shippingCost,
+      'discountAmount': discountAmount,
+      'totalAmount': totalAmount,
+      'currency': currency,
+      'status': status,
+      'paymentMethod': paymentMethod,
+      'paymentStatus': paymentStatus,
+      'customerNotes': customerNotes,
+      'items': items.map((item) => item.toJson()).toList(),
+      'statusHistory': statusHistory.map((status) => status.toJson()).toList(),
+      'paidAt': paidAt?.toIso8601String(),
+      'shippedAt': shippedAt?.toIso8601String(),
+      'deliveredAt': deliveredAt?.toIso8601String(),
+      'cancelledAt': cancelledAt?.toIso8601String(),
+      'cancellationReason': cancellationReason,
+      'createdAt': createdAt.toIso8601String(),
     };
   }
 }

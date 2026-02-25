@@ -130,6 +130,7 @@ class ProductCard extends StatelessWidget {
                   bottom: 20,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       // Brand
                       Text(
@@ -139,6 +140,8 @@ class ProductCard extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                           letterSpacing: 1.2,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
 
@@ -156,19 +159,27 @@ class ProductCard extends StatelessWidget {
                       // Price Row
                       Row(
                         children: [
-                          Text(
-                            CurrencyFormatter.formatUzs(price),
-                            style: AppTypography.heading4.copyWith(
-                              color: AppColors.white,
+                          Flexible(
+                            child: Text(
+                              CurrencyFormatter.formatUzs(price),
+                              style: AppTypography.heading4.copyWith(
+                                color: AppColors.white,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           if (originalPrice != null) ...[
                             const SizedBox(width: 8),
-                            Text(
-                              originalPrice!,
-                              style: AppTypography.body2.copyWith(
-                                color: AppColors.gray300,
-                                decoration: TextDecoration.lineThrough,
+                            Flexible(
+                              child: Text(
+                                originalPrice!,
+                                style: AppTypography.body2.copyWith(
+                                  color: AppColors.gray300,
+                                  decoration: TextDecoration.lineThrough,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ],
@@ -193,10 +204,14 @@ class ProductCard extends StatelessWidget {
                               ),
                             ),
                             if (reviewCount != null)
-                              Text(
-                                ' ($reviewCount)',
-                                style: AppTypography.body2.copyWith(
-                                  color: AppColors.gray300,
+                              Flexible(
+                                child: Text(
+                                  ' ($reviewCount)',
+                                  style: AppTypography.body2.copyWith(
+                                    color: AppColors.gray300,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             const SizedBox(width: 12),
@@ -293,6 +308,7 @@ class ProductCardCompact extends StatelessWidget {
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             // Image with Like Button
             Stack(
@@ -347,6 +363,7 @@ class ProductCardCompact extends StatelessWidget {
               padding: const EdgeInsets.all(12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   // Brand
                   Text(
@@ -374,16 +391,22 @@ class ProductCardCompact extends StatelessWidget {
 
                   // Price & Rating
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Expanded(
+                      Flexible(
+                        fit: FlexFit.loose,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
                               CurrencyFormatter.formatUzs(price),
                               style: AppTypography.body1.copyWith(
                                 fontWeight: FontWeight.w700,
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                             if (originalPrice != null) ...[
                               const SizedBox(height: 2),
@@ -393,28 +416,38 @@ class ProductCardCompact extends StatelessWidget {
                                   color: AppColors.gray500,
                                   decoration: TextDecoration.lineThrough,
                                 ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ],
                           ],
                         ),
                       ),
-                      if (rating != null)
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.star,
-                              color: Colors.amber,
-                              size: 14,
-                            ),
-                            const SizedBox(width: 2),
-                            Text(
-                              rating!.toStringAsFixed(1),
-                              style: AppTypography.caption.copyWith(
-                                fontWeight: FontWeight.w600,
+                      if (rating != null) ...[
+                        const SizedBox(width: 6),
+                        Flexible(
+                          fit: FlexFit.loose,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.star,
+                                color: Colors.amber,
+                                size: 14,
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 2),
+                              Text(
+                                rating!.toStringAsFixed(1),
+                                style: AppTypography.caption.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
                         ),
+                      ],
                     ],
                   ),
                 ],
@@ -496,6 +529,7 @@ class ProductCardHorizontal extends StatelessWidget {
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   // Brand
                   Text(
@@ -530,6 +564,8 @@ class ProductCardHorizontal extends StatelessWidget {
                       style: AppTypography.caption.copyWith(
                         color: AppColors.gray600,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   const SizedBox(height: 8),
 
@@ -544,12 +580,16 @@ class ProductCardHorizontal extends StatelessWidget {
                           style: AppTypography.body1.copyWith(
                             fontWeight: FontWeight.w700,
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       if (quantity != null &&
                           onIncrement != null &&
-                          onDecrement != null)
+                          onDecrement != null) ...[
+                        const SizedBox(width: 8),
                         Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             GestureDetector(
                               onTap: onDecrement,
@@ -591,6 +631,7 @@ class ProductCardHorizontal extends StatelessWidget {
                             ),
                           ],
                         ),
+                      ],
                     ],
                   ),
                 ],

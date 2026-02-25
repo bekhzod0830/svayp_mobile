@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:swipe/l10n/app_localizations.dart';
+import 'package:swipe/features/auth/presentation/screens/partner_login_screen.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
 import 'package:swipe/core/utils/validators.dart';
@@ -25,6 +27,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
   bool _isLoading = false;
   bool _agreedToTerms = false;
   late final AuthService _authService;
+  Timer? _longPressTimer;
 
   @override
   void initState() {
@@ -34,8 +37,15 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
 
   @override
   void dispose() {
+    _longPressTimer?.cancel();
     _phoneController.dispose();
     super.dispose();
+  }
+
+  void _openPartnerLogin() {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const PartnerLoginScreen()));
   }
 
   Future<void> _sendOTP() async {
@@ -98,7 +108,6 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
       tablet: 700,
       desktop: 800,
     );
-    final fontScale = ResponsiveUtils.getFontSizeScale(context);
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkMainBackground : AppColors.white,
@@ -124,6 +133,34 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // SVΛYP Logo — hold for 3 s to open partner login
+                          Center(
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTapDown: (_) {
+                                _longPressTimer?.cancel();
+                                _longPressTimer = Timer(
+                                  const Duration(seconds: 3),
+                                  _openPartnerLogin,
+                                );
+                              },
+                              onTapUp: (_) => _longPressTimer?.cancel(),
+                              onTapCancel: () => _longPressTimer?.cancel(),
+                              child: Text(
+                                'SVΛYP',
+                                style: AppTypography.heading2.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 48,
+                                  color: isDark
+                                      ? AppColors.darkPrimaryText
+                                      : AppColors.black,
+                                  letterSpacing: -1,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 32),
+
                           // Title
                           Text(
                             l10n.enterPhoneNumber,

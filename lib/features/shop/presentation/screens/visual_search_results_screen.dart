@@ -370,6 +370,7 @@ class VisualSearchResultsScreen extends StatelessWidget {
       isNew: product.isNew ?? false,
       isFeatured: product.isFeatured ?? false,
       seller: product.seller,
+      sellerId: product.sellerId,
       discountPercentage: product.discountPercentage,
       originalPrice: product.originalPrice,
     );
@@ -540,6 +541,7 @@ class VisualSearchResultsScreen extends StatelessWidget {
               padding: const EdgeInsets.all(10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   // Title
                   Text(

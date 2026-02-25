@@ -188,12 +188,23 @@ class DiscoverScreenState extends State<DiscoverScreen> {
 
   /// Convert API product model to local Product entity
   Product _convertApiProduct(api_models.Product apiProduct) {
+    // Use seller if brand is "Unknown" or if seller is available
+    String displayBrand =
+        (apiProduct.brand == 'Unknown' || apiProduct.brand.isEmpty)
+        ? (apiProduct.seller ?? apiProduct.brand)
+        : apiProduct.brand;
+
+    // If still "Unknown" or empty, use SVAYP as default
+    if (displayBrand == 'Unknown' || displayBrand.isEmpty) {
+      displayBrand = 'SVAYP';
+    }
+
     return Product(
       id: apiProduct.id,
       title: apiProduct.title,
       description: apiProduct.description ?? '',
       price: apiProduct.price,
-      brand: apiProduct.brand,
+      brand: displayBrand,
       category: apiProduct.category.displayName,
       subcategory: apiProduct.subcategory?.map((s) => s.displayName).toList(),
       images: apiProduct.images.isNotEmpty
@@ -210,6 +221,7 @@ class DiscoverScreenState extends State<DiscoverScreen> {
       isNew: apiProduct.isNew ?? false,
       isFeatured: false, // API doesn't have this field
       seller: apiProduct.seller,
+      sellerId: apiProduct.sellerId, // Include sellerId from API
       discountPercentage: apiProduct.discountPercentage,
       originalPrice: apiProduct.originalPrice,
     );

@@ -7,13 +7,17 @@ import 'package:lottie/lottie.dart';
 
 /// Order Confirmation Screen - Success message after order placement
 class OrderConfirmationScreen extends StatelessWidget {
-  final String orderId;
+  final String orderNumber;
   final double totalAmount;
+  final int itemsCount;
+  final String status;
 
   const OrderConfirmationScreen({
     super.key,
-    required this.orderId,
+    required this.orderNumber,
     required this.totalAmount,
+    required this.status,
+    this.itemsCount = 0,
   });
 
   @override
@@ -54,7 +58,7 @@ class OrderConfirmationScreen extends StatelessWidget {
                 ),
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 12),
 
               // Success Message
               Text(
@@ -64,18 +68,25 @@ class OrderConfirmationScreen extends StatelessWidget {
                   color: theme.colorScheme.onSurface,
                 ),
                 textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
 
               const SizedBox(height: 12),
 
-              Text(
-                l10n.orderConfirmedMessage,
-                style: AppTypography.body1.copyWith(
-                  color: isDark
-                      ? AppColors.darkSecondaryText
-                      : AppColors.gray600,
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  l10n.orderConfirmedMessage,
+                  style: AppTypography.body1.copyWith(
+                    color: isDark
+                        ? AppColors.darkSecondaryText
+                        : AppColors.gray600,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                textAlign: TextAlign.center,
               ),
 
               const SizedBox(height: 32),
@@ -96,7 +107,7 @@ class OrderConfirmationScreen extends StatelessWidget {
                 ),
                 child: Column(
                   children: [
-                    _buildDetailRow(l10n.orderId, orderId, context),
+                    _buildDetailRow(l10n.orderNumber, orderNumber, context),
                     const SizedBox(height: 12),
                     Divider(
                       color: isDark
@@ -117,10 +128,24 @@ class OrderConfirmationScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                     _buildDetailRow(
-                      l10n.estimatedDelivery,
-                      _getEstimatedDeliveryDate(),
+                      l10n.orderStatus,
+                      _formatStatus(status),
                       context,
                     ),
+                    if (itemsCount > 0) ...[
+                      const SizedBox(height: 12),
+                      Divider(
+                        color: isDark
+                            ? AppColors.darkSecondaryText.withOpacity(0.2)
+                            : null,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildDetailRow(
+                        'Items',
+                        '$itemsCount ${itemsCount == 1 ? "item" : "items"}',
+                        context,
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -212,41 +237,42 @@ class OrderConfirmationScreen extends StatelessWidget {
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: AppTypography.body2.copyWith(
-            color: isDark ? AppColors.darkSecondaryText : AppColors.gray600,
+        Flexible(
+          child: Text(
+            label,
+            style: AppTypography.body2.copyWith(
+              color: isDark ? AppColors.darkSecondaryText : AppColors.gray600,
+            ),
+            overflow: TextOverflow.ellipsis,
           ),
         ),
-        Text(
-          value,
-          style: AppTypography.body1.copyWith(
-            fontWeight: FontWeight.w600,
-            color: theme.colorScheme.onSurface,
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            value,
+            style: AppTypography.body1.copyWith(
+              fontWeight: FontWeight.w600,
+              color: theme.colorScheme.onSurface,
+            ),
+            textAlign: TextAlign.end,
+            overflow: TextOverflow.ellipsis,
+            maxLines: 2,
           ),
         ),
       ],
     );
   }
 
-  String _getEstimatedDeliveryDate() {
-    final now = DateTime.now();
-    final deliveryDate = now.add(const Duration(days: 5));
-    final months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return '${deliveryDate.day} ${months[deliveryDate.month - 1]}, ${deliveryDate.year}';
+  String _formatStatus(String status) {
+    // Capitalize first letter of each word
+    return status
+        .split('_')
+        .map((word) {
+          if (word.isEmpty) return word;
+          return word[0].toUpperCase() + word.substring(1).toLowerCase();
+        })
+        .join(' ');
   }
 }

@@ -1,33 +1,26 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
 import 'package:swipe/features/chat/data/models/chat_model.dart';
-import 'package:swipe/features/discover/domain/entities/product.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:swipe/features/product/presentation/screens/product_detail_screen.dart';
-import 'package:swipe/features/main/presentation/screens/main_screen.dart';
 import 'package:swipe/features/chat/data/services/chat_service.dart';
-
-/// Message Model
-class Message {
-  final String text;
-  final bool isSentByMe;
-  final DateTime timestamp;
-
-  Message({
-    required this.text,
-    required this.isSentByMe,
-    required this.timestamp,
-  });
-}
+import 'package:swipe/features/chat/data/services/chat_websocket_service.dart';
+import 'package:swipe/core/di/service_locator.dart';
+import 'package:swipe/core/network/api_client.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:swipe/features/auth/data/services/auth_service.dart';
+import 'package:swipe/core/services/product_api_service.dart';
+import 'package:swipe/features/product/presentation/screens/product_detail_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:swipe/core/models/product.dart' as api_models;
+import 'package:swipe/features/discover/domain/entities/product.dart';
 
 /// Chat Detail Screen - Individual conversation with a seller
 class ChatDetailScreen extends StatefulWidget {
-  final ChatModel chat;
-  final Product? product;
+  final String chatId;
 
-  const ChatDetailScreen({super.key, required this.chat, this.product});
+  const ChatDetailScreen({super.key, required this.chatId});
 
   @override
   State<ChatDetailScreen> createState() => _ChatDetailScreenState();
@@ -37,156 +30,206 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _focusNode = FocusNode();
-  final ChatService _chatService = ChatService();
-  final List<Message> _messages = [];
+  late final ChatService _chatService;
+  late final ChatWebSocketService _webSocketService;
+  late final String _currentUserId;
+  StreamSubscription<ChatMessageResponse>? _messageSubscription;
+  Timer? _pollingTimer;
+
+  ChatResponse? _chat;
+  List<ChatMessageResponse> _messages = [];
+  bool _isLoading = true;
+  bool _isSending = false;
   bool _isInitialized = false;
+  bool _isWebSocketConnected = false;
+  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    // Listen to focus changes to update border
-    _focusNode.addListener(() {
-      setState(() {});
-    });
+    _chatService = ChatService(getIt<ApiClient>());
+    _webSocketService = ChatWebSocketService();
+    _focusNode.addListener(() => setState(() {}));
+    if (!_isInitialized) {
+      _initializeChat();
+    }
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (!_isInitialized) {
-      _loadInitialMessages();
+  Future<void> _initializeChat() async {
+    if (_isInitialized) return;
+
+    try {
+      print('🔄 [ChatDetailScreen] Initializing chat ${widget.chatId}');
+
+      // Get current user ID
+      final authService = getIt<AuthService>();
+      final currentUser = await authService.getCurrentUser();
+      _currentUserId = currentUser.id;
+
+      // Load chat and messages
+      await _loadChat();
+      await _loadMessages();
+
+      // Mark as read
+      await _chatService.markAsRead(widget.chatId);
+
+      // Start polling for new messages (WebSocket not available on backend yet)
+      _startPolling();
+
       _isInitialized = true;
+      print('✅ [ChatDetailScreen] Chat initialized successfully');
+    } catch (e, stackTrace) {
+      print('❌ [ChatDetailScreen] Error initializing chat: $e');
+      print('❌ [ChatDetailScreen] Stack trace: $stackTrace');
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Failed to load chat: ${e.toString()}';
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  void _startPolling() {
+    // Poll for new messages every 3 seconds
+    _pollingTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+
+      try {
+        final messages = await _chatService.getMessages(widget.chatId);
+        if (!mounted) return;
+
+        final reversedMessages = messages.reversed.toList();
+
+        // Check if there are new messages
+        if (reversedMessages.length > _messages.length) {
+          setState(() {
+            _messages = reversedMessages;
+          });
+
+          // Scroll to bottom when new messages arrive
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _scrollToBottom();
+          });
+
+          // Mark as read
+          _chatService.markAsRead(widget.chatId);
+          print('🔄 [ChatDetailScreen] Polling: Found new messages');
+        }
+      } catch (e) {
+        print('❌ [ChatDetailScreen] Polling error: $e');
+      }
+    });
+
+    print('🔄 [ChatDetailScreen] Started polling for new messages');
+  }
+
+  Future<void> _loadChat() async {
+    try {
+      final chat = await _chatService.getChat(widget.chatId);
+      if (mounted) {
+        setState(() {
+          _chat = chat;
+        });
+      }
+    } catch (e) {
+      print('❌ Error loading chat: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> _loadMessages() async {
+    try {
+      final messages = await _chatService.getMessages(widget.chatId);
+
+      if (mounted) {
+        setState(() {
+          // Messages come newest first from API, reverse for chat display
+          _messages = messages.reversed.toList();
+          _isLoading = false;
+        });
+
+        // Scroll to bottom
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _scrollToBottom();
+        });
+      }
+    } catch (e) {
+      print('❌ Error loading messages: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _sendMessage() async {
+    final content = _messageController.text.trim();
+    if (content.isEmpty || _isSending) return;
+
+    setState(() {
+      _isSending = true;
+    });
+
+    try {
+      final request = SendMessageRequest(
+        content: content,
+        type: MessageType.text,
+      );
+
+      // Send via REST API
+      print('📤 [ChatDetailScreen] Sending via REST API');
+      final newMessage = await _chatService.sendMessage(widget.chatId, request);
+
+      if (mounted) {
+        setState(() {
+          // Only add message if not already in list (in case WebSocket also delivered it)
+          final exists = _messages.any((m) => m.id == newMessage.id);
+          if (!exists) {
+            _messages.add(newMessage);
+          }
+          _messageController.clear();
+          _isSending = false;
+        });
+
+        _scrollToBottom();
+      }
+    } catch (e) {
+      print('❌ Error sending message: $e');
+      if (mounted) {
+        setState(() {
+          _isSending = false;
+        });
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to send message: $e')));
+      }
+    }
+  }
+
+  void _scrollToBottom() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
     }
   }
 
   @override
   void dispose() {
+    _pollingTimer?.cancel();
+    _messageSubscription?.cancel();
+    _webSocketService.dispose();
     _messageController.dispose();
     _scrollController.dispose();
     _focusNode.dispose();
     super.dispose();
-  }
-
-  void _loadInitialMessages() async {
-    final l10n = AppLocalizations.of(context)!;
-
-    // If product is provided, this is a new chat about availability
-    // Pre-fill the text field instead of sending automatically
-    if (widget.product != null) {
-      _messageController.text = l10n.interestedInProduct;
-    } else {
-      // Load messages from storage for existing chats
-      final savedMessages = await _chatService.getMessages(widget.chat.id);
-
-      if (savedMessages.isNotEmpty) {
-        setState(() {
-          _messages.addAll(
-            savedMessages.map(
-              (m) => Message(
-                text: m['text'] as String,
-                isSentByMe: m['isSentByMe'] as bool,
-                timestamp: DateTime.parse(m['timestamp'] as String),
-              ),
-            ),
-          );
-        });
-      }
-    }
-
-    // Scroll to bottom after messages load
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-      }
-    });
-  }
-
-  void _sendMessage() async {
-    final text = _messageController.text.trim();
-    if (text.isEmpty) return;
-
-    // If this is the first message, save the chat
-    if (_messages.isEmpty) {
-      // Update chat with the actual message being sent
-      final updatedChat = widget.chat.copyWith(
-        lastMessage: text,
-        lastMessageTime: DateTime.now(),
-      );
-      await _chatService.saveChat(updatedChat);
-    }
-
-    setState(() {
-      _messages.add(
-        Message(text: text, isSentByMe: true, timestamp: DateTime.now()),
-      );
-      _messageController.clear();
-    });
-
-    // Save messages to storage
-    await _saveMessages();
-
-    // Scroll to bottom
-    Future.delayed(const Duration(milliseconds: 100), () {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      }
-    });
-
-    // Simulate seller response after 2 seconds
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) {
-        final l10n = AppLocalizations.of(context)!;
-        setState(() {
-          _messages.add(
-            Message(
-              text: l10n.sellerAutoResponse,
-              isSentByMe: false,
-              timestamp: DateTime.now(),
-            ),
-          );
-        });
-
-        // Save messages after simulated response
-        _saveMessages();
-
-        // Scroll to bottom
-        Future.delayed(const Duration(milliseconds: 100), () {
-          if (_scrollController.hasClients) {
-            _scrollController.animateTo(
-              _scrollController.position.maxScrollExtent,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOut,
-            );
-          }
-        });
-      }
-    });
-  }
-
-  /// Save messages to storage
-  Future<void> _saveMessages() async {
-    final messagesData = _messages
-        .map(
-          (m) => {
-            'text': m.text,
-            'isSentByMe': m.isSentByMe,
-            'timestamp': m.timestamp.toIso8601String(),
-          },
-        )
-        .toList();
-
-    await _chatService.saveMessages(widget.chat.id, messagesData);
-
-    // Update chat with last message
-    final updatedChat = widget.chat.copyWith(
-      lastMessage: _messages.last.text,
-      lastMessageTime: _messages.last.timestamp,
-    );
-    await _chatService.saveChat(updatedChat);
   }
 
   @override
@@ -194,6 +237,59 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: isDark
+            ? AppColors.darkMainBackground
+            : AppColors.pageBackground,
+        appBar: AppBar(
+          backgroundColor: isDark
+              ? AppColors.darkCardBackground
+              : AppColors.white,
+          elevation: 0,
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back, color: theme.colorScheme.onSurface),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          title: Text(l10n.loading),
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_errorMessage != null || _chat == null) {
+      return Scaffold(
+        backgroundColor: isDark
+            ? AppColors.darkMainBackground
+            : AppColors.pageBackground,
+        appBar: AppBar(
+          backgroundColor: isDark
+              ? AppColors.darkCardBackground
+              : AppColors.white,
+          elevation: 0,
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back, color: theme.colorScheme.onSurface),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 64, color: AppColors.gray400),
+              const SizedBox(height: 16),
+              Text(_errorMessage ?? 'Chat not found'),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Go Back'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: isDark
@@ -206,21 +302,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: theme.colorScheme.onSurface),
-          onPressed: () {
-            // If coming from product, navigate to Orders tab
-            if (widget.product != null) {
-              // Pop back to MainScreen
-              Navigator.of(context).popUntil((route) => route.isFirst);
-              // Switch to Orders tab (index 3) and refresh
-              MainScreen.globalKey.currentState?.navigateToTab(3);
-            } else {
-              Navigator.of(context).pop();
-            }
-          },
+          onPressed: () => Navigator.of(context).pop(),
         ),
         title: Row(
           children: [
-            // Avatar with gradient
+            // Avatar
             Container(
               width: 40,
               height: 40,
@@ -229,12 +315,14 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: _getGradientColors(widget.chat.sellerName),
+                  colors: _getGradientColors(_chat!.sellerName),
                 ),
               ),
               child: Center(
                 child: Text(
-                  widget.chat.sellerAvatar,
+                  _chat!.sellerName.isNotEmpty
+                      ? _chat!.sellerName[0].toUpperCase()
+                      : 'S',
                   style: AppTypography.body2.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.w700,
@@ -245,159 +333,170 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             const SizedBox(width: 12),
             // Seller info
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.chat.sellerName,
-                    style: AppTypography.body1.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: theme.colorScheme.onSurface,
-                    ),
-                  ),
-                  if (widget.chat.productName != null)
-                    Text(
-                      widget.chat.productName!,
-                      style: AppTypography.caption.copyWith(
-                        color: isDark
-                            ? AppColors.darkSecondaryText
-                            : AppColors.gray600,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                ],
+              child: Text(
+                _chat!.sellerName,
+                style: AppTypography.body1.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: theme.colorScheme.onSurface,
+                ),
               ),
             ),
           ],
         ),
+        actions: [
+          // WebSocket connection indicator
+          if (_isWebSocketConnected)
+            Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: Tooltip(
+                message: 'Real-time messaging active',
+                child: Icon(Icons.sync, size: 20, color: Colors.green),
+              ),
+            ),
+        ],
       ),
       body: Column(
         children: [
-          // Product Card (if product info is available)
-          if (widget.product != null)
-            _ProductCard(product: widget.product!, isDark: isDark)
-          else if (widget.chat.productImage != null &&
-              widget.chat.productName != null)
-            _ChatProductCard(
-              productImage: widget.chat.productImage!,
-              productName: widget.chat.productName!,
-              productPrice: widget.chat.productPrice,
-              productOriginalPrice: widget.chat.productOriginalPrice,
-              isDark: isDark,
-              product: widget.product, // Pass product if available
-            ),
-
           // Messages List
           Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.all(16),
-              itemCount: _messages.length,
-              itemBuilder: (context, index) {
-                final message = _messages[index];
-                return _MessageBubble(message: message, isDark: isDark);
-              },
-            ),
+            child: _messages.isEmpty
+                ? Center(
+                    child: Text(
+                      l10n.noMessagesYet,
+                      style: AppTypography.body1.copyWith(
+                        color: isDark
+                            ? AppColors.darkSecondaryText
+                            : AppColors.gray600,
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _messages.length,
+                    itemBuilder: (context, index) {
+                      final message = _messages[index];
+                      final isMine = message.senderId == _currentUserId;
+
+                      // Render based on message type
+                      if (message.messageType == MessageType.product) {
+                        return _ProductMessageBubble(
+                          message: message,
+                          isDark: isDark,
+                        );
+                      }
+
+                      return _MessageBubble(
+                        message: message,
+                        isMine: isMine,
+                        isDark: isDark,
+                        senderName: message.senderName,
+                      );
+                    },
+                  ),
           ),
 
           // Message Input
           Container(
             padding: EdgeInsets.fromLTRB(
-              16,
               12,
-              16,
-              MediaQuery.of(context).padding.bottom + 12,
+              8,
+              12,
+              MediaQuery.of(context).padding.bottom + 8,
             ),
             decoration: BoxDecoration(
               color: isDark ? AppColors.darkCardBackground : AppColors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: (isDark ? AppColors.white : AppColors.black)
-                      .withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, -2),
+              border: Border(
+                top: BorderSide(
+                  color: isDark
+                      ? AppColors.darkStandardBorder
+                      : AppColors.gray200,
+                  width: 1,
                 ),
-              ],
+              ),
             ),
             child: Row(
               children: [
                 Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    child: TextField(
-                      controller: _messageController,
-                      focusNode: _focusNode,
-                      decoration: InputDecoration(
-                        hintText: l10n.typeMessage,
-                        filled: true,
-                        fillColor: isDark
-                            ? AppColors.darkMainBackground
-                            : AppColors.gray100,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(24),
-                          borderSide: BorderSide.none,
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(24),
-                          borderSide: BorderSide.none,
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(24),
-                          borderSide: BorderSide(
-                            color: isDark ? AppColors.white : AppColors.black,
-                            width: 2,
-                          ),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        hintStyle: AppTypography.body2.copyWith(
-                          color: isDark
-                              ? AppColors.darkSecondaryText
-                              : AppColors.gray600,
-                        ),
+                  child: TextField(
+                    controller: _messageController,
+                    focusNode: _focusNode,
+                    decoration: InputDecoration(
+                      hintText: l10n.typeMessage,
+                      filled: true,
+                      fillColor: isDark
+                          ? AppColors.darkMainBackground
+                          : AppColors.gray100,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(22),
+                        borderSide: BorderSide.none,
                       ),
-                      style: AppTypography.body2.copyWith(
-                        color: theme.colorScheme.onSurface,
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(22),
+                        borderSide: BorderSide.none,
                       ),
-                      maxLines: null,
-                      textCapitalization: TextCapitalization.sentences,
-                      onChanged: (value) {
-                        setState(() {}); // Update send button state
-                      },
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(22),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      hintStyle: AppTypography.body2.copyWith(
+                        color: isDark
+                            ? AppColors.darkSecondaryText
+                            : AppColors.gray600,
+                      ),
                     ),
+                    style: AppTypography.body2.copyWith(
+                      color: theme.colorScheme.onSurface,
+                    ),
+                    maxLines: null,
+                    textCapitalization: TextCapitalization.sentences,
+                    onChanged: (value) => setState(() {}),
+                    onSubmitted: (_) => _sendMessage(),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 // Send Button
                 GestureDetector(
-                  onTap: _messageController.text.trim().isNotEmpty
+                  onTap:
+                      _messageController.text.trim().isNotEmpty && !_isSending
                       ? _sendMessage
                       : null,
                   child: Container(
-                    width: 48,
-                    height: 48,
+                    width: 44,
+                    height: 44,
                     decoration: BoxDecoration(
-                      color: _messageController.text.trim().isNotEmpty
+                      color:
+                          _messageController.text.trim().isNotEmpty &&
+                              !_isSending
                           ? (isDark ? AppColors.white : AppColors.black)
                           : (isDark
                                 ? AppColors.darkSecondaryText
                                 : AppColors.gray400),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(
-                      Icons.send_rounded,
-                      color: _messageController.text.trim().isNotEmpty
-                          ? (isDark ? AppColors.black : AppColors.white)
-                          : (isDark
-                                ? AppColors.darkMainBackground
-                                : AppColors.gray600),
-                      size: 20,
-                    ),
+                    child: _isSending
+                        ? Padding(
+                            padding: const EdgeInsets.all(10),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                isDark ? AppColors.black : AppColors.white,
+                              ),
+                            ),
+                          )
+                        : Icon(
+                            Icons.send_rounded,
+                            color: _messageController.text.trim().isNotEmpty
+                                ? (isDark ? AppColors.black : AppColors.white)
+                                : (isDark
+                                      ? AppColors.darkMainBackground
+                                      : AppColors.gray600),
+                            size: 20,
+                          ),
                   ),
                 ),
               ],
@@ -426,10 +525,17 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
 /// Message Bubble Widget
 class _MessageBubble extends StatelessWidget {
-  final Message message;
+  final ChatMessageResponse message;
+  final bool isMine;
   final bool isDark;
+  final String senderName;
 
-  const _MessageBubble({required this.message, required this.isDark});
+  const _MessageBubble({
+    required this.message,
+    required this.isMine,
+    required this.isDark,
+    required this.senderName,
+  });
 
   String _formatTime(DateTime time) {
     final hour = time.hour.toString().padLeft(2, '0');
@@ -437,43 +543,97 @@ class _MessageBubble extends StatelessWidget {
     return '$hour:$minute';
   }
 
+  List<Color> _getGradientColors(String name) {
+    final hash = name.hashCode;
+    final gradients = [
+      [const Color(0xFF667eea), const Color(0xFF764ba2)],
+      [const Color(0xFFf093fb), const Color(0xFFF5576c)],
+      [const Color(0xFF4facfe), const Color(0xFF00f2fe)],
+      [const Color(0xFF43e97b), const Color(0xFF38f9d7)],
+      [const Color(0xFFfa709a), const Color(0xFFfee140)],
+      [const Color(0xFF30cfd0), const Color(0xFF330867)],
+      [const Color(0xFFa8edea), const Color(0xFFfed6e3)],
+      [const Color(0xFFff9a9e), const Color(0xFFfecfef)],
+    ];
+    return gradients[hash.abs() % gradients.length];
+  }
+
+  Widget _buildAvatar() {
+    return Container(
+      width: 32,
+      height: 32,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: _getGradientColors(senderName),
+        ),
+      ),
+      child: Center(
+        child: Text(
+          senderName.isNotEmpty ? senderName[0].toUpperCase() : '?',
+          style: AppTypography.caption.copyWith(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+            fontSize: 13,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Row(
-        mainAxisAlignment: message.isSentByMe
+        mainAxisAlignment: isMine
             ? MainAxisAlignment.end
             : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          if (!message.isSentByMe) ...[const SizedBox(width: 8)],
+          // Avatar on left for other person's messages
+          if (!isMine) ...[_buildAvatar(), const SizedBox(width: 8)],
+          // Message bubble
           Flexible(
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: message.isSentByMe
+                color: isMine
                     ? (isDark ? AppColors.white : AppColors.black)
-                    : (isDark
-                          ? AppColors.darkCardBackground
-                          : AppColors.gray200),
+                    : (isDark ? AppColors.darkCardBackground : AppColors.white),
                 borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(20),
-                  topRight: const Radius.circular(20),
-                  bottomLeft: Radius.circular(message.isSentByMe ? 20 : 4),
-                  bottomRight: Radius.circular(message.isSentByMe ? 4 : 20),
+                  topLeft: const Radius.circular(18),
+                  topRight: const Radius.circular(18),
+                  bottomLeft: Radius.circular(isMine ? 18 : 4),
+                  bottomRight: Radius.circular(isMine ? 4 : 18),
                 ),
-                border: !message.isSentByMe && !isDark
-                    ? Border.all(color: AppColors.gray300, width: 1)
+                border: !isMine
+                    ? Border.all(
+                        color: isDark
+                            ? AppColors.darkStandardBorder
+                            : AppColors.gray300,
+                        width: 1,
+                      )
+                    : null,
+                boxShadow: !isDark
+                    ? [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                        ),
+                      ]
                     : null,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    message.text,
+                    message.content,
                     style: AppTypography.body2.copyWith(
-                      color: message.isSentByMe
+                      color: isMine
                           ? (isDark ? AppColors.black : AppColors.white)
                           : (isDark
                                 ? AppColors.darkPrimaryText
@@ -481,319 +641,238 @@ class _MessageBubble extends StatelessWidget {
                       height: 1.4,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2),
                   Text(
-                    _formatTime(message.timestamp),
+                    _formatTime(message.createdAt),
                     style: AppTypography.caption.copyWith(
-                      color: message.isSentByMe
+                      color: isMine
                           ? (isDark
-                                ? AppColors.black.withOpacity(0.6)
-                                : AppColors.white.withOpacity(0.7))
+                                ? AppColors.black.withOpacity(0.5)
+                                : AppColors.white.withOpacity(0.6))
                           : (isDark
                                 ? AppColors.darkSecondaryText
-                                : AppColors.gray600),
-                      fontSize: 11,
+                                : AppColors.gray500),
+                      fontSize: 10,
                     ),
                   ),
                 ],
               ),
             ),
           ),
-          if (message.isSentByMe) ...[const SizedBox(width: 8)],
+          // Avatar on right for my messages
+          if (isMine) ...[const SizedBox(width: 8), _buildAvatar()],
         ],
       ),
     );
   }
 }
 
-/// Product Card Widget - Shows product details at the top of chat
-class _ProductCard extends StatelessWidget {
-  final Product product;
+/// Product Message Bubble (for PRODUCT type messages)
+class _ProductMessageBubble extends StatelessWidget {
+  final ChatMessageResponse message;
   final bool isDark;
 
-  const _ProductCard({required this.product, required this.isDark});
+  const _ProductMessageBubble({required this.message, required this.isDark});
 
   String _formatPrice(int price) {
-    return '${price.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (match) => '${match[1]} ')} UZS';
+    final formatted = price.toString().replaceAllMapped(
+      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+      (match) => '${match[1]} ',
+    );
+    return '$formatted UZS';
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.of(context).push(
+  Future<void> _openProductDetails(BuildContext context) async {
+    if (message.productId == null) return;
+
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      // Get auth token
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+
+      // Fetch product details
+      final apiService = ProductApiService();
+      final apiProduct = await apiService.getProductById(
+        message.productId!,
+        token: token,
+      );
+
+      // Convert API product to domain product
+      final product = _convertToDomainProduct(apiProduct);
+
+      // Close loading dialog
+      if (context.mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+
+        // Navigate to product detail screen
+        Navigator.push(
+          context,
           MaterialPageRoute(
             builder: (context) => ProductDetailScreen(product: product),
           ),
         );
-      },
-      child: Container(
-        margin: const EdgeInsets.all(16),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.darkCardBackground : AppColors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isDark ? AppColors.darkStandardBorder : AppColors.gray300,
-            width: 1,
+      }
+    } catch (e) {
+      print('❌ Error opening product details: $e');
+      // Close loading dialog
+      if (context.mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load product details'),
+            backgroundColor: Colors.red,
           ),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Product Image
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                width: 80,
-                height: 80,
-                color: isDark ? AppColors.darkMainBackground : Colors.white,
-                child: CachedNetworkImage(
-                  imageUrl: product.images.isNotEmpty ? product.images[0] : '',
-                  width: 80,
-                  height: 80,
-                  fit: BoxFit.contain,
-                  placeholder: (context, url) => Container(
-                    color: isDark
-                        ? AppColors.darkMainBackground
-                        : AppColors.gray100,
-                    child: const Center(
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  ),
-                  errorWidget: (context, url, error) => Container(
-                    color: isDark
-                        ? AppColors.darkMainBackground
-                        : AppColors.gray100,
-                    child: Icon(
-                      Icons.image_outlined,
-                      color: isDark
-                          ? AppColors.darkSecondaryText
-                          : AppColors.gray600,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-
-            // Product Info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    product.brand,
-                    style: AppTypography.caption.copyWith(
-                      color: isDark
-                          ? AppColors.darkSecondaryText
-                          : AppColors.gray600,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    product.title,
-                    style: AppTypography.body2.copyWith(
-                      color: isDark
-                          ? AppColors.darkPrimaryText
-                          : AppColors.black,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Text(
-                        _formatPrice(product.price),
-                        style: AppTypography.body2.copyWith(
-                          color: isDark
-                              ? AppColors.darkPrimaryText
-                              : AppColors.black,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      if (product.originalPrice != null) ...[
-                        const SizedBox(width: 8),
-                        Text(
-                          _formatPrice(product.originalPrice!),
-                          style: AppTypography.caption.copyWith(
-                            color: isDark
-                                ? AppColors.darkSecondaryText
-                                : AppColors.gray600,
-                            decoration: TextDecoration.lineThrough,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+        );
+      }
+    }
   }
-}
 
-class _ChatProductCard extends StatelessWidget {
-  final String productImage;
-  final String productName;
-  final int? productPrice;
-  final int? productOriginalPrice;
-  final bool isDark;
-  final Product? product; // Optional full product for navigation
+  Product _convertToDomainProduct(api_models.Product apiProduct) {
+    // Safely handle rating to avoid NaN or Infinity
+    double safeRating = 0.0;
+    if (apiProduct.rating != null &&
+        !apiProduct.rating!.isNaN &&
+        !apiProduct.rating!.isInfinite) {
+      safeRating = apiProduct.rating!.clamp(0.0, 5.0);
+    }
 
-  const _ChatProductCard({
-    required this.productImage,
-    required this.productName,
-    this.productPrice,
-    this.productOriginalPrice,
-    required this.isDark,
-    this.product,
-  });
+    // Use seller as brand fallback
+    String brand = apiProduct.brand;
+    if (brand.isEmpty || brand == 'Unknown') {
+      brand = apiProduct.seller ?? 'Unknown';
+    }
 
-  String _formatPrice(int price) {
-    return '${price.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (match) => '${match[1]} ')} UZS';
+    return Product(
+      id: apiProduct.id,
+      brand: brand,
+      title: apiProduct.title,
+      description: apiProduct.description ?? '',
+      price: apiProduct.price,
+      images: apiProduct.images.isNotEmpty ? apiProduct.images : [''],
+      rating: safeRating,
+      reviewCount: apiProduct.reviewCount ?? 0,
+      category: apiProduct.category.toString().split('.').last,
+      subcategory: apiProduct.subcategory
+          ?.map((e) => e.toString().split('.').last)
+          .toList(),
+      sizes:
+          apiProduct.sizes?.map((e) => e.toString().split('.').last).toList() ??
+          [],
+      colors: apiProduct.colors ?? [],
+      material: apiProduct.material
+          ?.map((e) => e.toString().split('.').last)
+          .toList(),
+      season: apiProduct.season
+          ?.map((e) => e.toString().split('.').last)
+          .toList(),
+      currency: apiProduct.currency,
+      seller: apiProduct.seller ?? 'Unknown Seller',
+      sellerId: apiProduct.sellerId,
+      isNew: apiProduct.isNew ?? false,
+      isFeatured: apiProduct.isFeatured ?? false,
+      discountPercentage: apiProduct.discountPercentage,
+      originalPrice: apiProduct.originalPrice,
+      inStock: apiProduct.inStock,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    // Extract brand from product name (assuming format: "Brand - Product Name")
-    final parts = productName.split(' - ');
-    final brand = parts.length > 1 ? parts[0] : 'Product';
-    final title = parts.length > 1 ? parts.sublist(1).join(' - ') : productName;
-
-    final cardWidget = Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.darkCardBackground : AppColors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isDark ? AppColors.darkStandardBorder : AppColors.gray300,
-          width: 1,
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Product Image
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              width: 80,
-              height: 80,
-              color: isDark ? AppColors.darkMainBackground : Colors.white,
-              child: CachedNetworkImage(
-                imageUrl: productImage,
-                width: 80,
-                height: 80,
-                fit: BoxFit.contain,
-                placeholder: (context, url) => Container(
-                  color: isDark
-                      ? AppColors.darkMainBackground
-                      : AppColors.gray100,
-                  child: const Center(
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                ),
-                errorWidget: (context, url, error) => Container(
-                  color: isDark
-                      ? AppColors.darkMainBackground
-                      : AppColors.gray100,
-                  child: Icon(
-                    Icons.image_outlined,
-                    color: isDark
-                        ? AppColors.darkSecondaryText
-                        : AppColors.gray600,
-                  ),
-                ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Center(
+        child: InkWell(
+          onTap: message.productId != null
+              ? () => _openProductDetails(context)
+              : null,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.darkCardBackground : AppColors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isDark
+                    ? AppColors.darkStandardBorder
+                    : AppColors.gray300,
+                width: 1,
               ),
             ),
-          ),
-          const SizedBox(width: 12),
-
-          // Product Info
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  brand,
-                  style: AppTypography.caption.copyWith(
-                    color: isDark
-                        ? AppColors.darkSecondaryText
-                        : AppColors.gray600,
-                    fontWeight: FontWeight.w600,
+                if (message.productImage != null)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: CachedNetworkImage(
+                      imageUrl: message.productImage!,
+                      width: 60,
+                      height: 60,
+                      fit: BoxFit.cover,
+                    ),
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  title,
-                  style: AppTypography.body2.copyWith(
-                    color: isDark ? AppColors.darkPrimaryText : AppColors.black,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (productPrice != null) ...[
-                  const SizedBox(height: 8),
-                  Row(
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        _formatPrice(productPrice!),
-                        style: AppTypography.body2.copyWith(
-                          color: isDark
-                              ? AppColors.darkPrimaryText
-                              : AppColors.black,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      if (productOriginalPrice != null) ...[
-                        const SizedBox(width: 8),
+                      if (message.productTitle != null)
                         Text(
-                          _formatPrice(productOriginalPrice!),
+                          message.productTitle!,
+                          style: AppTypography.body2.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: isDark
+                                ? AppColors.darkPrimaryText
+                                : AppColors.black,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      if (message.productPrice != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          _formatPrice(message.productPrice!),
+                          style: AppTypography.body2.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: isDark
+                                ? AppColors.darkPrimaryText
+                                : AppColors.black,
+                          ),
+                        ),
+                      ],
+                      if (message.color != null || message.size != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          [
+                            if (message.color != null)
+                              'Color: ${message.color}',
+                            if (message.size != null) 'Size: ${message.size}',
+                          ].join(' • '),
                           style: AppTypography.caption.copyWith(
                             color: isDark
                                 ? AppColors.darkSecondaryText
                                 : AppColors.gray600,
-                            decoration: TextDecoration.lineThrough,
                           ),
                         ),
                       ],
                     ],
                   ),
-                ],
+                ),
               ],
             ),
           ),
-        ],
+        ),
       ),
     );
-
-    // Make card tappable only if product is available
-    if (product != null) {
-      return GestureDetector(
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => ProductDetailScreen(product: product!),
-            ),
-          );
-        },
-        child: cardWidget,
-      );
-    }
-
-    return cardWidget;
   }
 }

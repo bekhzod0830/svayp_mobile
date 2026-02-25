@@ -1,114 +1,140 @@
-import 'package:hive_flutter/hive_flutter.dart';
 import 'package:swipe/features/orders/data/models/order_model.dart';
+import 'package:swipe/core/network/api_client.dart';
+import 'package:swipe/core/network/api_config.dart';
 
-/// Order Service - Manages orders with Hive persistence
+/// Order Service - Manages orders via API
 class OrderService {
-  static const String _boxName = 'order_box';
-  Box<OrderModel>? _orderBox;
+  final ApiClient? _apiClient;
 
-  /// Initialize the order box
-  Future<void> init() async {
-    if (!Hive.isBoxOpen(_boxName)) {
-      _orderBox = await Hive.openBox<OrderModel>(_boxName);
-    } else {
-      _orderBox = Hive.box<OrderModel>(_boxName);
+  /// Constructor - requires ApiClient for API calls
+  OrderService([this._apiClient]);
+
+  /// Fetch all orders from API with pagination
+  Future<List<OrderModel>> fetchOrders({int page = 0, int size = 10}) async {
+    if (_apiClient == null) {
+      throw Exception('ApiClient not initialized. Cannot fetch orders.');
+    }
+
+    try {
+      final response = await _apiClient.get(
+        '${ApiConfig.orders}?page=$page&size=$size',
+      );
+
+      // Extract orders from nested response structure
+      // API returns: {"data": {"data": [...], "pagination": {...}}, "message": "..."}
+      final data = response.data['data'];
+
+      // Handle nested data structure
+      List<dynamic> ordersData;
+      if (data is Map) {
+        // Nested structure: {"data": {"data": [...], "pagination": {...}}}
+        ordersData = data['data'] ?? [];
+      } else if (data is List) {
+        // Flat structure: {"data": [...]}
+        ordersData = data;
+      } else {
+        print('⚠️ Unexpected data structure in response');
+        ordersData = [];
+      }
+
+      final orders = <OrderModel>[];
+      for (final orderJson in ordersData) {
+        try {
+          orders.add(OrderModel.fromJson(orderJson as Map<String, dynamic>));
+        } catch (e) {
+          print('⚠️ Failed to parse order: $e');
+          print('   Order JSON: $orderJson');
+        }
+      }
+
+      // Sort by date, newest first
+      orders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+      print('✅ Parsed ${orders.length} orders');
+      return orders;
+    } catch (e) {
+      print('❌ Error fetching orders: $e');
+      rethrow;
     }
   }
 
-  /// Get all orders (sorted by date, newest first)
-  List<OrderModel> getOrders() {
-    final orders = _orderBox?.values.toList() ?? [];
-    orders.sort((a, b) => b.orderDate.compareTo(a.orderDate));
-    return orders;
-  }
+  /// Get order by ID from API
+  Future<OrderModel?> fetchOrderById(String id) async {
+    if (_apiClient == null) {
+      throw Exception('ApiClient not initialized. Cannot fetch order.');
+    }
 
-  /// Get order by ID
-  OrderModel? getOrderById(String id) {
-    final orders = getOrders();
     try {
-      return orders.firstWhere((order) => order.id == id);
+      print('📦 Fetching order $id from API');
+
+      final endpoint = ApiConfig.orderDetail.replaceAll('{id}', id);
+      final response = await _apiClient.get(endpoint);
+
+      final orderData = response.data['data'];
+      return OrderModel.fromJson(orderData as Map<String, dynamic>);
     } catch (e) {
+      print('❌ Error fetching order $id: $e');
       return null;
     }
   }
 
-  /// Add new order
-  Future<void> addOrder(OrderModel order) async {
-    await _orderBox?.put(order.id, order);
-  }
-
-  /// Update existing order
-  Future<void> updateOrder(OrderModel order) async {
-    await _orderBox?.put(order.id, order);
-  }
-
-  /// Delete order
-  Future<void> deleteOrder(String id) async {
-    await _orderBox?.delete(id);
-  }
-
-  /// Get orders by status
-  List<OrderModel> getOrdersByStatus(String status) {
-    final orders = getOrders();
-    return orders.where((order) => order.status == status).toList();
-  }
-
-  /// Get pending orders
-  List<OrderModel> getPendingOrders() {
-    return getOrdersByStatus('pending');
-  }
-
-  /// Get delivered orders
-  List<OrderModel> getDeliveredOrders() {
-    return getOrdersByStatus('delivered');
-  }
-
-  /// Get order count
-  int getOrderCount() {
-    return _orderBox?.length ?? 0;
-  }
-
-  /// Check if order exists
-  bool orderExists(String id) {
-    return _orderBox?.containsKey(id) ?? false;
-  }
-
-  /// Clear all orders
-  Future<void> clearOrders() async {
-    await _orderBox?.clear();
-  }
-
-  /// Get stream of order changes
-  Stream<List<OrderModel>> watchOrders() {
-    return _orderBox?.watch().map((_) => getOrders()) ?? Stream.empty();
-  }
-
-  /// Update order status
-  Future<void> updateOrderStatus(String id, String status) async {
-    final order = getOrderById(id);
-    if (order == null) return;
-
-    order.status = status;
-
-    // Update delivered date if status is delivered
-    if (status.toLowerCase() == 'delivered' && order.deliveredDate == null) {
-      order.deliveredDate = DateTime.now();
+  /// Place order via API
+  ///
+  /// Creates an order on the server from the user's cart
+  /// The API reads cart items from the server-side cart, not from the request
+  /// Returns the created order data on success
+  Future<Map<String, dynamic>> placeOrderApi({
+    String? addressId,
+    required String deliveryMethod,
+    required String paymentMethod,
+  }) async {
+    if (_apiClient == null) {
+      throw Exception('ApiClient not initialized. Cannot place order via API.');
     }
 
-    await updateOrder(order);
-  }
+    try {
+      // Convert delivery method to API format
+      // API expects: PICKUP or DELIVERY (not pickup, standard, express, sameday)
+      final apiDeliveryMethod = deliveryMethod.toLowerCase() == 'pickup'
+          ? 'PICKUP'
+          : 'DELIVERY';
 
-  /// Add tracking number to order
-  Future<void> addTrackingNumber(String id, String trackingNumber) async {
-    final order = getOrderById(id);
-    if (order == null) return;
+      // Convert payment method to API format (e.g., "CASH", "CARD")
+      // If it starts with 'cod_' or is 'cod', use 'CASH'
+      final apiPaymentMethod =
+          paymentMethod.toLowerCase().contains('cod') ||
+              paymentMethod.toLowerCase() == 'cash'
+          ? 'CASH'
+          : paymentMethod.toUpperCase();
 
-    order.trackingNumber = trackingNumber;
-    await updateOrder(order);
-  }
+      // Prepare request body - API creates order from server-side cart
+      final requestBody = {
+        'deliveryMethod': apiDeliveryMethod,
+        'paymentMethod': apiPaymentMethod,
+      };
 
-  /// Close the box
-  Future<void> close() async {
-    await _orderBox?.close();
+      // Add addressId only if delivery (not pickup)
+      if (apiDeliveryMethod == 'DELIVERY' && addressId != null) {
+        requestBody['addressId'] = addressId;
+      }
+
+      print('📦 Placing order via API: ${ApiConfig.orders}');
+      print('📤 Request body: $requestBody');
+
+      final response = await _apiClient.post(
+        ApiConfig.orders,
+        data: requestBody,
+      );
+
+      print('✅ Order placed successfully: ${response.data}');
+
+      // Extract order data from response
+      // API typically returns: {data: {...order data}, message: "..."}
+      final orderData = response.data['data'] ?? response.data;
+      return orderData as Map<String, dynamic>;
+    } catch (e) {
+      print('❌ Error placing order: $e');
+      rethrow;
+    }
   }
 }

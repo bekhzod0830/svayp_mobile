@@ -11,8 +11,7 @@ import 'package:swipe/features/liked/data/services/liked_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:swipe/core/cache/image_cache_manager.dart';
-import 'package:swipe/features/chat/presentation/screens/chat_detail_screen.dart';
-import 'package:swipe/features/chat/data/models/chat_model.dart';
+import 'package:swipe/features/chat/presentation/screens/chat_compose_screen.dart';
 import 'package:swipe/features/shop/presentation/screens/seller_profile_screen.dart';
 import 'package:swipe/core/services/product_api_service.dart';
 import 'package:swipe/core/models/product.dart' as api_models;
@@ -44,6 +43,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   void initState() {
     super.initState();
     _initServices();
+
+    // Debug: Print product seller information
+    print('🏪 Product Seller Info:');
+    print('   Seller Name: ${widget.product.seller}');
+    print('   Seller ID: ${widget.product.sellerId}');
+    print('   Brand: ${widget.product.brand}');
   }
 
   Future<void> _initServices() async {
@@ -317,6 +322,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         const SizedBox(height: 16),
                         _buildPriceSection(),
                         const SizedBox(height: 24),
+                        _buildSellerSection(),
+                        const SizedBox(height: 24),
                         _buildSizeSelector(),
                         if (widget.product.colors.isNotEmpty) ...[
                           const SizedBox(height: 24),
@@ -468,6 +475,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             fontWeight: FontWeight.w600,
             color: theme.colorScheme.onSurface,
           ),
+          maxLines: 3,
+          overflow: TextOverflow.ellipsis,
         ),
         const SizedBox(height: 8),
         Row(
@@ -482,12 +491,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               ),
             ),
             const SizedBox(width: 4),
-            Text(
-              AppLocalizations.of(
-                context,
-              )!.reviewsCount(widget.product.reviewCount),
-              style: AppTypography.body1.copyWith(
-                color: isDark ? AppColors.darkSecondaryText : AppColors.gray600,
+            Flexible(
+              child: Text(
+                AppLocalizations.of(
+                  context,
+                )!.reviewsCount(widget.product.reviewCount),
+                style: AppTypography.body1.copyWith(
+                  color: isDark
+                      ? AppColors.darkSecondaryText
+                      : AppColors.gray600,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
@@ -501,28 +516,38 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final isDark = theme.brightness == Brightness.dark;
 
     return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         if (widget.product.discountPercentage != null &&
             widget.product.discountPercentage! > 0) ...[
-          Text(
-            '${widget.product.originalPrice?.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} ${widget.product.currency}',
-            style: AppTypography.heading4.copyWith(
-              color: isDark ? AppColors.darkSecondaryText : AppColors.gray400,
-              decoration: TextDecoration.lineThrough,
+          Flexible(
+            child: Text(
+              '${widget.product.originalPrice?.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} ${widget.product.currency}',
+              style: AppTypography.heading4.copyWith(
+                color: isDark ? AppColors.darkSecondaryText : AppColors.gray400,
+                decoration: TextDecoration.lineThrough,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
         ],
-        Text(
-          '${widget.product.price.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} ${widget.product.currency}',
-          style: AppTypography.heading3.copyWith(
-            fontWeight: FontWeight.w700,
-            color: theme.colorScheme.onSurface,
+        Flexible(
+          child: Text(
+            '${widget.product.price.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} ${widget.product.currency}',
+            style: AppTypography.heading3.copyWith(
+              fontWeight: FontWeight.w700,
+              color: theme.colorScheme.onSurface,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
         if (widget.product.discountPercentage != null &&
             widget.product.discountPercentage! > 0) ...[
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
@@ -540,6 +565,120 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         ],
       ],
     );
+  }
+
+  Widget _buildSellerSection() {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final l10n = AppLocalizations.of(context)!;
+
+    // Use seller field if available, otherwise fall back to brand, or SVAYP as final fallback
+    String sellerName = widget.product.seller ?? widget.product.brand;
+    // If still "Unknown" or empty, use SVAYP as default
+    if (sellerName == 'Unknown' || sellerName.isEmpty) {
+      sellerName = 'SVAYP';
+    }
+
+    // Get sellerId - use the sellerId field if available
+    final sellerId = widget.product.sellerId;
+
+    return GestureDetector(
+      onTap: () {
+        if (sellerId != null) {
+          _navigateToSellerProfile(sellerId, sellerName);
+        } else {
+          // Show message if no sellerId available
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Seller information not available yet'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkCardBackground : AppColors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isDark ? AppColors.darkStandardBorder : AppColors.gray300,
+          ),
+        ),
+        child: Row(
+          children: [
+            // Seller Avatar
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: _getGradientColors(sellerName),
+                ),
+              ),
+              child: Center(
+                child: Text(
+                  sellerName[0].toUpperCase(),
+                  style: AppTypography.heading4.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Seller Info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    sellerName,
+                    style: AppTypography.body1.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    l10n.visitShop,
+                    style: AppTypography.body2.copyWith(
+                      color: isDark
+                          ? AppColors.darkSecondaryText
+                          : AppColors.gray600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Arrow Icon
+            Icon(
+              Icons.chevron_right_rounded,
+              size: 24,
+              color: isDark ? AppColors.darkSecondaryText : AppColors.gray600,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<Color> _getGradientColors(String name) {
+    final hash = name.hashCode;
+    final gradients = [
+      [const Color(0xFF667eea), const Color(0xFF764ba2)],
+      [const Color(0xFFf093fb), const Color(0xFFF5576c)],
+      [const Color(0xFF4facfe), const Color(0xFF00f2fe)],
+      [const Color(0xFF43e97b), const Color(0xFF38f9d7)],
+      [const Color(0xFFfa709a), const Color(0xFFfee140)],
+      [const Color(0xFF30cfd0), const Color(0xFF330867)],
+      [const Color(0xFFa8edea), const Color(0xFFfed6e3)],
+      [const Color(0xFFff9a9e), const Color(0xFFfecfef)],
+    ];
+    return gradients[hash.abs() % gradients.length];
   }
 
   Widget _buildSizeSelector() {
@@ -833,11 +972,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           ),
         if (widget.product.season != null && widget.product.season!.isNotEmpty)
           _DetailRow(label: 'Season', value: widget.product.season!.join(', ')),
-        _SellerRow(
-          label: AppLocalizations.of(context)!.seller,
-          value: widget.product.brand,
-          onTap: () => _navigateToSellerProfile(widget.product.brand),
-        ),
         _DetailRow(
           label: AppLocalizations.of(context)!.availability,
           value: widget.product.inStock
@@ -859,8 +993,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   /// Navigate to seller profile with all their products
-  Future<void> _navigateToSellerProfile(String sellerName) async {
-    print('🔍 Navigating to seller profile: $sellerName');
+  Future<void> _navigateToSellerProfile(
+    String sellerId,
+    String sellerName,
+  ) async {
+    print('🔍 Navigating to seller profile: $sellerName (ID: $sellerId)');
 
     // Show loading indicator
     showDialog(
@@ -897,11 +1034,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
 
     try {
-      print('📡 Fetching products from API...');
+      print('📡 Fetching seller details from API...');
 
-      // Fetch all products with timeout
+      // Fetch seller details using the seller detail endpoint
       final response = await _apiService
-          .getProducts(skip: 0, limit: 100)
+          .getBrandDetail(brandId: sellerId, token: _authToken)
           .timeout(
             const Duration(seconds: 10),
             onTimeout: () {
@@ -910,23 +1047,23 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             },
           );
 
-      print('✅ Received ${response.products.length} products from API');
+      print(
+        '✅ Received ${response.products.length} products for seller: $sellerName (ID: $sellerId)',
+      );
 
-      // Filter products by seller
+      // Convert API products to local Product entities
       final sellerProducts = <Product>[];
       for (final apiProduct in response.products) {
-        if (apiProduct.seller == sellerName) {
-          try {
-            final product = _convertApiProduct(apiProduct);
-            sellerProducts.add(product);
-          } catch (e) {
-            print('❌ Failed to convert product: ${apiProduct.id}, error: $e');
-          }
+        try {
+          final product = _convertApiProduct(apiProduct);
+          sellerProducts.add(product);
+        } catch (e) {
+          print('❌ Failed to convert product: ${apiProduct.id}, error: $e');
         }
       }
 
       print(
-        '🎯 Found ${sellerProducts.length} products for seller: $sellerName',
+        '🎯 Converted ${sellerProducts.length} products for seller: $sellerName (ID: $sellerId)',
       );
 
       // Close loading dialog - try multiple methods to ensure it closes
@@ -967,6 +1104,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         await Navigator.of(context).push(
           MaterialPageRoute(
             builder: (context) => SellerProfileScreen(
+              sellerId: sellerId,
               sellerName: sellerName,
               products: sellerProducts,
             ),
@@ -1005,12 +1143,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   /// Convert API product model to local Product entity
   Product _convertApiProduct(api_models.Product apiProduct) {
+    // Use seller if brand is "Unknown" or if seller is available
+    final displayBrand =
+        (apiProduct.brand == 'Unknown' || apiProduct.brand.isEmpty)
+        ? (apiProduct.seller ?? apiProduct.brand)
+        : apiProduct.brand;
+
     return Product(
       id: apiProduct.id,
       title: apiProduct.title,
       description: apiProduct.description ?? '',
       price: apiProduct.price,
-      brand: apiProduct.brand,
+      brand: displayBrand,
       category: apiProduct.category.displayName,
       subcategory: apiProduct.subcategory?.map((s) => s.displayName).toList(),
       images: apiProduct.images.isNotEmpty
@@ -1027,6 +1171,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       isFeatured: apiProduct.isFeatured ?? false,
       inStock: apiProduct.inStock,
       seller: apiProduct.seller,
+      sellerId: apiProduct.sellerId,
       discountPercentage: apiProduct.discountPercentage,
       originalPrice: apiProduct.originalPrice,
     );
@@ -1129,37 +1274,30 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           children: [
             Expanded(
               child: OutlinedButton(
-                onPressed: () async {
-                  // Create chat model
-                  final chat = ChatModel(
-                    id: 'product_${widget.product.id}',
-                    sellerName: widget.product.seller ?? 'SVAYP',
-                    sellerAvatar: (widget.product.seller ?? 'SVAYP')[0]
-                        .toUpperCase(),
-                    lastMessage: l10n.interestedInProduct,
-                    lastMessageTime: DateTime.now(),
-                    unreadCount: 0,
-                    productImage: widget.product.images.isNotEmpty
-                        ? widget.product.images[0]
-                        : null,
-                    productName:
-                        '${widget.product.brand} - ${widget.product.title}',
-                    productPrice: widget.product.price,
-                    productOriginalPrice: widget.product.originalPrice,
-                  );
-
-                  // Navigate to chat with seller about this product
-                  // Chat will be saved only when user sends first message
-                  if (mounted) {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => ChatDetailScreen(
-                          chat: chat,
-                          product: widget.product,
-                        ),
+                onPressed: () {
+                  // Navigate to chat compose screen
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => ChatComposeScreen(
+                        sellerId: widget.product.sellerId ?? 'default-seller',
+                        sellerName: widget.product.seller ?? 'Seller',
+                        sellerLogo: null, // Add seller logo if available
+                        productId: widget.product.id,
+                        productTitle: widget.product.title,
+                        productImage: widget.product.images.isNotEmpty
+                            ? widget.product.images[0]
+                            : null,
+                        productBrand: widget.product.brand,
+                        color: widget.product.colors.isNotEmpty
+                            ? widget.product.colors[0]
+                            : null,
+                        size: widget.product.sizes.isNotEmpty
+                            ? widget.product.sizes[0]
+                            : null,
+                        initialMessage: l10n.interestedInProduct,
                       ),
-                    );
-                  }
+                    ),
+                  );
                 },
                 style: OutlinedButton.styleFrom(
                   side: BorderSide(
@@ -1284,109 +1422,5 @@ class _DetailRow extends StatelessWidget {
         ],
       ),
     );
-  }
-}
-
-/// Tappable Seller Row for navigation to seller profile
-class _SellerRow extends StatelessWidget {
-  final String label;
-  final String value;
-  final VoidCallback onTap;
-
-  const _SellerRow({
-    required this.label,
-    required this.value,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: 120,
-              child: Text(
-                label,
-                style: AppTypography.body2.copyWith(
-                  color: isDark
-                      ? AppColors.darkSecondaryText
-                      : AppColors.gray600,
-                ),
-              ),
-            ),
-            Expanded(
-              child: Row(
-                children: [
-                  // Gradient seller avatar
-                  Container(
-                    width: 24,
-                    height: 24,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: _getGradientColors(value),
-                      ),
-                    ),
-                    child: Center(
-                      child: Text(
-                        value[0].toUpperCase(),
-                        style: AppTypography.caption.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 10,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      value,
-                      style: AppTypography.body2.copyWith(
-                        color: theme.colorScheme.onSurface,
-                        fontWeight: FontWeight.w600,
-                        decoration: TextDecoration.underline,
-                      ),
-                    ),
-                  ),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    size: 20,
-                    color: isDark
-                        ? AppColors.darkSecondaryText
-                        : AppColors.gray600,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  List<Color> _getGradientColors(String name) {
-    final hash = name.hashCode;
-    final gradients = [
-      [const Color(0xFF667eea), const Color(0xFF764ba2)],
-      [const Color(0xFFf093fb), const Color(0xFFF5576c)],
-      [const Color(0xFF4facfe), const Color(0xFF00f2fe)],
-      [const Color(0xFF43e97b), const Color(0xFF38f9d7)],
-      [const Color(0xFFfa709a), const Color(0xFFfee140)],
-      [const Color(0xFF30cfd0), const Color(0xFF330867)],
-      [const Color(0xFFa8edea), const Color(0xFFfed6e3)],
-      [const Color(0xFFff9a9e), const Color(0xFFfecfef)],
-    ];
-    return gradients[hash.abs() % gradients.length];
   }
 }

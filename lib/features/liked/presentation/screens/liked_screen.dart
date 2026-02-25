@@ -50,10 +50,6 @@ class LikedScreenState extends State<LikedScreen>
     final prefs = await SharedPreferences.getInstance();
     _authToken = prefs.getString('auth_token');
 
-    print(
-      '🔑 Auth token in Liked Screen: ${_authToken != null ? "Present (${_authToken!.substring(0, 10)}...)" : "Not found"}',
-    );
-
     // Load liked products
     await _loadLikedProducts();
   }
@@ -96,12 +92,23 @@ class LikedScreenState extends State<LikedScreen>
         // Sync backend favorites with local storage
         // This ensures the local storage is up-to-date with backend
         for (final apiProduct in response.products) {
+          // Use seller as fallback when brand is "Unknown" or empty
+          String displayBrand =
+              (apiProduct.brand == 'Unknown' || apiProduct.brand.isEmpty)
+              ? (apiProduct.seller ?? apiProduct.brand)
+              : apiProduct.brand;
+
+          // If still "Unknown" or empty, use SVAYP as default
+          if (displayBrand == 'Unknown' || displayBrand.isEmpty) {
+            displayBrand = 'SVAYP';
+          }
+
           final product = Product(
             id: apiProduct.id,
             title: apiProduct.title,
             description: apiProduct.description ?? '',
             price: apiProduct.price,
-            brand: apiProduct.brand,
+            brand: displayBrand,
             category: apiProduct.category.displayName,
             subcategory: apiProduct.subcategory
                 ?.map((sc) => sc.displayName)
@@ -121,7 +128,8 @@ class LikedScreenState extends State<LikedScreen>
             isNew: apiProduct.isNew ?? false,
             isFeatured: apiProduct.isFeatured ?? false,
             inStock: apiProduct.inStock,
-            seller: apiProduct.seller,
+            seller: apiProduct.seller ?? displayBrand,
+            sellerId: apiProduct.sellerId,
             discountPercentage: apiProduct.discountPercentage,
             originalPrice: apiProduct.originalPrice,
           );
@@ -255,9 +263,16 @@ class LikedScreenState extends State<LikedScreen>
     } else {
       // Fallback: create product from liked product model data
       print('⚠️ Full product not found in cache for ${likedProduct.productId}');
+
+      // Use SVAYP if brand is Unknown
+      final sellerName =
+          (likedProduct.brand == 'Unknown' || likedProduct.brand.isEmpty)
+          ? 'SVAYP'
+          : likedProduct.brand;
+
       final fallbackProduct = Product(
         id: likedProduct.productId,
-        brand: likedProduct.brand,
+        brand: sellerName,
         title: likedProduct.title,
         category: likedProduct.category,
         price: likedProduct.price,
@@ -270,6 +285,8 @@ class LikedScreenState extends State<LikedScreen>
         reviewCount: 0,
         isNew: likedProduct.isNew,
         discountPercentage: likedProduct.discountPercentage,
+        seller: sellerName, // Use same name for seller
+        sellerId: likedProduct.sellerId,
       );
 
       Navigator.of(context).push(
@@ -547,22 +564,8 @@ class _TikTokLikedProductCard extends StatelessWidget {
               padding: const EdgeInsets.all(8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Brand
-                  Text(
-                    product.brand.toUpperCase(),
-                    style: AppTypography.caption.copyWith(
-                      color: isDark
-                          ? AppColors.darkSecondaryText
-                          : AppColors.gray600,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.3,
-                      fontSize: 10,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
                   // Title
                   Text(
                     product.title,
@@ -578,48 +581,51 @@ class _TikTokLikedProductCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
-                  // Price and Rating
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  // Price with optional discount
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Price
-                      Flexible(
-                        child: Text(
-                          '${product.price.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} UZS',
-                          style: AppTypography.body2.copyWith(
-                            fontWeight: FontWeight.bold,
+                      Text(
+                        '${product.price.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} UZS',
+                        style: AppTypography.body2.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: isDark
+                              ? AppColors.darkPrimaryText
+                              : AppColors.black,
+                          fontSize: 13,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (product.originalPrice != null &&
+                          product.originalPrice! > product.price)
+                        Text(
+                          '${product.originalPrice.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} UZS',
+                          style: AppTypography.caption.copyWith(
                             color: isDark
-                                ? AppColors.darkPrimaryText
-                                : AppColors.black,
-                            fontSize: 13,
+                                ? AppColors.gray400
+                                : AppColors.gray500,
+                            decoration: TextDecoration.lineThrough,
+                            fontSize: 11,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                      // Rating
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.star_rounded,
-                            size: 14,
-                            color: Colors.amber,
-                          ),
-                          const SizedBox(width: 2),
-                          Text(
-                            product.rating.toStringAsFixed(1),
-                            style: AppTypography.caption.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: isDark
-                                  ? AppColors.darkSecondaryText
-                                  : AppColors.gray600,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
                     ],
+                  ),
+                  // Seller Name
+                  const SizedBox(height: 4),
+                  Text(
+                    product.brand,
+                    style: AppTypography.caption.copyWith(
+                      color: isDark
+                          ? AppColors.darkSecondaryText
+                          : AppColors.gray600,
+                      fontSize: 11,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
@@ -757,22 +763,6 @@ class _LikedProductCard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Brand
-                    Text(
-                      product.brand.toUpperCase(),
-                      style: AppTypography.caption.copyWith(
-                        color: isDark
-                            ? AppColors.darkSecondaryText
-                            : AppColors.gray500,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.5,
-                        fontSize: 10,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-
                     // Title
                     Flexible(
                       child: Text(
@@ -790,47 +780,32 @@ class _LikedProductCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
 
-                    // Price and Rating
-                    Row(
+                    // Price with optional discount
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Price
-                        Flexible(
-                          child: Text(
-                            '${product.price.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} UZS',
-                            style: AppTypography.body2.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: isDark
-                                  ? AppColors.darkPrimaryText
-                                  : AppColors.black,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                        Text(
+                          '${product.price.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} UZS',
+                          style: AppTypography.body2.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: isDark
+                                ? AppColors.darkPrimaryText
+                                : AppColors.black,
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(width: 8),
-
-                        // Rating Badge
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.star_rounded,
-                              size: 12,
-                              color: Colors.amber,
+                        if (product.originalPrice != null &&
+                            product.originalPrice! > product.price)
+                          Text(
+                            '${product.originalPrice.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} UZS',
+                            style: AppTypography.caption.copyWith(
+                              color: isDark
+                                  ? AppColors.gray400
+                                  : AppColors.gray500,
+                              decoration: TextDecoration.lineThrough,
                             ),
-                            const SizedBox(width: 2),
-                            Text(
-                              product.rating.toStringAsFixed(1),
-                              style: AppTypography.caption.copyWith(
-                                fontWeight: FontWeight.w600,
-                                color: isDark
-                                    ? AppColors.darkSecondaryText
-                                    : AppColors.gray600,
-                                fontSize: 11,
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
                       ],
                     ),
                   ],

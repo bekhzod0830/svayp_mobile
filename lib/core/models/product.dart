@@ -35,6 +35,7 @@ class Product {
   final List<StyleTagEnum>? styleTags;
   final List<OccasionEnum>? occasionTags;
   final String? seller;
+  final String? sellerId;
   final String? countryOfOrigin;
   final bool? isNew;
   final bool? isFeatured;
@@ -72,6 +73,7 @@ class Product {
     this.styleTags,
     this.occasionTags,
     this.seller,
+    this.sellerId,
     this.countryOfOrigin,
     this.isNew,
     this.isFeatured,
@@ -95,9 +97,13 @@ class Product {
         ? (CategoryEnum.fromString(categoryString) ?? CategoryEnum.accessories)
         : CategoryEnum.accessories;
 
+    // Use seller name as brand fallback if brand is not provided
+    final seller = safeGetString(json['seller']);
+    final brand = safeGetString(json['brand']) ?? seller ?? 'Unknown';
+
     return Product(
       id: safeGetString(json['id']) ?? '',
-      brand: safeGetString(json['brand']) ?? 'Unknown',
+      brand: brand,
       title: safeGetString(json['title']) ?? 'Untitled',
       description: safeGetString(json['description']),
       category: category,
@@ -144,11 +150,19 @@ class Product {
       occasionTags: EnumHelpers.parseOccasionList(
         json['occasion_tags'] as List<dynamic>?,
       ),
-      seller: safeGetString(json['seller']),
+      seller: seller,
+      sellerId:
+          safeGetString(json['seller_id']) ?? safeGetString(json['sellerId']),
       countryOfOrigin: safeGetString(json['country_of_origin']),
       isNew: json['is_new'] as bool?,
       isFeatured: json['is_featured'] as bool?,
-      rating: (json['rating'] as num?)?.toDouble(),
+      rating: () {
+        final rawRating = (json['rating'] as num?)?.toDouble();
+        if (rawRating == null || rawRating.isNaN || rawRating.isInfinite) {
+          return null;
+        }
+        return rawRating.clamp(0.0, 5.0);
+      }(),
       reviewCount: json['review_count'] as int?,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
@@ -187,6 +201,7 @@ class Product {
       'style_tags': EnumHelpers.styleTagListToJson(styleTags),
       'occasion_tags': EnumHelpers.occasionListToJson(occasionTags),
       'seller': seller,
+      'seller_id': sellerId,
       'country_of_origin': countryOfOrigin,
       'is_new': isNew,
       'is_featured': isFeatured,
@@ -274,8 +289,41 @@ class ProductListResponse {
     // Safely parse products list, skipping any that fail
     final productsList = <Product>[];
 
-    // API returns products under 'data' key, not 'products'
-    final productsJson = json['data'] as List<dynamic>?;
+    print('📦 ProductListResponse.fromJson - JSON keys: ${json.keys}');
+    print('📦 Full JSON structure: $json');
+
+    // Handle different response structures:
+    // 1. /products/all returns: {"data": {"data": [...], "total": X}}
+    // 2. /recommendations returns: {"data": [...]}
+    // 3. /sellers/{id}/detail returns: {"data": {"products": [...], ...}}
+
+    List<dynamic>? productsJson;
+
+    final dataField = json['data'];
+    print('📦 dataField type: ${dataField.runtimeType}');
+    if (dataField is Map) {
+      print('📦 dataField keys: ${dataField.keys}');
+    } else {
+      print('📦 dataField is not a Map');
+    }
+
+    if (dataField is Map<String, dynamic>) {
+      // Try different possible keys for products list
+      productsJson =
+          dataField['data'] as List<dynamic>? ??
+          dataField['products'] as List<dynamic>?;
+      print(
+        '📦 Looking for data/products in Map, found: ${productsJson != null}',
+      );
+    } else if (dataField is List<dynamic>) {
+      // Structure 2: {"data": [...]}
+      productsJson = dataField;
+      print('📦 dataField is directly a List');
+    }
+
+    print(
+      '📦 productsJson type: ${productsJson.runtimeType}, isNull: ${productsJson == null}, length: ${productsJson?.length}',
+    );
 
     if (productsJson != null) {
       for (final productJson in productsJson) {
@@ -289,11 +337,14 @@ class ProductListResponse {
       }
     }
 
-    // Get total from pagination object if available, otherwise use products length
-    int totalCount = productsList.length;
-    if (json['pagination'] != null) {
-      totalCount = json['pagination']['total'] as int? ?? productsList.length;
-    }
+    // Get total from response
+    final dataWrapper = dataField is Map<String, dynamic> ? dataField : null;
+    int totalCount =
+        dataWrapper?['total'] as int? ??
+        dataWrapper?['pagination']?['total'] as int? ??
+        productsList.length;
+
+    print('📦 Parsed ${productsList.length} products, total: $totalCount');
 
     return ProductListResponse(products: productsList, total: totalCount);
   }
