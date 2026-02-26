@@ -8,6 +8,21 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:swipe/core/cache/image_cache_manager.dart';
 
+// Pre-computed colors to avoid withOpacity() allocations during drag/animation frames
+const _kShadowTop = BoxShadow(
+  color: Color(0x1F000000), // black.withOpacity(0.12)
+  blurRadius: 20,
+  offset: Offset(0, 8),
+  spreadRadius: 0,
+);
+const _kShadowBehind = BoxShadow(
+  color: Color(0x14000000), // black.withOpacity(0.08)
+  blurRadius: 12,
+  offset: Offset(0, 4),
+  spreadRadius: 0,
+);
+const _kGradientEndColor = Color(0x40000000); // black.withOpacity(0.25)
+
 /// Swipe Direction Enum
 enum SwipeDirection { left, right, up }
 
@@ -426,11 +441,6 @@ class SwipeableProductCardState extends State<SwipeableProductCard>
     return baseScale;
   }
 
-  double _getCardOpacity() {
-    // All cards fully opaque - no transparency to prevent ghost effect
-    return 1.0;
-  }
-
   Offset _getStackOffset() {
     final baseOffset = widget.stackIndex * 10.0;
 
@@ -446,53 +456,38 @@ class SwipeableProductCardState extends State<SwipeableProductCard>
   }
 
   List<BoxShadow> _getCardShadow() {
-    // Base shadow values
-    const topCardBlur = 20.0;
-    const topCardOpacity = 0.12;
-    const behindCardBlur = 12.0;
-    const behindCardOpacity = 0.08;
+    // Top card and cards further back use pre-computed const shadows
+    if (widget.stackIndex == 0) {
+      return const [_kShadowTop];
+    }
 
-    // If this is the second card, interpolate shadow based on drag progress
+    // For the second card during drag, interpolate (unavoidable allocation)
     if (widget.stackIndex == 1 && widget.dragProgressNotifier != null) {
       final dragProgress = widget.dragProgressNotifier!.value;
-      // Interpolate blur and opacity
-      final blurRadius =
-          behindCardBlur + (topCardBlur - behindCardBlur) * dragProgress;
-      final opacity =
-          behindCardOpacity +
-          (topCardOpacity - behindCardOpacity) * dragProgress;
+      if (dragProgress > 0.01) {
+        // Only allocate new shadow when actively dragging
+        const behindCardBlur = 12.0;
+        const topCardBlur = 20.0;
+        const behindCardOpacity = 0.08;
+        const topCardOpacity = 0.12;
+        final blurRadius =
+            behindCardBlur + (topCardBlur - behindCardBlur) * dragProgress;
+        final opacity =
+            behindCardOpacity +
+            (topCardOpacity - behindCardOpacity) * dragProgress;
 
-      return [
-        BoxShadow(
-          color: AppColors.black.withOpacity(opacity),
-          blurRadius: blurRadius,
-          offset: const Offset(0, 8),
-          spreadRadius: 0,
-        ),
-      ];
+        return [
+          BoxShadow(
+            color: Color.fromRGBO(0, 0, 0, opacity),
+            blurRadius: blurRadius,
+            offset: const Offset(0, 8),
+            spreadRadius: 0,
+          ),
+        ];
+      }
     }
 
-    // Top card gets full shadow
-    if (widget.stackIndex == 0) {
-      return [
-        BoxShadow(
-          color: AppColors.black.withOpacity(topCardOpacity),
-          blurRadius: topCardBlur,
-          offset: const Offset(0, 8),
-          spreadRadius: 0,
-        ),
-      ];
-    }
-
-    // Cards further back get lighter shadow
-    return [
-      BoxShadow(
-        color: AppColors.black.withOpacity(behindCardOpacity),
-        blurRadius: behindCardBlur,
-        offset: const Offset(0, 4),
-        spreadRadius: 0,
-      ),
-    ];
+    return const [_kShadowBehind];
   }
 
   // Calculate overlay opacity based on drag distance
@@ -510,13 +505,12 @@ class SwipeableProductCardState extends State<SwipeableProductCard>
         break;
     }
 
-    return (progress - 1.0).clamp(0.0, 1.0) * 0.7;
+    return (progress - 1.0).clamp(0.0, 1.0) * 0.85;
   }
 
   @override
   Widget build(BuildContext context) {
     final cardScale = _getCardScale();
-    final cardOpacity = _getCardOpacity();
     final stackOffset = _getStackOffset();
     final cardWidth = ResponsiveUtils.getCardWidth(context);
     final cardHeight = ResponsiveUtils.getCardHeight(context);
@@ -541,27 +535,24 @@ class SwipeableProductCardState extends State<SwipeableProductCard>
               ..rotateZ(rotation)
               ..scale(cardScale),
             alignment: Alignment.center,
-            child: Opacity(
-              opacity: cardOpacity,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onPanStart: _onPanStart,
-                onPanUpdate: _onPanUpdate,
-                onPanEnd: _onPanEnd,
-                onTap: widget.isTopCard ? widget.onTap : null,
-                child: SizedBox(
-                  width: cardWidth,
-                  height: cardHeight,
-                  child: Stack(
-                    children: [
-                      // Main Card Content
-                      _buildCardContent(cardWidth, cardHeight),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onPanStart: _onPanStart,
+              onPanUpdate: _onPanUpdate,
+              onPanEnd: _onPanEnd,
+              onTap: widget.isTopCard ? widget.onTap : null,
+              child: SizedBox(
+                width: cardWidth,
+                height: cardHeight,
+                child: Stack(
+                  children: [
+                    // Main Card Content
+                    _buildCardContent(cardWidth, cardHeight),
 
-                      // Swipe Direction Overlay
-                      if (widget.isTopCard && _swipeDirection != null)
-                        _buildSwipeOverlay(),
-                    ],
-                  ),
+                    // Swipe Direction Overlay
+                    if (widget.isTopCard && _swipeDirection != null)
+                      _buildSwipeOverlay(),
+                  ],
                 ),
               ),
             ),
@@ -664,14 +655,11 @@ class SwipeableProductCardState extends State<SwipeableProductCard>
             right: 0,
             height: 80,
             child: Container(
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    AppColors.black.withOpacity(0.25),
-                  ],
+                  colors: [Colors.transparent, _kGradientEndColor],
                 ),
               ),
             ),
@@ -920,7 +908,7 @@ class SwipeableProductCardState extends State<SwipeableProductCard>
       opacity: overlayOpacity,
       child: Container(
         decoration: BoxDecoration(
-          color: overlayColor.withOpacity(0.85),
+          color: overlayColor,
           borderRadius: BorderRadius.circular(24),
         ),
         child: Center(

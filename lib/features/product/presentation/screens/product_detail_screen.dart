@@ -815,8 +815,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         boxShadow: isSelected
             ? [
                 BoxShadow(
-                  color: (isDark ? AppColors.darkPrimaryText : AppColors.black)
-                      .withOpacity(0.3),
+                  color: isDark
+                      ? const Color(
+                          0x4DFFFFFF,
+                        ) // darkPrimaryText.withOpacity(0.3)
+                      : const Color(0x4D000000), // black.withOpacity(0.3)
                   blurRadius: 8,
                   spreadRadius: 1,
                 ),
@@ -1326,7 +1329,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         color: isDark ? AppColors.darkCardBackground : AppColors.white,
         boxShadow: [
           BoxShadow(
-            color: (isDark ? Colors.white : Colors.black).withOpacity(0.05),
+            color: isDark
+                ? const Color(0x0DFFFFFF) // white.withOpacity(0.05)
+                : const Color(0x0D000000), // black.withOpacity(0.05)
             blurRadius: 10,
             offset: const Offset(0, -5),
           ),

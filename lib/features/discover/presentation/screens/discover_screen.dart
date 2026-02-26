@@ -6,7 +6,6 @@ import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
 import 'package:swipe/core/utils/responsive_utils.dart';
 import 'package:swipe/features/discover/domain/entities/product.dart';
-import 'package:swipe/features/discover/data/mock_product_data.dart';
 import 'package:swipe/features/discover/presentation/widgets/swipeable_product_card.dart';
 import 'package:swipe/features/cart/data/services/cart_service.dart';
 import 'package:swipe/features/cart/presentation/screens/cart_screen.dart';
@@ -141,15 +140,27 @@ class DiscoverScreenState extends State<DiscoverScreen> {
                 failedCount++;
               }
             }
-
           } catch (e) {
             // Don't fall back to mock data - rethrow to show error
             rethrow;
           }
         }
       } else {
-        // User not authenticated, use mock data
-        loadedProducts = MockProductData.getMockProducts();
+        // User not authenticated - try fetching products without auth token
+        // No longer load mock data as placeholder images are heavy for older devices
+        try {
+          final response = await _apiService.getProducts(page: 0, size: 20);
+          for (final apiProduct in response.products) {
+            try {
+              final product = _convertApiProduct(apiProduct);
+              loadedProducts.add(product);
+            } catch (e) {
+              // Skip failed conversions
+            }
+          }
+        } catch (e) {
+          // If API also fails, show empty state (no mock data fallback)
+        }
       }
 
       // Don't filter liked/disliked products - show all products
@@ -412,7 +423,6 @@ class DiscoverScreenState extends State<DiscoverScreen> {
           // Only update cart count after successful API call
           _updateCartCount();
         } catch (e) {
-
           // Rollback local cart on API failure
           await _cartService.removeByMatch(
             productId: swipedProduct.id,
@@ -456,7 +466,6 @@ class DiscoverScreenState extends State<DiscoverScreen> {
           // Only update cart count after successful API call
           _updateCartCount();
         } catch (e) {
-
           // Rollback local cart on API failure
           await _cartService.removeByMatch(
             productId: swipedProduct.id,
@@ -694,9 +703,9 @@ class DiscoverScreenState extends State<DiscoverScreen> {
         color: isDark ? AppColors.darkCardBackground : AppColors.white,
         boxShadow: [
           BoxShadow(
-            color: (isDark ? AppColors.white : AppColors.black).withOpacity(
-              0.05,
-            ),
+            color: isDark
+                ? const Color(0x0DFFFFFF) // white.withOpacity(0.05)
+                : const Color(0x0D000000), // black.withOpacity(0.05)
             blurRadius: 10,
             offset: const Offset(0, -5),
           ),
@@ -863,8 +872,11 @@ class DiscoverScreenState extends State<DiscoverScreen> {
         boxShadow: isSelected
             ? [
                 BoxShadow(
-                  color: (isDark ? AppColors.darkPrimaryText : AppColors.black)
-                      .withOpacity(0.3),
+                  color: isDark
+                      ? const Color(
+                          0x4DFFFFFF,
+                        ) // darkPrimaryText.withOpacity(0.3)
+                      : const Color(0x4D000000), // black.withOpacity(0.3)
                   blurRadius: 8,
                   spreadRadius: 1,
                 ),

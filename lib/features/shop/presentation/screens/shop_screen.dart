@@ -17,6 +17,27 @@ import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/core/network/api_client.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+// Pre-computed colors to avoid withOpacity() allocations during rebuilds
+const _kShadowBlack08 = Color(0x14000000); // black.withOpacity(0.08)
+const _kShadowBlack25 = Color(0x40000000); // black.withOpacity(0.25)
+const _kShadowBlack30 = Color(0x4D000000); // black.withOpacity(0.30)
+const _kGradientShadow40 = Color(
+  0x66f093fb,
+); // Color(0xFFf093fb).withOpacity(0.4)
+const _kWhite12 = Color(0x1FFFFFFF); // white.withOpacity(0.12)
+const _kBlack08 = Color(0x14000000); // black.withOpacity(0.08)
+const _kBlack05 = Color(0x0D000000); // black.withOpacity(0.05)
+const _kBlack10 = Color(0x1A000000); // black.withOpacity(0.1)
+const _kWhite10 = Color(0x1AFFFFFF); // white.withOpacity(0.1)
+const _kWhite15 = Color(0x26FFFFFF); // white.withOpacity(0.15)
+const _kWhite40 = Color(0x66FFFFFF); // white.withOpacity(0.4)
+const _kWhite30 = Color(0x4DFFFFFF); // white.withOpacity(0.3)
+const _kWhite60 = Color(0x99FFFFFF); // white.withOpacity(0.6)
+const _kBlack40 = Color(0x66000000); // black.withOpacity(0.4)
+const _kBlack50 = Color(0x80000000); // black.withOpacity(0.5)
+const _kBlack30 = Color(0x4D000000); // black.withOpacity(0.3)
+const _kBlack70 = Color(0xB3000000); // black.withOpacity(0.7)
+
 /// Shop Screen - Browse and search for products (TikTok Shop style)
 /// Features: 2-column grid, seller info, tabs, ChatGPT-style search
 class ShopScreen extends StatefulWidget {
@@ -410,12 +431,13 @@ class _ShopScreenState extends State<ShopScreen>
         );
       }
     } catch (e) {
-      // Close any open dialogs
+      // Close only the loading dialog (if open), not the entire navigation stack
       if (mounted) {
-        Navigator.of(
-          context,
-          rootNavigator: true,
-        ).popUntil((route) => route.isFirst);
+        // Pop just the dialog — check if a dialog is currently on top
+        final navigator = Navigator.of(context, rootNavigator: true);
+        if (navigator.canPop()) {
+          navigator.pop();
+        }
       }
 
       // Show error message
@@ -490,11 +512,11 @@ class _ShopScreenState extends State<ShopScreen>
                             colors: [Color(0xFFf093fb), Color(0xFFF5576c)],
                           ),
                           borderRadius: BorderRadius.circular(14),
-                          boxShadow: [
+                          boxShadow: const [
                             BoxShadow(
-                              color: const Color(0xFFf093fb).withOpacity(0.4),
+                              color: _kGradientShadow40,
                               blurRadius: 12,
-                              offset: const Offset(0, 4),
+                              offset: Offset(0, 4),
                             ),
                           ],
                         ),
@@ -621,11 +643,13 @@ class _ShopScreenState extends State<ShopScreen>
                                 );
                               }
                               final product = _filteredProducts[index];
-                              return _TikTokProductCard(
-                                product: product,
-                                onTap: () => _onProductTap(product),
-                                onSellerTap: () =>
-                                    _onSellerTap(product.seller ?? 'SVAYP'),
+                              return RepaintBoundary(
+                                child: _TikTokProductCard(
+                                  product: product,
+                                  onTap: () => _onProductTap(product),
+                                  onSellerTap: () =>
+                                      _onSellerTap(product.seller ?? 'SVAYP'),
+                                ),
                               );
                             },
                           ),
@@ -634,7 +658,7 @@ class _ShopScreenState extends State<ShopScreen>
               ],
             ),
 
-            // ChatGPT-style Search Bar (unchanged)
+            // ChatGPT-style Search Bar
             Positioned(
               left: 16,
               right: 16,
@@ -644,14 +668,10 @@ class _ShopScreenState extends State<ShopScreen>
                 decoration: BoxDecoration(
                   color: isDark ? const Color(0xFF2F2F2F) : Colors.white,
                   borderRadius: BorderRadius.circular(26),
-                  border: Border.all(
-                    color: isDark
-                        ? Colors.white.withOpacity(0.12)
-                        : Colors.black.withOpacity(0.08),
-                  ),
+                  border: Border.all(color: isDark ? _kWhite12 : _kBlack08),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(isDark ? 0.25 : 0.08),
+                      color: isDark ? _kShadowBlack25 : _kShadowBlack08,
                       blurRadius: 16,
                       offset: const Offset(0, 4),
                     ),
@@ -660,16 +680,15 @@ class _ShopScreenState extends State<ShopScreen>
                 child: Row(
                   children: [
                     const SizedBox(width: 16),
-                    Icon(
+                    const Icon(
                       Icons.auto_awesome_rounded,
-                      color: const Color(0xFFf093fb),
+                      color: Color(0xFFf093fb),
                       size: 20,
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: TextField(
                         controller: _searchController,
-                        onChanged: (_) => setState(() {}),
                         onSubmitted: (_) => _performSearch(),
                         cursorColor: isDark ? Colors.white : Colors.black,
                         enableSuggestions: false,
@@ -683,9 +702,7 @@ class _ShopScreenState extends State<ShopScreen>
                         decoration: InputDecoration(
                           hintText: l10n.searchForClothes,
                           hintStyle: TextStyle(
-                            color: isDark
-                                ? Colors.white.withOpacity(0.4)
-                                : Colors.black.withOpacity(0.4),
+                            color: isDark ? _kWhite40 : _kBlack40,
                             fontSize: 15,
                           ),
                           border: InputBorder.none,
@@ -697,60 +714,63 @@ class _ShopScreenState extends State<ShopScreen>
                         ),
                       ),
                     ),
-                    if (_searchController.text.isNotEmpty)
-                      GestureDetector(
-                        onTap: () {
-                          _searchController.clear();
-                          setState(() {});
-                          _filterProducts();
-                        },
-                        child: Container(
-                          margin: const EdgeInsets.only(right: 8),
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? Colors.white.withOpacity(0.1)
-                                : Colors.black.withOpacity(0.05),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons.close_rounded,
-                            color: isDark
-                                ? Colors.white.withOpacity(0.6)
-                                : Colors.black.withOpacity(0.5),
-                            size: 16,
-                          ),
-                        ),
-                      ),
-                    GestureDetector(
-                      onTap: _searchController.text.isNotEmpty
-                          ? () {
-                              _performSearch();
-                              FocusScope.of(context).unfocus();
-                            }
-                          : null,
-                      child: Container(
-                        margin: const EdgeInsets.only(right: 6),
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: _searchController.text.isNotEmpty
-                              ? (isDark ? Colors.white : Colors.black)
-                              : (isDark
-                                    ? Colors.white.withOpacity(0.15)
-                                    : Colors.black.withOpacity(0.1)),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.arrow_upward_rounded,
-                          color: _searchController.text.isNotEmpty
-                              ? (isDark ? Colors.black : Colors.white)
-                              : (isDark
-                                    ? Colors.white.withOpacity(0.3)
-                                    : Colors.black.withOpacity(0.3)),
-                          size: 20,
-                        ),
-                      ),
+                    // Only rebuild these buttons when text changes, not the whole screen
+                    ValueListenableBuilder<TextEditingValue>(
+                      valueListenable: _searchController,
+                      builder: (context, value, _) {
+                        final hasText = value.text.isNotEmpty;
+                        return Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (hasText)
+                              GestureDetector(
+                                onTap: () {
+                                  _searchController.clear();
+                                  _filterProducts();
+                                },
+                                child: Container(
+                                  margin: const EdgeInsets.only(right: 8),
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: isDark ? _kWhite10 : _kBlack05,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    Icons.close_rounded,
+                                    color: isDark ? _kWhite60 : _kBlack50,
+                                    size: 16,
+                                  ),
+                                ),
+                              ),
+                            GestureDetector(
+                              onTap: hasText
+                                  ? () {
+                                      _performSearch();
+                                      FocusScope.of(context).unfocus();
+                                    }
+                                  : null,
+                              child: Container(
+                                margin: const EdgeInsets.only(right: 6),
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: hasText
+                                      ? (isDark ? Colors.white : Colors.black)
+                                      : (isDark ? _kWhite15 : _kBlack10),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.arrow_upward_rounded,
+                                  color: hasText
+                                      ? (isDark ? Colors.black : Colors.white)
+                                      : (isDark ? _kWhite30 : _kBlack30),
+                                  size: 20,
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -918,7 +938,7 @@ class _TikTokProductCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.3 : 0.08),
+              color: isDark ? _kShadowBlack30 : _kShadowBlack08,
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -1024,7 +1044,7 @@ class _TikTokProductCard extends StatelessWidget {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.7),
+                          color: _kBlack70,
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(

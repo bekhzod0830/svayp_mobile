@@ -32,5 +32,10 @@ void main() async {
   // Initialize dependencies (API client, services, etc.)
   await initializeDependencies();
 
+  // Limit in-memory image cache to reduce memory pressure on older devices
+  // Default is 1000 images / 100MB — reduced to 100 images / 50MB
+  PaintingBinding.instance.imageCache.maximumSize = 100;
+  PaintingBinding.instance.imageCache.maximumSizeBytes = 50 << 20; // 50 MB
+
   runApp(const SwipeApp());
 }
