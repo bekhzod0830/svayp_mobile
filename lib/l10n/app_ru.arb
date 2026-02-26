@@ -245,6 +245,7 @@
   "success": "Успешно",
   "tryAgain": "Попробовать снова",
   "close": "Закрыть",
+  "dismiss": "Закрыть",
   
   "welcomeToSwipe": "Добро пожаловать в SVAYP",
   "discoverYourStyle": "Откройте свой идеальный стиль с модными рекомендациями на основе ИИ",
@@ -480,6 +481,8 @@
   "typeAMessage": "Введите ваше сообщение...",
   "newMessage": "Новое сообщение",
   "sendMessage": "Отправить",
+  "sizeLabel": "Размер:",
+  "qtyLabel": "Кол-во:",
   
   "checkout": "Оформление",
   "shippingAddress": "Адрес доставки",

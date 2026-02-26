@@ -745,6 +745,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get close => 'Закрыть';
 
   @override
+  String get dismiss => 'Закрыть';
+
+  @override
   String get welcomeToSwipe => 'Добро пожаловать в SVAYP';
 
   @override
@@ -1218,6 +1221,12 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get sendMessage => 'Отправить';
+
+  @override
+  String get sizeLabel => 'Размер:';
+
+  @override
+  String get qtyLabel => 'Кол-во:';
 
   @override
   String get checkout => 'Оформление';

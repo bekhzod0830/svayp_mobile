@@ -1351,12 +1351,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             ? widget.product.images[0]
                             : null,
                         productBrand: widget.product.brand,
-                        color: widget.product.colors.isNotEmpty
-                            ? widget.product.colors[0]
-                            : null,
-                        size: widget.product.sizes.isNotEmpty
-                            ? widget.product.sizes[0]
-                            : null,
+                        color: _selectedColor,
+                        size: _selectedSize,
+                        quantity: _quantity,
                         initialMessage: l10n.interestedInProduct,
                       ),
                     ),

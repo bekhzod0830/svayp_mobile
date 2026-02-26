@@ -669,6 +669,21 @@ class _ProductMessageBubble extends StatelessWidget {
     return '$formatted UZS';
   }
 
+  Color _parseColor(String colorString) {
+    try {
+      // Remove # if present
+      String hexColor = colorString.replaceAll('#', '');
+      // Add FF for opacity if not present
+      if (hexColor.length == 6) {
+        hexColor = 'FF$hexColor';
+      }
+      return Color(int.parse(hexColor, radix: 16));
+    } catch (e) {
+      // Return gray for invalid colors
+      return AppColors.gray400;
+    }
+  }
+
   Future<void> _openProductDetails(BuildContext context) async {
     if (message.productId == null) return;
 
@@ -767,6 +782,7 @@ class _ProductMessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Center(
@@ -797,11 +813,11 @@ class _ProductMessageBubble extends StatelessWidget {
                     child: CachedNetworkImage(
                       imageUrl: message.productImage!,
                       width: 60,
-                      height: 60,
+                      height: 80,
                       fit: BoxFit.cover,
                       cacheManager: ImageCacheManager.instance,
                       memCacheWidth: 120,
-                      memCacheHeight: 120,
+                      memCacheHeight: 160,
                     ),
                   ),
                 const SizedBox(width: 12),
@@ -823,29 +839,82 @@ class _ProductMessageBubble extends StatelessWidget {
                         ),
                       if (message.productPrice != null) ...[
                         const SizedBox(height: 4),
-                        Text(
-                          _formatPrice(message.productPrice!),
-                          style: AppTypography.body2.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: isDark
-                                ? AppColors.darkPrimaryText
-                                : AppColors.black,
-                          ),
-                        ),
-                      ],
-                      if (message.color != null || message.size != null) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          [
-                            if (message.color != null)
-                              'Color: ${message.color}',
-                            if (message.size != null) 'Size: ${message.size}',
-                          ].join(' • '),
-                          style: AppTypography.caption.copyWith(
-                            color: isDark
-                                ? AppColors.darkSecondaryText
-                                : AppColors.gray600,
-                          ),
+                        Row(
+                          children: [
+                            Text(
+                              _formatPrice(message.productPrice!),
+                              style: AppTypography.body2.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: isDark
+                                    ? AppColors.darkPrimaryText
+                                    : AppColors.black,
+                              ),
+                            ),
+                            if (message.color != null ||
+                                message.size != null ||
+                                message.quantity != null) ...[
+                              const SizedBox(width: 8),
+                              Text(
+                                '•',
+                                style: AppTypography.caption.copyWith(
+                                  color: isDark
+                                      ? AppColors.darkSecondaryText
+                                      : AppColors.gray600,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Row(
+                                  children: [
+                                    if (message.color != null) ...[
+                                      Container(
+                                        width: 16,
+                                        height: 16,
+                                        decoration: BoxDecoration(
+                                          color: _parseColor(message.color!),
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: isDark
+                                                ? AppColors.darkSecondaryText
+                                                : AppColors.gray300,
+                                            width: 1,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                    ],
+                                    if (message.size != null) ...[
+                                      Flexible(
+                                        child: Text(
+                                          '${l10n.sizeLabel} ${message.size}',
+                                          style: AppTypography.caption.copyWith(
+                                            color: isDark
+                                                ? AppColors.darkSecondaryText
+                                                : AppColors.gray600,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      if (message.quantity != null)
+                                        const SizedBox(width: 6),
+                                    ],
+                                    if (message.quantity != null)
+                                      Flexible(
+                                        child: Text(
+                                          '${l10n.qtyLabel} ${message.quantity}',
+                                          style: AppTypography.caption.copyWith(
+                                            color: isDark
+                                                ? AppColors.darkSecondaryText
+                                                : AppColors.gray600,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ],
                     ],

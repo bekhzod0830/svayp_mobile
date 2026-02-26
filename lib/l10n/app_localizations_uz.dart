@@ -746,6 +746,9 @@ class AppLocalizationsUz extends AppLocalizations {
   String get close => 'Yopish';
 
   @override
+  String get dismiss => 'Yopish';
+
+  @override
   String get welcomeToSwipe => 'SVAYP ga xush kelibsiz';
 
   @override
@@ -1220,6 +1223,12 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get sendMessage => 'Yuborish';
+
+  @override
+  String get sizeLabel => 'O\'lcham:';
+
+  @override
+  String get qtyLabel => 'Soni:';
 
   @override
   String get checkout => 'To\'lov';

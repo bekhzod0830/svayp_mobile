@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
 import 'package:swipe/shared/widgets/custom_button.dart';
+import 'package:swipe/l10n/app_localizations.dart';
 
 /// Empty State Widget
 class EmptyState extends StatelessWidget {
@@ -262,6 +263,7 @@ class SnackBarHelper {
     String message, {
     Duration duration = const Duration(seconds: 4),
   }) {
+    final l10n = AppLocalizations.of(context)!;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -281,7 +283,7 @@ class SnackBarHelper {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         duration: duration,
         action: SnackBarAction(
-          label: 'Dismiss',
+          label: l10n.dismiss,
           textColor: AppColors.white,
           onPressed: () {
             ScaffoldMessenger.of(context).hideCurrentSnackBar();

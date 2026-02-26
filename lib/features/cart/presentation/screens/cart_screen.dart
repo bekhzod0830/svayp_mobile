@@ -522,17 +522,19 @@ class _CartItemCard extends StatelessWidget {
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: Container(
-                width: 80,
-                height: 80,
-                color: isDark ? AppColors.darkMainBackground : Colors.white,
+                width: 70,
+                height: 95,
+                color: isDark
+                    ? AppColors.darkMainBackground
+                    : AppColors.gray100,
                 child: CachedNetworkImage(
                   imageUrl: item.imageUrl,
-                  width: 80,
-                  height: 80,
-                  fit: BoxFit.contain,
+                  width: 70,
+                  height: 95,
+                  fit: BoxFit.cover,
                   cacheManager: ImageCacheManager.instance,
-                  memCacheWidth: 160,
-                  memCacheHeight: 160,
+                  memCacheWidth: 140,
+                  memCacheHeight: 190,
                   placeholder: (context, url) => Container(
                     color: isDark
                         ? AppColors.darkTertiaryText

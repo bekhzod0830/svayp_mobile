@@ -26,6 +26,7 @@ class ChatComposeScreen extends StatefulWidget {
   final String productBrand;
   final String? color;
   final String? size;
+  final int quantity;
   final String initialMessage;
 
   const ChatComposeScreen({
@@ -39,6 +40,7 @@ class ChatComposeScreen extends StatefulWidget {
     required this.productBrand,
     this.color,
     this.size,
+    this.quantity = 1,
     required this.initialMessage,
   });
 
@@ -162,6 +164,21 @@ class _ChatComposeScreenState extends State<ChatComposeScreen> {
     super.dispose();
   }
 
+  Color _parseColor(String colorString) {
+    try {
+      // Remove # if present
+      String hexColor = colorString.replaceAll('#', '');
+      // Add FF for opacity if not present
+      if (hexColor.length == 6) {
+        hexColor = 'FF$hexColor';
+      }
+      return Color(int.parse(hexColor, radix: 16));
+    } catch (e) {
+      // Return gray for invalid colors
+      return AppColors.gray400;
+    }
+  }
+
   Future<void> _sendAndCreateChat() async {
     final content = _messageController.text.trim();
     if (content.isEmpty || _isSending) return;
@@ -179,7 +196,7 @@ class _ChatComposeScreenState extends State<ChatComposeScreen> {
         message: content,
         color: widget.color,
         size: widget.size,
-        quantity: 1,
+        quantity: widget.quantity,
       );
 
       final chat = await chatService.createChat(request);
@@ -327,7 +344,7 @@ class _ChatComposeScreenState extends State<ChatComposeScreen> {
                   if (widget.productImage != null)
                     Container(
                       width: 60,
-                      height: 60,
+                      height: 80,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(8),
                         color: AppColors.gray100,
@@ -339,7 +356,7 @@ class _ChatComposeScreenState extends State<ChatComposeScreen> {
                           fit: BoxFit.cover,
                           cacheManager: ImageCacheManager.instance,
                           memCacheWidth: 120,
-                          memCacheHeight: 120,
+                          memCacheHeight: 160,
                           placeholder: (context, url) => Center(
                             child: CircularProgressIndicator(strokeWidth: 2),
                           ),
@@ -373,18 +390,57 @@ class _ChatComposeScreenState extends State<ChatComposeScreen> {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        if (widget.color != null || widget.size != null) ...[
+                        if (widget.color != null ||
+                            widget.size != null ||
+                            widget.quantity > 1) ...[
                           const SizedBox(height: 4),
-                          Text(
-                            [
-                              if (widget.color != null) widget.color,
-                              if (widget.size != null) widget.size,
-                            ].join(' • '),
-                            style: AppTypography.caption.copyWith(
-                              color: isDark
-                                  ? AppColors.darkSecondaryText
-                                  : AppColors.gray600,
-                            ),
+                          Row(
+                            children: [
+                              if (widget.color != null) ...[
+                                Container(
+                                  width: 16,
+                                  height: 16,
+                                  decoration: BoxDecoration(
+                                    color: _parseColor(widget.color!),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: isDark
+                                          ? AppColors.darkSecondaryText
+                                          : AppColors.gray300,
+                                      width: 1,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                              ],
+                              if (widget.size != null) ...[
+                                Flexible(
+                                  child: Text(
+                                    '${l10n.sizeLabel} ${widget.size}',
+                                    style: AppTypography.caption.copyWith(
+                                      color: isDark
+                                          ? AppColors.darkSecondaryText
+                                          : AppColors.gray600,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                if (widget.quantity > 1)
+                                  const SizedBox(width: 6),
+                              ],
+                              if (widget.quantity > 1)
+                                Flexible(
+                                  child: Text(
+                                    '${l10n.qtyLabel} ${widget.quantity}',
+                                    style: AppTypography.caption.copyWith(
+                                      color: isDark
+                                          ? AppColors.darkSecondaryText
+                                          : AppColors.gray600,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                            ],
                           ),
                         ],
                       ],

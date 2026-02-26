@@ -36,6 +36,7 @@
   "success": "Muvaffaqiyatli",
   "tryAgain": "Qayta urinib ko'ring",
   "close": "Yopish",
+  "dismiss": "Yopish",
   
   "welcomeToSwipe": "SVAYP ga xush kelibsiz",
   "discoverYourStyle": "AI asosidagi moda tavsiflari bilan o'z stilingizni kashf eting",
@@ -435,6 +436,8 @@
   "typeAMessage": "Xabaringizni yozing...",
   "newMessage": "Yangi xabar",
   "sendMessage": "Yuborish",
+  "sizeLabel": "O'lcham:",
+  "qtyLabel": "Soni:",
   
   "checkout": "To'lov",
   "shippingAddress": "Yetkazib berish manzili",

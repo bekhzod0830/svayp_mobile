@@ -736,6 +736,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get close => 'Close';
 
   @override
+  String get dismiss => 'Dismiss';
+
+  @override
   String get welcomeToSwipe => 'Welcome to SVAYP';
 
   @override
@@ -1205,6 +1208,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get sendMessage => 'Send';
+
+  @override
+  String get sizeLabel => 'Size:';
+
+  @override
+  String get qtyLabel => 'Qty:';
 
   @override
   String get checkout => 'Checkout';

@@ -250,6 +250,7 @@
   "success": "Success",
   "tryAgain": "Try Again",
   "close": "Close",
+  "dismiss": "Dismiss",
   
   "welcomeToSwipe": "Welcome to SVAYP",
   "discoverYourStyle": "Discover your perfect style with AI-powered fashion recommendations",
@@ -485,6 +486,8 @@
   "typeAMessage": "Type your message...",
   "newMessage": "New Message",
   "sendMessage": "Send",
+  "sizeLabel": "Size:",
+  "qtyLabel": "Qty:",
   
   "checkout": "Checkout",
   "shippingAddress": "Shipping Address",

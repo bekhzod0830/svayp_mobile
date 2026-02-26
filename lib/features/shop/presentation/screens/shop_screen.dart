@@ -358,7 +358,7 @@ class _ShopScreenState extends State<ShopScreen>
         return;
       }
 
-      // Show searching dialog AFTER image is selected
+      // Show loading dialog AFTER image is selected
       if (!mounted) return;
       showDialog(
         context: context,
@@ -382,14 +382,14 @@ class _ShopScreenState extends State<ShopScreen>
         ),
       );
 
-      // Perform visual search
-      final results = await _visualSearchService.visualSearch(
-        imageFile: image,
-        minSimilarity: 0.5,
-        maxResults: 20,
+      // Fetch recommendations from the backend
+      final response = await _visualSearchService.fetchRecommendations(
+        image: image,
+        token: _authToken,
+        limit: 10,
       );
 
-      // Close searching dialog - use Navigator.of with root navigator
+      // Close loading dialog
       if (mounted) {
         Navigator.of(context, rootNavigator: true).pop();
       }
@@ -403,7 +403,7 @@ class _ShopScreenState extends State<ShopScreen>
           context,
           MaterialPageRoute(
             builder: (_) => VisualSearchResultsScreen(
-              searchResults: results,
+              products: response.products,
               uploadedImage: File(image.path),
             ),
           ),
