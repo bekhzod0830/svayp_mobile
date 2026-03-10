@@ -665,6 +665,10 @@
   "logout": "Выйти",
   "logoutConfirmation": "Вы уверены, что хотите выйти?",
   "logoutMessage": "Вы уверены, что хотите выйти?",
+  "deleteAccount": "Удалить аккаунт",
+  "deleteAccountConfirmation": "Вы уверены, что хотите навсегда удалить аккаунт? Все ваши данные будут удалены, и это действие невозможно отменить.",
+  "deleteAccountSuccess": "Ваш аккаунт был удалён.",
+  "deleteAccountError": "Не удалось удалить аккаунт. Попробуйте ещё раз.",
   "version": "Версия {version}",
   "@version": {
     "placeholders": {

@@ -35,7 +35,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   late final ChatWebSocketService _webSocketService;
   late final String _currentUserId;
   StreamSubscription<ChatMessageResponse>? _messageSubscription;
-  Timer? _pollingTimer;
 
   ChatResponse? _chat;
   List<ChatMessageResponse> _messages = [];
@@ -72,11 +71,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       // Mark as read
       await _chatService.markAsRead(widget.chatId);
 
-      // Start polling for new messages (WebSocket not available on backend yet)
-      _startPolling();
+      // Connect STOMP WebSocket for real-time messaging
+      await _connectWebSocket();
 
       _isInitialized = true;
-    } catch (e, stackTrace) {
+    } catch (e) {
       if (mounted) {
         setState(() {
           _errorMessage = 'Failed to load chat: ${e.toString()}';
@@ -86,36 +85,45 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     }
   }
 
-  void _startPolling() {
-    // Poll for new messages every 3 seconds
-    _pollingTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
-      if (!mounted) {
-        timer.cancel();
+  /// Connect to STOMP WebSocket for real-time messages
+  Future<void> _connectWebSocket() async {
+    try {
+      final apiClient = getIt<ApiClient>();
+      final token = apiClient.getToken();
+      if (token == null) {
+        // No token — can't connect STOMP, polling will handle it
         return;
       }
 
-      try {
-        final messages = await _chatService.getMessages(widget.chatId);
+      // Listen to connection state changes
+      _webSocketService.connectionStateStream.listen((connected) {
         if (!mounted) return;
+        debugPrint('[Chat] STOMP connected: $connected');
+        setState(() {
+          _isWebSocketConnected = connected;
+        });
+      });
 
-        final reversedMessages = messages.reversed.toList();
-
-        // Check if there are new messages
-        if (reversedMessages.length > _messages.length) {
+      // Subscribe to incoming messages stream
+      _messageSubscription = _webSocketService.messageStream.listen((message) {
+        if (!mounted) return;
+        final exists = _messages.any((m) => m.id == message.id);
+        if (!exists) {
           setState(() {
-            _messages = reversedMessages;
+            _messages.add(message);
           });
-
-          // Scroll to bottom when new messages arrive
           WidgetsBinding.instance.addPostFrameCallback((_) {
             _scrollToBottom();
           });
-
-          // Mark as read
           _chatService.markAsRead(widget.chatId);
         }
-      } catch (e) {}
-    });
+      });
+
+      // Connect STOMP
+      await _webSocketService.connect(widget.chatId, token);
+    } catch (e) {
+      debugPrint('[Chat] STOMP connection failed: $e');
+    }
   }
 
   Future<void> _loadChat() async {
@@ -210,7 +218,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   @override
   void dispose() {
-    _pollingTimer?.cancel();
     _messageSubscription?.cancel();
     _webSocketService.dispose();
     _messageController.dispose();

@@ -657,6 +657,10 @@
   "logout": "Logout",
   "logoutConfirmation": "Are you sure you want to logout?",
   "logoutMessage": "Are you sure you want to logout?",
+  "deleteAccount": "Delete Account",
+  "deleteAccountConfirmation": "Are you sure you want to permanently delete your account? All your data will be lost and this action cannot be undone.",
+  "deleteAccountSuccess": "Your account has been deleted.",
+  "deleteAccountError": "Failed to delete account. Please try again.",
   "version": "Version {version}",
   "@version": {
     "placeholders": {

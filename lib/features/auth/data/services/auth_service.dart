@@ -230,4 +230,18 @@ class AuthService {
       rethrow;
     }
   }
+
+  /// Permanently delete the authenticated user's account
+  ///
+  /// Calls DELETE /users/me and then clears all local auth data.
+  Future<void> deleteAccount() async {
+    try {
+      await _apiClient.delete<void>(ApiConfig.deleteAccount);
+    } catch (e) {
+      // Continue with local cleanup even if the API call fails
+    }
+    await _apiClient.clearToken();
+    await _apiClient.clearRefreshToken();
+    await _apiClient.clearUserRole();
+  }
 }

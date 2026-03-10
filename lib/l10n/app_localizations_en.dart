@@ -1614,6 +1614,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get logoutMessage => 'Are you sure you want to logout?';
 
   @override
+  String get deleteAccount => 'Delete Account';
+
+  @override
+  String get deleteAccountConfirmation =>
+      'Are you sure you want to permanently delete your account? All your data will be lost and this action cannot be undone.';
+
+  @override
+  String get deleteAccountSuccess => 'Your account has been deleted.';
+
+  @override
+  String get deleteAccountError =>
+      'Failed to delete account. Please try again.';
+
+  @override
   String version(String version) {
     return 'Version $version';
   }

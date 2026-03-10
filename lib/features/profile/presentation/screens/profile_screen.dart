@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 import 'package:intl/intl.dart';
@@ -113,6 +114,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() {
       _currentLanguage = _languageService.getLanguageName(languageCode);
     });
+  }
+
+  void _onDeleteAccount() async {
+    final uri = Uri.parse('https://svaypai.com/en/account-deletion');
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   void _onLogout() async {
@@ -613,7 +619,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   // Spacer to push logout to bottom (for partners/admins)
                                   if (_isPartner) const Spacer(),
 
-                                  // Logout Section
+                                  // Logout + Delete Account Section
                                   _buildSection(
                                     title: '',
                                     items: [
@@ -623,6 +629,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         textColor: Colors.red,
                                         onTap: _onLogout,
                                       ),
+                                      if (!_isPartner)
+                                        _ProfileMenuItem(
+                                          icon: Icons.delete_forever_outlined,
+                                          title: l10n.deleteAccount,
+                                          textColor: Colors.red,
+                                          onTap: _onDeleteAccount,
+                                        ),
                                     ],
                                   ),
 

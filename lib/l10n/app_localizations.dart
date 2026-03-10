@@ -3178,6 +3178,30 @@ abstract class AppLocalizations {
   /// **'Are you sure you want to logout?'**
   String get logoutMessage;
 
+  /// No description provided for @deleteAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Account'**
+  String get deleteAccount;
+
+  /// No description provided for @deleteAccountConfirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to permanently delete your account? All your data will be lost and this action cannot be undone.'**
+  String get deleteAccountConfirmation;
+
+  /// No description provided for @deleteAccountSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Your account has been deleted.'**
+  String get deleteAccountSuccess;
+
+  /// No description provided for @deleteAccountError.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to delete account. Please try again.'**
+  String get deleteAccountError;
+
   /// No description provided for @version.
   ///
   /// In en, this message translates to:

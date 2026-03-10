@@ -405,9 +405,8 @@ class _ShopScreenState extends State<ShopScreen>
 
       // Fetch recommendations from the backend
       final response = await _visualSearchService.fetchRecommendations(
-        image: image,
         token: _authToken,
-        limit: 10,
+        limit: 20,
       );
 
       // Close loading dialog

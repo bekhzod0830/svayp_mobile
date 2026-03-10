@@ -1,5 +1,5 @@
 /// Visual Search API Service
-/// Picks an image and fetches product recommendations from the backend.
+/// Picks an image locally and fetches product recommendations from the backend.
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -29,36 +29,26 @@ class VisualSearchApiService {
 
   /// Fetch product recommendations from the backend using visual search.
   ///
-  /// [image] the image file to search with.
+  /// Uses GET /api/v1/products/search/visual?limit=<limit>
+  ///
   /// [token] optional auth token for personalised results.
-  /// [limit] number of products to return.
+  /// [limit] number of products to return (default 20).
   Future<ProductListResponse> fetchRecommendations({
-    required XFile image,
     String? token,
-    int limit = 10,
+    int limit = 20,
   }) async {
-    final uri = Uri.parse('$baseUrl/products/search/visual');
+    final uri = Uri.parse(
+      '$baseUrl/products/search/visual',
+    ).replace(queryParameters: {'limit': limit.toString()});
 
-    // Create multipart request
-    final request = http.MultipartRequest('POST', uri);
-
-    // Add headers
+    // Build headers
+    final headers = <String, String>{'Content-Type': 'application/json'};
     if (token != null) {
-      request.headers['Authorization'] = 'Bearer $token';
+      headers['Authorization'] = 'Bearer $token';
     }
 
-    // Add image file
-    final bytes = await image.readAsBytes();
-    request.files.add(
-      http.MultipartFile.fromBytes('image', bytes, filename: image.name),
-    );
-
-    // Add limit parameter
-    request.fields['limit'] = limit.toString();
-
-    // Send request
-    final streamedResponse = await request.send();
-    final response = await http.Response.fromStream(streamedResponse);
+    // Send GET request
+    final response = await http.get(uri, headers: headers);
 
     if (response.statusCode == 200) {
       final jsonData = json.decode(response.body);

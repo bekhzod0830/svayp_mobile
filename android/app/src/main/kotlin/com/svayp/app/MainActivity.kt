@@ -1,4 +1,4 @@
-package com.swipe.app.swipe
+package com.svayp.app
 
 import io.flutter.embedding.android.FlutterActivity
 

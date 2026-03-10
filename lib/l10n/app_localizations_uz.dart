@@ -1638,6 +1638,20 @@ class AppLocalizationsUz extends AppLocalizations {
   String get logoutMessage => 'Chiqishga ishonchingiz komilmi?';
 
   @override
+  String get deleteAccount => 'Akkauntni o\'chirish';
+
+  @override
+  String get deleteAccountConfirmation =>
+      'Akkauntingizni butunlay o\'chirishga ishonchingiz komilmi? Barcha ma\'lumotlaringiz yo\'qoladi va bu amalni bekor qilib bo\'lmaydi.';
+
+  @override
+  String get deleteAccountSuccess => 'Akkauntingiz o\'chirildi.';
+
+  @override
+  String get deleteAccountError =>
+      'Akkauntni o\'chirib bo\'lmadi. Qayta urinib ko\'ring.';
+
+  @override
   String version(String version) {
     return 'Versiya $version';
   }

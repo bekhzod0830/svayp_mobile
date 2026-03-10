@@ -620,6 +620,10 @@
   "logout": "Chiqish",
   "logoutConfirmation": "Chiqishga ishonchingiz komilmi?",
   "logoutMessage": "Chiqishga ishonchingiz komilmi?",
+  "deleteAccount": "Akkauntni o'chirish",
+  "deleteAccountConfirmation": "Akkauntingizni butunlay o'chirishga ishonchingiz komilmi? Barcha ma'lumotlaringiz yo'qoladi va bu amalni bekor qilib bo'lmaydi.",
+  "deleteAccountSuccess": "Akkauntingiz o'chirildi.",
+  "deleteAccountError": "Akkauntni o'chirib bo'lmadi. Qayta urinib ko'ring.",
   "version": "Versiya {version}",
   "@version": {
     "placeholders": {

@@ -7,6 +7,11 @@ import 'api_config.dart';
 /// API Client for making HTTP requests
 class ApiClient {
   late final Dio _dio;
+
+  /// Separate Dio instance for token refresh & retries.
+  /// Has NO interceptors to avoid deadlocks / infinite loops.
+  late final Dio _refreshDio;
+
   final SharedPreferences _prefs;
 
   static const String _tokenKey = 'auth_token';
@@ -14,22 +19,22 @@ class ApiClient {
   static const String _userRoleKey = 'user_role';
 
   ApiClient(this._prefs) {
-    _dio = Dio(
-      BaseOptions(
-        baseUrl: ApiConfig.apiBaseUrl,
-        connectTimeout: ApiConfig.connectTimeout,
-        receiveTimeout: ApiConfig.receiveTimeout,
-        sendTimeout: ApiConfig.sendTimeout,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-      ),
+    final baseOptions = BaseOptions(
+      baseUrl: ApiConfig.apiBaseUrl,
+      connectTimeout: ApiConfig.connectTimeout,
+      receiveTimeout: ApiConfig.receiveTimeout,
+      sendTimeout: ApiConfig.sendTimeout,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
     );
 
-    // Add interceptors
-    _dio.interceptors.add(_authInterceptor());
-    _dio.interceptors.add(_errorInterceptor());
+    _dio = Dio(baseOptions);
+    _refreshDio = Dio(baseOptions);
+
+    // Single queued interceptor handles auth headers + automatic 401 refresh
+    _dio.interceptors.add(_tokenRefreshInterceptor());
 
     // Add pretty logger in debug mode only
     if (kDebugMode) {
@@ -46,9 +51,13 @@ class ApiClient {
     }
   }
 
-  /// Auth interceptor to add token to requests
-  Interceptor _authInterceptor() {
-    return InterceptorsWrapper(
+  /// Combined auth + token-refresh interceptor.
+  ///
+  /// Uses [QueuedInterceptorsWrapper] so that concurrent 401 errors are
+  /// serialised – only the first one triggers a refresh, subsequent queued
+  /// requests detect the token was already updated and simply retry.
+  QueuedInterceptorsWrapper _tokenRefreshInterceptor() {
+    return QueuedInterceptorsWrapper(
       onRequest: (options, handler) {
         final token = getToken();
         if (token != null) {
@@ -56,21 +65,87 @@ class ApiClient {
         }
         handler.next(options);
       },
-    );
-  }
-
-  /// Error interceptor to handle common errors
-  Interceptor _errorInterceptor() {
-    return InterceptorsWrapper(
-      onError: (error, handler) {
-        if (error.response?.statusCode == 401) {
-          // Token expired or invalid - clear tokens
-          clearToken();
-          clearRefreshToken();
+      onError: (error, handler) async {
+        // Only handle 401 Unauthorized
+        if (error.response?.statusCode != 401) {
+          handler.next(error);
+          return;
         }
+
+        // Prevent infinite retry loops
+        if (error.requestOptions.extra['_retried'] == true) {
+          await _clearAllTokens();
+          handler.next(error);
+          return;
+        }
+
+        // If another queued request already refreshed the token, just retry
+        final originalAuth = error.requestOptions.headers['Authorization'];
+        final currentToken = getToken();
+        if (currentToken != null && 'Bearer $currentToken' != originalAuth) {
+          error.requestOptions.headers['Authorization'] =
+              'Bearer $currentToken';
+          error.requestOptions.extra['_retried'] = true;
+          try {
+            final response = await _refreshDio.fetch(error.requestOptions);
+            handler.resolve(response);
+            return;
+          } catch (_) {
+            handler.next(error);
+            return;
+          }
+        }
+
+        // Attempt to refresh the access token
+        final refreshTokenValue = getRefreshToken();
+        if (refreshTokenValue == null) {
+          await _clearAllTokens();
+          handler.next(error);
+          return;
+        }
+
+        try {
+          final response = await _refreshDio.post(
+            ApiConfig.authRefreshToken,
+            data: {'refreshToken': refreshTokenValue},
+          );
+
+          // The endpoint may wrap data: { "data": { ... } }
+          final data = response.data is Map
+              ? (response.data['data'] ?? response.data)
+              : response.data;
+
+          final newAccessToken = data['access_token'] as String?;
+          final newRefreshToken = data['refresh_token'] as String?;
+
+          if (newAccessToken != null) {
+            await saveToken(newAccessToken);
+            if (newRefreshToken != null) {
+              await saveRefreshToken(newRefreshToken);
+            }
+
+            // Retry the original request with the fresh token
+            error.requestOptions.headers['Authorization'] =
+                'Bearer $newAccessToken';
+            error.requestOptions.extra['_retried'] = true;
+            final retryResponse = await _refreshDio.fetch(error.requestOptions);
+            handler.resolve(retryResponse);
+            return;
+          }
+        } catch (_) {
+          // Refresh itself failed – clear everything
+          await _clearAllTokens();
+        }
+
         handler.next(error);
       },
     );
+  }
+
+  /// Convenience method to clear all auth-related tokens.
+  Future<void> _clearAllTokens() async {
+    await clearToken();
+    await clearRefreshToken();
   }
 
   // ==================== Token Management ====================

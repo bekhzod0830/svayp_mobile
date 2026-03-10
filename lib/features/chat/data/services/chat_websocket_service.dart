@@ -1,174 +1,166 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:web_socket_channel/web_socket_channel.dart';
-import 'package:web_socket_channel/status.dart' as status;
+import 'package:flutter/foundation.dart';
+import 'package:stomp_dart_client/stomp_dart_client.dart';
 import 'package:swipe/features/chat/data/models/chat_model.dart';
 
-/// WebSocket Service for real-time chat messaging
-/// Connects to: wss://app.svaypai.com/ws/chats/{chatId}
+/// STOMP WebSocket Service for real-time chat messaging
+/// Connects to: wss://app.svaypai.com/ws/chat
+/// Protocol: STOMP with Authorization header
 class ChatWebSocketService {
-  WebSocketChannel? _channel;
+  StompClient? _stompClient;
   late final StreamController<ChatMessageResponse> _messageController;
   String? _currentChatId;
-  String? _authToken;
-  Timer? _reconnectTimer;
-  Timer? _pingTimer;
-  bool _isConnecting = false;
   bool _isDisposed = false;
-  int _reconnectAttempts = 0;
-  static const int _maxReconnectAttempts = 5;
-  static const Duration _reconnectDelay = Duration(seconds: 3);
-  static const Duration _pingInterval = Duration(seconds: 30);
+  bool _isConnecting = false;
+  Function({Map<String, String>? unsubscribeHeaders})? _unsubscribeFn;
+  List<Function({Map<String, String>? unsubscribeHeaders})?>  _extraUnsubs = [];
+  final StreamController<bool> _connectionStateController =
+      StreamController<bool>.broadcast();
+
+  static const String _wsUrl = 'wss://app.svaypai.com/ws/chat';
 
   ChatWebSocketService() {
-    // Create the stream controller once during initialization
     _messageController = StreamController<ChatMessageResponse>.broadcast();
   }
 
   /// Stream of incoming messages
   Stream<ChatMessageResponse> get messageStream => _messageController.stream;
 
-  /// Check if WebSocket is connected
-  bool get isConnected => _channel != null && !_isDisposed;
+  /// Stream of connection state changes
+  Stream<bool> get connectionStateStream => _connectionStateController.stream;
 
-  /// Connect to chat WebSocket
+  /// Check if STOMP client is connected
+  bool get isConnected => _stompClient?.connected ?? false;
+
+  /// Connect to STOMP WebSocket and subscribe to a chat room
   Future<void> connect(String chatId, String authToken) async {
-    if (_isConnecting || _isDisposed) return;
+    if (_isDisposed || _isConnecting) return;
     if (_currentChatId == chatId && isConnected) return;
 
     _isConnecting = true;
-    _currentChatId = chatId;
-    _authToken = authToken;
+    debugPrint('[STOMP] Connecting to $_wsUrl for chat $chatId ...');
 
-    try {
-      // Close existing connection if any
-      await disconnect();
-
-      // Build WebSocket URL - construct wss:// URL directly
-      const wsBaseUrl = 'wss://app.svaypai.com';
-      final wsUrl = '$wsBaseUrl/ws/chats/$chatId';
-
-      // Connect to WebSocket with token as query parameter
-      final uri = Uri.parse(
-        wsUrl,
-      ).replace(queryParameters: {'token': authToken});
-
-      _channel = WebSocketChannel.connect(uri);
-
-      // Listen to messages
-      _channel!.stream.listen(
-        _onMessage,
-        onError: _onError,
-        onDone: _onDone,
-        cancelOnError: false,
-      );
-
-      // Start ping timer to keep connection alive
-      _startPingTimer();
-
-      _reconnectAttempts = 0;
-      _isConnecting = false;
-    } catch (e) {
-      _isConnecting = false;
-      _scheduleReconnect();
-    }
-  }
-
-  /// Handle incoming messages
-  void _onMessage(dynamic data) {
-    try {
-
-      final jsonData = json.decode(data as String);
-      final message = ChatMessageResponse.fromJson(jsonData);
-
-      _messageController.add(message);
-    } catch (e) {
-    }
-  }
-
-  /// Handle WebSocket errors
-  void _onError(Object error, [StackTrace? stackTrace]) {
-    if (stackTrace != null) {
-    }
-    _scheduleReconnect();
-  }
-
-  /// Handle WebSocket connection closed
-  void _onDone() {
-    _scheduleReconnect();
-  }
-
-  /// Send a message through WebSocket
-  Future<void> sendMessage(SendMessageRequest request) async {
-    if (!isConnected) {
-      throw Exception('WebSocket not connected');
-    }
-
-    try {
-      final data = json.encode(request.toJson());
-      _channel?.sink.add(data);
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  /// Start ping timer to keep connection alive
-  void _startPingTimer() {
-    _pingTimer?.cancel();
-    _pingTimer = Timer.periodic(_pingInterval, (timer) {
-      if (isConnected) {
-        try {
-          _channel?.sink.add(json.encode({'type': 'ping'}));
-        } catch (e) {
-        }
-      }
-    });
-  }
-
-  /// Schedule reconnection attempt
-  void _scheduleReconnect() {
-    if (_isDisposed || _reconnectTimer?.isActive == true) return;
-    if (_reconnectAttempts >= _maxReconnectAttempts) {
-      return;
-    }
-
-    _reconnectAttempts++;
-
-    _reconnectTimer = Timer(_reconnectDelay, () {
-      if (!_isDisposed && _currentChatId != null && _authToken != null) {
-        connect(_currentChatId!, _authToken!);
-      }
-    });
-  }
-
-  /// Disconnect from WebSocket
-  Future<void> disconnect() async {
-
-    _pingTimer?.cancel();
-    _pingTimer = null;
-
-    _reconnectTimer?.cancel();
-    _reconnectTimer = null;
-
-    try {
-      await _channel?.sink.close(status.goingAway);
-    } catch (e) {
-    }
-
-    _channel = null;
-    _currentChatId = null;
-    _authToken = null;
-    _reconnectAttempts = 0;
-
-  }
-
-  /// Dispose the service
-  Future<void> dispose() async {
-    _isDisposed = true;
-
+    // Disconnect previous session if any
     await disconnect();
 
-    await _messageController.close();
+    _currentChatId = chatId;
 
+    final authHeaders = {'Authorization': 'Bearer $authToken'};
+
+    _stompClient = StompClient(
+      config: StompConfig(
+        url: _wsUrl,
+        stompConnectHeaders: authHeaders,
+        webSocketConnectHeaders: authHeaders,
+        onConnect: _onConnect,
+        onWebSocketError: (error) {
+          debugPrint('[STOMP] WebSocket error: $error');
+          _connectionStateController.add(false);
+        },
+        onStompError: (frame) {
+          debugPrint('[STOMP] STOMP error: ${frame.body}');
+          _connectionStateController.add(false);
+        },
+        onDisconnect: (_) {
+          debugPrint('[STOMP] Disconnected');
+          _connectionStateController.add(false);
+        },
+        onDebugMessage: (msg) {
+          debugPrint('[STOMP] debug: $msg');
+        },
+        reconnectDelay: const Duration(seconds: 5),
+        heartbeatOutgoing: const Duration(seconds: 10),
+        heartbeatIncoming: const Duration(seconds: 10),
+      ),
+    );
+
+    _stompClient!.activate();
+    _isConnecting = false;
+  }
+
+  Function({Map<String, String>? unsubscribeHeaders})? _unsubscribeFn2;
+  Function({Map<String, String>? unsubscribeHeaders})? _unsubscribeFn3;
+
+  /// Called when STOMP connection is established
+  void _onConnect(StompFrame frame) {
+    if (_currentChatId == null || _isDisposed) return;
+
+    _connectionStateController.add(true);
+
+    // Extract the user principal name from the CONNECTED frame header.
+    // Spring Boot uses this to route user-specific messages.
+    final userName = frame.headers['user-name'];
+    debugPrint('[STOMP] Connected as user: $userName');
+
+    // Subscribe to every plausible Spring Boot STOMP destination.
+    // The one that prints "[STOMP] Frame arrived" is the correct one.
+    final destinations = [
+      '/topic/chat/$_currentChatId',
+      '/topic/chats/$_currentChatId',
+      '/user/queue/messages',
+      '/user/queue/chat',
+      // Explicit user-principal paths (Spring sends here when using convertAndSendToUser)
+      if (userName != null) '/user/$userName/queue/messages',
+      if (userName != null) '/user/$userName/queue/chat',
+      if (userName != null) '/user/$userName/topic/chat/$_currentChatId',
+    ];
+
+    final fns = <Function({Map<String, String>? unsubscribeHeaders})?>[];
+    for (final dest in destinations) {
+      debugPrint('[STOMP] Subscribing to $dest');
+      fns.add(_stompClient?.subscribe(destination: dest, callback: _onMessage));
+    }
+    _unsubscribeFn  = fns.isNotEmpty ? fns[0] : null;
+    _unsubscribeFn2 = fns.length > 1  ? fns[1] : null;
+    _unsubscribeFn3 = fns.length > 2  ? fns[2] : null;
+    _extraUnsubs    = fns.length > 3  ? fns.sublist(3) : [];
+  }
+
+  /// Handle incoming STOMP message frame
+  void _onMessage(StompFrame frame) {
+    debugPrint('[STOMP] Frame arrived — destination: ${frame.headers['destination']}, body: ${frame.body}');
+
+    if (frame.body == null || _isDisposed) return;
+
+    try {
+      final jsonData = json.decode(frame.body!);
+      final message = ChatMessageResponse.fromJson(
+        jsonData as Map<String, dynamic>,
+      );
+      _messageController.add(message);
+    } catch (e) {
+      debugPrint('[STOMP] Failed to parse message: $e\nRaw body: ${frame.body}');
+    }
+  }
+
+  /// Disconnect from STOMP WebSocket
+  Future<void> disconnect() async {
+    // Unsubscribe from all topics
+    try { _unsubscribeFn?.call(); } catch (_) {}
+    try { _unsubscribeFn2?.call(); } catch (_) {}
+    try { _unsubscribeFn3?.call(); } catch (_) {}
+    for (final fn in _extraUnsubs) { try { fn?.call(); } catch (_) {} }
+    _unsubscribeFn = null;
+    _unsubscribeFn2 = null;
+    _unsubscribeFn3 = null;
+    _extraUnsubs = [];
+
+    // Deactivate STOMP client
+    try {
+      _stompClient?.deactivate();
+    } catch (_) {}
+    _stompClient = null;
+
+    _currentChatId = null;
+    _isConnecting = false;
+  }
+
+  /// Dispose the service permanently
+  Future<void> dispose() async {
+    _isDisposed = true;
+    await disconnect();
+    await _messageController.close();
+    await _connectionStateController.close();
   }
 }
