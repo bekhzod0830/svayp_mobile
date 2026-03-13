@@ -55,6 +55,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadUserData() async {
     if (!mounted) return;
 
+    // Skip API calls for guest users – tab-tap gating handles the prompt
+    final storage = await LocalStorageHelper.getInstance();
+    if (storage.isGuestMode()) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
+
     setState(() {
       _isLoading = true;
     });

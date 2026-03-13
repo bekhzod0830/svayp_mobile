@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:swipe/core/models/product.dart' as api_models;
+import 'package:swipe/core/services/visual_search_api_service.dart';
 import 'package:swipe/core/cache/image_cache_manager.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
@@ -12,12 +13,12 @@ import 'package:swipe/l10n/app_localizations.dart';
 /// Visual Search Results Screen
 /// Displays recommendations from the backend with the same card style as Shop.
 class VisualSearchResultsScreen extends StatelessWidget {
-  final List<api_models.Product> products;
+  final List<VisualSearchResult> results;
   final File? uploadedImage;
 
   const VisualSearchResultsScreen({
     super.key,
-    required this.products,
+    required this.results,
     this.uploadedImage,
   });
 
@@ -58,11 +59,13 @@ class VisualSearchResultsScreen extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor:
-          isDark ? AppColors.darkMainBackground : AppColors.pageBackground,
+      backgroundColor: isDark
+          ? AppColors.darkMainBackground
+          : AppColors.pageBackground,
       appBar: AppBar(
-        backgroundColor:
-            isDark ? AppColors.darkCardBackground : AppColors.cardBackground,
+        backgroundColor: isDark
+            ? AppColors.darkCardBackground
+            : AppColors.cardBackground,
         elevation: 0,
         leading: IconButton(
           icon: Icon(
@@ -127,11 +130,18 @@ class VisualSearchResultsScreen extends StatelessWidget {
                     const SizedBox(height: 12),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(12),
-                      child: Image.file(
-                        uploadedImage!,
+                      child: SizedBox(
                         width: double.infinity,
                         height: 200,
-                        fit: BoxFit.cover,
+                        child: ColoredBox(
+                          color: isDark
+                              ? AppColors.darkMainBackground
+                              : AppColors.gray100,
+                          child: Image.file(
+                            uploadedImage!,
+                            fit: BoxFit.contain,
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -144,7 +154,7 @@ class VisualSearchResultsScreen extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
               child: Text(
-                l10n.similarProductsCount(products.length),
+                l10n.similarProductsCount(results.length),
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -157,7 +167,7 @@ class VisualSearchResultsScreen extends StatelessWidget {
           ),
 
           // Empty state
-          if (products.isEmpty)
+          if (results.isEmpty)
             SliverFillRemaining(
               child: Center(
                 child: Column(
@@ -185,7 +195,7 @@ class VisualSearchResultsScreen extends StatelessWidget {
             ),
 
           // Products grid — identical layout/card style to Shop screen
-          if (products.isNotEmpty)
+          if (results.isNotEmpty)
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 32),
               sliver: SliverGrid(
@@ -195,23 +205,20 @@ class VisualSearchResultsScreen extends StatelessWidget {
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
                 ),
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final product = products[index];
-                    return _VisualSearchProductCard(
-                      product: product,
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ProductDetailScreen(
-                            product: _toEntity(product),
-                          ),
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  final result = results[index];
+                  return _VisualSearchProductCard(
+                    result: result,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ProductDetailScreen(
+                          product: _toEntity(result.product),
                         ),
                       ),
-                    );
-                  },
-                  childCount: products.length,
-                ),
+                    ),
+                  );
+                }, childCount: results.length),
               ),
             ),
         ],
@@ -222,16 +229,21 @@ class VisualSearchResultsScreen extends StatelessWidget {
 
 /// Product card — mirrors _TikTokProductCard from shop_screen.dart
 class _VisualSearchProductCard extends StatelessWidget {
-  final api_models.Product product;
+  final VisualSearchResult result;
   final VoidCallback onTap;
 
-  const _VisualSearchProductCard({required this.product, required this.onTap});
+  const _VisualSearchProductCard({required this.result, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final product = result.product;
     final sellerName = product.seller ?? 'SVAYP';
+    // Prefer the specific matched image, fall back to first product image
+    final displayImage =
+        result.matchedImageUrl ??
+        (product.images.isNotEmpty ? product.images.first : null);
 
     return GestureDetector(
       onTap: onTap,
@@ -265,11 +277,10 @@ class _VisualSearchProductCard extends StatelessWidget {
                           : Colors.white,
                       child: LayoutBuilder(
                         builder: (context, constraints) {
-                          final cacheWidth =
-                              (constraints.maxWidth * 2).toInt();
-                          return product.images.isNotEmpty
+                          final cacheWidth = (constraints.maxWidth * 2).toInt();
+                          return displayImage != null
                               ? CachedNetworkImage(
-                                  imageUrl: product.images.first,
+                                  imageUrl: displayImage,
                                   fit: BoxFit.contain,
                                   cacheManager: ImageCacheManager.instance,
                                   memCacheWidth: cacheWidth,
@@ -323,7 +334,9 @@ class _VisualSearchProductCard extends StatelessWidget {
                       right: 8,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.black.withValues(alpha: 0.7),
                           borderRadius: BorderRadius.circular(6),
@@ -339,6 +352,41 @@ class _VisualSearchProductCard extends StatelessWidget {
                         ),
                       ),
                     ),
+                  // Similarity badge
+                  if (result.similarity > 0)
+                    Positioned(
+                      bottom: 8,
+                      left: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.65),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.auto_awesome,
+                              color: Colors.amber,
+                              size: 10,
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              result.similarityLabel,
+                              style: AppTypography.caption.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 9,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   // Discount badge
                   if (product.discountPercentage != null &&
                       product.discountPercentage! > 0)
@@ -347,7 +395,9 @@ class _VisualSearchProductCard extends StatelessWidget {
                       left: 8,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 3),
+                          horizontal: 6,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.red,
                           borderRadius: BorderRadius.circular(6),
@@ -384,7 +434,9 @@ class _VisualSearchProductCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    product.formattedPrice,
+                    product.currency == 'USD'
+                        ? '\$${product.price}'
+                        : '${product.price.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} UZS',
                     style: AppTypography.body2.copyWith(
                       fontWeight: FontWeight.bold,
                       color: theme.colorScheme.onSurface,
@@ -395,10 +447,11 @@ class _VisualSearchProductCard extends StatelessWidget {
                   if (product.originalPrice != null &&
                       product.originalPrice! > product.price)
                     Text(
-                      '${product.originalPrice.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} ${product.currency}',
+                      product.currency == 'USD'
+                          ? '\$${product.originalPrice}'
+                          : '${product.originalPrice.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} UZS',
                       style: AppTypography.caption.copyWith(
-                        color:
-                            isDark ? AppColors.gray400 : AppColors.gray500,
+                        color: isDark ? AppColors.gray400 : AppColors.gray500,
                         decoration: TextDecoration.lineThrough,
                       ),
                       maxLines: 1,
@@ -425,4 +478,3 @@ class _VisualSearchProductCard extends StatelessWidget {
     );
   }
 }
-

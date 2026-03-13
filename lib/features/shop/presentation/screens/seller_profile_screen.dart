@@ -1,24 +1,30 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
+import 'package:swipe/core/services/product_api_service.dart';
+import 'package:swipe/core/models/product.dart' as api_models;
 import 'package:swipe/features/discover/domain/entities/product.dart';
 import 'package:swipe/features/product/presentation/screens/product_detail_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:swipe/core/cache/image_cache_manager.dart';
 
-/// Seller Profile Screen - Shows all products from a specific seller
-/// Similar to TikTok Shop seller pages
+/// Seller Profile Screen – redesigned with logo, about, locations and products grid
 class SellerProfileScreen extends StatefulWidget {
   final String sellerId;
   final String sellerName;
   final List<Product> products;
+  final SellerInfo? sellerInfo;
 
   const SellerProfileScreen({
     super.key,
     required this.sellerId,
     required this.sellerName,
     required this.products,
+    this.sellerInfo,
   });
 
   @override
@@ -26,179 +32,206 @@ class SellerProfileScreen extends StatefulWidget {
 }
 
 class _SellerProfileScreenState extends State<SellerProfileScreen> {
-  int _selectedTab = 0; // 0: Products, 1: About (for future)
+  final ProductApiService _apiService = ProductApiService();
+  final ScrollController _scrollController = ScrollController();
+
+  late List<Product> _products;
+  SellerInfo? _sellerInfo;
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
+  String? _authToken;
+  static const int _pageSize = 20;
+
+  @override
+  void initState() {
+    super.initState();
+    _products = List.of(widget.products);
+    _sellerInfo = widget.sellerInfo; // may be null; always refreshed below
+    _hasMore = widget.products.length >= _pageSize;
+    _scrollController.addListener(_onScroll);
+    _initAuth();
+  }
+
+  Future<void> _initAuth() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) setState(() => _authToken = prefs.getString('auth_token'));
+    // Always fetch fresh seller details from the API
+    try {
+      final info = await _apiService.getSeller(
+        sellerId: widget.sellerId,
+        token: _authToken,
+      );
+      if (mounted) setState(() => _sellerInfo = info);
+    } catch (_) {
+      // Keep whatever was passed from the previous screen as fallback
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+            _scrollController.position.maxScrollExtent - 300 &&
+        !_isLoadingMore &&
+        _hasMore) {
+      _loadMore();
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_isLoadingMore || !_hasMore) return;
+    setState(() => _isLoadingMore = true);
+
+    try {
+      final response = await _apiService.getBrandDetail(
+        brandId: widget.sellerId,
+        skip: _products.length,
+        limit: _pageSize,
+        token: _authToken,
+      );
+
+      final newProducts = <Product>[];
+      for (final apiProduct in response.products) {
+        try {
+          newProducts.add(_convertApiProduct(apiProduct));
+        } catch (_) {}
+      }
+
+      setState(() {
+        _products.addAll(newProducts);
+        _hasMore = newProducts.length >= _pageSize;
+        _isLoadingMore = false;
+      });
+    } catch (_) {
+      setState(() => _isLoadingMore = false);
+    }
+  }
+
+  Product _convertApiProduct(api_models.Product p) {
+    final brand = (p.brand == 'Unknown' || p.brand.isEmpty)
+        ? (p.seller ?? 'SVAYP')
+        : p.brand;
+    return Product(
+      id: p.id,
+      title: p.title,
+      description: p.description ?? '',
+      price: p.price,
+      brand: brand,
+      category: p.originalCategoryString ?? p.category.value,
+      subcategory: p.subcategory?.map((s) => s.displayName).toList(),
+      images: p.images.isNotEmpty
+          ? p.images
+          : ['https://via.placeholder.com/400'],
+      sizes: p.sizes?.map((s) => s.displayName).toList() ?? [],
+      colors: p.colors ?? [],
+      material: p.material?.map((m) => m.displayName).toList(),
+      season: p.season?.map((s) => s.displayName).toList(),
+      currency: p.currency,
+      rating: p.rating ?? 4.5,
+      reviewCount: p.reviewCount ?? 0,
+      inStock: p.inStock,
+      isNew: p.isNew ?? false,
+      isFeatured: false,
+      seller: p.seller,
+      sellerId: p.sellerId,
+      discountPercentage: p.discountPercentage,
+      originalPrice: p.originalPrice,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-
-    // Mock seller data
-    // final sellerRating = 4.8; // COMMENTED OUT - for future use
-    final totalProducts = widget.products.length;
-    final totalSold = totalProducts * 156; // Mock sold count
+    final bgColor = isDark
+        ? AppColors.darkMainBackground
+        : const Color(0xFFF4F4F6);
 
     return Scaffold(
-      backgroundColor: isDark
-          ? AppColors.darkMainBackground
-          : const Color(0xFFF7F7F8),
+      backgroundColor: bgColor,
       body: CustomScrollView(
+        controller: _scrollController,
         slivers: [
-          // App Bar with Seller Info
+          // ── Sticky App Bar ─────────────────────────────────
           SliverAppBar(
-            expandedHeight: 180,
             pinned: true,
             backgroundColor: isDark
                 ? AppColors.darkCardBackground
                 : Colors.white,
+            elevation: 0,
             leading: IconButton(
               icon: Icon(
                 Icons.arrow_back_ios_rounded,
                 color: isDark ? AppColors.darkPrimaryText : AppColors.black,
+                size: 20,
               ),
               onPressed: () => Navigator.pop(context),
             ),
-            flexibleSpace: FlexibleSpaceBar(
-              background: Container(
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.darkCardBackground : Colors.white,
-                ),
-                child: SafeArea(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const SizedBox(height: 20),
-                      // Seller Avatar
-                      Container(
-                        width: 80,
-                        height: 80,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: _getGradientColors(widget.sellerName),
-                          ),
-                          border: Border.all(
-                            color: isDark
-                                ? AppColors.darkPrimaryText.withOpacity(0.2)
-                                : AppColors.gray200,
-                            width: 3,
-                          ),
-                        ),
-                        child: Center(
-                          child: Text(
-                            widget.sellerName[0].toUpperCase(),
-                            style: AppTypography.heading1.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 32,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      // Seller Name
-                      Text(
-                        widget.sellerName,
-                        style: AppTypography.heading3.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: theme.colorScheme.onSurface,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      // Stats Row
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          // COMMENTED OUT - Seller rating (for future use)
-                          // _buildStatChip(
-                          //   icon: Icons.star_rounded,
-                          //   label: sellerRating.toStringAsFixed(1),
-                          //   color: Colors.amber,
-                          //   isDark: isDark,
-                          // ),
-                          // const SizedBox(width: 16),
-                          _buildStatChip(
-                            icon: Icons.inventory_2_outlined,
-                            label: '$totalProducts',
-                            color: isDark
-                                ? AppColors.darkPrimaryText
-                                : AppColors.black,
-                            isDark: isDark,
-                          ),
-                          const SizedBox(width: 16),
-                          _buildStatChip(
-                            icon: Icons.shopping_bag_outlined,
-                            label: '${(totalSold / 1000).toStringAsFixed(1)}K',
-                            color: isDark
-                                ? AppColors.darkPrimaryText
-                                : AppColors.black,
-                            isDark: isDark,
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
+            title: Text(
+              widget.sellerName,
+              style: AppTypography.body1.copyWith(
+                fontWeight: FontWeight.w700,
+                color: theme.colorScheme.onSurface,
               ),
             ),
+            centerTitle: true,
           ),
 
-          // Tabs
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: _SliverTabBarDelegate(
-              child: Container(
-                color: isDark
-                    ? AppColors.darkMainBackground
-                    : const Color(0xFFF7F7F8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () => setState(() => _selectedTab = 0),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          decoration: BoxDecoration(
-                            border: Border(
-                              bottom: BorderSide(
-                                color: _selectedTab == 0
-                                    ? (isDark
-                                          ? AppColors.darkPrimaryText
-                                          : AppColors.black)
-                                    : Colors.transparent,
-                                width: 2,
-                              ),
-                            ),
-                          ),
-                          child: Text(
-                            l10n.allProducts,
-                            textAlign: TextAlign.center,
-                            style: AppTypography.body1.copyWith(
-                              fontWeight: _selectedTab == 0
-                                  ? FontWeight.w700
-                                  : FontWeight.w500,
-                              color: _selectedTab == 0
-                                  ? theme.colorScheme.onSurface
-                                  : (isDark
-                                        ? AppColors.darkSecondaryText
-                                        : AppColors.gray600),
-                            ),
-                          ),
-                        ),
+          // ── Profile header ──────────────────────────────────
+          SliverToBoxAdapter(child: _buildHeader(isDark, theme)),
+
+          // ── About / Contact ─────────────────────────────────
+          if (_sellerInfo != null)
+            SliverToBoxAdapter(child: _buildAboutSection(isDark, theme, l10n)),
+
+          // ── Products header ──────────────────────────────────
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+              child: Row(
+                children: [
+                  Text(
+                    l10n.allProducts,
+                    style: AppTypography.body1.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? AppColors.darkStandardBorder
+                          : AppColors.gray200,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '${_products.length}',
+                      style: AppTypography.caption.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: isDark
+                            ? AppColors.darkPrimaryText
+                            : AppColors.black,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
 
-          // Products Grid
+          // ── Products Grid ──────────────────────────────────
           SliverPadding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
             sliver: SliverGrid(
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
@@ -207,21 +240,126 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
                 crossAxisSpacing: 12,
               ),
               delegate: SliverChildBuilderDelegate((context, index) {
-                final product = widget.products[index];
+                final product = _products[index];
                 return _TikTokProductCard(
                   product: product,
-                  showSeller: false, // Don't show seller on seller page
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            ProductDetailScreen(product: product),
-                      ),
-                    );
-                  },
+                  showSeller: false,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ProductDetailScreen(product: product),
+                    ),
+                  ),
                 );
-              }, childCount: widget.products.length),
+              }, childCount: _products.length),
+            ),
+          ),
+
+          // ── Load more indicator ───────────────────────────
+          if (_isLoadingMore)
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 20),
+                child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+              ),
+            ),
+
+          const SliverToBoxAdapter(child: SizedBox(height: 32)),
+        ],
+      ),
+    );
+  }
+
+  // ── Header ─────────────────────────────────────────────────
+
+  Widget _buildHeader(bool isDark, ThemeData theme) {
+    final logoUrl = _sellerInfo?.logoImg;
+    final hasLogo = logoUrl != null && logoUrl.isNotEmpty;
+
+    return Container(
+      color: isDark ? AppColors.darkCardBackground : Colors.white,
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+      child: Column(
+        children: [
+          // Avatar
+          Container(
+            width: 90,
+            height: 90,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isDark
+                    ? AppColors.darkStandardBorder
+                    : AppColors.gray200,
+                width: 2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: ClipOval(
+              child: hasLogo
+                  ? CachedNetworkImage(
+                      imageUrl: logoUrl,
+                      fit: BoxFit.cover,
+                      cacheManager: ImageCacheManager.instance,
+                      placeholder: (_, __) =>
+                          _avatarFallback(widget.sellerName),
+                      errorWidget: (_, __, ___) =>
+                          _avatarFallback(widget.sellerName),
+                    )
+                  : _avatarFallback(widget.sellerName),
+            ),
+          ),
+          const SizedBox(height: 14),
+          // Name
+          Text(
+            widget.sellerName,
+            style: AppTypography.heading3.copyWith(
+              fontWeight: FontWeight.w700,
+              color: theme.colorScheme.onSurface,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          // Stats
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? AppColors.darkMainBackground
+                  : const Color(0xFFF4F4F6),
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.inventory_2_outlined,
+                  size: 18,
+                  color: isDark ? AppColors.darkPrimaryText : AppColors.black,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '${_sellerInfo?.productCount ?? _products.length}',
+                  style: AppTypography.body1.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+                Text(
+                  ' ${AppLocalizations.of(context)!.products}',
+                  style: AppTypography.body2.copyWith(
+                    color: isDark
+                        ? AppColors.darkSecondaryText
+                        : AppColors.gray600,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -229,33 +367,215 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
     );
   }
 
-  Widget _buildStatChip({
-    required IconData icon,
-    required String label,
-    required Color color,
-    required bool isDark,
-  }) {
+  Widget _avatarFallback(String name) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: isDark ? AppColors.darkMainBackground : const Color(0xFFF7F7F8),
-        borderRadius: BorderRadius.circular(20),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: _getGradientColors(name),
+        ),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      child: Center(
+        child: Text(
+          name[0].toUpperCase(),
+          style: AppTypography.heading1.copyWith(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 34,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── About / Contact section ──────────────────────────────
+
+  Widget _buildAboutSection(
+    bool isDark,
+    ThemeData theme,
+    AppLocalizations l10n,
+  ) {
+    final info = _sellerInfo!;
+    final hasDescription =
+        info.description != null && info.description!.isNotEmpty;
+    final hasPhone = info.phoneNumber != null && info.phoneNumber!.isNotEmpty;
+    final hasPrimaryAddress =
+        info.primaryAddress != null && info.primaryAddress!.isNotEmpty;
+
+    if (!hasDescription && !hasPhone && !hasPrimaryAddress) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkCardBackground : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? AppColors.darkStandardBorder : AppColors.gray200,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: AppTypography.caption.copyWith(
-              fontWeight: FontWeight.w600,
-              color: isDark ? AppColors.darkPrimaryText : AppColors.black,
+          if (hasDescription) ...[
+            Text(
+              info.description!,
+              style: AppTypography.body2.copyWith(
+                color: isDark ? AppColors.darkSecondaryText : AppColors.gray700,
+                height: 1.5,
+              ),
             ),
+          ],
+          if (hasDescription && (hasPhone || hasPrimaryAddress))
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Divider(
+                height: 1,
+                color: isDark
+                    ? AppColors.darkStandardBorder
+                    : AppColors.gray200,
+              ),
+            ),
+          if (hasPhone)
+            _contactRow(
+              icon: Icons.phone_outlined,
+              text: info.phoneNumber!,
+              isDark: isDark,
+              theme: theme,
+              onTap: () => _callPhone(info.phoneNumber!),
+            ),
+          if (hasPhone && hasPrimaryAddress) const SizedBox(height: 10),
+          if (hasPrimaryAddress) ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.location_on_outlined,
+                  size: 18,
+                  color: isDark
+                      ? AppColors.darkSecondaryText
+                      : AppColors.gray600,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    info.primaryAddress!,
+                    style: AppTypography.body2.copyWith(
+                      color: isDark
+                          ? AppColors.darkPrimaryText
+                          : AppColors.black,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            GestureDetector(
+              onTap: () =>
+                  _openInMapsOrAddress(null, null, info.primaryAddress),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.darkPrimaryText : AppColors.black,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.directions_outlined,
+                      size: 16,
+                      color: isDark ? AppColors.black : AppColors.white,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      l10n.getDirections,
+                      style: AppTypography.caption.copyWith(
+                        color: isDark ? AppColors.black : AppColors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _contactRow({
+    required IconData icon,
+    required String text,
+    required bool isDark,
+    required ThemeData theme,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            icon,
+            size: 18,
+            color: isDark ? AppColors.darkSecondaryText : AppColors.gray600,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: AppTypography.body2.copyWith(
+                color: isDark ? AppColors.darkPrimaryText : AppColors.black,
+                decoration: TextDecoration.underline,
+                height: 1.4,
+              ),
+            ),
+          ),
+          Icon(
+            Icons.open_in_new,
+            size: 14,
+            color: isDark ? AppColors.darkSecondaryText : AppColors.gray400,
           ),
         ],
       ),
     );
+  }
+
+  // ── Map / phone helpers ───────────────────────────────────
+
+  Future<void> _openInMapsOrAddress(
+    double? lat,
+    double? lon,
+    String? address,
+  ) async {
+    Uri uri;
+    if (lat != null && lon != null) {
+      uri = Platform.isIOS
+          ? Uri.parse('maps://?ll=$lat,$lon&z=15')
+          : Uri.parse('geo:$lat,$lon?z=15');
+    } else if (address != null && address.isNotEmpty) {
+      final encoded = Uri.encodeComponent(address);
+      uri = Platform.isIOS
+          ? Uri.parse('maps://?q=$encoded')
+          : Uri.parse('geo:0,0?q=$encoded');
+    } else {
+      return;
+    }
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  Future<void> _callPhone(String phone) async {
+    final uri = Uri.parse('tel:$phone');
+    if (await canLaunchUrl(uri)) await launchUrl(uri);
   }
 
   List<Color> _getGradientColors(String name) {
@@ -271,33 +591,6 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
       [const Color(0xFFff9a9e), const Color(0xFFfecfef)],
     ];
     return gradients[hash.abs() % gradients.length];
-  }
-}
-
-// Sliver Tab Bar Delegate
-class _SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
-  final Widget child;
-
-  _SliverTabBarDelegate({required this.child});
-
-  @override
-  double get minExtent => 48;
-
-  @override
-  double get maxExtent => 48;
-
-  @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
-    return child;
-  }
-
-  @override
-  bool shouldRebuild(_SliverTabBarDelegate oldDelegate) {
-    return false;
   }
 }
 
@@ -505,11 +798,15 @@ class _TikTokProductCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      if (product.originalPrice != null) ...[
+                      if (product.originalPrice != null &&
+                          product.originalPrice != product.price) ...[
                         const SizedBox(width: 6),
                         Flexible(
                           child: Text(
-                            _formatPrice(product.originalPrice!),
+                            _formatPrice(
+                              product.originalPrice!,
+                              product.currency,
+                            ),
                             style: AppTypography.caption.copyWith(
                               color: isDark
                                   ? AppColors.darkSecondaryText
@@ -568,8 +865,9 @@ class _TikTokProductCard extends StatelessWidget {
     );
   }
 
-  String _formatPrice(int price) {
-    return '${price.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (match) => '${match[1]} ')} UZS';
+  String _formatPrice(int price, String? currency) {
+    if (currency == 'USD') return '\$$price';
+    return '${price.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')} UZS';
   }
 
   List<Color> _getGradientColors(String name) {

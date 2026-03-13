@@ -2056,6 +2056,18 @@ abstract class AppLocalizations {
   /// **'Visit Shop'**
   String get visitShop;
 
+  /// No description provided for @whereToBuy.
+  ///
+  /// In en, this message translates to:
+  /// **'Where to Buy'**
+  String get whereToBuy;
+
+  /// No description provided for @getDirections.
+  ///
+  /// In en, this message translates to:
+  /// **'Get Directions'**
+  String get getDirections;
+
   /// No description provided for @viewAllProducts.
   ///
   /// In en, this message translates to:
@@ -2098,6 +2110,102 @@ abstract class AppLocalizations {
   /// **'Visual Search'**
   String get visualSearch;
 
+  /// No description provided for @vsPickCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a Category'**
+  String get vsPickCategory;
+
+  /// No description provided for @vsSearchButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Search'**
+  String get vsSearchButton;
+
+  /// No description provided for @vsCatTopwear.
+  ///
+  /// In en, this message translates to:
+  /// **'Tops'**
+  String get vsCatTopwear;
+
+  /// No description provided for @vsCatBottomwear.
+  ///
+  /// In en, this message translates to:
+  /// **'Bottoms'**
+  String get vsCatBottomwear;
+
+  /// No description provided for @vsCatDresses.
+  ///
+  /// In en, this message translates to:
+  /// **'Dresses'**
+  String get vsCatDresses;
+
+  /// No description provided for @vsCatOuterwear.
+  ///
+  /// In en, this message translates to:
+  /// **'Outerwear'**
+  String get vsCatOuterwear;
+
+  /// No description provided for @vsCatOnePiece.
+  ///
+  /// In en, this message translates to:
+  /// **'One Piece'**
+  String get vsCatOnePiece;
+
+  /// No description provided for @vsCatActivewear.
+  ///
+  /// In en, this message translates to:
+  /// **'Activewear'**
+  String get vsCatActivewear;
+
+  /// No description provided for @vsCatAccessories.
+  ///
+  /// In en, this message translates to:
+  /// **'Accessories'**
+  String get vsCatAccessories;
+
+  /// No description provided for @vsCatFootwear.
+  ///
+  /// In en, this message translates to:
+  /// **'Footwear'**
+  String get vsCatFootwear;
+
+  /// No description provided for @vsCatUnderwear.
+  ///
+  /// In en, this message translates to:
+  /// **'Underwear'**
+  String get vsCatUnderwear;
+
+  /// No description provided for @vsCatModestWear.
+  ///
+  /// In en, this message translates to:
+  /// **'Modest Wear'**
+  String get vsCatModestWear;
+
+  /// No description provided for @vsCatTwoPieceSet.
+  ///
+  /// In en, this message translates to:
+  /// **'Two-Piece Set'**
+  String get vsCatTwoPieceSet;
+
+  /// No description provided for @vsCatThreePieceSet.
+  ///
+  /// In en, this message translates to:
+  /// **'Three-Piece Set'**
+  String get vsCatThreePieceSet;
+
+  /// No description provided for @vsCatBodysuits.
+  ///
+  /// In en, this message translates to:
+  /// **'Bodysuits'**
+  String get vsCatBodysuits;
+
+  /// No description provided for @vsCatHomewear.
+  ///
+  /// In en, this message translates to:
+  /// **'Homewear'**
+  String get vsCatHomewear;
+
   /// No description provided for @visualSearchResults.
   ///
   /// In en, this message translates to:
@@ -2137,7 +2245,7 @@ abstract class AppLocalizations {
   /// No description provided for @analyzingImageWithAI.
   ///
   /// In en, this message translates to:
-  /// **'Analyzing image with AI...\nThis may take a few seconds'**
+  /// **'Searching for similar styles...'**
   String get analyzingImageWithAI;
 
   /// No description provided for @aiAnalysis.
@@ -3201,6 +3309,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Failed to delete account. Please try again.'**
   String get deleteAccountError;
+
+  /// No description provided for @browseAsGuest.
+  ///
+  /// In en, this message translates to:
+  /// **'Browse as Guest'**
+  String get browseAsGuest;
+
+  /// No description provided for @guestPromptTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to continue'**
+  String get guestPromptTitle;
+
+  /// No description provided for @guestPromptMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a free account to save favorites, add items to cart, and track your orders.'**
+  String get guestPromptMessage;
+
+  /// No description provided for @guestPromptSignIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign In'**
+  String get guestPromptSignIn;
+
+  /// No description provided for @guestPromptContinueBrowsing.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue Browsing'**
+  String get guestPromptContinueBrowsing;
 
   /// No description provided for @version.
   ///
@@ -4833,6 +4971,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'pts'**
   String get points;
+
+  /// No description provided for @shopErrorTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Oops, something went wrong'**
+  String get shopErrorTitle;
+
+  /// No description provided for @shopErrorSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'We couldn\'t load products. Please check your connection and try again.'**
+  String get shopErrorSubtitle;
+
+  /// No description provided for @shopRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Try Again'**
+  String get shopRetry;
+
+  /// No description provided for @errorGenericTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Oops, something went wrong'**
+  String get errorGenericTitle;
+
+  /// No description provided for @errorGenericSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Please check your connection and try again.'**
+  String get errorGenericSubtitle;
+
+  /// No description provided for @errorRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Try Again'**
+  String get errorRetry;
 }
 
 class _AppLocalizationsDelegate

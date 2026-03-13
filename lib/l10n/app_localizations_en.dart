@@ -1017,6 +1017,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get visitShop => 'Visit Shop';
 
   @override
+  String get whereToBuy => 'Where to Buy';
+
+  @override
+  String get getDirections => 'Get Directions';
+
+  @override
   String get viewAllProducts => 'View all products';
 
   @override
@@ -1038,6 +1044,54 @@ class AppLocalizationsEn extends AppLocalizations {
   String get visualSearch => 'Visual Search';
 
   @override
+  String get vsPickCategory => 'Select a Category';
+
+  @override
+  String get vsSearchButton => 'Search';
+
+  @override
+  String get vsCatTopwear => 'Tops';
+
+  @override
+  String get vsCatBottomwear => 'Bottoms';
+
+  @override
+  String get vsCatDresses => 'Dresses';
+
+  @override
+  String get vsCatOuterwear => 'Outerwear';
+
+  @override
+  String get vsCatOnePiece => 'One Piece';
+
+  @override
+  String get vsCatActivewear => 'Activewear';
+
+  @override
+  String get vsCatAccessories => 'Accessories';
+
+  @override
+  String get vsCatFootwear => 'Footwear';
+
+  @override
+  String get vsCatUnderwear => 'Underwear';
+
+  @override
+  String get vsCatModestWear => 'Modest Wear';
+
+  @override
+  String get vsCatTwoPieceSet => 'Two-Piece Set';
+
+  @override
+  String get vsCatThreePieceSet => 'Three-Piece Set';
+
+  @override
+  String get vsCatBodysuits => 'Bodysuits';
+
+  @override
+  String get vsCatHomewear => 'Homewear';
+
+  @override
   String get visualSearchResults => 'Visual Search Results';
 
   @override
@@ -1056,8 +1110,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get yourSearchImage => 'Your Search Image';
 
   @override
-  String get analyzingImageWithAI =>
-      'Analyzing image with AI...\nThis may take a few seconds';
+  String get analyzingImageWithAI => 'Searching for similar styles...';
 
   @override
   String get aiAnalysis => 'AI Analysis';
@@ -1626,6 +1679,22 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get deleteAccountError =>
       'Failed to delete account. Please try again.';
+
+  @override
+  String get browseAsGuest => 'Browse as Guest';
+
+  @override
+  String get guestPromptTitle => 'Sign in to continue';
+
+  @override
+  String get guestPromptMessage =>
+      'Create a free account to save favorites, add items to cart, and track your orders.';
+
+  @override
+  String get guestPromptSignIn => 'Sign In';
+
+  @override
+  String get guestPromptContinueBrowsing => 'Continue Browsing';
 
   @override
   String version(String version) {
@@ -2453,4 +2522,24 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get points => 'pts';
+
+  @override
+  String get shopErrorTitle => 'Oops, something went wrong';
+
+  @override
+  String get shopErrorSubtitle =>
+      'We couldn\'t load products. Please check your connection and try again.';
+
+  @override
+  String get shopRetry => 'Try Again';
+
+  @override
+  String get errorGenericTitle => 'Oops, something went wrong';
+
+  @override
+  String get errorGenericSubtitle =>
+      'Please check your connection and try again.';
+
+  @override
+  String get errorRetry => 'Try Again';
 }

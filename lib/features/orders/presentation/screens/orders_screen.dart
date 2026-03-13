@@ -290,22 +290,24 @@ class OrdersScreenState extends State<OrdersScreen>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.error_outline,
-              size: 100,
+              Icons.wifi_off_rounded,
+              size: 80,
               color: isDark ? AppColors.darkSecondaryText : AppColors.gray400,
             ),
             const SizedBox(height: 24),
             Text(
-              l10n.errorLoadingOrders,
+              l10n.errorGenericTitle,
               style: AppTypography.heading3.copyWith(
-                color: theme.colorScheme.onSurface,
+                color: isDark
+                    ? AppColors.darkPrimaryText
+                    : AppColors.primaryText,
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
             Text(
-              errorMessage,
-              style: AppTypography.body1.copyWith(
+              l10n.errorGenericSubtitle,
+              style: AppTypography.body2.copyWith(
                 color: isDark
                     ? AppColors.darkSecondaryText
                     : AppColors.secondaryText,
@@ -313,24 +315,25 @@ class OrdersScreenState extends State<OrdersScreen>
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
-            ElevatedButton(
+            ElevatedButton.icon(
               onPressed: _loadOrders,
               style: ElevatedButton.styleFrom(
                 backgroundColor: isDark
                     ? AppColors.darkPrimaryText
                     : AppColors.black,
+                foregroundColor: isDark ? AppColors.black : AppColors.white,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 32,
                   vertical: 16,
                 ),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: Text(
-                l10n.retry,
+              icon: const Icon(Icons.refresh_rounded, size: 20),
+              label: Text(
+                l10n.errorRetry,
                 style: AppTypography.body1.copyWith(
-                  fontWeight: FontWeight.w600,
                   color: isDark ? AppColors.black : AppColors.white,
                 ),
               ),

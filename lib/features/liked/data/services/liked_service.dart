@@ -78,6 +78,7 @@ class LikedService {
       discountPercentage: product.discountPercentage,
       originalPrice: product.originalPrice,
       sellerId: product.sellerId,
+      currency: product.currency,
     );
 
     await _likedBox?.add(likedProduct);

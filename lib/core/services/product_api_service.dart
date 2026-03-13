@@ -481,12 +481,13 @@ class ProductApiService {
         'Authorization': 'Bearer $token',
       };
 
-      final body = json.encode({
+      final bodyMap = {
         'productId': productId,
-        'selectedSize': selectedSize,
+        'selectedSize': selectedSize.toUpperCase(),
         if (selectedColor != null) 'selectedColor': selectedColor,
         'quantity': quantity,
-      });
+      };
+      final body = json.encode(bodyMap);
 
       final response = await http.post(uri, headers: headers, body: body);
 
@@ -497,6 +498,209 @@ class ProductApiService {
         throw Exception(
           'Failed to add to cart: ${response.statusCode} ${response.body}',
         );
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Get quiz feed - lightweight image-only product cards for onboarding quiz
+  ///
+  /// Endpoint: GET /api/v1/feed/quiz
+  ///
+  /// Parameters:
+  /// - [limit]: Number of quiz items to return (default 10)
+  /// - [token]: Optional authentication token
+  Future<List<Map<String, dynamic>>> getQuizFeed({
+    int limit = 10,
+    String? token,
+  }) async {
+    try {
+      final uri = Uri.parse(
+        '$baseUrl/feed/quiz',
+      ).replace(queryParameters: {'limit': limit.toString()});
+
+      final headers = <String, String>{'Content-Type': 'application/json'};
+      if (token != null) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+
+      final response = await http.get(uri, headers: headers);
+
+      if (response.statusCode == 200) {
+        final dynamic jsonData = json.decode(response.body);
+        // Response is a direct array of QuizProductResponse
+        if (jsonData is List) {
+          return jsonData.whereType<Map<String, dynamic>>().toList();
+        }
+        // Or wrapped in data
+        if (jsonData is Map<String, dynamic>) {
+          final data = jsonData['data'];
+          if (data is List) {
+            return data.whereType<Map<String, dynamic>>().toList();
+          }
+        }
+        return [];
+      } else {
+        throw Exception(
+          'Failed to load quiz feed: ${response.statusCode} ${response.body}',
+        );
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Log a user interaction event
+  ///
+  /// Endpoint: POST /api/v1/events
+  ///
+  /// Parameters:
+  /// - [productId]: UUID of the product being interacted with
+  /// - [eventType]: Type of event ('SWIPE', 'VIEW', 'CART_ADD', etc.)
+  /// - [swipeAction]: Swipe direction – 'LIKE' or 'DISLIKE' (only for SWIPE events)
+  /// - [viewDurationMs]: Optional view duration in milliseconds
+  /// - [context]: Optional context map
+  /// - [metadata]: Optional extra metadata map
+  /// - [token]: Optional authentication token
+  Future<void> logEvent({
+    required String productId,
+    required String eventType,
+    String? swipeAction,
+    int? viewDurationMs,
+    Map<String, dynamic>? context,
+    Map<String, dynamic>? metadata,
+    String? token,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/events');
+
+      final headers = <String, String>{'Content-Type': 'application/json'};
+      if (token != null) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+
+      final body = json.encode({
+        'productId': productId,
+        'eventType': eventType,
+        if (swipeAction != null) 'swipeAction': swipeAction,
+        if (viewDurationMs != null) 'viewDurationMs': viewDurationMs,
+        if (context != null) 'context': context,
+        if (metadata != null) 'metadata': metadata,
+      });
+
+      final response = await http.post(uri, headers: headers, body: body);
+
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        // Silently fail – event logging should never disrupt the user
+      }
+    } catch (_) {
+      // Never propagate event-logging errors
+    }
+  }
+
+  /// Get personalized swipe feed
+  ///
+  /// Endpoint: GET /api/v1/feed
+  ///
+  /// Parameters:
+  /// - [limit]: Number of items to return (default 20)
+  /// - [cursor]: Pagination cursor from previous response
+  /// - [category]: Optional category filter
+  /// - [token]: Required authentication token
+  Future<ProductListResponse> getFeed({
+    int limit = 20,
+    String? cursor,
+    String? category,
+    required String token,
+  }) async {
+    try {
+      final queryParams = <String, String>{'limit': limit.toString()};
+      if (cursor != null) queryParams['cursor'] = cursor;
+      if (category != null) queryParams['category'] = category;
+
+      final uri = Uri.parse(
+        '$baseUrl/feed',
+      ).replace(queryParameters: queryParams);
+
+      final headers = <String, String>{
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      };
+
+      final response = await http.get(uri, headers: headers);
+
+      if (response.statusCode == 200) {
+        final dynamic jsonData = json.decode(response.body);
+
+        // CursorPagedResponseProductResponse – extract the items list
+        List<dynamic>? itemsList;
+
+        if (jsonData is Map<String, dynamic>) {
+          final data = jsonData['data'];
+          if (data is Map<String, dynamic>) {
+            itemsList =
+                data['items'] as List<dynamic>? ??
+                data['data'] as List<dynamic>? ??
+                data['products'] as List<dynamic>?;
+          } else if (data is List) {
+            itemsList = data;
+          } else {
+            // Try top-level keys directly
+            itemsList =
+                jsonData['items'] as List<dynamic>? ??
+                jsonData['data'] as List<dynamic>?;
+          }
+        } else if (jsonData is List) {
+          itemsList = jsonData;
+        }
+
+        final products = <Product>[];
+        if (itemsList != null) {
+          for (final item in itemsList) {
+            try {
+              products.add(Product.fromJson(item as Map<String, dynamic>));
+            } catch (_) {
+              // Skip products that fail to parse
+            }
+          }
+        }
+
+        return ProductListResponse(products: products, total: products.length);
+      } else if (response.statusCode == 401) {
+        throw Exception('Authentication required for feed');
+      } else {
+        throw Exception(
+          'Failed to load feed: ${response.statusCode} ${response.body}',
+        );
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Get seller basic info (logo, locations, contact)
+  ///
+  /// Endpoint: GET /api/v1/sellers/{sellerId}
+  Future<SellerInfo> getSeller({
+    required String sellerId,
+    String? token,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/sellers/$sellerId');
+      final headers = <String, String>{'Content-Type': 'application/json'};
+      if (token != null) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+
+      final response = await http.get(uri, headers: headers);
+
+      if (response.statusCode == 200) {
+        final jsonData = json.decode(response.body);
+        final sellerData = jsonData['data'] ?? jsonData;
+        return SellerInfo.fromJson(sellerData as Map<String, dynamic>);
+      } else {
+        throw Exception('Failed to load seller: ${response.statusCode}');
       }
     } catch (e) {
       rethrow;
@@ -553,5 +757,81 @@ class ProductApiService {
     } catch (e) {
       rethrow;
     }
+  }
+}
+
+/// A single physical location of a seller (store/outlet)
+class SellerLocation {
+  final String? name;
+  final String? address;
+  final double? latitude;
+  final double? longitude;
+  final String? phoneNumber;
+  final bool isPrimary;
+
+  const SellerLocation({
+    this.name,
+    this.address,
+    this.latitude,
+    this.longitude,
+    this.phoneNumber,
+    this.isPrimary = false,
+  });
+
+  factory SellerLocation.fromJson(Map<String, dynamic> json) {
+    return SellerLocation(
+      name: json['name'] as String?,
+      address: json['address'] as String?,
+      latitude: (json['latitude'] as num?)?.toDouble(),
+      longitude: (json['longitude'] as num?)?.toDouble(),
+      phoneNumber: json['phone_number'] as String?,
+      isPrimary: json['is_primary'] as bool? ?? false,
+    );
+  }
+
+  bool get hasCoordinates => latitude != null && longitude != null;
+}
+
+/// Basic seller info returned by GET /api/v1/sellers/{sellerId}
+class SellerInfo {
+  final String id;
+  final String name;
+  final String? logoImg;
+  final String? description;
+  final int? productCount;
+  final List<SellerLocation> locations;
+  final String? websiteUrl;
+  final String? primaryAddress;
+  final String? phoneNumber;
+
+  const SellerInfo({
+    required this.id,
+    required this.name,
+    this.logoImg,
+    this.description,
+    this.productCount,
+    this.locations = const [],
+    this.websiteUrl,
+    this.primaryAddress,
+    this.phoneNumber,
+  });
+
+  factory SellerInfo.fromJson(Map<String, dynamic> json) {
+    final locationsList =
+        (json['locations'] as List<dynamic>?)
+            ?.map((l) => SellerLocation.fromJson(l as Map<String, dynamic>))
+            .toList() ??
+        [];
+    return SellerInfo(
+      id: json['id'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      logoImg: json['logo_img'] as String?,
+      description: json['description'] as String?,
+      productCount: (json['product_count'] as num?)?.toInt(),
+      locations: locationsList,
+      websiteUrl: json['website_url'] as String?,
+      primaryAddress: json['primary_address'] as String?,
+      phoneNumber: json['phone_number'] as String?,
+    );
   }
 }

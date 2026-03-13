@@ -7,6 +7,8 @@ import 'package:swipe/features/shop/presentation/screens/shop_screen.dart';
 import 'package:swipe/features/liked/presentation/screens/liked_screen.dart';
 import 'package:swipe/features/orders/presentation/screens/orders_screen.dart';
 import 'package:swipe/features/profile/presentation/screens/profile_screen.dart';
+import 'package:swipe/core/utils/local_storage_helper.dart';
+import 'package:swipe/shared/widgets/widgets.dart';
 
 /// Main Screen - Container with bottom navigation
 /// Houses all main app features: Discover, Liked, Shop, Orders, Profile
@@ -47,7 +49,16 @@ class MainScreenState extends State<MainScreen> {
     _currentIndex = widget.initialIndex;
   }
 
-  void _onTabTapped(int index) {
+  void _onTabTapped(int index) async {
+    // Gate certain tabs for guest users
+    if (index == 1 || index == 3 || index == 4) {
+      final storage = await LocalStorageHelper.getInstance();
+      if (storage.isGuestMode()) {
+        if (mounted) GuestLoginPrompt.show(context);
+        return;
+      }
+    }
+
     setState(() {
       _currentIndex = index;
     });

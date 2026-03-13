@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
+import 'dart:math' as math;
 import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
@@ -10,6 +11,7 @@ import 'package:swipe/core/services/product_api_service.dart';
 import 'package:swipe/core/models/product.dart' as api_models;
 import 'package:swipe/core/cache/image_cache_manager.dart';
 import 'package:swipe/core/services/visual_search_api_service.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:swipe/features/shop/presentation/screens/visual_search_results_screen.dart';
 import 'package:swipe/features/shop/presentation/screens/seller_profile_screen.dart';
 import 'package:swipe/features/shop/presentation/screens/shop_search_results_screen.dart';
@@ -21,9 +23,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 const _kShadowBlack08 = Color(0x14000000); // black.withOpacity(0.08)
 const _kShadowBlack25 = Color(0x40000000); // black.withOpacity(0.25)
 const _kShadowBlack30 = Color(0x4D000000); // black.withOpacity(0.30)
-const _kGradientShadow40 = Color(
-  0x66f093fb,
-); // Color(0xFFf093fb).withOpacity(0.4)
 const _kWhite12 = Color(0x1FFFFFFF); // white.withOpacity(0.12)
 const _kBlack08 = Color(0x14000000); // black.withOpacity(0.08)
 const _kBlack05 = Color(0x0D000000); // black.withOpacity(0.05)
@@ -371,33 +370,89 @@ class _ShopScreenState extends State<ShopScreen>
   Future<void> _handleVisualSearch() async {
     final l10n = AppLocalizations.of(context)!;
     try {
-      // Pick image from gallery (without showing dialog first)
+      // Pick image from gallery
       final image = await _visualSearchService.pickImage();
+      if (image == null) return;
 
-      if (image == null) {
-        // User cancelled image selection
-        return;
-      }
+      // Give the widget tree a frame to settle after the system image picker closes
+      if (!mounted) return;
+      await Future.delayed(const Duration(milliseconds: 300));
 
-      // Show loading dialog AFTER image is selected
+      // Let the user choose a category before searching
+      if (!mounted) return;
+      final category = await _showCategoryPicker(image);
+      if (category == null) return; // dismissed without selecting
+
+      // Show loading dialog AFTER category is confirmed
       if (!mounted) return;
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => WillPopScope(
+        builder: (ctx) => WillPopScope(
           onWillPop: () async => false,
-          child: AlertDialog(
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const CircularProgressIndicator(color: AppColors.brandBlack),
-                const SizedBox(height: 16),
-                Text(
-                  l10n.analyzingImageWithAI,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: AppColors.secondaryText),
-                ),
-              ],
+          child: Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            backgroundColor: Theme.of(context).brightness == Brightness.dark
+                ? AppColors.darkCardBackground
+                : AppColors.white,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Thumbnail
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: AspectRatio(
+                      aspectRatio: 4 / 3,
+                      child: ColoredBox(
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? AppColors.darkMainBackground
+                            : AppColors.gray100,
+                        child: Image.file(
+                          File(image.path),
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  // Icon + title
+                  const Icon(
+                    Icons.image_search_rounded,
+                    size: 32,
+                    color: AppColors.brandBlack,
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    l10n.analyzingImageWithAI,
+                    textAlign: TextAlign.center,
+                    style: AppTypography.body1.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? AppColors.darkPrimaryText
+                          : AppColors.primaryText,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // Sleek linear progress
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      minHeight: 4,
+                      backgroundColor:
+                          Theme.of(context).brightness == Brightness.dark
+                          ? AppColors.darkStandardBorder
+                          : AppColors.gray200,
+                      valueColor: const AlwaysStoppedAnimation<Color>(
+                        AppColors.brandBlack,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -405,8 +460,9 @@ class _ShopScreenState extends State<ShopScreen>
 
       // Fetch recommendations from the backend
       final response = await _visualSearchService.fetchRecommendations(
+        image: image,
         token: _authToken,
-        limit: 20,
+        category: category,
       );
 
       // Close loading dialog
@@ -423,7 +479,7 @@ class _ShopScreenState extends State<ShopScreen>
           context,
           MaterialPageRoute(
             builder: (_) => VisualSearchResultsScreen(
-              products: response.products,
+              results: response.results,
               uploadedImage: File(image.path),
             ),
           ),
@@ -451,6 +507,212 @@ class _ShopScreenState extends State<ShopScreen>
         );
       }
     }
+  }
+
+  Future<String?> _showCategoryPicker(XFile image) {
+    final l10n = AppLocalizations.of(context)!;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final categories = <(String, String, IconData)>[
+      ('TOPWEAR', l10n.vsCatTopwear, Icons.checkroom_outlined),
+      ('BOTTOMWEAR', l10n.vsCatBottomwear, Icons.airline_seat_legroom_extra),
+      ('DRESSES', l10n.vsCatDresses, Icons.dry_cleaning_outlined),
+      ('OUTERWEAR', l10n.vsCatOuterwear, Icons.layers_outlined),
+      ('ONE_PIECE', l10n.vsCatOnePiece, Icons.person_outline),
+      ('ACTIVEWEAR', l10n.vsCatActivewear, Icons.sports_outlined),
+      ('ACCESSORIES', l10n.vsCatAccessories, Icons.watch_outlined),
+      ('FOOTWEAR', l10n.vsCatFootwear, Icons.directions_walk_outlined),
+      ('UNDERWEAR', l10n.vsCatUnderwear, Icons.spa_outlined),
+      ('ISLAMIC_MODEST_WEAR', l10n.vsCatModestWear, Icons.woman_outlined),
+      ('TWO_PIECE_SET', l10n.vsCatTwoPieceSet, Icons.looks_two_outlined),
+      ('THREE_PIECE_SET', l10n.vsCatThreePieceSet, Icons.looks_3_outlined),
+      (
+        'BODYSUITS_TRIKO',
+        l10n.vsCatBodysuits,
+        Icons.accessibility_new_outlined,
+      ),
+      ('HOMEWEAR', l10n.vsCatHomewear, Icons.home_outlined),
+    ];
+
+    return showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: isDark ? AppColors.darkCardBackground : AppColors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      isScrollControlled: true,
+      builder: (ctx) {
+        String? selected;
+        return StatefulBuilder(
+          builder: (ctx, setState) => SafeArea(
+            child: Padding(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 12,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Drag handle
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? AppColors.darkStandardBorder
+                            : AppColors.gray300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  // Title
+                  Text(
+                    l10n.vsPickCategory,
+                    style: AppTypography.heading3.copyWith(
+                      color: isDark
+                          ? AppColors.darkPrimaryText
+                          : AppColors.primaryText,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  // Image preview — same style as results screen: no crop, aspect ratio box
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: AspectRatio(
+                      aspectRatio: 4 / 3,
+                      child: ColoredBox(
+                        color: isDark
+                            ? AppColors.darkMainBackground
+                            : AppColors.gray100,
+                        child: Image.file(
+                          File(image.path),
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  // Category dropdown
+                  DropdownButtonFormField<String>(
+                    value: selected,
+                    isExpanded: true,
+                    hint: Text(
+                      l10n.vsPickCategory,
+                      style: AppTypography.body1.copyWith(
+                        color: isDark
+                            ? AppColors.darkSecondaryText
+                            : AppColors.secondaryText,
+                      ),
+                    ),
+                    dropdownColor: isDark
+                        ? AppColors.darkCardBackground
+                        : AppColors.white,
+                    decoration: InputDecoration(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: isDark
+                              ? AppColors.darkStandardBorder
+                              : AppColors.gray300,
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: isDark
+                              ? AppColors.darkStandardBorder
+                              : AppColors.gray300,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: isDark
+                              ? AppColors.darkPrimaryText
+                              : AppColors.black,
+                          width: 2,
+                        ),
+                      ),
+                    ),
+                    icon: Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: isDark
+                          ? AppColors.darkPrimaryText
+                          : AppColors.primaryText,
+                    ),
+                    style: AppTypography.body1.copyWith(
+                      color: isDark
+                          ? AppColors.darkPrimaryText
+                          : AppColors.primaryText,
+                    ),
+                    items: [
+                      for (final cat in categories)
+                        DropdownMenuItem(
+                          value: cat.$1,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(cat.$2),
+                              Icon(
+                                cat.$3,
+                                size: 18,
+                                color: isDark
+                                    ? AppColors.darkSecondaryText
+                                    : AppColors.gray600,
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                    onChanged: (v) => setState(() => selected = v),
+                  ),
+                  const SizedBox(height: 16),
+                  // Search button
+                  ElevatedButton(
+                    onPressed: selected == null
+                        ? null
+                        : () => Navigator.of(ctx).pop(selected),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isDark
+                          ? AppColors.darkPrimaryText
+                          : AppColors.black,
+                      disabledBackgroundColor: isDark
+                          ? AppColors.darkButtonDisabled
+                          : AppColors.gray300,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text(
+                      l10n.vsSearchButton,
+                      style: AppTypography.body1.copyWith(
+                        color: selected == null
+                            ? (isDark
+                                  ? AppColors.darkDisabledText
+                                  : AppColors.gray500)
+                            : (isDark ? AppColors.black : AppColors.white),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -502,55 +764,10 @@ class _ShopScreenState extends State<ShopScreen>
                           ],
                         ),
                       ),
-                      // Visual Search Button
-                      Container(
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [Color(0xFFf093fb), Color(0xFFF5576c)],
-                          ),
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: _kGradientShadow40,
-                              blurRadius: 12,
-                              offset: Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: _handleVisualSearch,
-                            borderRadius: BorderRadius.circular(14),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 10,
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(
-                                    Icons.camera_alt_rounded,
-                                    color: Colors.white,
-                                    size: 18,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    l10n.aiScan,
-                                    style: AppTypography.caption.copyWith(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w600,
-                                      letterSpacing: 0.3,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
+                      // Visual Search Button – animated
+                      _AnimatedVisualSearchButton(
+                        onTap: _handleVisualSearch,
+                        label: l10n.aiScan,
                       ),
                     ],
                   ),
@@ -840,40 +1057,61 @@ class _ShopScreenState extends State<ShopScreen>
   }
 
   Widget _buildErrorState(AppLocalizations l10n) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(40),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, size: 80, color: Colors.red),
+            Icon(
+              Icons.wifi_off_rounded,
+              size: 80,
+              color: isDark ? AppColors.darkSecondaryText : AppColors.gray400,
+            ),
             const SizedBox(height: 24),
             Text(
-              'Error Loading Products',
-              style: AppTypography.heading3,
+              l10n.shopErrorTitle,
+              style: AppTypography.heading3.copyWith(
+                color: isDark
+                    ? AppColors.darkPrimaryText
+                    : AppColors.primaryText,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
             Text(
-              _errorMessage ?? 'Something went wrong',
+              l10n.shopErrorSubtitle,
               style: AppTypography.body2.copyWith(
-                color: AppColors.secondaryText,
+                color: isDark
+                    ? AppColors.darkSecondaryText
+                    : AppColors.secondaryText,
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 24),
-            ElevatedButton(
+            const SizedBox(height: 32),
+            ElevatedButton.icon(
               onPressed: _loadProducts,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.black,
+                backgroundColor: isDark
+                    ? AppColors.darkPrimaryText
+                    : AppColors.black,
+                foregroundColor: isDark ? AppColors.black : AppColors.white,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 32,
                   vertical: 16,
                 ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
-              child: Text(
-                'Retry',
-                style: AppTypography.body1.copyWith(color: AppColors.white),
+              icon: const Icon(Icons.refresh_rounded, size: 20),
+              label: Text(
+                l10n.shopRetry,
+                style: AppTypography.body1.copyWith(
+                  color: isDark ? AppColors.black : AppColors.white,
+                ),
               ),
             ),
           ],
@@ -1207,4 +1445,138 @@ class _TikTokProductCard extends StatelessWidget {
   //   ];
   //   return gradients[hash.abs() % gradients.length];
   // }
+}
+
+// ── Animated Visual Search Button ─────────────────────────────────────────────
+
+class _AnimatedVisualSearchButton extends StatefulWidget {
+  final VoidCallback onTap;
+  final String label;
+
+  const _AnimatedVisualSearchButton({required this.onTap, required this.label});
+
+  @override
+  State<_AnimatedVisualSearchButton> createState() =>
+      _AnimatedVisualSearchButtonState();
+}
+
+class _AnimatedVisualSearchButtonState
+    extends State<_AnimatedVisualSearchButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        // Smooth sine pulse: 0.0 → 1.0 → 0.0 over one cycle
+        final pulse =
+            (math.sin(_controller.value * math.pi * 2 - math.pi / 2) + 1) / 2;
+        final glow = 8.0 + pulse * 18.0;
+        final scale = 1.0 + pulse * 0.04;
+        // Shimmer sweeps from left to right once per cycle
+        final shimmer = _controller.value;
+
+        return Transform.scale(
+          scale: scale,
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFFf093fb), Color(0xFFF5576c)],
+              ),
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: Color.fromRGBO(240, 147, 251, 0.4 + pulse * 0.3),
+                  blurRadius: glow,
+                  spreadRadius: 1,
+                  offset: const Offset(0, 3),
+                ),
+                BoxShadow(
+                  color: Color.fromRGBO(245, 87, 108, 0.35 + pulse * 0.25),
+                  blurRadius: glow * 0.7,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: Stack(
+                children: [
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: widget.onTap,
+                      borderRadius: BorderRadius.circular(14),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.camera_alt_rounded,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              widget.label,
+                              style: AppTypography.caption.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.3,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Shimmer sweep overlay
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment(-2.5 + shimmer * 5.0, -0.5),
+                            end: Alignment(-1.8 + shimmer * 5.0, 0.5),
+                            colors: const [
+                              Color(0x00FFFFFF),
+                              Color(0x3DFFFFFF),
+                              Color(0x00FFFFFF),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 }

@@ -11,6 +11,8 @@ import 'package:swipe/features/main/presentation/screens/main_screen.dart';
 import 'package:swipe/core/services/product_api_service.dart';
 import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/core/network/api_client.dart';
+import 'package:swipe/core/utils/local_storage_helper.dart';
+import 'package:swipe/shared/widgets/widgets.dart';
 
 /// Cart Screen - Shopping cart with checkout
 class CartScreen extends StatefulWidget {
@@ -216,6 +218,12 @@ class _CartScreenState extends State<CartScreen> {
   double get _total => _subtotal + _shipping;
 
   Future<void> _proceedToCheckout() async {
+    // Gate for guest users
+    final storage = await LocalStorageHelper.getInstance();
+    if (storage.isGuestMode()) {
+      if (mounted) GuestLoginPrompt.show(context);
+      return;
+    }
     // Navigate to checkout screen
     final result = await Navigator.of(
       context,

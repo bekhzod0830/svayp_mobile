@@ -1030,6 +1030,12 @@ class AppLocalizationsUz extends AppLocalizations {
   String get visitShop => 'Do\'konga tashrif';
 
   @override
+  String get whereToBuy => 'Qayerda sotib olish mumkin';
+
+  @override
+  String get getDirections => 'Xaritada ko\'rish';
+
+  @override
   String get viewAllProducts => 'Barcha mahsulotlarni ko\'rish';
 
   @override
@@ -1051,6 +1057,54 @@ class AppLocalizationsUz extends AppLocalizations {
   String get visualSearch => 'Vizual qidiruv';
 
   @override
+  String get vsPickCategory => 'Kategoriyani tanlang';
+
+  @override
+  String get vsSearchButton => 'Qidirish';
+
+  @override
+  String get vsCatTopwear => 'Yuqori kiyimlar';
+
+  @override
+  String get vsCatBottomwear => 'Pastki kiyimlar';
+
+  @override
+  String get vsCatDresses => 'Ko\'ylaklar';
+
+  @override
+  String get vsCatOuterwear => 'Ustki kiyimlar';
+
+  @override
+  String get vsCatOnePiece => 'Kombinzonlar';
+
+  @override
+  String get vsCatActivewear => 'Sport kiyimlar';
+
+  @override
+  String get vsCatAccessories => 'Aksessuarlar';
+
+  @override
+  String get vsCatFootwear => 'Oyoq kiyimlar';
+
+  @override
+  String get vsCatUnderwear => 'Ichki kiyimlar';
+
+  @override
+  String get vsCatModestWear => 'Yopiq kiyimlar';
+
+  @override
+  String get vsCatTwoPieceSet => 'Dvo\'yka';
+
+  @override
+  String get vsCatThreePieceSet => 'Tro\'yka';
+
+  @override
+  String get vsCatBodysuits => 'Bodi va triko';
+
+  @override
+  String get vsCatHomewear => 'Uy kiyimlari';
+
+  @override
   String get visualSearchResults => 'Vizual qidiruv natijalari';
 
   @override
@@ -1070,8 +1124,7 @@ class AppLocalizationsUz extends AppLocalizations {
   String get yourSearchImage => 'Qidiruv uchun rasmingiz';
 
   @override
-  String get analyzingImageWithAI =>
-      'Tasvir AI yordamida tahlil qilinmoqda...\nBu bir necha soniya vaqt olishi mumkin';
+  String get analyzingImageWithAI => 'O\'xshash uslublar qidirilmoqda';
 
   @override
   String get aiAnalysis => 'AI tahlili';
@@ -1650,6 +1703,22 @@ class AppLocalizationsUz extends AppLocalizations {
   @override
   String get deleteAccountError =>
       'Akkauntni o\'chirib bo\'lmadi. Qayta urinib ko\'ring.';
+
+  @override
+  String get browseAsGuest => 'Mehmon sifatida ko\'rish';
+
+  @override
+  String get guestPromptTitle => 'Davom etish uchun kiring';
+
+  @override
+  String get guestPromptMessage =>
+      'Sevimlilarni saqlash, savatga mahsulot qo\'shish va buyurtmalarni kuzatish uchun bepul akkaunt yarating.';
+
+  @override
+  String get guestPromptSignIn => 'Kirish';
+
+  @override
+  String get guestPromptContinueBrowsing => 'Ko\'rishni davom ettirish';
 
   @override
   String version(String version) {
@@ -2485,4 +2554,24 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get points => 'ball';
+
+  @override
+  String get shopErrorTitle => 'Voy, nimadir xato ketdi';
+
+  @override
+  String get shopErrorSubtitle =>
+      'Mahsulotlarni yuklab bo\'lmadi. Internetni tekshiring va qayta urinib ko\'ring.';
+
+  @override
+  String get shopRetry => 'Qayta urinish';
+
+  @override
+  String get errorGenericTitle => 'Voy, nimadir xato ketdi';
+
+  @override
+  String get errorGenericSubtitle =>
+      'Internetni tekshiring va qayta urinib ko\'ring.';
+
+  @override
+  String get errorRetry => 'Qayta urinish';
 }

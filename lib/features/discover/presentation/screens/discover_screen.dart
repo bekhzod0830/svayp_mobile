@@ -14,6 +14,7 @@ import 'package:swipe/features/product/presentation/screens/product_detail_scree
 import 'package:swipe/core/services/product_api_service.dart';
 import 'package:swipe/core/models/product.dart' as api_models;
 import 'package:swipe/core/services/recommendation_cache_service.dart';
+import 'package:swipe/core/constants/product_enums.dart';
 
 /// Discover Screen - Main swipe feed
 /// Primary feature of the app where users discover and swipe products
@@ -122,22 +123,20 @@ class DiscoverScreenState extends State<DiscoverScreen> {
           // Mark cache as used so we fetch fresh recommendations next time
           await RecommendationCacheService.markCacheAsUsed();
         } else {
-          // No cached data, fetch from API as usual
+          // No cached data, fetch from personalized feed
           try {
-            final response = await _apiService.getRecommendedProducts(
+            final response = await _apiService.getFeed(
               token: _authToken!,
+              limit: 10,
             );
 
             // Convert API products to local Product entities
-            int convertedCount = 0;
-            int failedCount = 0;
             for (final apiProduct in response.products) {
               try {
                 final product = _convertApiProduct(apiProduct);
                 loadedProducts.add(product);
-                convertedCount++;
               } catch (e) {
-                failedCount++;
+                // Skip products that fail to convert
               }
             }
           } catch (e) {
@@ -251,6 +250,13 @@ class DiscoverScreenState extends State<DiscoverScreen> {
           .catchError((e) {
             // Silently handle error - don't interrupt user experience
           });
+      // Log swipe event
+      _apiService.logEvent(
+        productId: swipedProduct.id,
+        eventType: 'SWIPE',
+        swipeAction: 'DISLIKE',
+        token: _authToken,
+      );
     }
   }
 
@@ -282,6 +288,13 @@ class DiscoverScreenState extends State<DiscoverScreen> {
           .catchError((e) {
             // Silently handle error - don't interrupt user experience
           });
+      // Log swipe event
+      _apiService.logEvent(
+        productId: swipedProduct.id,
+        eventType: 'SWIPE',
+        swipeAction: 'LIKE',
+        token: _authToken,
+      );
     }
   }
 
@@ -293,193 +306,163 @@ class DiscoverScreenState extends State<DiscoverScreen> {
     final swipedProduct = _products[_currentCardIndex];
     final l10n = AppLocalizations.of(context)!;
 
-    // If product has sizes, show size selection dialog
-    if (swipedProduct.sizes.isNotEmpty) {
-      // Don't advance card yet - let user select size first
-      String? selectedSize;
-      String? selectedColor;
+    // Auto-select size if only one option (or universal), auto-select color if only one
+    final universalSizes = {'One Size', 'Free Size', 'one_size', 'free_size'};
+    String? selectedSize;
+    String? selectedColor;
 
+    if (swipedProduct.sizes.length == 1) {
+      selectedSize = swipedProduct.sizes.first;
+    } else if (swipedProduct.sizes.isNotEmpty &&
+        swipedProduct.sizes.every((s) => universalSizes.contains(s))) {
+      selectedSize = swipedProduct.sizes.first;
+    }
+
+    if (swipedProduct.colors.length == 1) {
+      selectedColor = swipedProduct.colors.first;
+    }
+
+    // Only show dialog if user still needs to choose size or color
+    final needsSizeChoice =
+        selectedSize == null && swipedProduct.sizes.isNotEmpty;
+    final needsColorChoice =
+        selectedColor == null && swipedProduct.colors.length > 1;
+
+    if (needsSizeChoice || needsColorChoice) {
       // Show size/color selection dialog
       final shouldAddToCart = await showDialog<bool>(
         context: context,
-        builder: (context) => AlertDialog(
-          title: Text(l10n.selectSizeAndColor),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Size selection
-              Text(
-                l10n.size,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: swipedProduct.sizes.map((size) {
-                  return ChoiceChip(
-                    label: Text(size),
-                    selected: selectedSize == size,
-                    onSelected: (selected) {
-                      if (selected) {
-                        selectedSize = size;
-                        (context as Element).markNeedsBuild();
-                      }
-                    },
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 16),
-              // Color selection (if available)
-              if (swipedProduct.colors.isNotEmpty) ...[
-                Text(
-                  l10n.color,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: swipedProduct.colors.map((color) {
-                    final isSelected = selectedColor == color;
-                    final isHexColor = color.startsWith('#');
+        builder: (context) => StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            title: Text(l10n.selectSizeAndColor),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Size selection – always shown when sizes exist; pre-selected if only one
+                if (swipedProduct.sizes.isNotEmpty) ...[
+                  Text(
+                    l10n.size,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    children: swipedProduct.sizes.map((size) {
+                      return ChoiceChip(
+                        label: Text(size),
+                        selected: selectedSize == size,
+                        onSelected: (selected) {
+                          if (selected) {
+                            setDialogState(() => selectedSize = size);
+                          }
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                // Color selection – always shown when colors exist; pre-selected if only one
+                if (swipedProduct.colors.isNotEmpty) ...[
+                  Text(
+                    l10n.color,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: swipedProduct.colors.map((color) {
+                      final isSelected = selectedColor == color;
+                      final isHexColor = color.startsWith('#');
 
-                    return GestureDetector(
-                      onTap: () {
-                        selectedColor = color;
-                        (context as Element).markNeedsBuild();
-                      },
-                      child: isHexColor
-                          ? _buildColorCircle(color, isSelected, context)
-                          : Chip(
-                              label: Text(color),
-                              backgroundColor: isSelected
-                                  ? Theme.of(context).primaryColor
-                                  : null,
-                            ),
-                    );
-                  }).toList(),
-                ),
+                      return GestureDetector(
+                        onTap: () {
+                          setDialogState(() => selectedColor = color);
+                        },
+                        child: isHexColor
+                            ? _buildColorCircle(color, isSelected, context)
+                            : Chip(
+                                label: Text(color),
+                                backgroundColor: isSelected
+                                    ? Theme.of(context).primaryColor
+                                    : null,
+                              ),
+                      );
+                    }).toList(),
+                  ),
+                ],
               ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text(l10n.cancel),
+              ),
+              ElevatedButton(
+                onPressed:
+                    (swipedProduct.sizes.isEmpty || selectedSize != null) &&
+                        (swipedProduct.colors.isEmpty || selectedColor != null)
+                    ? () => Navigator.pop(context, true)
+                    : null,
+                child: Text(l10n.addToCart),
+              ),
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: Text(l10n.cancel),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                if (selectedSize != null) {
-                  Navigator.pop(context, true);
-                }
-              },
-              child: Text(l10n.addToCart),
-            ),
-          ],
         ),
       );
 
-      if (shouldAddToCart != true || selectedSize == null) {
-        return; // User cancelled or didn't select size
-      }
+      if (shouldAddToCart != true) return;
+    }
 
-      // User selected size, proceed with adding to cart
-      _swipeHistory.add({'product': swipedProduct, 'action': 'superlike'});
+    // If no sizes at all, use one_size fallback
+    final resolvedSize = selectedSize ?? l10n.oneSize;
 
-      setState(() {
-        _currentCardIndex++;
-        _dragProgressNotifier.value = 0.0;
-      });
+    // Proceed with adding to cart
+    _swipeHistory.add({'product': swipedProduct, 'action': 'superlike'});
 
-      // Clean up old card key
-      _cardKeys.remove(swipedProduct.id);
+    setState(() {
+      _currentCardIndex++;
+      _dragProgressNotifier.value = 0.0;
+    });
 
-      _showToast(l10n.addedToCart);
+    _cardKeys.remove(swipedProduct.id);
+    _showToast(l10n.addedToCart);
 
-      await _cartService.addToCart(
-        swipedProduct,
-        selectedSize: selectedSize!,
-        selectedColor: selectedColor,
-      );
+    await _cartService.addToCart(
+      swipedProduct,
+      selectedSize: resolvedSize,
+      selectedColor: selectedColor,
+    );
 
-      // Send to backend API if authenticated
-      if (_authToken != null && _authToken!.isNotEmpty) {
-        try {
-          // Convert color from display format ("Light Blue") to backend format ("light_blue")
-          final backendColor = selectedColor?.toLowerCase().replaceAll(
-            ' ',
-            '_',
-          );
+    // Send to backend API if authenticated
+    if (_authToken != null && _authToken!.isNotEmpty) {
+      try {
+        final backendSize =
+            SizeEnum.fromDisplayName(resolvedSize)?.value ??
+            SizeEnum.fromString(resolvedSize)?.value ??
+            resolvedSize.toLowerCase().replaceAll(' ', '_');
+        final backendColor = selectedColor;
 
-          await _apiService.addToCart(
-            productId: swipedProduct.id,
-            selectedSize: selectedSize!,
-            selectedColor: backendColor,
-            quantity: 1,
-            token: _authToken!,
-          );
+        await _apiService.addToCart(
+          productId: swipedProduct.id,
+          selectedSize: backendSize,
+          selectedColor: backendColor,
+          quantity: 1,
+          token: _authToken!,
+        );
 
-          // Only update cart count after successful API call
-          _updateCartCount();
-        } catch (e) {
-          // Rollback local cart on API failure
-          await _cartService.removeByMatch(
-            productId: swipedProduct.id,
-            selectedSize: selectedSize!,
-            selectedColor: selectedColor,
-          );
-
-          // Show error toast
-          _showToast('Failed to add to cart');
-        }
-      } else {
-        // Not authenticated - just update local cart count
         _updateCartCount();
+      } catch (e) {
+        await _cartService.removeByMatch(
+          productId: swipedProduct.id,
+          selectedSize: resolvedSize,
+          selectedColor: selectedColor,
+        );
+        _showToast('Failed to add to cart');
       }
     } else {
-      // No sizes available - just add with "One Size"
-      _swipeHistory.add({'product': swipedProduct, 'action': 'superlike'});
-
-      setState(() {
-        _currentCardIndex++;
-        _dragProgressNotifier.value = 0.0;
-      });
-
-      // Clean up old card key
-      _cardKeys.remove(swipedProduct.id);
-
-      _showToast(l10n.addedToCart);
-
-      await _cartService.addToCart(swipedProduct, selectedSize: l10n.oneSize);
-
-      // Send to backend API if authenticated
-      if (_authToken != null && _authToken!.isNotEmpty) {
-        try {
-          await _apiService.addToCart(
-            productId: swipedProduct.id,
-            selectedSize: l10n.oneSize,
-            quantity: 1,
-            token: _authToken!,
-          );
-
-          // Only update cart count after successful API call
-          _updateCartCount();
-        } catch (e) {
-          // Rollback local cart on API failure
-          await _cartService.removeByMatch(
-            productId: swipedProduct.id,
-            selectedSize: l10n.oneSize,
-            selectedColor: null,
-          );
-
-          // Show error toast
-          _showToast('Failed to add to cart');
-        }
-      } else {
-        // Not authenticated - just update local cart count
-        _updateCartCount();
-      }
+      _updateCartCount();
     }
   }
 

@@ -11,6 +11,7 @@ import 'package:swipe/core/utils/responsive_utils.dart';
 import 'package:swipe/core/localization/widgets/language_selector.dart';
 import 'package:swipe/shared/widgets/widgets.dart';
 import 'package:swipe/core/di/service_locator.dart';
+import 'package:swipe/core/utils/local_storage_helper.dart';
 import 'package:swipe/features/auth/data/services/auth_service.dart';
 import 'package:swipe/core/network/api_client.dart';
 
@@ -383,6 +384,22 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                         onPressed: _sendOTP,
                         isLoading: _isLoading,
                         isFullWidth: true,
+                      ),
+                      const SizedBox(height: 8),
+                      // Browse as Guest
+                      TextButton(
+                        onPressed: () async {
+                          final storage =
+                              await LocalStorageHelper.getInstance();
+                          await storage.setGuestMode(true);
+                          if (context.mounted) {
+                            Navigator.of(context).pushReplacementNamed('/main');
+                          }
+                        },
+                        child: Text(
+                          l10n.browseAsGuest,
+                          style: const TextStyle(fontSize: 14),
+                        ),
                       ),
                     ],
                   ),

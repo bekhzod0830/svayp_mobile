@@ -48,7 +48,8 @@ enum SizeEnum {
 
   // Universal
   oneSize('one_size'),
-  freeSize('free_size');
+  freeSize('free_size'),
+  std('std');
 
   final String value;
   const SizeEnum(this.value);
@@ -76,6 +77,8 @@ enum SizeEnum {
         return 'One Size';
       case SizeEnum.freeSize:
         return 'Free Size';
+      case SizeEnum.std:
+        return 'Standard';
       case SizeEnum.size2t:
         return '2T';
       case SizeEnum.size3t:
@@ -93,6 +96,17 @@ enum SizeEnum {
     if (value == null) return null;
     try {
       return SizeEnum.values.firstWhere((e) => e.value == value.toLowerCase());
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Reverse lookup by display name (e.g. "Standard" → SizeEnum.std)
+  static SizeEnum? fromDisplayName(String displayName) {
+    try {
+      return SizeEnum.values.firstWhere(
+        (e) => e.displayName.toLowerCase() == displayName.toLowerCase(),
+      );
     } catch (_) {
       return null;
     }

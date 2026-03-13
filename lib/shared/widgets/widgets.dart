@@ -28,3 +28,6 @@ export 'custom_widgets.dart';
 
 // Onboarding Widgets
 export 'onboarding_progress_bar.dart';
+
+// Guest Mode
+export 'guest_login_prompt.dart';

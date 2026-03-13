@@ -29,13 +29,14 @@ class LikedProductModelAdapter extends TypeAdapter<LikedProductModel> {
       discountPercentage: fields[9] as int?,
       originalPrice: fields[10] as int?,
       sellerId: fields[11] as String?,
+      currency: fields[12] as String? ?? 'UZS',
     );
   }
 
   @override
   void write(BinaryWriter writer, LikedProductModel obj) {
     writer
-      ..writeByte(12)
+      ..writeByte(13)
       ..writeByte(0)
       ..write(obj.productId)
       ..writeByte(1)
@@ -59,7 +60,9 @@ class LikedProductModelAdapter extends TypeAdapter<LikedProductModel> {
       ..writeByte(10)
       ..write(obj.originalPrice)
       ..writeByte(11)
-      ..write(obj.sellerId);
+      ..write(obj.sellerId)
+      ..writeByte(12)
+      ..write(obj.currency);
   }
 
   @override

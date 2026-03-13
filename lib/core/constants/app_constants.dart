@@ -19,6 +19,7 @@ class AppConstants {
   static const String isOnboardedKey = 'is_onboarded';
   static const String userProfileKey = 'user_profile';
   static const String themeKey = 'theme_mode';
+  static const String isGuestModeKey = 'is_guest_mode';
 
   // Onboarding
   static const int styleQuizItemCount = 20;

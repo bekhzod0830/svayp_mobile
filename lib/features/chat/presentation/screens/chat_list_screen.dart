@@ -84,7 +84,6 @@ class _ChatListScreenState extends State<ChatListScreen>
         _isLoading = false;
       });
     } catch (e, stackTrace) {
-
       if (!mounted) return;
 
       setState(() {
@@ -143,22 +142,54 @@ class _ChatListScreenState extends State<ChatListScreen>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.error_outline,
-              size: 100,
+              Icons.wifi_off_rounded,
+              size: 80,
               color: isDark ? AppColors.darkSecondaryText : AppColors.gray400,
             ),
             const SizedBox(height: 24),
             Text(
-              _errorMessage ?? 'Error loading chats',
-              style: AppTypography.body1.copyWith(
+              l10n.errorGenericTitle,
+              style: AppTypography.heading3.copyWith(
+                color: isDark
+                    ? AppColors.darkPrimaryText
+                    : AppColors.primaryText,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              l10n.errorGenericSubtitle,
+              style: AppTypography.body2.copyWith(
                 color: isDark
                     ? AppColors.darkSecondaryText
                     : AppColors.secondaryText,
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 16),
-            ElevatedButton(onPressed: _refreshChats, child: Text(l10n.retry)),
+            const SizedBox(height: 32),
+            ElevatedButton.icon(
+              onPressed: _refreshChats,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isDark
+                    ? AppColors.darkPrimaryText
+                    : AppColors.black,
+                foregroundColor: isDark ? AppColors.black : AppColors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 16,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              icon: const Icon(Icons.refresh_rounded, size: 20),
+              label: Text(
+                l10n.errorRetry,
+                style: AppTypography.body1.copyWith(
+                  color: isDark ? AppColors.black : AppColors.white,
+                ),
+              ),
+            ),
           ],
         ),
       ),

@@ -576,7 +576,9 @@ class _TikTokLikedProductCard extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        '${product.price.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} UZS',
+                        product.currency == 'USD'
+                            ? '\$${product.price}'
+                            : '${product.price.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} UZS',
                         style: AppTypography.body2.copyWith(
                           fontWeight: FontWeight.bold,
                           color: isDark
@@ -590,7 +592,9 @@ class _TikTokLikedProductCard extends StatelessWidget {
                       if (product.originalPrice != null &&
                           product.originalPrice! > product.price)
                         Text(
-                          '${product.originalPrice.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} UZS',
+                          product.currency == 'USD'
+                              ? '\$${product.originalPrice}'
+                              : '${product.originalPrice.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} UZS',
                           style: AppTypography.caption.copyWith(
                             color: isDark
                                 ? AppColors.gray400

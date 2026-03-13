@@ -14,7 +14,7 @@ publish_to: 'none'
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+3
+version: 1.0.0+6
 
 environment:
   sdk: ^3.9.2
@@ -43,6 +43,7 @@ dependencies:
   pretty_dio_logger: ^1.4.0
   connectivity_plus: ^6.0.5
   http: ^1.1.0
+  http_parser: ^4.0.2
   web_socket_channel: ^3.0.1
   stomp_dart_client: ^2.0.0
   
@@ -99,6 +100,8 @@ dependencies:
 
   # URL Launcher
   url_launcher: ^6.3.1
+  flutter_map: ^8.2.2
+  latlong2: ^0.9.1
 
 dev_dependencies:
   flutter_test:

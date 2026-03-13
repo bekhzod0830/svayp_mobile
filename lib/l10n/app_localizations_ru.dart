@@ -1029,6 +1029,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String get visitShop => 'Посетить магазин';
 
   @override
+  String get whereToBuy => 'Где купить';
+
+  @override
+  String get getDirections => 'Посмотреть на карте';
+
+  @override
   String get viewAllProducts => 'Смотреть все товары';
 
   @override
@@ -1050,6 +1056,54 @@ class AppLocalizationsRu extends AppLocalizations {
   String get visualSearch => 'Визуальный поиск';
 
   @override
+  String get vsPickCategory => 'Выберите категорию';
+
+  @override
+  String get vsSearchButton => 'Найти';
+
+  @override
+  String get vsCatTopwear => 'Верхняя одежда';
+
+  @override
+  String get vsCatBottomwear => 'Нижняя одежда';
+
+  @override
+  String get vsCatDresses => 'Платья';
+
+  @override
+  String get vsCatOuterwear => 'Верхняя одежда';
+
+  @override
+  String get vsCatOnePiece => 'Комбинезоны';
+
+  @override
+  String get vsCatActivewear => 'Спортивная одежда';
+
+  @override
+  String get vsCatAccessories => 'Аксессуары';
+
+  @override
+  String get vsCatFootwear => 'Обувь';
+
+  @override
+  String get vsCatUnderwear => 'Бельё';
+
+  @override
+  String get vsCatModestWear => 'Закрытая одежда';
+
+  @override
+  String get vsCatTwoPieceSet => 'Двойки';
+
+  @override
+  String get vsCatThreePieceSet => 'Тройки';
+
+  @override
+  String get vsCatBodysuits => 'Боди и трико';
+
+  @override
+  String get vsCatHomewear => 'Домашняя одежда';
+
+  @override
   String get visualSearchResults => 'Результаты визуального поиска';
 
   @override
@@ -1069,8 +1123,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get yourSearchImage => 'Ваше изображение для поиска';
 
   @override
-  String get analyzingImageWithAI =>
-      'Анализ изображения с помощью ИИ...\nЭто может занять несколько секунд';
+  String get analyzingImageWithAI => 'Ищем похожие стили...';
 
   @override
   String get aiAnalysis => 'Анализ ИИ';
@@ -1643,6 +1696,22 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get deleteAccountError =>
       'Не удалось удалить аккаунт. Попробуйте ещё раз.';
+
+  @override
+  String get browseAsGuest => 'Войти как гость';
+
+  @override
+  String get guestPromptTitle => 'Войдите, чтобы продолжить';
+
+  @override
+  String get guestPromptMessage =>
+      'Создайте бесплатный аккаунт, чтобы сохранять избранное, добавлять товары в корзину и отслеживать заказы.';
+
+  @override
+  String get guestPromptSignIn => 'Войти';
+
+  @override
+  String get guestPromptContinueBrowsing => 'Продолжить просмотр';
 
   @override
   String version(String version) {
@@ -2471,4 +2540,24 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get points => 'балл';
+
+  @override
+  String get shopErrorTitle => 'Ой, что-то пошло не так';
+
+  @override
+  String get shopErrorSubtitle =>
+      'Не удалось загрузить товары. Проверьте подключение и попробуйте снова.';
+
+  @override
+  String get shopRetry => 'Повторить';
+
+  @override
+  String get errorGenericTitle => 'Ой, что-то пошло не так';
+
+  @override
+  String get errorGenericSubtitle =>
+      'Проверьте подключение и попробуйте снова.';
+
+  @override
+  String get errorRetry => 'Повторить';
 }

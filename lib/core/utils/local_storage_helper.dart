@@ -158,6 +158,24 @@ class LocalStorageHelper {
     return _preferences?.containsKey(key) ?? false;
   }
 
+  // ============== Guest Mode ==============
+
+  /// Enable guest mode (browsing without account)
+  Future<bool> setGuestMode(bool value) async {
+    return await _preferences?.setBool(AppConstants.isGuestModeKey, value) ??
+        false;
+  }
+
+  /// Check if user is in guest mode
+  bool isGuestMode() {
+    return _preferences?.getBool(AppConstants.isGuestModeKey) ?? false;
+  }
+
+  /// Clear guest mode flag
+  Future<bool> clearGuestMode() async {
+    return await _preferences?.remove(AppConstants.isGuestModeKey) ?? false;
+  }
+
   // ============== Tutorial/First Time Flags ==============
 
   /// Mark tutorial as completed

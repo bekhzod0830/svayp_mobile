@@ -9,6 +9,7 @@ import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/features/auth/data/services/auth_service.dart';
 import 'package:swipe/core/network/api_client.dart';
 import 'package:swipe/core/config/api_config.dart';
+import 'package:swipe/core/utils/local_storage_helper.dart';
 
 /// OTP Verification Screen
 /// User enters 6-digit OTP code sent to their phone
@@ -178,6 +179,10 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 
       // Clear any leftover partner role from a previous admin session
       await getIt<ApiClient>().clearUserRole();
+
+      // Clear guest mode if user was browsing as guest
+      final storage = await LocalStorageHelper.getInstance();
+      await storage.clearGuestMode();
 
       if (!mounted) return;
 

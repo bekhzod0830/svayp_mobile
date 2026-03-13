@@ -136,14 +136,20 @@ class Product {
     };
   }
 
-  /// Get formatted price in UZS
+  /// Get formatted price with correct currency symbol
   String get formattedPrice {
+    if (currency == 'USD') {
+      return '\$$price';
+    }
     return '${price.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} UZS';
   }
 
-  /// Get discount price if available
+  /// Get formatted original/discount price with correct currency symbol
   String? get formattedDiscountPrice {
     if (originalPrice != null) {
+      if (currency == 'USD') {
+        return '\$$originalPrice';
+      }
       return '${originalPrice.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} UZS';
     }
     return null;

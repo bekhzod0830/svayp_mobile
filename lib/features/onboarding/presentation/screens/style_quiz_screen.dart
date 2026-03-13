@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:convert';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
+import 'package:swipe/core/services/product_api_service.dart';
 import 'package:swipe/shared/widgets/widgets.dart';
 import 'package:swipe/features/onboarding/data/onboarding_data_manager.dart';
 
@@ -19,10 +21,12 @@ class StyleQuizScreen extends StatefulWidget {
 
 class _StyleQuizScreenState extends State<StyleQuizScreen> {
   final Map<int, bool> _answers = {}; // true = like, false = dislike
+  final ProductApiService _apiService = ProductApiService();
   bool _isCompleting = false;
   List<StyleQuizItem> _quizItems = [];
   String _gender = 'female';
   String _hijabPreference = 'uncovered';
+  String? _authToken;
   int _currentCardIndex = 0;
   final ValueNotifier<double> _dragProgressNotifier = ValueNotifier<double>(
     0.0,
@@ -40,11 +44,62 @@ class _StyleQuizScreenState extends State<StyleQuizScreen> {
         _hijabPreference = args['hijabPreference'] as String? ?? 'uncovered';
       }
 
-      _loadQuizImages();
+      _initAndLoadQuiz();
     }
   }
 
+  Future<void> _initAndLoadQuiz() async {
+    final prefs = await SharedPreferences.getInstance();
+    _authToken = prefs.getString('auth_token');
+    _loadQuizImages();
+  }
+
   void _loadQuizImages() async {
+    // Try to load from the API first (GET /api/v1/feed/quiz?limit=10)
+    try {
+      final quizItems = await _apiService.getQuizFeed(
+        limit: 10,
+        token: _authToken,
+      );
+
+      if (quizItems.isNotEmpty && mounted) {
+        final l10n = AppLocalizations.of(context)!;
+        final categories = _getStyleCategories(l10n);
+
+        setState(() {
+          _quizItems = quizItems.asMap().entries.map((entry) {
+            final index = entry.key;
+            final item = entry.value;
+            // QuizProductResponse fields: id, imageUrl (or image_url), plus optional title/category
+            final imageUrl =
+                item['imageUrl'] as String? ??
+                item['image_url'] as String? ??
+                '';
+            final category =
+                item['category'] as String? ??
+                categories[index % categories.length];
+
+            return StyleQuizItem(
+              id: index + 1,
+              imagePath: '', // unused when imageUrl is set
+              imageUrl: imageUrl.isNotEmpty ? imageUrl : null,
+              productId: item['id'] as String?,
+              category: category,
+              description: l10n.discoverYourStylePreference,
+            );
+          }).toList();
+        });
+        return; // Successfully loaded from API
+      }
+    } catch (_) {
+      // API failed – fall back to local assets below
+    }
+
+    // Fallback: load bundled images from local assets
+    _loadLocalQuizImages();
+  }
+
+  void _loadLocalQuizImages() async {
     String folderPath;
 
     if (_gender == 'male') {
@@ -135,6 +190,16 @@ class _StyleQuizScreenState extends State<StyleQuizScreen> {
     final manager = context.read<OnboardingDataManager>();
     manager.addQuizResult(productId: item.id.toString(), action: 'dislike');
 
+    // Log swipe event to backend
+    if (item.productId != null) {
+      _apiService.logEvent(
+        productId: item.productId!,
+        eventType: 'SWIPE',
+        swipeAction: 'DISLIKE',
+        token: _authToken,
+      );
+    }
+
     setState(() {
       _currentCardIndex++;
       // Reset drag progress for next card
@@ -156,6 +221,16 @@ class _StyleQuizScreenState extends State<StyleQuizScreen> {
 
     final manager = context.read<OnboardingDataManager>();
     manager.addQuizResult(productId: item.id.toString(), action: 'like');
+
+    // Log swipe event to backend
+    if (item.productId != null) {
+      _apiService.logEvent(
+        productId: item.productId!,
+        eventType: 'SWIPE',
+        swipeAction: 'LIKE',
+        token: _authToken,
+      );
+    }
 
     setState(() {
       _currentCardIndex++;
@@ -407,16 +482,30 @@ class _ActionButton extends StatelessWidget {
 /// Style Quiz Item Model
 class StyleQuizItem {
   final int id;
+
+  /// Local asset path – used when loading from bundled images.
   final String imagePath;
+
+  /// Remote image URL – used when the item comes from the API.
+  final String? imageUrl;
+
+  /// Product UUID from the backend (used for event tracking).
+  final String? productId;
+
   final String category;
   final String description;
 
   StyleQuizItem({
     required this.id,
     required this.imagePath,
+    this.imageUrl,
+    this.productId,
     required this.category,
     required this.description,
   });
+
+  /// True when the image should be fetched from the network.
+  bool get isNetworkImage => imageUrl != null && imageUrl!.isNotEmpty;
 }
 
 /// Swipeable Quiz Card Widget
@@ -792,20 +881,47 @@ class _SwipeableQuizCardState extends State<_SwipeableQuizCard>
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.asset(
-                    widget.item.imagePath,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        color: AppColors.gray200,
-                        child: const Icon(
-                          Icons.image_outlined,
-                          size: 64,
-                          color: AppColors.gray500,
-                        ),
-                      );
-                    },
-                  ),
+                  if (widget.item.isNetworkImage)
+                    Image.network(
+                      widget.item.imageUrl!,
+                      fit: BoxFit.cover,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Container(
+                          color: AppColors.gray200,
+                          child: const Center(
+                            child: CircularProgressIndicator(
+                              color: AppColors.black,
+                            ),
+                          ),
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color: AppColors.gray200,
+                          child: const Icon(
+                            Icons.image_outlined,
+                            size: 64,
+                            color: AppColors.gray500,
+                          ),
+                        );
+                      },
+                    )
+                  else
+                    Image.asset(
+                      widget.item.imagePath,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color: AppColors.gray200,
+                          child: const Icon(
+                            Icons.image_outlined,
+                            size: 64,
+                            color: AppColors.gray500,
+                          ),
+                        );
+                      },
+                    ),
                   Positioned(
                     bottom: 0,
                     left: 0,
