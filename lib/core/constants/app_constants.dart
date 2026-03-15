@@ -7,8 +7,7 @@ class AppConstants {
   static const String appTagline = 'Discover Your Style';
 
   // API Configuration
-  static const String baseUrl =
-      'https://app.svaypai.com'; // Production backend
+  static const String baseUrl = 'https://app.svaypai.com'; // Production backend
   static const String apiVersion = 'v1';
   static const int connectTimeout = 30000; // 30 seconds
   static const int receiveTimeout = 30000;

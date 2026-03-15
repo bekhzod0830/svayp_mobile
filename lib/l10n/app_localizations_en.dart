@@ -875,6 +875,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiScan => 'Visual Search';
 
   @override
+  String get takePhoto => 'Take Photo';
+
+  @override
+  String get uploadFromLibrary => 'Upload from Library';
+
+  @override
+  String get selectArea => 'Select Area';
+
+  @override
+  String get resetSelection => 'Reset';
+
+  @override
+  String get searchThisArea => 'Search This Area';
+
+  @override
   String get noProductsFound => 'No products found';
 
   @override
@@ -2542,4 +2557,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get errorRetry => 'Try Again';
+
+  @override
+  String get vsScanningImage => 'Scanning image';
+
+  @override
+  String get vsIdentifyingStyle => 'Identifying style';
+
+  @override
+  String get vsFindingMatches => 'Finding matches';
+
+  @override
+  String get vsAlmostThere => 'Almost there';
+
+  @override
+  String get vsPoweredByAI => 'Powered by AI';
 }

@@ -274,7 +274,10 @@ class ApiClient {
 
   /// Returns true if [token] is expired or malformed.
   /// Pass a [clockSkew] buffer (default 30 s) to treat near-expiry as expired.
-  bool isTokenExpired(String token, {Duration clockSkew = const Duration(seconds: 30)}) {
+  bool isTokenExpired(
+    String token, {
+    Duration clockSkew = const Duration(seconds: 30),
+  }) {
     final expiry = _decodeJwtExpiry(token);
     if (expiry == null) return true; // treat unparseable token as expired
     return DateTime.now().toUtc().isAfter(expiry.subtract(clockSkew));

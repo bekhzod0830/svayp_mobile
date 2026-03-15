@@ -85,7 +85,7 @@ class VisualSearchResultsScreen extends StatelessWidget {
       ),
       body: CustomScrollView(
         slivers: [
-          // Uploaded image preview
+          // Uploaded image preview with scanning frame
           if (uploadedImage != null)
             SliverToBoxAdapter(
               child: Container(
@@ -128,22 +128,8 @@ class VisualSearchResultsScreen extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: SizedBox(
-                        width: double.infinity,
-                        height: 200,
-                        child: ColoredBox(
-                          color: isDark
-                              ? AppColors.darkMainBackground
-                              : AppColors.gray100,
-                          child: Image.file(
-                            uploadedImage!,
-                            fit: BoxFit.contain,
-                          ),
-                        ),
-                      ),
-                    ),
+                    // Image with scanning frame overlay
+                    _ScannedImageFrame(image: uploadedImage!, isDark: isDark),
                   ],
                 ),
               ),
@@ -194,7 +180,7 @@ class VisualSearchResultsScreen extends StatelessWidget {
               ),
             ),
 
-          // Products grid — identical layout/card style to Shop screen
+          // Products grid
           if (results.isNotEmpty)
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 32),
@@ -227,7 +213,157 @@ class VisualSearchResultsScreen extends StatelessWidget {
   }
 }
 
-/// Product card — mirrors _TikTokProductCard from shop_screen.dart
+// ─────────────────────────────────────────────────────────────────────────────
+// Scanning frame overlay on the uploaded image
+// ─────────────────────────────────────────────────────────────────────────────
+class _ScannedImageFrame extends StatefulWidget {
+  final File image;
+  final bool isDark;
+
+  const _ScannedImageFrame({required this.image, required this.isDark});
+
+  @override
+  State<_ScannedImageFrame> createState() => _ScannedImageFrameState();
+}
+
+class _ScannedImageFrameState extends State<_ScannedImageFrame> {
+  Size? _naturalSize;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolveImageSize();
+  }
+
+  void _resolveImageSize() {
+    final stream = FileImage(widget.image).resolve(ImageConfiguration.empty);
+    stream.addListener(
+      ImageStreamListener((info, _) {
+        if (mounted) {
+          setState(() {
+            _naturalSize = Size(
+              info.image.width.toDouble(),
+              info.image.height.toDouble(),
+            );
+          });
+        }
+      }),
+    );
+  }
+
+  /// Compute the rect where BoxFit.contain places the image inside [container].
+  static Rect _containedRect(Size container, Size image) {
+    final imgAspect = image.width / image.height;
+    final ctnAspect = container.width / container.height;
+    double w, h;
+    if (imgAspect > ctnAspect) {
+      w = container.width;
+      h = container.width / imgAspect;
+    } else {
+      h = container.height;
+      w = container.height * imgAspect;
+    }
+    final dx = (container.width - w) / 2;
+    final dy = (container.height - h) / 2;
+    return Rect.fromLTWH(dx, dy, w, h);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          const containerHeight = 220.0;
+          final containerSize = Size(constraints.maxWidth, containerHeight);
+
+          final imageRect = _naturalSize != null
+              ? _containedRect(containerSize, _naturalSize!)
+              : null;
+
+          return SizedBox(
+            width: double.infinity,
+            height: containerHeight,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // Photo
+                ColoredBox(
+                  color: widget.isDark
+                      ? AppColors.darkMainBackground
+                      : AppColors.gray100,
+                  child: Image.file(widget.image, fit: BoxFit.contain),
+                ),
+                // Corner brackets — only drawn once we know the image rect
+                if (imageRect != null)
+                  CustomPaint(painter: _LensScanPainter(imageRect: imageRect)),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Draws transparent corner bracket markers at the actual image corners.
+class _LensScanPainter extends CustomPainter {
+  final Rect imageRect;
+
+  const _LensScanPainter({required this.imageRect});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const armLen = 22.0;
+    const strokeW = 2.5;
+    const inset = 6.0;
+    const cr = 14.0; // corner radius on the elbow of each bracket
+
+    final paint = Paint()
+      ..color = Colors.white.withOpacity(0.90)
+      ..strokeWidth = strokeW
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..style = PaintingStyle.stroke;
+
+    final l = imageRect.left + inset;
+    final t = imageRect.top + inset;
+    final r = imageRect.right - inset;
+    final b = imageRect.bottom - inset;
+
+    // [top-left, top-right, bottom-right, bottom-left]
+    // Each entry: corner origin, horizontal direction, vertical direction
+    final corners = [
+      (Offset(l, t), 1.0, 1.0),
+      (Offset(r, t), -1.0, 1.0),
+      (Offset(r, b), -1.0, -1.0),
+      (Offset(l, b), 1.0, -1.0),
+    ];
+
+    for (final (origin, sx, sy) in corners) {
+      // Draw the bracket as a single continuous path so the corner can be
+      // rounded: horizontal arm → arc → vertical arm.
+      // clockwise direction alternates per corner to always give the 90° arc.
+      final path = Path()
+        ..moveTo(origin.dx + sx * armLen, origin.dy)
+        ..lineTo(origin.dx + sx * cr, origin.dy)
+        ..arcToPoint(
+          Offset(origin.dx, origin.dy + sy * cr),
+          radius: Radius.circular(cr),
+          clockwise: sx * sy < 0,
+        )
+        ..lineTo(origin.dx, origin.dy + sy * armLen);
+      canvas.drawPath(path, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_LensScanPainter old) => old.imageRect != imageRect;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Product card
+// ─────────────────────────────────────────────────────────────────────────────
 class _VisualSearchProductCard extends StatelessWidget {
   final VisualSearchResult result;
   final VoidCallback onTap;
@@ -240,7 +376,6 @@ class _VisualSearchProductCard extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     final product = result.product;
     final sellerName = product.seller ?? 'SVAYP';
-    // Prefer the specific matched image, fall back to first product image
     final displayImage =
         result.matchedImageUrl ??
         (product.images.isNotEmpty ? product.images.first : null);

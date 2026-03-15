@@ -80,7 +80,6 @@ class _SplashScreenState extends State<SplashScreen>
     final apiClient = getIt<ApiClient>();
 
     final isAuthenticated = apiClient.isAuthenticated();
-    final isOnboarded = await storage.isOnboarded();
 
     if (!mounted) return;
 
@@ -95,12 +94,8 @@ class _SplashScreenState extends State<SplashScreen>
     else if (storage.isGuestMode()) {
       Navigator.of(context).pushReplacementNamed('/main');
     }
-    // Priority 2: If user completed onboarding but not authenticated (shouldn't happen)
-    // Still send to main, they might have cleared auth but kept onboarding flag
-    else if (isOnboarded) {
-      Navigator.of(context).pushReplacementNamed('/main');
-    }
-    // Priority 3: New user - go directly to phone authentication
+    // Not authenticated (token missing or expired) – always require login,
+    // even if the user previously completed onboarding.
     else {
       Navigator.of(context).pushReplacementNamed('/phone-auth');
     }

@@ -887,6 +887,21 @@ class AppLocalizationsUz extends AppLocalizations {
   String get aiScan => 'Visual Qidiruv';
 
   @override
+  String get takePhoto => 'Rasm olish';
+
+  @override
+  String get uploadFromLibrary => 'Kutubxonadan yuklash';
+
+  @override
+  String get selectArea => 'Hududni tanlash';
+
+  @override
+  String get resetSelection => 'Qayta tiklash';
+
+  @override
+  String get searchThisArea => 'Ushbu hududni qidirish';
+
+  @override
   String get noProductsFound => 'Mahsulotlar topilmadi';
 
   @override
@@ -2574,4 +2589,19 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get errorRetry => 'Qayta urinish';
+
+  @override
+  String get vsScanningImage => 'Rasm skanlanmoqda';
+
+  @override
+  String get vsIdentifyingStyle => 'Uslub aniqlanmoqda';
+
+  @override
+  String get vsFindingMatches => 'Mosliklar qidirilmoqda';
+
+  @override
+  String get vsAlmostThere => 'Deyarli tayyor';
+
+  @override
+  String get vsPoweredByAI => 'Sun\'iy intellekt asosida';
 }

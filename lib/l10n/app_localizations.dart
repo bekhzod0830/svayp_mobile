@@ -1780,6 +1780,36 @@ abstract class AppLocalizations {
   /// **'Visual Search'**
   String get aiScan;
 
+  /// No description provided for @takePhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Take Photo'**
+  String get takePhoto;
+
+  /// No description provided for @uploadFromLibrary.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload from Library'**
+  String get uploadFromLibrary;
+
+  /// No description provided for @selectArea.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Area'**
+  String get selectArea;
+
+  /// No description provided for @resetSelection.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset'**
+  String get resetSelection;
+
+  /// No description provided for @searchThisArea.
+  ///
+  /// In en, this message translates to:
+  /// **'Search This Area'**
+  String get searchThisArea;
+
   /// No description provided for @noProductsFound.
   ///
   /// In en, this message translates to:
@@ -5007,6 +5037,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Try Again'**
   String get errorRetry;
+
+  /// No description provided for @vsScanningImage.
+  ///
+  /// In en, this message translates to:
+  /// **'Scanning image'**
+  String get vsScanningImage;
+
+  /// No description provided for @vsIdentifyingStyle.
+  ///
+  /// In en, this message translates to:
+  /// **'Identifying style'**
+  String get vsIdentifyingStyle;
+
+  /// No description provided for @vsFindingMatches.
+  ///
+  /// In en, this message translates to:
+  /// **'Finding matches'**
+  String get vsFindingMatches;
+
+  /// No description provided for @vsAlmostThere.
+  ///
+  /// In en, this message translates to:
+  /// **'Almost there'**
+  String get vsAlmostThere;
+
+  /// No description provided for @vsPoweredByAI.
+  ///
+  /// In en, this message translates to:
+  /// **'Powered by AI'**
+  String get vsPoweredByAI;
 }
 
 class _AppLocalizationsDelegate

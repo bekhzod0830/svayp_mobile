@@ -12,7 +12,10 @@ import 'package:swipe/core/models/product.dart' as api_models;
 import 'package:swipe/core/cache/image_cache_manager.dart';
 import 'package:swipe/core/services/visual_search_api_service.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:swipe/features/shop/presentation/screens/visual_search_camera_screen.dart';
 import 'package:swipe/features/shop/presentation/screens/visual_search_results_screen.dart';
+import 'package:swipe/features/shop/presentation/widgets/visual_search_loader.dart';
+import 'package:swipe/features/shop/presentation/screens/visual_search_crop_screen.dart';
 import 'package:swipe/features/shop/presentation/screens/seller_profile_screen.dart';
 import 'package:swipe/features/shop/presentation/screens/shop_search_results_screen.dart';
 import 'package:swipe/core/di/service_locator.dart';
@@ -370,102 +373,46 @@ class _ShopScreenState extends State<ShopScreen>
   Future<void> _handleVisualSearch() async {
     final l10n = AppLocalizations.of(context)!;
     try {
-      // Pick image from gallery
-      final image = await _visualSearchService.pickImage();
+      // 1. Open Pinterest-style camera screen (gallery button bottom-left)
+      if (!mounted) return;
+      final image = await Navigator.of(context, rootNavigator: true)
+          .push<XFile>(
+            MaterialPageRoute(
+              fullscreenDialog: true,
+              builder: (_) => const VisualSearchCameraScreen(),
+            ),
+          );
       if (image == null) return;
 
-      // Give the widget tree a frame to settle after the system image picker closes
+      // 2. Let the widget tree settle after the camera closes
       if (!mounted) return;
       await Future.delayed(const Duration(milliseconds: 300));
 
-      // Let the user choose a category before searching
+      // 3. Let the user crop and choose a category in one step
       if (!mounted) return;
-      final category = await _showCategoryPicker(image);
-      if (category == null) return; // dismissed without selecting
+      final result = await _showCategoryPicker(image);
+      if (result == null) return; // dismissed
+      final (category, croppedImage) = result;
 
-      // Show loading dialog AFTER category is confirmed
+      // 5. Show loading dialog AFTER category is confirmed
       if (!mounted) return;
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (ctx) => WillPopScope(
-          onWillPop: () async => false,
-          child: Dialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            backgroundColor: Theme.of(context).brightness == Brightness.dark
-                ? AppColors.darkCardBackground
-                : AppColors.white,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Thumbnail
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: AspectRatio(
-                      aspectRatio: 4 / 3,
-                      child: ColoredBox(
-                        color: Theme.of(context).brightness == Brightness.dark
-                            ? AppColors.darkMainBackground
-                            : AppColors.gray100,
-                        child: Image.file(
-                          File(image.path),
-                          fit: BoxFit.contain,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  // Icon + title
-                  const Icon(
-                    Icons.image_search_rounded,
-                    size: 32,
-                    color: AppColors.brandBlack,
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    l10n.analyzingImageWithAI,
-                    textAlign: TextAlign.center,
-                    style: AppTypography.body1.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).brightness == Brightness.dark
-                          ? AppColors.darkPrimaryText
-                          : AppColors.primaryText,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  // Sleek linear progress
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      minHeight: 4,
-                      backgroundColor:
-                          Theme.of(context).brightness == Brightness.dark
-                          ? AppColors.darkStandardBorder
-                          : AppColors.gray200,
-                      valueColor: const AlwaysStoppedAnimation<Color>(
-                        AppColors.brandBlack,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+        builder: (ctx) => PopScope(
+          canPop: false,
+          child: VisualSearchLoader(image: File(croppedImage.path)),
         ),
       );
 
-      // Fetch recommendations from the backend
+      // 7. Fetch recommendations from the backend
       final response = await _visualSearchService.fetchRecommendations(
-        image: image,
+        image: croppedImage,
         token: _authToken,
         category: category,
       );
 
-      // Close loading dialog
+      // 8. Close loading dialog
       if (mounted) {
         Navigator.of(context, rootNavigator: true).pop();
       }
@@ -473,31 +420,26 @@ class _ShopScreenState extends State<ShopScreen>
       // Small delay to ensure dialog is fully closed
       await Future.delayed(const Duration(milliseconds: 100));
 
-      // Navigate to results screen
+      // 9. Navigate to results screen
       if (mounted) {
         await Navigator.push(
           context,
           MaterialPageRoute(
             builder: (_) => VisualSearchResultsScreen(
               results: response.results,
-              uploadedImage: File(image.path),
+              uploadedImage: File(croppedImage.path),
             ),
           ),
         );
       }
     } catch (e) {
-      // Close only the loading dialog (if open), not the entire navigation stack
+      // Close the loading dialog if open
       if (mounted) {
-        // Pop just the dialog — check if a dialog is currently on top
         final navigator = Navigator.of(context, rootNavigator: true);
-        if (navigator.canPop()) {
-          navigator.pop();
-        }
+        if (navigator.canPop()) navigator.pop();
       }
 
-      // Show error message
       if (mounted) {
-        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(l10n.visualSearchFailed(e.toString())),
@@ -509,9 +451,10 @@ class _ShopScreenState extends State<ShopScreen>
     }
   }
 
-  Future<String?> _showCategoryPicker(XFile image) {
+  Future<(String, XFile)?> _showCategoryPicker(XFile image) {
     final l10n = AppLocalizations.of(context)!;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cropKey = GlobalKey<VisualSearchCropWidgetState>();
 
     final categories = <(String, String, IconData)>[
       ('TOPWEAR', l10n.vsCatTopwear, Icons.checkroom_outlined),
@@ -534,15 +477,18 @@ class _ShopScreenState extends State<ShopScreen>
       ('HOMEWEAR', l10n.vsCatHomewear, Icons.home_outlined),
     ];
 
-    return showModalBottomSheet<String>(
+    return showModalBottomSheet<(String, XFile)>(
       context: context,
       backgroundColor: isDark ? AppColors.darkCardBackground : AppColors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       isScrollControlled: true,
+      isDismissible: true,
+      enableDrag: false,
       builder: (ctx) {
         String? selected;
+        bool isProcessing = false;
         return StatefulBuilder(
           builder: (ctx, setState) => SafeArea(
             child: Padding(
@@ -569,35 +515,55 @@ class _ShopScreenState extends State<ShopScreen>
                       ),
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  // Title
-                  Text(
-                    l10n.vsPickCategory,
-                    style: AppTypography.heading3.copyWith(
-                      color: isDark
-                          ? AppColors.darkPrimaryText
-                          : AppColors.primaryText,
-                    ),
-                    textAlign: TextAlign.center,
+                  const SizedBox(height: 16),
+                  // Title + Reset row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          l10n.vsPickCategory,
+                          style: AppTypography.heading3.copyWith(
+                            color: isDark
+                                ? AppColors.darkPrimaryText
+                                : AppColors.primaryText,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () => cropKey.currentState?.resetSelection(),
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: 8),
+                          child: Text(
+                            l10n.resetSelection,
+                            style: AppTypography.caption.copyWith(
+                              color: isDark
+                                  ? AppColors.darkSecondaryText
+                                  : AppColors.secondaryText,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 20),
-                  // Image preview — same style as results screen: no crop, aspect ratio box
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: AspectRatio(
-                      aspectRatio: 4 / 3,
+                  const SizedBox(height: 12),
+                  // Crop-enabled image preview
+                  AspectRatio(
+                    aspectRatio: 4 / 3,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
                       child: ColoredBox(
                         color: isDark
                             ? AppColors.darkMainBackground
                             : AppColors.gray100,
-                        child: Image.file(
-                          File(image.path),
-                          fit: BoxFit.contain,
+                        child: VisualSearchCropWidget(
+                          key: cropKey,
+                          image: image,
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
                   // Category dropdown
                   DropdownButtonFormField<String>(
                     value: selected,
@@ -679,9 +645,22 @@ class _ShopScreenState extends State<ShopScreen>
                   const SizedBox(height: 16),
                   // Search button
                   ElevatedButton(
-                    onPressed: selected == null
+                    onPressed: (selected == null || isProcessing)
                         ? null
-                        : () => Navigator.of(ctx).pop(selected),
+                        : () async {
+                            setState(() => isProcessing = true);
+                            try {
+                              final cropped = await cropKey.currentState!
+                                  .cropImage();
+                              if (ctx.mounted) {
+                                Navigator.of(ctx).pop((selected!, cropped));
+                              }
+                            } catch (_) {
+                              if (ctx.mounted) {
+                                setState(() => isProcessing = false);
+                              }
+                            }
+                          },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: isDark
                           ? AppColors.darkPrimaryText
@@ -694,17 +673,28 @@ class _ShopScreenState extends State<ShopScreen>
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: Text(
-                      l10n.vsSearchButton,
-                      style: AppTypography.body1.copyWith(
-                        color: selected == null
-                            ? (isDark
-                                  ? AppColors.darkDisabledText
-                                  : AppColors.gray500)
-                            : (isDark ? AppColors.black : AppColors.white),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    child: isProcessing
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : Text(
+                            l10n.vsSearchButton,
+                            style: AppTypography.body1.copyWith(
+                              color: selected == null
+                                  ? (isDark
+                                        ? AppColors.darkDisabledText
+                                        : AppColors.gray500)
+                                  : (isDark
+                                        ? AppColors.black
+                                        : AppColors.white),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                   ),
                 ],
               ),

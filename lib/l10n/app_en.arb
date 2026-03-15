@@ -314,6 +314,11 @@
   "newItems": "New",
   "sale": "Sale",
   "aiScan": "Visual Search",
+  "takePhoto": "Take Photo",
+  "uploadFromLibrary": "Upload from Library",
+  "selectArea": "Select Area",
+  "resetSelection": "Reset",
+  "searchThisArea": "Search This Area",
   "noProductsFound": "No products found",
   "tryDifferentFilters": "Try adjusting your search or filters",
   "tryAdjustingFilters": "Try adjusting your filters",
@@ -1045,5 +1050,10 @@
   "shopRetry": "Try Again",
   "errorGenericTitle": "Oops, something went wrong",
   "errorGenericSubtitle": "Please check your connection and try again.",
-  "errorRetry": "Try Again"
+  "errorRetry": "Try Again",
+  "vsScanningImage": "Scanning image",
+  "vsIdentifyingStyle": "Identifying style",
+  "vsFindingMatches": "Finding matches",
+  "vsAlmostThere": "Almost there",
+  "vsPoweredByAI": "Powered by AI"
 }

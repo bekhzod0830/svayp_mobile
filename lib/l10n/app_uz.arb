@@ -100,6 +100,11 @@
   "newItems": "Yangi",
   "sale": "Chegirma",
   "aiScan": "Visual Qidiruv",
+  "takePhoto": "Rasm olish",
+  "uploadFromLibrary": "Kutubxonadan yuklash",
+  "selectArea": "Hududni tanlash",
+  "resetSelection": "Qayta tiklash",
+  "searchThisArea": "Ushbu hududni qidirish",
   "noProductsFound": "Mahsulotlar topilmadi",
   "tryDifferentFilters": "Qidiruvni yoki filtrlarni o'zgartirib ko'ring",
   "tryAdjustingFilters": "Filtrlarni sozlab ko'ring",
@@ -1043,5 +1048,10 @@
   "shopRetry": "Qayta urinish",
   "errorGenericTitle": "Voy, nimadir xato ketdi",
   "errorGenericSubtitle": "Internetni tekshiring va qayta urinib ko'ring.",
-  "errorRetry": "Qayta urinish"
+  "errorRetry": "Qayta urinish",
+  "vsScanningImage": "Rasm skanlanmoqda",
+  "vsIdentifyingStyle": "Uslub aniqlanmoqda",
+  "vsFindingMatches": "Mosliklar qidirilmoqda",
+  "vsAlmostThere": "Deyarli tayyor",
+  "vsPoweredByAI": "Sun'iy intellekt asosida"
 }

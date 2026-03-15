@@ -122,8 +122,11 @@ class _ProfileScreenState extends State<ProfileScreen>
       // expired, the user must re-authenticate instead of seeing an empty profile.
       final apiClient = getIt<ApiClient>();
       if (!apiClient.isAuthenticated()) {
+        // Use rootNavigator: true to escape the nested tab navigator so that
+        // the entire navigation stack (including /main) is replaced.
         Navigator.of(
           context,
+          rootNavigator: true,
         ).pushNamedAndRemoveUntil('/phone-auth', (route) => false);
         return;
       }

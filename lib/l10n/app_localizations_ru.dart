@@ -886,6 +886,21 @@ class AppLocalizationsRu extends AppLocalizations {
   String get aiScan => 'Визуальный Поиск';
 
   @override
+  String get takePhoto => 'Сделать фото';
+
+  @override
+  String get uploadFromLibrary => 'Загрузить из галереи';
+
+  @override
+  String get selectArea => 'Выбрать область';
+
+  @override
+  String get resetSelection => 'Сбросить';
+
+  @override
+  String get searchThisArea => 'Искать в этой области';
+
+  @override
   String get noProductsFound => 'Товары не найдены';
 
   @override
@@ -2560,4 +2575,19 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get errorRetry => 'Повторить';
+
+  @override
+  String get vsScanningImage => 'Сканирование фото';
+
+  @override
+  String get vsIdentifyingStyle => 'Определение стиля';
+
+  @override
+  String get vsFindingMatches => 'Поиск совпадений';
+
+  @override
+  String get vsAlmostThere => 'Почти готово';
+
+  @override
+  String get vsPoweredByAI => 'На основе ИИ';
 }
