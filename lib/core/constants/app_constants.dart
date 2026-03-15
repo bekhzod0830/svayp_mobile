@@ -8,7 +8,7 @@ class AppConstants {
 
   // API Configuration
   static const String baseUrl =
-      'https://swipee.azurewebsites.net'; // Azure production backend
+      'https://app.svaypai.com'; // Production backend
   static const String apiVersion = 'v1';
   static const int connectTimeout = 30000; // 30 seconds
   static const int receiveTimeout = 30000;

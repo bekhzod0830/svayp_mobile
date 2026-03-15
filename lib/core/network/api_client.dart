@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
@@ -58,9 +60,37 @@ class ApiClient {
   /// requests detect the token was already updated and simply retry.
   QueuedInterceptorsWrapper _tokenRefreshInterceptor() {
     return QueuedInterceptorsWrapper(
-      onRequest: (options, handler) {
+      onRequest: (options, handler) async {
         final token = getToken();
         if (token != null) {
+          // Proactively refresh if expired or within 60-second buffer.
+          // This avoids the round-trip 401 for background-resumed sessions.
+          if (isTokenExpired(token, clockSkew: const Duration(seconds: 60))) {
+            final refreshTokenValue = getRefreshToken();
+            if (refreshTokenValue != null) {
+              try {
+                final response = await _refreshDio.post(
+                  ApiConfig.authRefreshToken,
+                  data: {'refreshToken': refreshTokenValue},
+                );
+                final data = response.data is Map
+                    ? (response.data['data'] ?? response.data)
+                    : response.data;
+                final newToken = data['access_token'] as String?;
+                if (newToken != null) {
+                  await saveToken(newToken);
+                  final newRefresh = data['refresh_token'] as String?;
+                  if (newRefresh != null) await saveRefreshToken(newRefresh);
+                  options.headers['Authorization'] = 'Bearer $newToken';
+                  handler.next(options);
+                  return;
+                }
+              } catch (_) {
+                // Proactive refresh failed – let the request proceed.
+                // The 401 error interceptor will handle it or clear tokens.
+              }
+            }
+          }
           options.headers['Authorization'] = 'Bearer $token';
         }
         handler.next(options);
@@ -204,9 +234,57 @@ class ApiClient {
     return role.toLowerCase() != 'client';
   }
 
-  /// Check if user is authenticated
+  // ==================== JWT Helpers ====================
+
+  /// Decode the expiry timestamp from a JWT without verifying the signature.
+  /// Returns null if the token is malformed.
+  DateTime? _decodeJwtExpiry(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return null;
+
+      // JWT uses base64url encoding without padding
+      String payload = parts[1];
+      // Add padding if needed
+      switch (payload.length % 4) {
+        case 2:
+          payload += '==';
+          break;
+        case 3:
+          payload += '=';
+          break;
+      }
+      // Replace URL-safe characters
+      payload = payload.replaceAll('-', '+').replaceAll('_', '/');
+
+      final decoded = utf8.decode(base64.decode(payload));
+      final Map<String, dynamic> claims = json.decode(decoded);
+
+      final exp = claims['exp'];
+      if (exp == null) return null;
+
+      return DateTime.fromMillisecondsSinceEpoch(
+        (exp as int) * 1000,
+        isUtc: true,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Returns true if [token] is expired or malformed.
+  /// Pass a [clockSkew] buffer (default 30 s) to treat near-expiry as expired.
+  bool isTokenExpired(String token, {Duration clockSkew = const Duration(seconds: 30)}) {
+    final expiry = _decodeJwtExpiry(token);
+    if (expiry == null) return true; // treat unparseable token as expired
+    return DateTime.now().toUtc().isAfter(expiry.subtract(clockSkew));
+  }
+
+  /// Check if user is authenticated AND the stored token is not expired.
   bool isAuthenticated() {
-    return getToken() != null;
+    final token = getToken();
+    if (token == null) return false;
+    return !isTokenExpired(token);
   }
 
   // ==================== HTTP Methods ====================

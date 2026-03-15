@@ -32,7 +32,8 @@ class ProfileScreen extends StatefulWidget {
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ProfileScreenState extends State<ProfileScreen>
+    with WidgetsBindingObserver {
   String _userName = 'User';
   String _userPhone = '';
   String _userId = '';
@@ -48,8 +49,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadUserData();
     _loadCurrentLanguage();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Re-load profile data whenever the app is brought back to the foreground.
+  /// This ensures the token-refresh interceptor fires and keeps the session alive.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _loadUserData();
+    }
   }
 
   Future<void> _loadUserData() async {
@@ -99,20 +116,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _isLoading = false;
       });
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          // Set default values if loading fails
-          _userName = 'User';
-          _userPhone = '';
-          _userId = '';
-          _cashbackBalance = 0.0;
-        });
-        SnackBarHelper.showError(
+      if (!mounted) return;
+
+      // If the interceptor cleared the tokens because the refresh token also
+      // expired, the user must re-authenticate instead of seeing an empty profile.
+      final apiClient = getIt<ApiClient>();
+      if (!apiClient.isAuthenticated()) {
+        Navigator.of(
           context,
-          'Failed to load user data. Please try again.',
-        );
+        ).pushNamedAndRemoveUntil('/phone-auth', (route) => false);
+        return;
       }
+
+      setState(() {
+        _isLoading = false;
+        // Set default values if loading fails
+        _userName = 'User';
+        _userPhone = '';
+        _userId = '';
+        _cashbackBalance = 0.0;
+      });
+      SnackBarHelper.showError(
+        context,
+        'Failed to load user data. Please try again.',
+      );
     }
   }
 
