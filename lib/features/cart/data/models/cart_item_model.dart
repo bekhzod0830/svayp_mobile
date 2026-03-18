@@ -37,6 +37,15 @@ class CartItemModel extends HiveObject {
   @HiveField(9)
   late DateTime addedAt;
 
+  @HiveField(10)
+  late String currency; // Currency code (e.g., "UZS", "USD")
+
+  @HiveField(11)
+  Map<String, String>? titleLocalized;
+
+  @HiveField(12)
+  Map<String, String>? descriptionLocalized;
+
   CartItemModel({
     required this.productId,
     required this.brand,
@@ -47,6 +56,9 @@ class CartItemModel extends HiveObject {
     required this.selectedSize,
     this.selectedColor,
     required this.category,
+    this.currency = 'UZS',
+    this.titleLocalized,
+    this.descriptionLocalized,
     DateTime? addedAt,
   }) : addedAt = addedAt ?? DateTime.now();
 
@@ -67,7 +79,24 @@ class CartItemModel extends HiveObject {
       selectedSize: selectedSize,
       selectedColor: selectedColor,
       category: product.category,
+      currency: product.currency,
+      titleLocalized: product.titleLocalized,
+      descriptionLocalized: product.descriptionLocalized,
     );
+  }
+
+  /// Get localized title based on language code
+  String localizedTitle(String languageCode) {
+    if (titleLocalized == null) return title;
+    return titleLocalized![languageCode] ?? titleLocalized!['en'] ?? title;
+  }
+
+  /// Get localized description based on language code
+  String localizedDescription(String languageCode) {
+    if (descriptionLocalized == null) return '';
+    return descriptionLocalized![languageCode] ??
+        descriptionLocalized!['en'] ??
+        '';
   }
 
   /// Calculate total price for this item
@@ -84,6 +113,9 @@ class CartItemModel extends HiveObject {
     String? selectedSize,
     String? selectedColor,
     String? category,
+    String? currency,
+    Map<String, String>? titleLocalized,
+    Map<String, String>? descriptionLocalized,
     DateTime? addedAt,
   }) {
     return CartItemModel(
@@ -96,6 +128,9 @@ class CartItemModel extends HiveObject {
       selectedSize: selectedSize ?? this.selectedSize,
       selectedColor: selectedColor ?? this.selectedColor,
       category: category ?? this.category,
+      currency: currency ?? this.currency,
+      titleLocalized: titleLocalized ?? this.titleLocalized,
+      descriptionLocalized: descriptionLocalized ?? this.descriptionLocalized,
       addedAt: addedAt ?? this.addedAt,
     );
   }

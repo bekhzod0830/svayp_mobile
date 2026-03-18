@@ -169,6 +169,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get wrongNumber => 'Wrong number?';
 
   @override
+  String get serverError502 =>
+      'The server is temporarily unavailable. Please try again in a moment.';
+
+  @override
+  String get serverError503 =>
+      'Service is currently unavailable. Please try again later.';
+
+  @override
+  String get serverError504 => 'The request timed out. Please try again later.';
+
+  @override
+  String get serverError500 =>
+      'Something went wrong on our end. Please try again later.';
+
+  @override
+  String get serverErrorGeneric =>
+      'A server error occurred. Please try again later.';
+
+  @override
   String get tellUsAboutYourself => 'Tell us about\nyourself';
 
   @override
@@ -1362,7 +1381,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pickup => 'Pickup';
 
   @override
-  String get payWhenYouReceive => 'Pay when you receive your order';
+  String get payWhenYouReceive => 'Pay by cash or card when receiving';
 
   @override
   String get qty => 'Qty';
@@ -1800,6 +1819,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Not your style? Swipe left to see the next item.';
 
   @override
+  String get swipeUpToCart => 'Swipe Up to Add to Cart';
+
+  @override
+  String get swipeUpDescription =>
+      'Ready to buy? Swipe up to instantly add the item to your cart.';
+
+  @override
   String get skipTutorial => 'Skip Tutorial';
 
   @override
@@ -1860,6 +1886,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get materialCotton => 'Cotton';
 
   @override
+  String get materialPolyester => 'Polyester';
+
+  @override
   String get materialSilk => 'Silk';
 
   @override
@@ -1872,10 +1901,49 @@ class AppLocalizationsEn extends AppLocalizations {
   String get materialChiffon => 'Chiffon';
 
   @override
+  String get materialSatin => 'Satin';
+
+  @override
+  String get materialVelvet => 'Velvet';
+
+  @override
   String get materialDenim => 'Denim';
 
   @override
   String get materialLeather => 'Leather';
+
+  @override
+  String get materialSuede => 'Suede';
+
+  @override
+  String get materialJersey => 'Jersey';
+
+  @override
+  String get materialModal => 'Modal';
+
+  @override
+  String get materialRayon => 'Rayon';
+
+  @override
+  String get materialSpandex => 'Spandex';
+
+  @override
+  String get materialLycra => 'Lycra';
+
+  @override
+  String get materialNylon => 'Nylon';
+
+  @override
+  String get materialViscose => 'Viscose';
+
+  @override
+  String get materialBamboo => 'Bamboo';
+
+  @override
+  String get materialCashmere => 'Cashmere';
+
+  @override
+  String get materialMixed => 'Mixed';
 
   @override
   String get seasonSpring => 'Spring';
@@ -2011,6 +2079,33 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get categoryOuterwear => 'Outerwear';
+
+  @override
+  String get categoryTopwear => 'Topwear';
+
+  @override
+  String get categoryBottomwear => 'Bottomwear';
+
+  @override
+  String get categoryOnePiece => 'One-piece';
+
+  @override
+  String get categoryIslamicModestWear => 'Islamic / Modest Wear';
+
+  @override
+  String get categoryFootwear => 'Footwear';
+
+  @override
+  String get categoryTwoPieceSet => 'Two-Piece Set';
+
+  @override
+  String get categoryThreePieceSet => 'Three-Piece Set';
+
+  @override
+  String get categoryBodysuitsTriko => 'Bodysuits & Triko';
+
+  @override
+  String get categoryHomewear => 'Homewear';
 
   @override
   String get modestyLevel => 'Modesty Level';
@@ -2572,4 +2667,17 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get vsPoweredByAI => 'Powered by AI';
+
+  @override
+  String get vsTutorialDesc =>
+      'Tap the camera icon in the shop to find similar items by photo.';
+
+  @override
+  String get tutorialWhiteBlouse => 'White Blouse';
+
+  @override
+  String get tutorialLongDress => 'Long Dress';
+
+  @override
+  String get tutorialBeigeShoes => 'Beige Shoes';
 }

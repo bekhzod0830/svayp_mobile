@@ -171,6 +171,25 @@ class AppLocalizationsRu extends AppLocalizations {
   String get wrongNumber => 'Неправильный номер?';
 
   @override
+  String get serverError502 =>
+      'Сервер временно недоступен. Попробуйте через мгновение.';
+
+  @override
+  String get serverError503 => 'Сервис временно недоступен. Попробуйте позже.';
+
+  @override
+  String get serverError504 =>
+      'Время ожидания запроса истекло. Попробуйте позже.';
+
+  @override
+  String get serverError500 =>
+      'Что-то пошло не так на нашей стороне. Попробуйте позже.';
+
+  @override
+  String get serverErrorGeneric =>
+      'Произошла ошибка сервера. Попробуйте позже.';
+
+  @override
   String get tellUsAboutYourself => 'Расскажите\no себе';
 
   @override
@@ -1375,7 +1394,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get pickup => 'Самовывоз';
 
   @override
-  String get payWhenYouReceive => 'Оплата при получении заказа';
+  String get payWhenYouReceive => 'Оплата наличными или картой при получении';
 
   @override
   String get qty => 'Кол-во';
@@ -1817,6 +1836,13 @@ class AppLocalizationsRu extends AppLocalizations {
       'Не ваш стиль? Свайпните влево, чтобы увидеть следующий товар.';
 
   @override
+  String get swipeUpToCart => 'Свайп вверх для добавления в корзину';
+
+  @override
+  String get swipeUpDescription =>
+      'Готовы купить? Свайпните вверх, чтобы мгновенно добавить товар в корзину.';
+
+  @override
   String get skipTutorial => 'Пропустить обучение';
 
   @override
@@ -1877,6 +1903,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get materialCotton => 'Хлопок';
 
   @override
+  String get materialPolyester => 'Полиэстер';
+
+  @override
   String get materialSilk => 'Шелк';
 
   @override
@@ -1889,10 +1918,49 @@ class AppLocalizationsRu extends AppLocalizations {
   String get materialChiffon => 'Шифон';
 
   @override
+  String get materialSatin => 'Атлас';
+
+  @override
+  String get materialVelvet => 'Бархат';
+
+  @override
   String get materialDenim => 'Джинса';
 
   @override
   String get materialLeather => 'Кожа';
+
+  @override
+  String get materialSuede => 'Замша';
+
+  @override
+  String get materialJersey => 'Джерси';
+
+  @override
+  String get materialModal => 'Модал';
+
+  @override
+  String get materialRayon => 'Вискоза';
+
+  @override
+  String get materialSpandex => 'Спандекс';
+
+  @override
+  String get materialLycra => 'Лайкра';
+
+  @override
+  String get materialNylon => 'Нейлон';
+
+  @override
+  String get materialViscose => 'Вискоза';
+
+  @override
+  String get materialBamboo => 'Бамбук';
+
+  @override
+  String get materialCashmere => 'Кашемир';
+
+  @override
+  String get materialMixed => 'Смешанный';
 
   @override
   String get seasonSpring => 'Весна';
@@ -2028,6 +2096,33 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get categoryOuterwear => 'Верхняя одежда';
+
+  @override
+  String get categoryTopwear => 'Верх';
+
+  @override
+  String get categoryBottomwear => 'Низ';
+
+  @override
+  String get categoryOnePiece => 'Платья и цельные изделия';
+
+  @override
+  String get categoryIslamicModestWear => 'Исламская одежда';
+
+  @override
+  String get categoryFootwear => 'Обувь';
+
+  @override
+  String get categoryTwoPieceSet => 'Двойка';
+
+  @override
+  String get categoryThreePieceSet => 'Тройка';
+
+  @override
+  String get categoryBodysuitsTriko => 'Цельные изделия (Трико)';
+
+  @override
+  String get categoryHomewear => 'Домашняя одежда';
 
   @override
   String get modestyLevel => 'Уровень скромности';
@@ -2590,4 +2685,17 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get vsPoweredByAI => 'На основе ИИ';
+
+  @override
+  String get vsTutorialDesc =>
+      'Нажмите значок камеры в магазине, чтобы найти похожие товары по фото.';
+
+  @override
+  String get tutorialWhiteBlouse => 'Белая блузка';
+
+  @override
+  String get tutorialLongDress => 'Длинное платье';
+
+  @override
+  String get tutorialBeigeShoes => 'Бежевые туфли';
 }

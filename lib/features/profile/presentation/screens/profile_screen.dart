@@ -44,6 +44,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   final LanguageService _languageService = LanguageService();
   bool _isLoading = true;
   bool _isPartner = false;
+  bool _isRedirecting = false; // prevents re-entry after a navigation decision
   UserProfileResponse? _userProfile;
 
   @override
@@ -70,7 +71,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Future<void> _loadUserData() async {
-    if (!mounted) return;
+    if (!mounted || _isRedirecting) return;
 
     // Skip API calls for guest users – tab-tap gating handles the prompt
     final storage = await LocalStorageHelper.getInstance();
@@ -92,13 +93,26 @@ class _ProfileScreenState extends State<ProfileScreen>
       // Fetch user data
       final user = await authService.getCurrentUser();
 
-      // Try to fetch profile for non-partners, but don't fail if it doesn't exist
+      // Fetch profile for non-partners.
+      // If profile doesn't exist (404) → redirect to login so they go through
+      // the full auth + onboarding flow again.
       UserProfileResponse? profile;
       if (!isPartner) {
         try {
           profile = await profileService.getProfile();
-        } catch (e) {
-          // Continue without profile - user might not have completed onboarding
+        } on ApiException catch (profileError) {
+          if (profileError.statusCode == 404) {
+            _isRedirecting = true;
+            await apiClient.clearToken();
+            await apiClient.clearRefreshToken();
+            if (!mounted) return;
+            Navigator.of(
+              context,
+              rootNavigator: true,
+            ).pushNamedAndRemoveUntil('/phone-auth', (route) => false);
+            return;
+          }
+          // Other profile errors (500, network) — continue without profile data
         }
       }
 
@@ -118,12 +132,19 @@ class _ProfileScreenState extends State<ProfileScreen>
     } catch (e) {
       if (!mounted) return;
 
-      // If the interceptor cleared the tokens because the refresh token also
-      // expired, the user must re-authenticate instead of seeing an empty profile.
       final apiClient = getIt<ApiClient>();
-      if (!apiClient.isAuthenticated()) {
-        // Use rootNavigator: true to escape the nested tab navigator so that
-        // the entire navigation stack (including /main) is replaced.
+
+      // Redirect to login if:
+      // 1. Token was cleared (expired + refresh failed), OR
+      // 2. Server rejected the token with 401 (invalid/revoked), OR
+      // 3. Server returned 403 (account deleted or deactivated)
+      final statusCode = e is ApiException ? e.statusCode : null;
+      final isAuthFailure = statusCode == 401 || statusCode == 403;
+      if (!apiClient.isAuthenticated() || isAuthFailure) {
+        _isRedirecting = true;
+        await apiClient.clearToken();
+        await apiClient.clearRefreshToken();
+        if (!mounted) return;
         Navigator.of(
           context,
           rootNavigator: true,
@@ -131,9 +152,9 @@ class _ProfileScreenState extends State<ProfileScreen>
         return;
       }
 
+      // For other errors (network issues, server errors), show retry message.
       setState(() {
         _isLoading = false;
-        // Set default values if loading fails
         _userName = 'User';
         _userPhone = '';
         _userId = '';
@@ -378,17 +399,22 @@ class _ProfileScreenState extends State<ProfileScreen>
                                                         const SizedBox(
                                                           width: 6,
                                                         ),
-                                                        Text(
-                                                          _username,
-                                                          style: AppTypography
-                                                              .body2
-                                                              .copyWith(
-                                                                color: isDark
-                                                                    ? AppColors
-                                                                          .darkSecondaryText
-                                                                    : AppColors
-                                                                          .gray600,
-                                                              ),
+                                                        Flexible(
+                                                          child: Text(
+                                                            _username,
+                                                            style: AppTypography
+                                                                .body2
+                                                                .copyWith(
+                                                                  color: isDark
+                                                                      ? AppColors
+                                                                            .darkSecondaryText
+                                                                      : AppColors
+                                                                            .gray600,
+                                                                ),
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                          ),
                                                         ),
                                                       ],
                                                     ),
@@ -405,20 +431,25 @@ class _ProfileScreenState extends State<ProfileScreen>
                                                             : AppColors.gray600,
                                                       ),
                                                       const SizedBox(width: 6),
-                                                      Text(
-                                                        _userRole.toUpperCase(),
-                                                        style: AppTypography
-                                                            .body2
-                                                            .copyWith(
-                                                              color: isDark
-                                                                  ? AppColors
-                                                                        .darkSecondaryText
-                                                                  : AppColors
-                                                                        .gray600,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w600,
-                                                            ),
+                                                      Flexible(
+                                                        child: Text(
+                                                          _userRole
+                                                              .toUpperCase(),
+                                                          style: AppTypography
+                                                              .body2
+                                                              .copyWith(
+                                                                color: isDark
+                                                                    ? AppColors
+                                                                          .darkSecondaryText
+                                                                    : AppColors
+                                                                          .gray600,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w600,
+                                                              ),
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                        ),
                                                       ),
                                                     ],
                                                   ),
@@ -435,17 +466,21 @@ class _ProfileScreenState extends State<ProfileScreen>
                                                             : AppColors.gray600,
                                                       ),
                                                       const SizedBox(width: 6),
-                                                      Text(
-                                                        _userPhone,
-                                                        style: AppTypography
-                                                            .body2
-                                                            .copyWith(
-                                                              color: isDark
-                                                                  ? AppColors
-                                                                        .darkSecondaryText
-                                                                  : AppColors
-                                                                        .gray600,
-                                                            ),
+                                                      Flexible(
+                                                        child: Text(
+                                                          _userPhone,
+                                                          style: AppTypography
+                                                              .body2
+                                                              .copyWith(
+                                                                color: isDark
+                                                                    ? AppColors
+                                                                          .darkSecondaryText
+                                                                    : AppColors
+                                                                          .gray600,
+                                                              ),
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                        ),
                                                       ),
                                                     ],
                                                   ),
@@ -463,20 +498,24 @@ class _ProfileScreenState extends State<ProfileScreen>
                                                             : AppColors.black,
                                                       ),
                                                       const SizedBox(width: 6),
-                                                      Text(
-                                                        '${NumberFormat('#,###').format(_cashbackBalance.toInt())} ${l10n.points}',
-                                                        style: AppTypography
-                                                            .body2
-                                                            .copyWith(
-                                                              color: isDark
-                                                                  ? AppColors
-                                                                        .darkPrimaryText
-                                                                  : AppColors
-                                                                        .black,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w600,
-                                                            ),
+                                                      Flexible(
+                                                        child: Text(
+                                                          '${NumberFormat('#,###').format(_cashbackBalance.toInt())} ${l10n.points}',
+                                                          style: AppTypography
+                                                              .body2
+                                                              .copyWith(
+                                                                color: isDark
+                                                                    ? AppColors
+                                                                          .darkPrimaryText
+                                                                    : AppColors
+                                                                          .black,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w600,
+                                                              ),
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                        ),
                                                       ),
                                                     ],
                                                   ),
@@ -680,7 +719,7 @@ class _ProfileScreenState extends State<ProfileScreen>
 
                                   // App Version
                                   Text(
-                                    l10n.version('1.0.0'),
+                                    l10n.version('1.0.3'),
                                     style: AppTypography.caption.copyWith(
                                       color: AppColors.gray500,
                                     ),

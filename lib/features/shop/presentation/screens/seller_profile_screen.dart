@@ -38,7 +38,8 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
   late List<Product> _products;
   SellerInfo? _sellerInfo;
   bool _isLoadingMore = false;
-  bool _hasMore = true;
+  bool _isLoadingInitial = true;
+  bool _hasMore = false;
   String? _authToken;
   static const int _pageSize = 20;
 
@@ -47,23 +48,60 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
     super.initState();
     _products = List.of(widget.products);
     _sellerInfo = widget.sellerInfo; // may be null; always refreshed below
-    _hasMore = widget.products.length >= _pageSize;
     _scrollController.addListener(_onScroll);
     _initAuth();
   }
 
   Future<void> _initAuth() async {
     final prefs = await SharedPreferences.getInstance();
-    if (mounted) setState(() => _authToken = prefs.getString('auth_token'));
-    // Always fetch fresh seller details from the API
+    final token = prefs.getString('auth_token');
+    if (mounted) setState(() => _authToken = token);
+
+    // Fetch fresh seller info and first product page in parallel
+    await Future.wait([_fetchSellerInfo(token), _loadInitialProducts(token)]);
+  }
+
+  Future<void> _fetchSellerInfo(String? token) async {
     try {
       final info = await _apiService.getSeller(
         sellerId: widget.sellerId,
-        token: _authToken,
+        token: token,
       );
       if (mounted) setState(() => _sellerInfo = info);
     } catch (_) {
       // Keep whatever was passed from the previous screen as fallback
+    }
+  }
+
+  Future<void> _loadInitialProducts(String? token) async {
+    try {
+      final response = await _apiService.getBrandDetail(
+        brandId: widget.sellerId,
+        skip: 0,
+        limit: _pageSize,
+        token: token,
+      );
+      final loaded = <Product>[];
+      for (final apiProduct in response.products) {
+        try {
+          loaded.add(_convertApiProduct(apiProduct));
+        } catch (_) {}
+      }
+      if (mounted) {
+        setState(() {
+          if (loaded.isNotEmpty) _products = loaded;
+          _hasMore = loaded.length >= _pageSize;
+          _isLoadingInitial = false;
+        });
+      }
+    } catch (_) {
+      // Fall back to whatever products were passed at navigation time
+      if (mounted) {
+        setState(() {
+          _hasMore = widget.products.length >= _pageSize;
+          _isLoadingInitial = false;
+        });
+      }
     }
   }
 
@@ -126,7 +164,7 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
       images: p.images.isNotEmpty
           ? p.images
           : ['https://via.placeholder.com/400'],
-      sizes: p.sizes?.map((s) => s.displayName).toList() ?? [],
+      sizes: p.sizes ?? [],
       colors: p.colors ?? [],
       material: p.material?.map((m) => m.displayName).toList(),
       season: p.season?.map((s) => s.displayName).toList(),
@@ -140,6 +178,8 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
       sellerId: p.sellerId,
       discountPercentage: p.discountPercentage,
       originalPrice: p.originalPrice,
+      titleLocalized: p.titleLocalized,
+      descriptionLocalized: p.descriptionLocalized,
     );
   }
 
@@ -189,6 +229,12 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
           if (_sellerInfo != null)
             SliverToBoxAdapter(child: _buildAboutSection(isDark, theme, l10n)),
 
+          // ── Locations ───────────────────────────────────────
+          if (_sellerInfo != null && _sellerInfo!.locations.isNotEmpty)
+            SliverToBoxAdapter(
+              child: _buildLocationsSection(isDark, theme, l10n),
+            ),
+
           // ── Products header ──────────────────────────────────
           SliverToBoxAdapter(
             child: Padding(
@@ -203,57 +249,79 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? AppColors.darkStandardBorder
-                          : AppColors.gray200,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      '${_products.length}',
-                      style: AppTypography.caption.copyWith(
-                        fontWeight: FontWeight.w700,
+                  if (_isLoadingInitial)
+                    SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
                         color: isDark
                             ? AppColors.darkPrimaryText
                             : AppColors.black,
                       ),
+                    )
+                  else
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? AppColors.darkStandardBorder
+                            : AppColors.gray200,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '${_products.length}',
+                        style: AppTypography.caption.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: isDark
+                              ? AppColors.darkPrimaryText
+                              : AppColors.black,
+                        ),
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),
           ),
 
-          // ── Products Grid ──────────────────────────────────
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-            sliver: SliverGrid(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 0.68,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
+          // ── Initial loading indicator ──────────────────────
+          if (_isLoadingInitial)
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 40),
+                child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
               ),
-              delegate: SliverChildBuilderDelegate((context, index) {
-                final product = _products[index];
-                return _TikTokProductCard(
-                  product: product,
-                  showSeller: false,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ProductDetailScreen(product: product),
-                    ),
-                  ),
-                );
-              }, childCount: _products.length),
             ),
-          ),
+
+          // ── Products Grid ──────────────────────────────────
+          if (!_isLoadingInitial)
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              sliver: SliverGrid(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  childAspectRatio: 0.68,
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                ),
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  final product = _products[index];
+                  return _TikTokProductCard(
+                    product: product,
+                    showSeller: false,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ProductDetailScreen(product: product),
+                      ),
+                    ),
+                  );
+                }, childCount: _products.length),
+              ),
+            ),
 
           // ── Load more indicator ───────────────────────────
           if (_isLoadingMore)
@@ -400,10 +468,8 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
     final hasDescription =
         info.description != null && info.description!.isNotEmpty;
     final hasPhone = info.phoneNumber != null && info.phoneNumber!.isNotEmpty;
-    final hasPrimaryAddress =
-        info.primaryAddress != null && info.primaryAddress!.isNotEmpty;
 
-    if (!hasDescription && !hasPhone && !hasPrimaryAddress) {
+    if (!hasDescription && !hasPhone) {
       return const SizedBox.shrink();
     }
 
@@ -429,7 +495,7 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
               ),
             ),
           ],
-          if (hasDescription && (hasPhone || hasPrimaryAddress))
+          if (hasDescription && hasPhone)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 12),
               child: Divider(
@@ -447,22 +513,80 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
               theme: theme,
               onTap: () => _callPhone(info.phoneNumber!),
             ),
-          if (hasPhone && hasPrimaryAddress) const SizedBox(height: 10),
-          if (hasPrimaryAddress) ...[
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLocationsSection(
+    bool isDark,
+    ThemeData theme,
+    AppLocalizations l10n,
+  ) {
+    final locations = _sellerInfo!.locations;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Text(
+            l10n.whereToBuy,
+            style: AppTypography.body1.copyWith(
+              fontWeight: FontWeight.w700,
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
+        ),
+        ...locations.map((loc) => _buildLocationCard(loc, isDark, theme, l10n)),
+      ],
+    );
+  }
+
+  Widget _buildLocationCard(
+    SellerLocation location,
+    bool isDark,
+    ThemeData theme,
+    AppLocalizations l10n,
+  ) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkCardBackground : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? AppColors.darkStandardBorder : AppColors.gray300,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Name
+          if (location.name != null && location.name!.isNotEmpty)
+            Text(
+              location.name!,
+              style: AppTypography.body2.copyWith(
+                fontWeight: FontWeight.w600,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+          // Address
+          if (location.address != null && location.address!.isNotEmpty) ...[
+            const SizedBox(height: 4),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(
                   Icons.location_on_outlined,
-                  size: 18,
+                  size: 15,
                   color: isDark
                       ? AppColors.darkSecondaryText
                       : AppColors.gray600,
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 4),
                 Expanded(
                   child: Text(
-                    info.primaryAddress!,
+                    location.address!,
                     style: AppTypography.body2.copyWith(
                       color: isDark
                           ? AppColors.darkPrimaryText
@@ -473,10 +597,46 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
                 ),
               ],
             ),
+          ],
+          // Phone
+          if (location.phoneNumber != null &&
+              location.phoneNumber!.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            GestureDetector(
+              onTap: () => _callPhone(location.phoneNumber!),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.phone_outlined,
+                    size: 15,
+                    color: isDark
+                        ? AppColors.darkSecondaryText
+                        : AppColors.gray600,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    location.phoneNumber!,
+                    style: AppTypography.body2.copyWith(
+                      color: isDark
+                          ? AppColors.darkPrimaryText
+                          : AppColors.black,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          // Directions button
+          if (location.hasCoordinates ||
+              (location.address != null && location.address!.isNotEmpty)) ...[
             const SizedBox(height: 10),
             GestureDetector(
-              onTap: () =>
-                  _openInMapsOrAddress(null, null, info.primaryAddress),
+              onTap: () => _openInMapsOrAddress(
+                location.latitude,
+                location.longitude,
+                location.address,
+              ),
               child: Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -559,14 +719,23 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
   ) async {
     Uri uri;
     if (lat != null && lon != null) {
+      // Use coordinates — format so it always drops a visible pin
+      final latStr = lat.toStringAsFixed(6);
+      final lonStr = lon.toStringAsFixed(6);
       uri = Platform.isIOS
-          ? Uri.parse('maps://?ll=$lat,$lon&z=15')
-          : Uri.parse('geo:$lat,$lon?z=15');
+          ? Uri.parse(
+              'https://maps.apple.com/?ll=$latStr,$lonStr&q=$latStr,$lonStr',
+            )
+          : Uri.parse(
+              'https://www.google.com/maps/search/?api=1&query=$latStr,$lonStr',
+            );
     } else if (address != null && address.isNotEmpty) {
-      final encoded = Uri.encodeComponent(address);
+      final encoded = Uri.encodeQueryComponent(address);
       uri = Platform.isIOS
-          ? Uri.parse('maps://?q=$encoded')
-          : Uri.parse('geo:0,0?q=$encoded');
+          ? Uri.parse('https://maps.apple.com/?q=$encoded')
+          : Uri.parse(
+              'https://www.google.com/maps/search/?api=1&query=$encoded',
+            );
     } else {
       return;
     }
@@ -630,7 +799,8 @@ class _TikTokProductCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Product Image with Seller Avatar
-            Expanded(
+            AspectRatio(
+              aspectRatio: 1.0,
               child: Stack(
                 children: [
                   // Product Image
@@ -712,31 +882,6 @@ class _TikTokProductCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                  // NEW Badge
-                  if (product.isNew)
-                    Positioned(
-                      top: 8,
-                      right: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.7),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          'NEW',
-                          style: AppTypography.caption.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 9,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
-                    ),
                   // Discount Badge
                   if (product.discountPercentage != null &&
                       product.discountPercentage! > 0)
@@ -774,13 +919,15 @@ class _TikTokProductCard extends StatelessWidget {
                 children: [
                   // Title
                   Text(
-                    product.title,
+                    product.localizedTitle(
+                      Localizations.localeOf(context).languageCode,
+                    ),
                     style: AppTypography.body2.copyWith(
                       fontWeight: FontWeight.w600,
                       color: theme.colorScheme.onSurface,
                       height: 1.2,
                     ),
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 6),

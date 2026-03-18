@@ -111,9 +111,7 @@ class LikedScreenState extends State<LikedScreen>
             images: apiProduct.images.isNotEmpty
                 ? apiProduct.images
                 : ['placeholder'],
-            sizes:
-                apiProduct.sizes?.map((size) => size.displayName).toList() ??
-                [],
+            sizes: apiProduct.sizes ?? [],
             colors: apiProduct.colors ?? [],
             material: apiProduct.material?.map((m) => m.displayName).toList(),
             season: apiProduct.season?.map((s) => s.displayName).toList(),
@@ -127,6 +125,8 @@ class LikedScreenState extends State<LikedScreen>
             sellerId: apiProduct.sellerId,
             discountPercentage: apiProduct.discountPercentage,
             originalPrice: apiProduct.originalPrice,
+            titleLocalized: apiProduct.titleLocalized,
+            descriptionLocalized: apiProduct.descriptionLocalized,
           );
 
           // Add to local if not already there
@@ -313,7 +313,7 @@ class LikedScreenState extends State<LikedScreen>
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '${_likedProducts.length} ${_likedProducts.length == 1 ? "item" : "items"}',
+                          l10n.itemsCount(_likedProducts.length),
                           style: AppTypography.body2.copyWith(
                             color: isDark
                                 ? AppColors.darkSecondaryText
@@ -466,7 +466,8 @@ class _TikTokLikedProductCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Product Image with Remove Button
-            Expanded(
+            AspectRatio(
+              aspectRatio: 1.0,
               child: Stack(
                 children: [
                   // Product Image
@@ -476,6 +477,7 @@ class _TikTokLikedProductCard extends StatelessWidget {
                     ),
                     child: Container(
                       width: double.infinity,
+                      height: double.infinity,
                       color: isDark
                           ? AppColors.darkMainBackground
                           : Colors.white,
@@ -485,6 +487,8 @@ class _TikTokLikedProductCard extends StatelessWidget {
                           return CachedNetworkImage(
                             imageUrl: product.imageUrl,
                             fit: BoxFit.contain,
+                            width: double.infinity,
+                            height: double.infinity,
                             cacheManager: ImageCacheManager.instance,
                             memCacheWidth: cacheWidth,
                             placeholder: (context, url) => Container(
@@ -566,45 +570,49 @@ class _TikTokLikedProductCard extends StatelessWidget {
                       fontSize: 13,
                       height: 1.2,
                     ),
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
-                  // Price with optional discount
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
+                  // Price with optional discount in a Row
+                  Row(
                     children: [
-                      Text(
-                        product.currency == 'USD'
-                            ? '\$${product.price}'
-                            : '${product.price.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} UZS',
-                        style: AppTypography.body2.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: isDark
-                              ? AppColors.darkPrimaryText
-                              : AppColors.black,
-                          fontSize: 13,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (product.originalPrice != null &&
-                          product.originalPrice! > product.price)
-                        Text(
+                      Flexible(
+                        child: Text(
                           product.currency == 'USD'
-                              ? '\$${product.originalPrice}'
-                              : '${product.originalPrice.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} UZS',
-                          style: AppTypography.caption.copyWith(
+                              ? '\$${product.price}'
+                              : '${product.price.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} UZS',
+                          style: AppTypography.body2.copyWith(
+                            fontWeight: FontWeight.bold,
                             color: isDark
-                                ? AppColors.gray400
-                                : AppColors.gray500,
-                            decoration: TextDecoration.lineThrough,
-                            fontSize: 11,
+                                ? AppColors.darkPrimaryText
+                                : AppColors.black,
+                            fontSize: 13,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
+                      ),
+                      if (product.originalPrice != null &&
+                          product.originalPrice! > product.price) ...[
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            product.currency == 'USD'
+                                ? '\$${product.originalPrice}'
+                                : '${product.originalPrice.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} UZS',
+                            style: AppTypography.caption.copyWith(
+                              color: isDark
+                                  ? AppColors.gray400
+                                  : AppColors.gray500,
+                              decoration: TextDecoration.lineThrough,
+                              fontSize: 10,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                   // Seller Name
@@ -684,10 +692,10 @@ class _LikedProductCard extends StatelessWidget {
                   children: [
                     CachedNetworkImage(
                       imageUrl: product.imageUrl,
-                      fit: BoxFit.contain,
+                      fit: BoxFit.cover,
+                      width: 100,
+                      height: 120,
                       cacheManager: ImageCacheManager.instance,
-                      memCacheWidth: 200,
-                      memCacheHeight: 240,
                       placeholder: (context, url) => Container(
                         color: isDark
                             ? AppColors.darkMainBackground

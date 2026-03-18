@@ -3,9 +3,12 @@ import 'package:provider/provider.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
+import 'package:swipe/core/di/service_locator.dart';
+import 'package:swipe/core/network/api_client.dart';
 import 'package:swipe/core/utils/responsive_utils.dart';
-import 'package:swipe/shared/widgets/widgets.dart';
 import 'package:swipe/features/onboarding/data/onboarding_data_manager.dart';
+import 'package:swipe/features/profile/data/services/profile_service.dart';
+import 'package:swipe/shared/widgets/widgets.dart';
 
 /// Budget Preference Screen - Third step of profile setup
 /// User selects their preferred price range
@@ -98,18 +101,39 @@ class _BudgetPreferenceScreenState extends State<BudgetPreferenceScreen> {
     try {
       // Save budget preference to onboarding manager
       final manager = context.read<OnboardingDataManager>();
-
-      // Convert budget ID to API format (BUDGET, MODERATE, FLEXIBLE, etc.)
-      String budgetType = _selectedBudget.toUpperCase();
+      final String budgetType = _selectedBudget.toUpperCase();
       manager.setBudgetType(budgetType);
 
       if (!mounted) return;
 
-      // Navigate to budget by items screen (final onboarding step)
-      Navigator.of(context).pushNamed('/budget-by-items');
+      // All options → submit profile and go to completion
+      final apiClient = getIt<ApiClient>();
+      if (!apiClient.isAuthenticated()) {
+        SnackBarHelper.showError(context, l10n.authenticationRequired);
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil('/phone-auth', (route) => false);
+        return;
+      }
+
+      if (!manager.hasRequiredFields) {
+        SnackBarHelper.showError(context, l10n.pleaseCompleteAllFields);
+        return;
+      }
+
+      final profileRequest = manager.toProfileRequest();
+      await getIt<ProfileService>().createProfile(profileRequest);
+
+      if (!mounted) return;
+
+      Navigator.of(context).pushNamed('/onboarding-completion');
     } catch (e) {
       if (!mounted) return;
-      SnackBarHelper.showError(context, l10n.saveBudgetError);
+      final l10n = AppLocalizations.of(context)!;
+      SnackBarHelper.showError(
+        context,
+        '${l10n.failedToCreateProfile}: ${e.toString()}',
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -254,7 +278,7 @@ class _BudgetPreferenceScreenState extends State<BudgetPreferenceScreen> {
                                 ),
                               )
                             : Text(
-                                l10n.continueButton,
+                                l10n.completeSetup,
                                 style: AppTypography.button.copyWith(
                                   color: AppColors.white,
                                   fontSize: 16,

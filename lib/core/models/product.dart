@@ -4,6 +4,40 @@
 import '../constants/product_enums.dart';
 import '../utils/enum_helpers.dart';
 
+/// Color Variant Model
+/// Represents a color variant with its specific image and stock info
+class ColorVariant {
+  final String color;
+  final String image;
+  final int totalQuantity;
+  final String? sku;
+
+  ColorVariant({
+    required this.color,
+    required this.image,
+    required this.totalQuantity,
+    this.sku,
+  });
+
+  factory ColorVariant.fromJson(Map<String, dynamic> json) {
+    return ColorVariant(
+      color: json['color'] as String,
+      image: json['image'] as String,
+      totalQuantity: json['total_quantity'] as int? ?? 0,
+      sku: json['sku'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'color': color,
+      'image': image,
+      'total_quantity': totalQuantity,
+      'sku': sku,
+    };
+  }
+}
+
 class Product {
   final String id;
   final String brand;
@@ -17,9 +51,10 @@ class Product {
   final int? discountPercentage;
   final String currency;
   final List<String> images;
-  final List<SizeEnum>? sizes;
+  final List<String>? sizes;
   final List<String>?
   colors; // Changed from ColorEnum to String to support hex codes
+  final List<ColorVariant>? colorVariants; // Color variants with images
   final int? stockQuantity;
   final bool inStock;
   final List<MaterialEnum>? material;
@@ -43,6 +78,8 @@ class Product {
   final double? rating;
   final int? reviewCount;
   final DateTime createdAt;
+  final Map<String, String> titleLocalized;
+  final Map<String, String> descriptionLocalized;
 
   Product({
     required this.id,
@@ -59,6 +96,7 @@ class Product {
     required this.images,
     this.sizes,
     this.colors,
+    this.colorVariants,
     this.stockQuantity,
     required this.inStock,
     this.material,
@@ -82,6 +120,8 @@ class Product {
     this.rating,
     this.reviewCount,
     required this.createdAt,
+    this.titleLocalized = const {},
+    this.descriptionLocalized = const {},
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
@@ -122,9 +162,14 @@ class Product {
               ?.map((e) => e as String)
               .toList() ??
           [],
-      sizes: EnumHelpers.parseSizeList(json['sizes'] as List<dynamic>?),
+      sizes: (json['sizes'] as List<dynamic>?)
+          ?.map((e) => e as String)
+          .toList(),
       colors: (json['colors'] as List<dynamic>?)
           ?.map((e) => e as String)
+          .toList(),
+      colorVariants: (json['color_variants'] as List<dynamic>?)
+          ?.map((e) => ColorVariant.fromJson(e as Map<String, dynamic>))
           .toList(),
       stockQuantity: json['stock_quantity'] as int?,
       inStock: json['in_stock'] as bool? ?? true,
@@ -170,6 +215,16 @@ class Product {
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
           : DateTime.now(),
+      titleLocalized:
+          (json['title_localized'] as Map<String, dynamic>?)?.map(
+            (k, v) => MapEntry(k, v.toString()),
+          ) ??
+          {},
+      descriptionLocalized:
+          (json['description_localized'] as Map<String, dynamic>?)?.map(
+            (k, v) => MapEntry(k, v.toString()),
+          ) ??
+          {},
     );
   }
 
@@ -186,8 +241,9 @@ class Product {
       'discount_percentage': discountPercentage,
       'currency': currency,
       'images': images,
-      'sizes': EnumHelpers.sizeListToJson(sizes),
+      'sizes': sizes,
       'colors': colors,
+      'color_variants': colorVariants?.map((v) => v.toJson()).toList(),
       'stock_quantity': stockQuantity,
       'in_stock': inStock,
       'material': EnumHelpers.materialListToJson(material),
@@ -211,7 +267,22 @@ class Product {
       'rating': rating,
       'review_count': reviewCount,
       'created_at': createdAt.toIso8601String(),
+      'title_localized': titleLocalized,
+      'description_localized': descriptionLocalized,
     };
+  }
+
+  /// Get localized title or fall back to [title]
+  String localizedTitle(String languageCode) {
+    return titleLocalized[languageCode] ?? titleLocalized['en'] ?? title;
+  }
+
+  /// Get localized description or fall back to [description]
+  String localizedDescription(String languageCode) {
+    return descriptionLocalized[languageCode] ??
+        descriptionLocalized['en'] ??
+        description ??
+        '';
   }
 
   /// Get formatted price with currency
@@ -238,7 +309,7 @@ class Product {
   }
 
   /// Get display string for sizes
-  String get sizesDisplay => EnumHelpers.sizesDisplayText(sizes);
+  String get sizesDisplay => sizes?.join(', ') ?? 'N/A';
 
   /// Get display string for colors
   String get colorsDisplay => EnumHelpers.colorsDisplayText(colors);
@@ -301,8 +372,7 @@ class ProductListResponse {
 
     final dataField = json['data'];
     if (dataField is Map) {
-    } else {
-    }
+    } else {}
 
     if (dataField is Map<String, dynamic>) {
       // Try different possible keys for products list

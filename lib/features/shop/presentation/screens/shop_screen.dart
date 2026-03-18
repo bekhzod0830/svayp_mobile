@@ -12,7 +12,6 @@ import 'package:swipe/core/models/product.dart' as api_models;
 import 'package:swipe/core/cache/image_cache_manager.dart';
 import 'package:swipe/core/services/visual_search_api_service.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:swipe/features/shop/presentation/screens/visual_search_camera_screen.dart';
 import 'package:swipe/features/shop/presentation/screens/visual_search_results_screen.dart';
 import 'package:swipe/features/shop/presentation/widgets/visual_search_loader.dart';
 import 'package:swipe/features/shop/presentation/screens/visual_search_crop_screen.dart';
@@ -38,7 +37,6 @@ const _kWhite60 = Color(0x99FFFFFF); // white.withOpacity(0.6)
 const _kBlack40 = Color(0x66000000); // black.withOpacity(0.4)
 const _kBlack50 = Color(0x80000000); // black.withOpacity(0.5)
 const _kBlack30 = Color(0x4D000000); // black.withOpacity(0.3)
-const _kBlack70 = Color(0xB3000000); // black.withOpacity(0.7)
 
 /// Shop Screen - Browse and search for products (TikTok Shop style)
 /// Features: 2-column grid, seller info, tabs, ChatGPT-style search
@@ -60,14 +58,19 @@ class _ShopScreenState extends State<ShopScreen>
   final ScrollController _scrollController = ScrollController();
 
   List<Product> _products = [];
+  List<Product> _trendingProducts = [];
   List<Product> _filteredProducts = [];
   bool _isLoading = true;
   bool _isLoadingMore = false;
   bool _hasMoreProducts = true;
   int _currentPage = 0;
   final int _pageSize = 20;
+  // Trending-specific pagination
+  int _trendingPage = 0;
+  bool _hasMoreTrending = true;
+  bool _isLoadingMoreTrending = false;
   String? _errorMessage;
-  int _selectedTab = 0; // 0: All, 1: Trending, 2: New, 3: Sale
+  int _selectedTab = 0; // 0: Trending, 1: All
   bool _hasLoadedOnce = false;
   String? _authToken;
 
@@ -76,6 +79,7 @@ class _ShopScreenState extends State<ShopScreen>
     super.initState();
     _scrollController.addListener(_onScroll);
     _initAuth();
+    _loadTrendingProducts(); // fire independently so it never blocked by _loadProducts
   }
 
   Future<void> _initAuth() async {
@@ -100,14 +104,22 @@ class _ShopScreenState extends State<ShopScreen>
   }
 
   void _onScroll() {
-    if (_isLoadingMore || !_hasMoreProducts) return;
-
     final maxScroll = _scrollController.position.maxScrollExtent;
     final currentScroll = _scrollController.position.pixels;
-    final threshold = maxScroll * 0.8; // Load more when 80% scrolled
+    final threshold = maxScroll * 0.8;
 
     if (currentScroll >= threshold) {
-      _loadMoreProducts();
+      if (_selectedTab == 0) {
+        // Trending tab
+        if (!_isLoadingMoreTrending && _hasMoreTrending) {
+          _loadMoreTrendingProducts();
+        }
+      } else {
+        // All tab
+        if (!_isLoadingMore && _hasMoreProducts) {
+          _loadMoreProducts();
+        }
+      }
     }
   }
 
@@ -140,11 +152,11 @@ class _ShopScreenState extends State<ShopScreen>
 
       setState(() {
         _products = products;
-        _filteredProducts = products;
         _isLoading = false;
         _hasMoreProducts = products.length >= _pageSize;
         if (products.isNotEmpty) _currentPage = 1;
       });
+      _filterProducts();
     } catch (e) {
       setState(() {
         _isLoading = false;
@@ -187,22 +199,87 @@ class _ShopScreenState extends State<ShopScreen>
         _isLoadingMore = false;
         _hasMoreProducts = newProducts.length >= _pageSize;
         if (uniqueProducts.isNotEmpty) _currentPage++;
-
-        // Apply current search filter inside setState
-        final query = _searchController.text.toLowerCase();
-
-        _filteredProducts = _products.where((product) {
-          return query.isEmpty ||
-              product.title.toLowerCase().contains(query) ||
-              product.brand.toLowerCase().contains(query) ||
-              product.category.toLowerCase().contains(query);
-        }).toList();
       });
+      _filterProducts();
     } catch (e) {
       setState(() {
         _isLoadingMore = false;
       });
     }
+  }
+
+  /// Fetch trending products from GET /feed/trending?limit=20&page=0
+  Future<void> _loadTrendingProducts() async {
+    setState(() {
+      _trendingPage = 0;
+      _hasMoreTrending = true;
+      _trendingProducts = [];
+    });
+    try {
+      final apiClient = getIt<ApiClient>();
+      final response = await apiClient.get<dynamic>(
+        '/feed/trending',
+        queryParameters: {'limit': '$_pageSize', 'page': '0'},
+      );
+      final trending = _parseTrendingResponse(response.data);
+      if (mounted) {
+        setState(() {
+          _trendingProducts = trending;
+          _hasMoreTrending = trending.length >= _pageSize;
+          if (trending.isNotEmpty) _trendingPage = 1;
+        });
+        _filterProducts();
+      }
+    } catch (_) {}
+  }
+
+  /// Load next page of trending products
+  Future<void> _loadMoreTrendingProducts() async {
+    if (_isLoadingMoreTrending || !_hasMoreTrending) return;
+    setState(() => _isLoadingMoreTrending = true);
+    try {
+      final apiClient = getIt<ApiClient>();
+      final response = await apiClient.get<dynamic>(
+        '/feed/trending',
+        queryParameters: {'limit': '$_pageSize', 'page': '$_trendingPage'},
+      );
+      final newItems = _parseTrendingResponse(response.data);
+      final existingIds = _trendingProducts.map((p) => p.id).toSet();
+      final unique = newItems
+          .where((p) => !existingIds.contains(p.id))
+          .toList();
+      if (mounted) {
+        setState(() {
+          _trendingProducts.addAll(unique);
+          _isLoadingMoreTrending = false;
+          _hasMoreTrending = newItems.length >= _pageSize;
+          if (unique.isNotEmpty) _trendingPage++;
+        });
+        _filterProducts();
+      }
+    } catch (_) {
+      setState(() => _isLoadingMoreTrending = false);
+    }
+  }
+
+  /// Parse raw response data into a list of Products
+  List<Product> _parseTrendingResponse(dynamic data) {
+    List<dynamic> raw = [];
+    if (data is List) {
+      raw = data;
+    } else if (data is Map<String, dynamic>) {
+      final inner = data['data'] ?? data['products'] ?? data['content'];
+      if (inner is List) raw = inner;
+    }
+    final result = <Product>[];
+    for (final item in raw) {
+      if (item is Map<String, dynamic>) {
+        try {
+          result.add(_convertApiProduct(api_models.Product.fromJson(item)));
+        } catch (_) {}
+      }
+    }
+    return result;
   }
 
   /// Convert API product model to local Product entity
@@ -227,7 +304,7 @@ class _ShopScreenState extends State<ShopScreen>
           ? apiProduct.images
           : ['placeholder'],
       // Convert enum lists to string lists for the old Product entity
-      sizes: apiProduct.sizes?.map((size) => size.displayName).toList() ?? [],
+      sizes: apiProduct.sizes ?? [],
       colors: apiProduct.colors ?? [],
       material: apiProduct.material?.map((m) => m.displayName).toList(),
       season: apiProduct.season?.map((s) => s.displayName).toList(),
@@ -241,6 +318,8 @@ class _ShopScreenState extends State<ShopScreen>
       sellerId: apiProduct.sellerId,
       discountPercentage: apiProduct.discountPercentage,
       originalPrice: apiProduct.originalPrice,
+      titleLocalized: apiProduct.titleLocalized,
+      descriptionLocalized: apiProduct.descriptionLocalized,
     );
   }
 
@@ -256,7 +335,7 @@ class _ShopScreenState extends State<ShopScreen>
       // Call the search API
       final response = await _apiService.searchProductsApi(
         query: query,
-        size: 100, // Get more results for search
+        size: 20, // Get search results
         token: token,
       );
 
@@ -311,29 +390,27 @@ class _ShopScreenState extends State<ShopScreen>
     final query = _searchController.text.toLowerCase();
 
     setState(() {
-      var filtered = _products.where((product) {
-        final matchesSearch =
-            query.isEmpty ||
+      // Trending tab: show _trendingProducts directly (different source from _products)
+      if (_selectedTab == 0) {
+        final source = _trendingProducts.isNotEmpty
+            ? _trendingProducts
+            : _products;
+        _filteredProducts = source.where((product) {
+          return query.isEmpty ||
+              product.title.toLowerCase().contains(query) ||
+              product.brand.toLowerCase().contains(query) ||
+              product.category.toLowerCase().contains(query);
+        }).toList();
+        return;
+      }
+
+      // All tab
+      _filteredProducts = _products.where((product) {
+        return query.isEmpty ||
             product.title.toLowerCase().contains(query) ||
             product.brand.toLowerCase().contains(query) ||
             product.category.toLowerCase().contains(query);
-
-        // Apply tab filtering
-        switch (_selectedTab) {
-          case 1: // Trending (high rating)
-            return matchesSearch && product.rating >= 4.5;
-          case 2: // New
-            return matchesSearch && product.isNew;
-          case 3: // Sale (has discount)
-            return matchesSearch &&
-                product.discountPercentage != null &&
-                product.discountPercentage! > 0;
-          default: // All
-            return matchesSearch;
-        }
       }).toList();
-
-      _filteredProducts = filtered;
     });
   }
 
@@ -373,28 +450,24 @@ class _ShopScreenState extends State<ShopScreen>
   Future<void> _handleVisualSearch() async {
     final l10n = AppLocalizations.of(context)!;
     try {
-      // 1. Open Pinterest-style camera screen (gallery button bottom-left)
+      // 1. Open photo library for the user to pick an image
       if (!mounted) return;
-      final image = await Navigator.of(context, rootNavigator: true)
-          .push<XFile>(
-            MaterialPageRoute(
-              fullscreenDialog: true,
-              builder: (_) => const VisualSearchCameraScreen(),
-            ),
-          );
+      final image = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 90,
+      );
       if (image == null) return;
 
-      // 2. Let the widget tree settle after the camera closes
+      // 2. Let the widget tree settle after the picker closes
       if (!mounted) return;
       await Future.delayed(const Duration(milliseconds: 300));
 
-      // 3. Let the user crop and choose a category in one step
+      // 3. Let the user crop the image
       if (!mounted) return;
-      final result = await _showCategoryPicker(image);
-      if (result == null) return; // dismissed
-      final (category, croppedImage) = result;
+      final croppedImage = await _showCategoryPicker(image);
+      if (croppedImage == null) return; // dismissed
 
-      // 5. Show loading dialog AFTER category is confirmed
+      // 5. Show loading dialog AFTER crop is confirmed
       if (!mounted) return;
       showDialog(
         context: context,
@@ -409,7 +482,7 @@ class _ShopScreenState extends State<ShopScreen>
       final response = await _visualSearchService.fetchRecommendations(
         image: croppedImage,
         token: _authToken,
-        category: category,
+        // category: null, // Category selection removed
       );
 
       // 8. Close loading dialog
@@ -451,33 +524,30 @@ class _ShopScreenState extends State<ShopScreen>
     }
   }
 
-  Future<(String, XFile)?> _showCategoryPicker(XFile image) {
+  Future<XFile?> _showCategoryPicker(XFile image) {
     final l10n = AppLocalizations.of(context)!;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cropKey = GlobalKey<VisualSearchCropWidgetState>();
 
-    final categories = <(String, String, IconData)>[
-      ('TOPWEAR', l10n.vsCatTopwear, Icons.checkroom_outlined),
-      ('BOTTOMWEAR', l10n.vsCatBottomwear, Icons.airline_seat_legroom_extra),
-      ('DRESSES', l10n.vsCatDresses, Icons.dry_cleaning_outlined),
-      ('OUTERWEAR', l10n.vsCatOuterwear, Icons.layers_outlined),
-      ('ONE_PIECE', l10n.vsCatOnePiece, Icons.person_outline),
-      ('ACTIVEWEAR', l10n.vsCatActivewear, Icons.sports_outlined),
-      ('ACCESSORIES', l10n.vsCatAccessories, Icons.watch_outlined),
-      ('FOOTWEAR', l10n.vsCatFootwear, Icons.directions_walk_outlined),
-      ('UNDERWEAR', l10n.vsCatUnderwear, Icons.spa_outlined),
-      ('ISLAMIC_MODEST_WEAR', l10n.vsCatModestWear, Icons.woman_outlined),
-      ('TWO_PIECE_SET', l10n.vsCatTwoPieceSet, Icons.looks_two_outlined),
-      ('THREE_PIECE_SET', l10n.vsCatThreePieceSet, Icons.looks_3_outlined),
-      (
-        'BODYSUITS_TRIKO',
-        l10n.vsCatBodysuits,
-        Icons.accessibility_new_outlined,
-      ),
-      ('HOMEWEAR', l10n.vsCatHomewear, Icons.home_outlined),
-    ];
+    // Category selection removed — no category is sent with the request
+    // final categories = <(String, String, IconData)>[
+    //   ('TOPWEAR', l10n.vsCatTopwear, Icons.checkroom_outlined),
+    //   ('BOTTOMWEAR', l10n.vsCatBottomwear, Icons.airline_seat_legroom_extra),
+    //   ('DRESSES', l10n.vsCatDresses, Icons.dry_cleaning_outlined),
+    //   ('OUTERWEAR', l10n.vsCatOuterwear, Icons.layers_outlined),
+    //   ('ONE_PIECE', l10n.vsCatOnePiece, Icons.person_outline),
+    //   ('ACTIVEWEAR', l10n.vsCatActivewear, Icons.sports_outlined),
+    //   ('ACCESSORIES', l10n.vsCatAccessories, Icons.watch_outlined),
+    //   ('FOOTWEAR', l10n.vsCatFootwear, Icons.directions_walk_outlined),
+    //   ('UNDERWEAR', l10n.vsCatUnderwear, Icons.spa_outlined),
+    //   ('ISLAMIC_MODEST_WEAR', l10n.vsCatModestWear, Icons.woman_outlined),
+    //   ('TWO_PIECE_SET', l10n.vsCatTwoPieceSet, Icons.looks_two_outlined),
+    //   ('THREE_PIECE_SET', l10n.vsCatThreePieceSet, Icons.looks_3_outlined),
+    //   ('BODYSUITS_TRIKO', l10n.vsCatBodysuits, Icons.accessibility_new_outlined),
+    //   ('HOMEWEAR', l10n.vsCatHomewear, Icons.home_outlined),
+    // ];
 
-    return showModalBottomSheet<(String, XFile)>(
+    return showModalBottomSheet<XFile>(
       context: context,
       backgroundColor: isDark ? AppColors.darkCardBackground : AppColors.white,
       shape: const RoundedRectangleBorder(
@@ -487,7 +557,7 @@ class _ShopScreenState extends State<ShopScreen>
       isDismissible: true,
       enableDrag: false,
       builder: (ctx) {
-        String? selected;
+        // String? selected; // Category selection removed
         bool isProcessing = false;
         return StatefulBuilder(
           builder: (ctx, setState) => SafeArea(
@@ -564,88 +634,18 @@ class _ShopScreenState extends State<ShopScreen>
                     ),
                   ),
                   const SizedBox(height: 16),
-                  // Category dropdown
-                  DropdownButtonFormField<String>(
-                    value: selected,
-                    isExpanded: true,
-                    hint: Text(
-                      l10n.vsPickCategory,
-                      style: AppTypography.body1.copyWith(
-                        color: isDark
-                            ? AppColors.darkSecondaryText
-                            : AppColors.secondaryText,
-                      ),
-                    ),
-                    dropdownColor: isDark
-                        ? AppColors.darkCardBackground
-                        : AppColors.white,
-                    decoration: InputDecoration(
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: isDark
-                              ? AppColors.darkStandardBorder
-                              : AppColors.gray300,
-                        ),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: isDark
-                              ? AppColors.darkStandardBorder
-                              : AppColors.gray300,
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: isDark
-                              ? AppColors.darkPrimaryText
-                              : AppColors.black,
-                          width: 2,
-                        ),
-                      ),
-                    ),
-                    icon: Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      color: isDark
-                          ? AppColors.darkPrimaryText
-                          : AppColors.primaryText,
-                    ),
-                    style: AppTypography.body1.copyWith(
-                      color: isDark
-                          ? AppColors.darkPrimaryText
-                          : AppColors.primaryText,
-                    ),
-                    items: [
-                      for (final cat in categories)
-                        DropdownMenuItem(
-                          value: cat.$1,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(cat.$2),
-                              Icon(
-                                cat.$3,
-                                size: 18,
-                                color: isDark
-                                    ? AppColors.darkSecondaryText
-                                    : AppColors.gray600,
-                              ),
-                            ],
-                          ),
-                        ),
-                    ],
-                    onChanged: (v) => setState(() => selected = v),
-                  ),
+                  // Category dropdown removed — no category is sent with the request
+                  // DropdownButtonFormField<String>(
+                  //   value: selected,
+                  //   isExpanded: true,
+                  //   hint: Text(l10n.vsPickCategory, ...),
+                  //   items: [...categories...],
+                  //   onChanged: (v) => setState(() => selected = v),
+                  // ),
                   const SizedBox(height: 16),
                   // Search button
                   ElevatedButton(
-                    onPressed: (selected == null || isProcessing)
+                    onPressed: isProcessing
                         ? null
                         : () async {
                             setState(() => isProcessing = true);
@@ -653,7 +653,7 @@ class _ShopScreenState extends State<ShopScreen>
                               final cropped = await cropKey.currentState!
                                   .cropImage();
                               if (ctx.mounted) {
-                                Navigator.of(ctx).pop((selected!, cropped));
+                                Navigator.of(ctx).pop(cropped);
                               }
                             } catch (_) {
                               if (ctx.mounted) {
@@ -685,13 +685,7 @@ class _ShopScreenState extends State<ShopScreen>
                         : Text(
                             l10n.vsSearchButton,
                             style: AppTypography.body1.copyWith(
-                              color: selected == null
-                                  ? (isDark
-                                        ? AppColors.darkDisabledText
-                                        : AppColors.gray500)
-                                  : (isDark
-                                        ? AppColors.black
-                                        : AppColors.white),
+                              color: isDark ? AppColors.black : AppColors.white,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -773,10 +767,8 @@ class _ShopScreenState extends State<ShopScreen>
                   ),
                   child: Row(
                     children: [
-                      _buildTab(l10n.all, 0, isDark),
-                      _buildTab(l10n.trending, 1, isDark),
-                      _buildTab(l10n.newItems, 2, isDark),
-                      _buildTab(l10n.sale, 3, isDark),
+                      _buildTab(l10n.trending, 0, isDark),
+                      _buildTab(l10n.all, 1, isDark),
                     ],
                   ),
                 ),
@@ -820,44 +812,60 @@ class _ShopScreenState extends State<ShopScreen>
                           color: isDark
                               ? AppColors.darkPrimaryText
                               : AppColors.black,
-                          child: GridView.builder(
+                          child: CustomScrollView(
                             controller: _scrollController,
                             physics: const AlwaysScrollableScrollPhysics(),
-                            padding: const EdgeInsets.fromLTRB(12, 0, 12, 100),
-                            gridDelegate:
-                                const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 2,
-                                  mainAxisSpacing: 12,
-                                  crossAxisSpacing: 12,
-                                  childAspectRatio: 0.68,
+                            slivers: [
+                              SliverPadding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  12,
+                                  0,
+                                  12,
+                                  12,
                                 ),
-                            itemCount:
-                                _filteredProducts.length +
-                                (_isLoadingMore ? 1 : 0),
-                            itemBuilder: (context, index) {
-                              if (index == _filteredProducts.length) {
-                                return Center(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(24),
-                                    child: CircularProgressIndicator(
-                                      color: isDark
-                                          ? AppColors.darkPrimaryText
-                                          : AppColors.black,
-                                      strokeWidth: 2,
+                                sliver: SliverGrid(
+                                  delegate: SliverChildBuilderDelegate((
+                                    context,
+                                    index,
+                                  ) {
+                                    final product = _filteredProducts[index];
+                                    return RepaintBoundary(
+                                      child: _TikTokProductCard(
+                                        product: product,
+                                        onTap: () => _onProductTap(product),
+                                        onSellerTap: () => _onSellerTap(
+                                          product.seller ?? 'SVAYP',
+                                        ),
+                                      ),
+                                    );
+                                  }, childCount: _filteredProducts.length),
+                                  gridDelegate:
+                                      const SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: 2,
+                                        mainAxisSpacing: 12,
+                                        crossAxisSpacing: 12,
+                                        childAspectRatio: 0.68,
+                                      ),
+                                ),
+                              ),
+                              if (_isLoadingMore || _isLoadingMoreTrending)
+                                SliverToBoxAdapter(
+                                  child: Center(
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(24),
+                                      child: CircularProgressIndicator(
+                                        color: isDark
+                                            ? AppColors.darkPrimaryText
+                                            : AppColors.black,
+                                        strokeWidth: 2,
+                                      ),
                                     ),
                                   ),
-                                );
-                              }
-                              final product = _filteredProducts[index];
-                              return RepaintBoundary(
-                                child: _TikTokProductCard(
-                                  product: product,
-                                  onTap: () => _onProductTap(product),
-                                  onSellerTap: () =>
-                                      _onSellerTap(product.seller ?? 'SVAYP'),
                                 ),
-                              );
-                            },
+                              const SliverToBoxAdapter(
+                                child: SizedBox(height: 100),
+                              ),
+                            ],
                           ),
                         ),
                 ),
@@ -997,6 +1005,10 @@ class _ShopScreenState extends State<ShopScreen>
             _selectedTab = index;
           });
           _filterProducts();
+          // If switching to Trending and we have nothing yet, (re)load
+          if (index == 0 && _trendingProducts.isEmpty) {
+            _loadTrendingProducts();
+          }
         },
         child: Container(
           decoration: BoxDecoration(
@@ -1175,7 +1187,8 @@ class _TikTokProductCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Product Image with Seller Avatar
-            Expanded(
+            AspectRatio(
+              aspectRatio: 1.0,
               child: Stack(
                 children: [
                   // Product Image
@@ -1185,6 +1198,7 @@ class _TikTokProductCard extends StatelessWidget {
                     ),
                     child: Container(
                       width: double.infinity,
+                      height: double.infinity,
                       color: isDark
                           ? AppColors.darkMainBackground
                           : Colors.white,
@@ -1196,6 +1210,8 @@ class _TikTokProductCard extends StatelessWidget {
                                 ? product.images.first
                                 : 'https://via.placeholder.com/400',
                             fit: BoxFit.contain,
+                            width: double.infinity,
+                            height: double.infinity,
                             cacheManager: ImageCacheManager.instance,
                             memCacheWidth: cacheWidth,
                             placeholder: (context, url) => Container(
@@ -1260,31 +1276,6 @@ class _TikTokProductCard extends StatelessWidget {
                   //     ),
                   //   ),
                   // ),
-                  // NEW Badge
-                  if (product.isNew)
-                    Positioned(
-                      top: 8,
-                      right: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _kBlack70,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          'NEW',
-                          style: AppTypography.caption.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 9,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
-                    ),
                   // Discount Badge
                   if (product.discountPercentage != null &&
                       product.discountPercentage! > 0)
@@ -1314,100 +1305,77 @@ class _TikTokProductCard extends StatelessWidget {
               ),
             ),
             // Product Info
-            Padding(
-              padding: const EdgeInsets.all(10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Title
-                  Text(
-                    product.title,
-                    style: AppTypography.body2.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: theme.colorScheme.onSurface,
-                      height: 1.2,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 6),
-                  // Price with optional discount
-                  Column(
+            Expanded(
+              child: ClipRect(
+                child: Padding(
+                  padding: const EdgeInsets.all(10),
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
+                    mainAxisSize: MainAxisSize.max,
                     children: [
+                      // Title — 1 line with ellipsis
                       Text(
-                        product.formattedPrice,
+                        product.localizedTitle(
+                          Localizations.localeOf(context).languageCode,
+                        ),
                         style: AppTypography.body2.copyWith(
-                          fontWeight: FontWeight.bold,
+                          fontWeight: FontWeight.w600,
                           color: theme.colorScheme.onSurface,
+                          height: 1.2,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      if (product.hasDiscount)
-                        Text(
-                          product.formattedDiscountPrice ?? '',
-                          style: AppTypography.caption.copyWith(
-                            color: isDark
-                                ? AppColors.gray400
-                                : AppColors.gray500,
-                            decoration: TextDecoration.lineThrough,
+                      const SizedBox(height: 6),
+                      // Price with optional discount in a Row
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              product.formattedPrice,
+                              style: AppTypography.body2.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: theme.colorScheme.onSurface,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                          if (product.hasDiscount) ...[
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                product.formattedDiscountPrice ?? '',
+                                style: AppTypography.caption.copyWith(
+                                  color: isDark
+                                      ? AppColors.gray400
+                                      : AppColors.gray500,
+                                  decoration: TextDecoration.lineThrough,
+                                  fontSize: 10,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      // Seller Name
+                      Text(
+                        sellerName,
+                        style: AppTypography.caption.copyWith(
+                          color: isDark
+                              ? AppColors.darkSecondaryText
+                              : AppColors.gray600,
+                          fontSize: 11,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 6),
-                  // Seller Name
-                  Text(
-                    sellerName,
-                    style: AppTypography.caption.copyWith(
-                      color: isDark
-                          ? AppColors.darkSecondaryText
-                          : AppColors.gray600,
-                      fontSize: 11,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  // COMMENTED OUT - Rating display
-                  // Row(
-                  //   children: [
-                  //     Icon(Icons.star_rounded, size: 12, color: Colors.amber),
-                  //     const SizedBox(width: 2),
-                  //     Text(
-                  //       product.rating.toStringAsFixed(1),
-                  //       style: AppTypography.caption.copyWith(
-                  //         fontWeight: FontWeight.w600,
-                  //         color: isDark
-                  //             ? AppColors.darkSecondaryText
-                  //             : AppColors.gray600,
-                  //         fontSize: 11,
-                  //       ),
-                  //     ),
-                  //     const SizedBox(width: 6),
-                  //     Flexible(
-                  //       child: GestureDetector(
-                  //         onTap: onSellerTap,
-                  //         child: Text(
-                  //           '• $sellerName',
-                  //           style: AppTypography.caption.copyWith(
-                  //             color: isDark
-                  //                 ? AppColors.darkSecondaryText
-                  //                 : AppColors.gray600,
-                  //             fontSize: 11,
-                  //           ),
-                  //           maxLines: 1,
-                  //           overflow: TextOverflow.ellipsis,
-                  //         ),
-                  //       ),
-                  //     ),
-                  //   ],
-                  // ),
-                ],
+                ),
               ),
             ),
           ],

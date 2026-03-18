@@ -1,12 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
 import 'package:swipe/core/utils/responsive_utils.dart';
+import 'package:swipe/core/di/service_locator.dart';
+import 'package:swipe/core/network/api_client.dart';
 import 'package:swipe/features/discover/domain/entities/product.dart';
 import 'package:swipe/features/discover/presentation/widgets/swipeable_product_card.dart';
+import 'package:swipe/features/discover/presentation/widgets/swipe_tutorial_overlay.dart';
 import 'package:swipe/features/cart/data/services/cart_service.dart';
 import 'package:swipe/features/cart/presentation/screens/cart_screen.dart';
 import 'package:swipe/features/liked/data/services/liked_service.dart';
@@ -14,7 +18,15 @@ import 'package:swipe/features/product/presentation/screens/product_detail_scree
 import 'package:swipe/core/services/product_api_service.dart';
 import 'package:swipe/core/models/product.dart' as api_models;
 import 'package:swipe/core/services/recommendation_cache_service.dart';
-import 'package:swipe/core/constants/product_enums.dart';
+
+/// Helper function to format size label by removing SIZE_ prefix
+String _formatSizeLabel(String size) {
+  // Remove SIZE_ prefix if present (e.g., "SIZE_46" -> "46")
+  if (size.toUpperCase().startsWith('SIZE_')) {
+    return size.substring(5);
+  }
+  return size;
+}
 
 /// Discover Screen - Main swipe feed
 /// Primary feature of the app where users discover and swipe products
@@ -38,6 +50,7 @@ class DiscoverScreenState extends State<DiscoverScreen> {
   List<Map<String, dynamic>> _swipeHistory =
       []; // For undo functionality: stores {product, action}
   bool _isLoading = true;
+  OverlayEntry? _tutorialOverlayEntry;
   int _currentCardIndex = 0;
   int _cartCount = 0;
   String? _authToken;
@@ -50,6 +63,8 @@ class DiscoverScreenState extends State<DiscoverScreen> {
 
   @override
   void dispose() {
+    _tutorialOverlayEntry?.remove();
+    _tutorialOverlayEntry = null;
     _dragProgressNotifier.dispose();
     super.dispose();
   }
@@ -59,16 +74,48 @@ class DiscoverScreenState extends State<DiscoverScreen> {
     await _initServices();
     // Then load products with the auth token
     await _loadProducts();
+    // Check if we should show the swipe tutorial (first-time users)
+    final show = await shouldShowSwipeTutorial();
+    if (mounted && show) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showTutorialOverlay();
+      });
+    }
+  }
+
+  void _showTutorialOverlay() {
+    _tutorialOverlayEntry?.remove();
+    _tutorialOverlayEntry = OverlayEntry(
+      builder: (_) => Material(
+        type: MaterialType.transparency,
+        child: SwipeTutorialOverlay(
+          onDismiss: () {
+            _tutorialOverlayEntry?.remove();
+            _tutorialOverlayEntry = null;
+          },
+        ),
+      ),
+    );
+    Overlay.of(context, rootOverlay: true).insert(_tutorialOverlayEntry!);
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Only refresh cart count, don't reload products on every dependency change
-    // This prevents unnecessary reloading after each swipe
+    // Refresh auth token and cart count when screen becomes visible
+    // This ensures we get the latest token if user just completed onboarding
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (mounted) {
-        _updateCartCount();
+        // Get fresh token from ApiClient
+        final newToken = getIt<ApiClient>().getToken();
+        if (newToken != _authToken && newToken != null && newToken.isNotEmpty) {
+          // Token changed (user just logged in), reload products
+          setState(() {
+            _authToken = newToken;
+          });
+          await _loadProducts(resetIndex: true);
+        }
+        await _updateCartCount();
       }
     });
   }
@@ -77,20 +124,47 @@ class DiscoverScreenState extends State<DiscoverScreen> {
     await _cartService.init();
     await _likedService.init();
 
-    // Get authentication token from SharedPreferences
-    final prefs = await SharedPreferences.getInstance();
-    _authToken = prefs.getString('auth_token');
+    // Get authentication token from ApiClient (authoritative source)
+    _authToken = getIt<ApiClient>().getToken();
 
-    _updateCartCount();
+    await _updateCartCount();
   }
 
-  void _updateCartCount() {
-    setState(() {
-      _cartCount = _cartService.getTotalQuantity();
-    });
+  Future<void> _updateCartCount() async {
+    if (!mounted) return;
+
+    try {
+      // If user is authenticated, fetch cart count from API (source of truth)
+      if (_authToken != null && _authToken!.isNotEmpty) {
+        final cartData = await _apiService.getCart(token: _authToken!);
+        final summary = cartData['summary'] as Map<String, dynamic>;
+        final totalItems = summary['total_items'] as int;
+
+        if (!mounted) return;
+        setState(() {
+          _cartCount = totalItems;
+        });
+      } else {
+        // Fallback to local storage if not authenticated
+        await _cartService.init();
+        if (!mounted) return;
+        setState(() {
+          _cartCount = _cartService.getTotalQuantity();
+        });
+      }
+    } catch (e) {
+      // If API call fails, fallback to local storage
+      await _cartService.init();
+      if (!mounted) return;
+      setState(() {
+        _cartCount = _cartService.getTotalQuantity();
+      });
+    }
   }
 
   Future<void> _loadProducts({bool resetIndex = false}) async {
+    if (!mounted) return;
+
     setState(() {
       _isLoading = true;
       if (resetIndex) {
@@ -103,75 +177,29 @@ class DiscoverScreenState extends State<DiscoverScreen> {
     try {
       List<Product> loadedProducts = [];
 
-      // Try to load recommended products if user is authenticated
-      if (_authToken != null && _authToken!.isNotEmpty) {
-        // First, check if we have cached recommendations (first-time user after onboarding)
-        final cachedProducts =
-            await RecommendationCacheService.getCachedRecommendations();
+      // Wrap the entire loading logic in a timeout to prevent infinite loading
+      await Future.any([
+        Future.delayed(const Duration(seconds: 30), () {
+          throw TimeoutException('Product loading timed out after 30 seconds');
+        }),
+        _loadProductsInternal().then((products) {
+          loadedProducts = products;
+        }),
+      ]);
 
-        if (cachedProducts != null && cachedProducts.isNotEmpty) {
-          // Use cached recommendations and convert to Product entities
-          for (final apiProduct in cachedProducts) {
-            try {
-              final product = _convertApiProduct(apiProduct);
-              loadedProducts.add(product);
-            } catch (e) {
-              // Silently skip failed conversions
-            }
-          }
-
-          // Mark cache as used so we fetch fresh recommendations next time
-          await RecommendationCacheService.markCacheAsUsed();
-        } else {
-          // No cached data, fetch from personalized feed
-          try {
-            final response = await _apiService.getFeed(
-              token: _authToken!,
-              limit: 10,
-            );
-
-            // Convert API products to local Product entities
-            for (final apiProduct in response.products) {
-              try {
-                final product = _convertApiProduct(apiProduct);
-                loadedProducts.add(product);
-              } catch (e) {
-                // Skip products that fail to convert
-              }
-            }
-          } catch (e) {
-            // Don't fall back to mock data - rethrow to show error
-            rethrow;
-          }
-        }
-      } else {
-        // User not authenticated - try fetching products without auth token
-        // No longer load mock data as placeholder images are heavy for older devices
-        try {
-          final response = await _apiService.getProducts(page: 0, size: 20);
-          for (final apiProduct in response.products) {
-            try {
-              final product = _convertApiProduct(apiProduct);
-              loadedProducts.add(product);
-            } catch (e) {
-              // Skip failed conversions
-            }
-          }
-        } catch (e) {
-          // If API also fails, show empty state (no mock data fallback)
-        }
-      }
-
-      // Don't filter liked/disliked products - show all products
+      if (!mounted) return;
 
       setState(() {
         _products = loadedProducts;
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
+
       setState(() {
         _isLoading = false;
       });
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -181,6 +209,66 @@ class DiscoverScreenState extends State<DiscoverScreen> {
         );
       }
     }
+  }
+
+  Future<List<Product>> _loadProductsInternal() async {
+    List<Product> loadedProducts = [];
+
+    // Try to load recommended products if user is authenticated
+    if (_authToken != null && _authToken!.isNotEmpty) {
+      // First, check if we have cached recommendations (first-time user after onboarding)
+      final cachedProducts =
+          await RecommendationCacheService.getCachedRecommendations();
+
+      if (cachedProducts != null && cachedProducts.isNotEmpty) {
+        // Use cached recommendations and convert to Product entities
+        for (final apiProduct in cachedProducts) {
+          try {
+            final product = _convertApiProduct(apiProduct);
+            loadedProducts.add(product);
+          } catch (e) {
+            // Silently skip failed conversions
+          }
+        }
+
+        // Mark cache as used so we fetch fresh recommendations next time
+        await RecommendationCacheService.markCacheAsUsed();
+      } else {
+        // No cached data, fetch from personalized feed
+        final response = await _apiService.getFeed(
+          token: _authToken!,
+          limit: 10,
+        );
+
+        // Convert API products to local Product entities
+        for (final apiProduct in response.products) {
+          try {
+            final product = _convertApiProduct(apiProduct);
+            loadedProducts.add(product);
+          } catch (e) {
+            // Skip products that fail to convert
+          }
+        }
+      }
+    } else {
+      // User not authenticated - try fetching products without auth token
+      try {
+        final response = await _apiService.getProducts(page: 0, size: 20);
+        for (final apiProduct in response.products) {
+          try {
+            final product = _convertApiProduct(apiProduct);
+            loadedProducts.add(product);
+          } catch (e) {
+            // Skip failed conversions
+          }
+        }
+      } catch (e) {
+        // If API fails for unauthenticated users, return empty list
+        // The outer error handler will show the error message
+      }
+    }
+
+    return loadedProducts;
   }
 
   /// Convert API product model to local Product entity
@@ -209,7 +297,7 @@ class DiscoverScreenState extends State<DiscoverScreen> {
       images: apiProduct.images.isNotEmpty
           ? apiProduct.images
           : ['https://via.placeholder.com/400'],
-      sizes: apiProduct.sizes?.map((size) => size.displayName).toList() ?? [],
+      sizes: apiProduct.sizes ?? [],
       colors: apiProduct.colors ?? [],
       material: apiProduct.material?.map((m) => m.displayName).toList(),
       season: apiProduct.season?.map((s) => s.displayName).toList(),
@@ -223,6 +311,8 @@ class DiscoverScreenState extends State<DiscoverScreen> {
       sellerId: apiProduct.sellerId, // Include sellerId from API
       discountPercentage: apiProduct.discountPercentage,
       originalPrice: apiProduct.originalPrice,
+      titleLocalized: apiProduct.titleLocalized,
+      descriptionLocalized: apiProduct.descriptionLocalized,
     );
   }
 
@@ -349,9 +439,16 @@ class DiscoverScreenState extends State<DiscoverScreen> {
                   Wrap(
                     spacing: 8,
                     children: swipedProduct.sizes.map((size) {
+                      final isSelected = selectedSize == size;
                       return ChoiceChip(
-                        label: Text(size),
-                        selected: selectedSize == size,
+                        label: Text(
+                          _formatSizeLabel(size),
+                          style: TextStyle(
+                            color: isSelected ? Colors.white : null,
+                          ),
+                        ),
+                        selected: isSelected,
+                        selectedColor: Colors.black,
                         onSelected: (selected) {
                           if (selected) {
                             setDialogState(() => selectedSize = size);
@@ -438,10 +535,8 @@ class DiscoverScreenState extends State<DiscoverScreen> {
     // Send to backend API if authenticated
     if (_authToken != null && _authToken!.isNotEmpty) {
       try {
-        final backendSize =
-            SizeEnum.fromDisplayName(resolvedSize)?.value ??
-            SizeEnum.fromString(resolvedSize)?.value ??
-            resolvedSize.toLowerCase().replaceAll(' ', '_');
+        // Use sizes directly as strings (no enum conversion needed)
+        final backendSize = resolvedSize;
         final backendColor = selectedColor;
 
         await _apiService.addToCart(
@@ -452,7 +547,7 @@ class DiscoverScreenState extends State<DiscoverScreen> {
           token: _authToken!,
         );
 
-        _updateCartCount();
+        await _updateCartCount();
       } catch (e) {
         await _cartService.removeByMatch(
           productId: swipedProduct.id,
@@ -462,7 +557,7 @@ class DiscoverScreenState extends State<DiscoverScreen> {
         _showToast('Failed to add to cart');
       }
     } else {
-      _updateCartCount();
+      await _updateCartCount();
     }
   }
 
@@ -501,14 +596,14 @@ class DiscoverScreenState extends State<DiscoverScreen> {
 
     // Update cart count if something was added
     if (result == true) {
-      _updateCartCount();
+      await _updateCartCount();
     }
   }
 
   /// Refresh the product list (useful when returning from other screens)
   Future<void> refreshProducts() async {
     await _loadProducts(resetIndex: true);
-    _updateCartCount();
+    await _updateCartCount();
   }
 
   void _showToast(String message) {
@@ -531,88 +626,98 @@ class DiscoverScreenState extends State<DiscoverScreen> {
       backgroundColor: isDark
           ? AppColors.darkMainBackground
           : theme.scaffoldBackgroundColor,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Minimal Header
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'SVΛYP',
-                    style: AppTypography.heading2.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: theme.colorScheme.onSurface,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                  // Cart Button
-                  Stack(
-                    clipBehavior: Clip.none,
+      body: Stack(
+        children: [
+          SafeArea(
+            child: Column(
+              children: [
+                // Minimal Header
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      IconButton(
-                        icon: const Icon(Icons.shopping_bag_outlined, size: 28),
-                        onPressed: () async {
-                          // Navigate to cart screen
-                          await Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => const CartScreen(),
-                            ),
-                          );
-                          // Update cart count when returning
-                          _updateCartCount();
-                        },
-                      ),
-                      // Badge showing cart item count
-                      if (_cartCount > 0)
-                        Positioned(
-                          right: 8,
-                          top: 8,
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: const BoxDecoration(
-                              color: Colors.red,
-                              shape: BoxShape.circle,
-                            ),
-                            constraints: const BoxConstraints(
-                              minWidth: 18,
-                              minHeight: 18,
-                            ),
-                            child: Text(
-                              _cartCount > 99 ? '99+' : _cartCount.toString(),
-                              style: AppTypography.caption.copyWith(
-                                color: AppColors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
+                      Text(
+                        'SVΛYP',
+                        style: AppTypography.heading2.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: theme.colorScheme.onSurface,
+                          letterSpacing: -0.5,
                         ),
+                      ),
+                      // Cart Button
+                      Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          IconButton(
+                            icon: const Icon(
+                              Icons.shopping_bag_outlined,
+                              size: 28,
+                            ),
+                            onPressed: () async {
+                              // Navigate to cart screen
+                              await Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => const CartScreen(),
+                                ),
+                              );
+                              // Update cart count when returning
+                              await _updateCartCount();
+                            },
+                          ),
+                          // Badge showing cart item count
+                          if (_cartCount > 0)
+                            Positioned(
+                              right: 8,
+                              top: 8,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: const BoxDecoration(
+                                  color: Colors.red,
+                                  shape: BoxShape.circle,
+                                ),
+                                constraints: const BoxConstraints(
+                                  minWidth: 18,
+                                  minHeight: 18,
+                                ),
+                                child: Text(
+                                  _cartCount > 99
+                                      ? '99+'
+                                      : _cartCount.toString(),
+                                  style: AppTypography.caption.copyWith(
+                                    color: AppColors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ],
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 8),
+                // Content
+                Expanded(
+                  child: _isLoading
+                      ? Center(
+                          child: CircularProgressIndicator(
+                            color: isDark
+                                ? AppColors.darkPrimaryText
+                                : AppColors.black,
+                          ),
+                        )
+                      : _currentCardIndex >= _products.length
+                      ? _buildEmptyState()
+                      : _buildCardStack(),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
-            // Content
-            Expanded(
-              child: _isLoading
-                  ? Center(
-                      child: CircularProgressIndicator(
-                        color: isDark
-                            ? AppColors.darkPrimaryText
-                            : AppColors.black,
-                      ),
-                    )
-                  : _currentCardIndex >= _products.length
-                  ? _buildEmptyState()
-                  : _buildCardStack(),
-            ),
-          ],
-        ),
+          ),
+          // Swipe tutorial overlay is now shown via root OverlayEntry (covers bottom nav)
+        ],
       ),
     );
   }

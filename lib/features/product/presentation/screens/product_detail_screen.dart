@@ -20,7 +20,6 @@ import 'package:swipe/core/utils/local_storage_helper.dart';
 import 'package:swipe/shared/widgets/widgets.dart';
 import 'dart:io';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:swipe/core/constants/product_enums.dart';
 
 /// Product Detail Screen - Full product information
 class ProductDetailScreen extends StatefulWidget {
@@ -80,10 +79,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
     setState(() {
       _isLiked = _likedService.isLiked(widget.product.id);
-      _cartCount = _cartService.getTotalQuantity();
       if (autoSize != null) _selectedSize = autoSize;
       if (autoColor != null) _selectedColor = autoColor;
     });
+
+    // Update cart count from API
+    await _updateCartCount();
 
     // Fetch seller info (logo + locations) in background
     final sellerId = widget.product.sellerId;
@@ -102,6 +103,38 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           .catchError((e) {
             if (mounted) setState(() => _isLoadingSellerInfo = false);
           });
+    }
+  }
+
+  Future<void> _updateCartCount() async {
+    if (!mounted) return;
+
+    try {
+      // If user is authenticated, fetch cart count from API (source of truth)
+      if (_authToken != null && _authToken!.isNotEmpty) {
+        final cartData = await _apiService.getCart(token: _authToken!);
+        final summary = cartData['summary'] as Map<String, dynamic>;
+        final totalItems = summary['total_items'] as int;
+
+        if (!mounted) return;
+        setState(() {
+          _cartCount = totalItems;
+        });
+      } else {
+        // Fallback to local storage if not authenticated
+        await _cartService.init();
+        if (!mounted) return;
+        setState(() {
+          _cartCount = _cartService.getTotalQuantity();
+        });
+      }
+    } catch (e) {
+      // If API call fails, fallback to local storage
+      await _cartService.init();
+      if (!mounted) return;
+      setState(() {
+        _cartCount = _cartService.getTotalQuantity();
+      });
     }
   }
 
@@ -154,16 +187,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     // Send to backend API if authenticated
     if (_authToken != null && _authToken!.isNotEmpty) {
       try {
-        // Convert size/color from display format to backend enum value.
-        // 1. Try fromDisplayName ("Standard" → SizeEnum.std → "std")
-        // 2. Try fromString in case the stored value is already the raw key ("std" → "std")
-        // Do NOT fall back to a generic lowercase transform — e.g. "standard" is
-        // not a valid backend SizeEnum value, only "std" is.
-        final sizeDisplay = _selectedSize ?? 'One Size';
-        final backendSize =
-            SizeEnum.fromDisplayName(sizeDisplay)?.value ??
-            SizeEnum.fromString(sizeDisplay)?.value ??
-            sizeDisplay.toLowerCase().replaceAll(' ', '_');
+        // Use sizes directly as strings (no enum conversion needed)
+        final backendSize = _selectedSize ?? 'One Size';
         final backendColor = _selectedColor;
 
         await _apiService.addToCart(
@@ -175,9 +200,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         );
 
         // Only update cart count after successful API call
-        setState(() {
-          _cartCount = _cartService.getTotalQuantity();
-        });
+        await _updateCartCount();
       } catch (e) {
         // Rollback local cart on API failure
 
@@ -202,9 +225,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       }
     } else {
       // Not authenticated - just update local cart count
-      setState(() {
-        _cartCount = _cartService.getTotalQuantity();
-      });
+      await _updateCartCount();
     }
 
     if (mounted) {
@@ -333,9 +354,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     MaterialPageRoute(builder: (context) => const CartScreen()),
                   );
                   // Update cart count when returning
-                  setState(() {
-                    _cartCount = _cartService.getTotalQuantity();
-                  });
+                  await _updateCartCount();
                 },
               ),
               // Badge showing cart item count
@@ -509,44 +528,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                widget.product.brand,
-                style: AppTypography.body2.copyWith(
-                  color: isDark
-                      ? AppColors.darkSecondaryText
-                      : AppColors.gray600,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-            if (widget.product.isNew)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.darkPrimaryText : AppColors.black,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Builder(
-                  builder: (context) {
-                    final l10n = AppLocalizations.of(context)!;
-                    return Text(
-                      l10n.newLabel,
-                      style: AppTypography.caption.copyWith(
-                        color: isDark ? AppColors.black : AppColors.white,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    );
-                  },
-                ),
-              ),
-          ],
+        Text(
+          widget.product.brand,
+          style: AppTypography.body2.copyWith(
+            color: isDark ? AppColors.darkSecondaryText : AppColors.gray600,
+            fontWeight: FontWeight.w500,
+          ),
         ),
         const SizedBox(height: 8),
         Text(
-          widget.product.title,
+          widget.product.localizedTitle(
+            Localizations.localeOf(context).languageCode,
+          ),
           style: AppTypography.heading3.copyWith(
             fontWeight: FontWeight.w600,
             color: theme.colorScheme.onSurface,
@@ -772,6 +765,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     return gradients[hash.abs() % gradients.length];
   }
 
+  /// Format size label by removing SIZE_ prefix for numeric sizes
+  String _formatSizeLabel(String size) {
+    // Remove SIZE_ prefix if present (e.g., "SIZE_46" -> "46")
+    if (size.toUpperCase().startsWith('SIZE_')) {
+      return size.substring(5);
+    }
+    return size;
+  }
+
   Widget _buildSizeSelector() {
     if (widget.product.sizes.isEmpty) return const SizedBox.shrink();
     // Hide selector for universal sizes — they're auto-selected, no chip needed
@@ -781,6 +783,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final hasStdSize = widget.product.sizes.any(
+      (s) => s.toUpperCase() == 'STD',
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -825,11 +830,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       ? (isDark ? AppColors.darkPrimaryText : AppColors.black)
                       : (isDark
                             ? AppColors.darkCardBackground
-                            : AppColors.black),
+                            : AppColors.white),
                 ),
                 child: Center(
                   child: Text(
-                    size,
+                    _formatSizeLabel(size),
                     textAlign: TextAlign.center,
                     maxLines: 1,
                     style: AppTypography.body2.copyWith(
@@ -837,7 +842,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           ? (isDark ? AppColors.black : AppColors.white)
                           : (isDark
                                 ? AppColors.darkPrimaryText
-                                : AppColors.white),
+                                : AppColors.black),
                       fontWeight: isSelected
                           ? FontWeight.w600
                           : FontWeight.normal,
@@ -848,6 +853,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             );
           }).toList(),
         ),
+        if (hasStdSize) ...[
+          const SizedBox(height: 8),
+          Text(
+            'STD = Standard',
+            style: AppTypography.caption.copyWith(
+              color: isDark ? AppColors.darkSecondaryText : AppColors.gray600,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -879,6 +894,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 setState(() {
                   _selectedColor = color;
                 });
+                // Navigate to the corresponding image index
+                final colorIndex = widget.product.colors.indexOf(color);
+                if (colorIndex >= 0 &&
+                    colorIndex < widget.product.images.length &&
+                    _pageController.hasClients) {
+                  _pageController.animateToPage(
+                    colorIndex,
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                  );
+                }
               },
               child: isHexColor
                   ? _buildHexColorSwatch(color, isSelected, isDark)
@@ -1035,7 +1061,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         ),
         const SizedBox(height: 12),
         Text(
-          widget.product.description,
+          widget.product.localizedDescription(
+            Localizations.localeOf(context).languageCode,
+          ),
           style: AppTypography.body1.copyWith(
             color: isDark ? AppColors.darkSecondaryText : AppColors.gray700,
             height: 1.6,
@@ -1074,7 +1102,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             widget.product.material!.isNotEmpty)
           _DetailRow(
             label: l10n.material,
-            value: widget.product.material!.join(', '),
+            value: widget.product.material!
+                .map((m) => _getTranslatedMaterial(m, l10n))
+                .join(', '),
           ),
         if (widget.product.season != null && widget.product.season!.isNotEmpty)
           _DetailRow(
@@ -1196,9 +1226,92 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         return l10n.categoryUnderwear;
       case 'outerwear':
         return l10n.categoryOuterwear;
+      case 'topwear':
+        return l10n.categoryTopwear;
+      case 'bottomwear':
+        return l10n.categoryBottomwear;
+      case 'one-piece':
+      case 'one_piece':
+      case 'onepiece':
+        return l10n.categoryOnePiece;
+      case 'islamic_modest_wear':
+      case 'islamic/modest wear':
+      case 'islamic wear':
+      case 'modest wear':
+        return l10n.categoryIslamicModestWear;
+      case 'footwear':
+        return l10n.categoryFootwear;
+      case 'two-piece set':
+      case 'two_piece_set':
+      case 'two piece set':
+        return l10n.categoryTwoPieceSet;
+      case 'three-piece set':
+      case 'three_piece_set':
+      case 'three piece set':
+        return l10n.categoryThreePieceSet;
+      case 'bodysuits_triko':
+      case 'bodysuits & triko':
+      case 'bodysuits':
+      case 'triko':
+        return l10n.categoryBodysuitsTriko;
+      case 'homewear':
+        return l10n.categoryHomewear;
       default:
         // Fallback to capitalized value if translation not found
         return categoryValue[0].toUpperCase() + categoryValue.substring(1);
+    }
+  }
+
+  /// Translate material from enum value to localized string
+  String _getTranslatedMaterial(String materialValue, AppLocalizations l10n) {
+    final lowerValue = materialValue.toLowerCase().trim();
+
+    switch (lowerValue) {
+      case 'cotton':
+        return l10n.materialCotton;
+      case 'polyester':
+        return l10n.materialPolyester;
+      case 'silk':
+        return l10n.materialSilk;
+      case 'linen':
+        return l10n.materialLinen;
+      case 'wool':
+        return l10n.materialWool;
+      case 'chiffon':
+        return l10n.materialChiffon;
+      case 'satin':
+        return l10n.materialSatin;
+      case 'velvet':
+        return l10n.materialVelvet;
+      case 'denim':
+        return l10n.materialDenim;
+      case 'leather':
+        return l10n.materialLeather;
+      case 'suede':
+        return l10n.materialSuede;
+      case 'jersey':
+        return l10n.materialJersey;
+      case 'modal':
+        return l10n.materialModal;
+      case 'rayon':
+        return l10n.materialRayon;
+      case 'spandex':
+        return l10n.materialSpandex;
+      case 'lycra':
+        return l10n.materialLycra;
+      case 'nylon':
+        return l10n.materialNylon;
+      case 'viscose':
+        return l10n.materialViscose;
+      case 'bamboo':
+        return l10n.materialBamboo;
+      case 'cashmere':
+        return l10n.materialCashmere;
+      case 'mixed':
+        return l10n.materialMixed;
+      default:
+        // Fallback to capitalized value if translation not found
+        return materialValue[0].toUpperCase() + materialValue.substring(1);
     }
   }
 
@@ -1315,7 +1428,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error loading seller products: ${e.toString()}'),
+            content: Text(
+              e is ApiException
+                  ? e.message
+                  : 'Could not load seller products. Please try again.',
+            ),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 4),
           ),
@@ -1345,7 +1462,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       images: apiProduct.images.isNotEmpty
           ? apiProduct.images
           : ['placeholder'],
-      sizes: apiProduct.sizes?.map((size) => size.displayName).toList() ?? [],
+      sizes: apiProduct.sizes ?? [],
       colors: apiProduct.colors ?? [],
       material: apiProduct.material?.map((m) => m.displayName).toList(),
       season: apiProduct.season?.map((s) => s.displayName).toList(),
@@ -1360,6 +1477,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       discountPercentage: apiProduct.discountPercentage,
       originalPrice: apiProduct.originalPrice,
       countryOfOrigin: apiProduct.countryOfOrigin,
+      titleLocalized: apiProduct.titleLocalized,
+      descriptionLocalized: apiProduct.descriptionLocalized,
     );
   }
 
@@ -1495,39 +1614,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               children: [
                 // Name + primary badge
                 if (location.name != null && location.name!.isNotEmpty)
-                  Row(
-                    children: [
-                      if (location.isPrimary)
-                        Container(
-                          margin: const EdgeInsets.only(right: 6),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? AppColors.darkPrimaryText
-                                : AppColors.black,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            'Main',
-                            style: AppTypography.caption.copyWith(
-                              color: isDark ? AppColors.black : AppColors.white,
-                              fontSize: 10,
-                            ),
-                          ),
-                        ),
-                      Expanded(
-                        child: Text(
-                          location.name!,
-                          style: AppTypography.body1.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: theme.colorScheme.onSurface,
-                          ),
-                        ),
-                      ),
-                    ],
+                  Text(
+                    location.name!,
+                    style: AppTypography.body1.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.onSurface,
+                    ),
                   ),
                 // Address
                 if (location.address != null &&
@@ -1644,14 +1736,23 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   ) async {
     Uri uri;
     if (lat != null && lon != null) {
+      // Use coordinates — format so it always drops a visible pin
+      final latStr = lat.toStringAsFixed(6);
+      final lonStr = lon.toStringAsFixed(6);
       uri = Platform.isIOS
-          ? Uri.parse('maps://?ll=$lat,$lon&z=15')
-          : Uri.parse('geo:$lat,$lon?z=15');
+          ? Uri.parse(
+              'https://maps.apple.com/?ll=$latStr,$lonStr&q=$latStr,$lonStr',
+            )
+          : Uri.parse(
+              'https://www.google.com/maps/search/?api=1&query=$latStr,$lonStr',
+            );
     } else if (address != null && address.isNotEmpty) {
-      final encoded = Uri.encodeComponent(address);
+      final encoded = Uri.encodeQueryComponent(address);
       uri = Platform.isIOS
-          ? Uri.parse('maps://?q=$encoded')
-          : Uri.parse('geo:0,0?q=$encoded');
+          ? Uri.parse('https://maps.apple.com/?q=$encoded')
+          : Uri.parse(
+              'https://www.google.com/maps/search/?api=1&query=$encoded',
+            );
     } else {
       return;
     }

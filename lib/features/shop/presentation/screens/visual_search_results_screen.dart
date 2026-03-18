@@ -35,7 +35,7 @@ class VisualSearchResultsScreen extends StatelessWidget {
       category: p.originalCategoryString ?? p.category.value,
       subcategory: p.subcategory?.map((s) => s.displayName).toList(),
       images: p.images,
-      sizes: p.sizes?.map((s) => s.displayName).toList() ?? [],
+      sizes: p.sizes ?? [],
       colors: p.colors ?? [],
       material: p.material?.map((m) => m.displayName).toList(),
       season: p.season?.map((s) => s.displayName).toList(),
@@ -49,6 +49,8 @@ class VisualSearchResultsScreen extends StatelessWidget {
       sellerId: p.sellerId,
       discountPercentage: p.discountPercentage,
       originalPrice: p.originalPrice,
+      titleLocalized: p.titleLocalized,
+      descriptionLocalized: p.descriptionLocalized,
     );
   }
 
@@ -187,7 +189,7 @@ class VisualSearchResultsScreen extends StatelessWidget {
               sliver: SliverGrid(
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
-                  childAspectRatio: 0.68,
+                  childAspectRatio: 0.62,
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
                 ),
@@ -398,7 +400,8 @@ class _VisualSearchProductCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Product image
-            Expanded(
+            AspectRatio(
+              aspectRatio: 1.0,
               child: Stack(
                 children: [
                   ClipRRect(
@@ -407,6 +410,7 @@ class _VisualSearchProductCard extends StatelessWidget {
                     ),
                     child: Container(
                       width: double.infinity,
+                      height: double.infinity,
                       color: isDark
                           ? AppColors.darkMainBackground
                           : Colors.white,
@@ -416,7 +420,9 @@ class _VisualSearchProductCard extends StatelessWidget {
                           return displayImage != null
                               ? CachedNetworkImage(
                                   imageUrl: displayImage,
-                                  fit: BoxFit.contain,
+                                  fit: BoxFit.cover,
+                                  width: double.infinity,
+                                  height: double.infinity,
                                   cacheManager: ImageCacheManager.instance,
                                   memCacheWidth: cacheWidth,
                                   placeholder: (context, url) => Container(
@@ -462,31 +468,6 @@ class _VisualSearchProductCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  // NEW badge
-                  if (product.isNew == true)
-                    Positioned(
-                      top: 8,
-                      right: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.7),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          'NEW',
-                          style: AppTypography.caption.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 9,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
-                    ),
                   // Similarity badge
                   if (result.similarity > 0)
                     Positioned(
@@ -558,7 +539,9 @@ class _VisualSearchProductCard extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    product.title,
+                    product.localizedTitle(
+                      Localizations.localeOf(context).languageCode,
+                    ),
                     style: AppTypography.body2.copyWith(
                       fontWeight: FontWeight.w600,
                       color: theme.colorScheme.onSurface,

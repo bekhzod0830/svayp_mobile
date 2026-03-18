@@ -5,6 +5,8 @@ import 'package:swipe/core/constants/app_typography.dart';
 import 'package:swipe/core/utils/local_storage_helper.dart';
 import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/core/network/api_client.dart';
+import 'package:swipe/features/auth/data/services/auth_service.dart';
+import 'package:swipe/features/profile/data/services/profile_service.dart';
 
 /// Splash Screen - Initial screen when app launches
 /// Clean, minimalist Sephora-style splash with text animations
@@ -75,28 +77,50 @@ class _SplashScreenState extends State<SplashScreen>
 
     if (!mounted) return;
 
-    // Check authentication and onboarding status
     final storage = await LocalStorageHelper.getInstance();
     final apiClient = getIt<ApiClient>();
 
-    final isAuthenticated = apiClient.isAuthenticated();
-
-    if (!mounted) return;
-
-    // Priority 1: If user is authenticated, go to correct home screen
-    if (isAuthenticated) {
-      final destination = apiClient.isPartnerLogin()
-          ? '/partner-main'
-          : '/main';
-      Navigator.of(context).pushReplacementNamed(destination);
-    }
-    // Guest mode: user chose to browse without signing in
-    else if (storage.isGuestMode()) {
+    // Guest mode — no auth needed
+    if (storage.isGuestMode()) {
       Navigator.of(context).pushReplacementNamed('/main');
+      return;
     }
-    // Not authenticated (token missing or expired) – always require login,
-    // even if the user previously completed onboarding.
-    else {
+
+    // No local token or it's expired — go to login
+    if (!apiClient.isAuthenticated()) {
+      Navigator.of(context).pushReplacementNamed('/phone-auth');
+      return;
+    }
+
+    // Token looks valid locally — verify with the server before entering the app.
+    // This catches revoked tokens, deleted accounts, and missing profiles
+    // without waiting for the user to open the profile tab.
+    if (apiClient.isPartnerLogin()) {
+      // Partners don't have a /users/profile — just verify the token is live
+      try {
+        await getIt<AuthService>().getCurrentUser();
+        if (!mounted) return;
+        Navigator.of(context).pushReplacementNamed('/partner-main');
+      } catch (_) {
+        if (!mounted) return;
+        await apiClient.clearToken();
+        await apiClient.clearRefreshToken();
+        Navigator.of(context).pushReplacementNamed('/phone-auth');
+      }
+      return;
+    }
+
+    // Regular user — verify token AND profile existence
+    try {
+      await getIt<AuthService>().getCurrentUser();
+      await getIt<ProfileService>().getProfile();
+      if (!mounted) return;
+      Navigator.of(context).pushReplacementNamed('/main');
+    } catch (e) {
+      if (!mounted) return;
+      // Any auth or profile failure → clear tokens and go to login
+      await apiClient.clearToken();
+      await apiClient.clearRefreshToken();
       Navigator.of(context).pushReplacementNamed('/phone-auth');
     }
   }

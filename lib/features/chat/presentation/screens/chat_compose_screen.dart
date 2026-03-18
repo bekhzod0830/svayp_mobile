@@ -15,6 +15,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:swipe/core/models/product.dart' as api_models;
 import 'package:swipe/features/discover/domain/entities/product.dart';
 
+/// Helper function to format size label by removing SIZE_ prefix
+String _formatSizeLabel(String size) {
+  // Remove SIZE_ prefix if present (e.g., "SIZE_46" -> "46")
+  if (size.toUpperCase().startsWith('SIZE_')) {
+    return size.substring(5);
+  }
+  return size;
+}
+
 /// Chat Compose Screen - Compose first message before creating chat
 class ChatComposeScreen extends StatefulWidget {
   final String sellerId;
@@ -142,7 +151,7 @@ class _ChatComposeScreenState extends State<ChatComposeScreen> {
           apiProduct.originalCategoryString ??
           apiProduct.category.value, // Use original string if available
       subcategory: apiProduct.subcategory?.map((e) => e.displayName).toList(),
-      sizes: apiProduct.sizes?.map((e) => e.displayName).toList() ?? [],
+      sizes: apiProduct.sizes ?? [],
       colors: apiProduct.colors ?? [],
       material: apiProduct.material?.map((e) => e.displayName).toList(),
       season: apiProduct.season?.map((e) => e.displayName).toList(),
@@ -154,6 +163,8 @@ class _ChatComposeScreenState extends State<ChatComposeScreen> {
       discountPercentage: apiProduct.discountPercentage,
       originalPrice: apiProduct.originalPrice,
       inStock: apiProduct.inStock,
+      titleLocalized: apiProduct.titleLocalized,
+      descriptionLocalized: apiProduct.descriptionLocalized,
     );
   }
 
@@ -343,8 +354,8 @@ class _ChatComposeScreenState extends State<ChatComposeScreen> {
                   // Product Image
                   if (widget.productImage != null)
                     Container(
-                      width: 60,
-                      height: 80,
+                      width: 70,
+                      height: 95,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(8),
                         color: AppColors.gray100,
@@ -355,8 +366,8 @@ class _ChatComposeScreenState extends State<ChatComposeScreen> {
                           imageUrl: widget.productImage!,
                           fit: BoxFit.cover,
                           cacheManager: ImageCacheManager.instance,
-                          memCacheWidth: 120,
-                          memCacheHeight: 160,
+                          memCacheWidth: 140,
+                          memCacheHeight: 190,
                           placeholder: (context, url) => Center(
                             child: CircularProgressIndicator(strokeWidth: 2),
                           ),
@@ -397,26 +408,42 @@ class _ChatComposeScreenState extends State<ChatComposeScreen> {
                           Row(
                             children: [
                               if (widget.color != null) ...[
-                                Container(
-                                  width: 16,
-                                  height: 16,
-                                  decoration: BoxDecoration(
-                                    color: _parseColor(widget.color!),
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: isDark
-                                          ? AppColors.darkSecondaryText
-                                          : AppColors.gray300,
-                                      width: 1,
-                                    ),
+                                Flexible(
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        '${l10n.color}: ',
+                                        style: AppTypography.caption.copyWith(
+                                          color: isDark
+                                              ? AppColors.darkSecondaryText
+                                              : AppColors.gray600,
+                                        ),
+                                      ),
+                                      Container(
+                                        width: 16,
+                                        height: 16,
+                                        decoration: BoxDecoration(
+                                          color: _parseColor(widget.color!),
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: isDark
+                                                ? AppColors.darkSecondaryText
+                                                : AppColors.gray300,
+                                            width: 1,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                const SizedBox(width: 6),
+                                if (widget.size != null)
+                                  const SizedBox(width: 6),
                               ],
                               if (widget.size != null) ...[
                                 Flexible(
                                   child: Text(
-                                    '${l10n.sizeLabel} ${widget.size}',
+                                    '${l10n.sizeLabel} ${_formatSizeLabel(widget.size!)}',
                                     style: AppTypography.caption.copyWith(
                                       color: isDark
                                           ? AppColors.darkSecondaryText

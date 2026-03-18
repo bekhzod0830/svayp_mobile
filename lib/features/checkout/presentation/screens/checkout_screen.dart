@@ -18,6 +18,32 @@ import 'package:swipe/core/network/api_client.dart';
 import 'package:swipe/core/services/product_api_service.dart';
 import 'package:swipe/core/di/service_locator.dart';
 
+/// Helper function to format size label by removing SIZE_ prefix
+String _formatSizeLabel(String size) {
+  // Remove SIZE_ prefix if present (e.g., "SIZE_46" -> "46")
+  if (size.toUpperCase().startsWith('SIZE_')) {
+    return size.substring(5);
+  }
+  return size;
+}
+
+/// Helper function to format checkout item price with intelligent currency detection
+String _formatCheckoutItemPrice(CartItemModel item) {
+  String currency = item.currency;
+
+  // Intelligently detect currency based on price
+  if (currency == 'UZS' && item.price < 1000) {
+    currency = 'USD';
+  }
+
+  double totalPrice = item.totalPrice;
+
+  if (currency == 'USD') {
+    return '\$${totalPrice.toStringAsFixed(2)}';
+  }
+  return '${totalPrice.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} $currency';
+}
+
 /// Checkout Screen - Final review before placing order
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
@@ -95,6 +121,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             selectedSize: (item['selected_size'] as String? ?? ''),
             selectedColor: item['selected_color'] as String?,
             category: '',
+            titleLocalized:
+                (product['title_localized'] as Map<String, dynamic>?)?.map(
+                  (key, value) => MapEntry(key, value.toString()),
+                ),
+            descriptionLocalized:
+                (product['description_localized'] as Map<String, dynamic>?)
+                    ?.map((key, value) => MapEntry(key, value.toString())),
             addedAt: item['created_at'] != null
                 ? DateTime.tryParse(item['created_at'] as String) ??
                       DateTime.now()
@@ -169,6 +202,52 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   double get _total => _subtotal + _deliveryFee;
+
+  /// Calculate subtotal for USD products
+  double get _usdSubtotal {
+    return _cartItems.fold(0.0, (sum, item) {
+      String currency = item.currency;
+      // Intelligently detect currency
+      if (currency == 'UZS' && item.price < 1000) {
+        currency = 'USD';
+      }
+      if (currency == 'USD') {
+        return sum + item.totalPrice;
+      }
+      return sum;
+    });
+  }
+
+  /// Calculate subtotal for UZS products
+  double get _uzsSubtotal {
+    return _cartItems.fold(0.0, (sum, item) {
+      String currency = item.currency;
+      // Intelligently detect currency
+      if (currency == 'UZS' && item.price < 1000) {
+        currency = 'USD';
+      }
+      if (currency == 'UZS') {
+        return sum + item.totalPrice;
+      }
+      return sum;
+    });
+  }
+
+  /// Check if cart has USD products
+  bool get _hasUsdProducts => _usdSubtotal > 0;
+
+  /// Check if cart has UZS products
+  bool get _hasUzsProducts => _uzsSubtotal > 0;
+
+  /// Format price with correct currency
+  String _getFormattedPrice(double price, String currency) {
+    if (currency == 'USD') {
+      return '\$${price.toStringAsFixed(2)}';
+    }
+    return '${price.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} $currency';
+  }
+
+  /// Format individual cart item price with intelligent currency detection
 
   Future<void> _placeOrder() async {
     final l10n = AppLocalizations.of(context)!;
@@ -558,9 +637,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ),
           ),
           Text(
-            isFree
-                ? (l10n?.free ?? 'FREE')
-                : '${price.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} UZS',
+            isFree ? (l10n?.free ?? 'FREE') : _getFormattedPrice(price, 'UZS'),
             style: AppTypography.body2.copyWith(
               fontWeight: FontWeight.w600,
               color: isFree ? Colors.green : theme.colorScheme.onSurface,
@@ -770,17 +847,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: Container(
-              width: 60,
-              height: 60,
-              color: isDark ? AppColors.darkMainBackground : Colors.white,
+              width: 70,
+              height: 95,
+              color: isDark ? AppColors.darkMainBackground : AppColors.gray100,
               child: CachedNetworkImage(
                 imageUrl: item.imageUrl,
-                width: 60,
-                height: 60,
-                fit: BoxFit.contain,
+                width: 70,
+                height: 95,
+                fit: BoxFit.cover,
                 cacheManager: ImageCacheManager.instance,
-                memCacheWidth: 120,
-                memCacheHeight: 120,
+                memCacheWidth: 140,
+                memCacheHeight: 190,
               ),
             ),
           ),
@@ -798,7 +875,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   ),
                 ),
                 Text(
-                  item.title,
+                  item.localizedTitle(
+                    Localizations.localeOf(context).languageCode,
+                  ),
                   style: AppTypography.body2.copyWith(
                     fontWeight: FontWeight.w500,
                     color: theme.colorScheme.onSurface,
@@ -813,12 +892,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     Expanded(
                       child: Row(
                         children: [
-                          Text(
-                            '${l10n.size}: ${item.selectedSize}',
-                            style: AppTypography.caption.copyWith(
-                              color: isDark
-                                  ? AppColors.darkSecondaryText
-                                  : AppColors.gray600,
+                          Flexible(
+                            child: Text(
+                              '${l10n.size}: ${_formatSizeLabel(item.selectedSize)}',
+                              style: AppTypography.caption.copyWith(
+                                color: isDark
+                                    ? AppColors.darkSecondaryText
+                                    : AppColors.gray600,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           if (item.selectedColor != null) ...[
@@ -861,7 +943,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ),
           ),
           Text(
-            '${item.totalPrice.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} UZS',
+            _formatCheckoutItemPrice(item),
             style: AppTypography.body2.copyWith(
               fontWeight: FontWeight.w600,
               color: theme.colorScheme.onSurface,
@@ -900,37 +982,102 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          _buildSummaryRow(l10n.subtotal, _subtotal),
-          const SizedBox(height: 8),
-          _buildSummaryRow(l10n.deliveryFee, _deliveryFee),
-          const SizedBox(height: 12),
+
+          // USD Subtotal (if present)
+          if (_hasUsdProducts) ...[
+            _buildSummaryRow(
+              _hasUzsProducts ? '${l10n.subtotal} (USD)' : l10n.subtotal,
+              _usdSubtotal,
+              'USD',
+            ),
+            const SizedBox(height: 8),
+          ],
+
+          // UZS Subtotal (if present)
+          if (_hasUzsProducts) ...[
+            _buildSummaryRow(
+              _hasUsdProducts ? '${l10n.subtotal} (UZS)' : l10n.subtotal,
+              _uzsSubtotal,
+              'UZS',
+            ),
+            const SizedBox(height: 8),
+          ],
+
+          // Delivery Fee (shown for each currency if applicable)
+          if (_hasUsdProducts && _deliveryFee > 0) ...[
+            _buildSummaryRow(
+              _hasUzsProducts ? '${l10n.deliveryFee} (USD)' : l10n.deliveryFee,
+              0, // Convert to USD if needed, for now 0
+              'USD',
+            ),
+            const SizedBox(height: 8),
+          ],
+
+          if (_hasUzsProducts) ...[
+            _buildSummaryRow(
+              _hasUsdProducts ? '${l10n.deliveryFee} (UZS)' : l10n.deliveryFee,
+              _deliveryFee,
+              'UZS',
+            ),
+            const SizedBox(height: 8),
+          ],
+
+          const SizedBox(height: 4),
           const Divider(),
           const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                l10n.total,
-                style: AppTypography.heading4.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: theme.colorScheme.onSurface,
+
+          // USD Total (if present)
+          if (_hasUsdProducts) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  _hasUzsProducts ? '${l10n.total} (USD)' : l10n.total,
+                  style: AppTypography.heading4.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: theme.colorScheme.onSurface,
+                  ),
                 ),
-              ),
-              Text(
-                '${_total.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} UZS',
-                style: AppTypography.heading4.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: theme.colorScheme.onSurface,
+                Text(
+                  _getFormattedPrice(_usdSubtotal, 'USD'),
+                  style: AppTypography.heading4.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: theme.colorScheme.onSurface,
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
+            if (_hasUzsProducts) const SizedBox(height: 8),
+          ],
+
+          // UZS Total (if present)
+          if (_hasUzsProducts) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  _hasUsdProducts ? '${l10n.total} (UZS)' : l10n.total,
+                  style: AppTypography.heading4.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+                Text(
+                  _getFormattedPrice(_uzsSubtotal + _deliveryFee, 'UZS'),
+                  style: AppTypography.heading4.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildSummaryRow(String label, double amount) {
+  Widget _buildSummaryRow(String label, double amount, String currency) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
@@ -944,7 +1091,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ),
         ),
         Text(
-          '${amount.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} UZS',
+          _getFormattedPrice(amount, currency),
           style: AppTypography.body2.copyWith(
             fontWeight: FontWeight.w500,
             color: theme.colorScheme.onSurface,

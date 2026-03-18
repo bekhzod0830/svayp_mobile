@@ -14,6 +14,30 @@ import 'package:swipe/core/network/api_client.dart';
 import 'package:swipe/core/utils/local_storage_helper.dart';
 import 'package:swipe/shared/widgets/widgets.dart';
 
+/// Helper function to format size label by removing SIZE_ prefix
+String _formatSizeLabel(String size) {
+  // Remove SIZE_ prefix if present (e.g., "SIZE_46" -> "46")
+  if (size.toUpperCase().startsWith('SIZE_')) {
+    return size.substring(5);
+  }
+  return size;
+}
+
+/// Helper function to format cart item price with intelligent currency detection
+String _formatCartItemPrice(CartItemModel item) {
+  String currency = item.currency;
+
+  // Intelligently detect currency based on price
+  if (currency == 'UZS' && item.price < 1000) {
+    currency = 'USD';
+  }
+
+  if (currency == 'USD') {
+    return '\$${item.price.toStringAsFixed(2)}';
+  }
+  return '${item.price.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} $currency';
+}
+
 /// Cart Screen - Shopping cart with checkout
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
@@ -84,6 +108,13 @@ class _CartScreenState extends State<CartScreen> {
             selectedSize: (item['selected_size'] as String? ?? ''),
             selectedColor: item['selected_color'] as String?,
             category: '', // Not provided in API response
+            titleLocalized:
+                (product['title_localized'] as Map<String, dynamic>?)?.map(
+                  (key, value) => MapEntry(key, value.toString()),
+                ),
+            descriptionLocalized:
+                (product['description_localized'] as Map<String, dynamic>?)
+                    ?.map((key, value) => MapEntry(key, value.toString())),
             addedAt: item['created_at'] != null
                 ? DateTime.tryParse(item['created_at'] as String) ??
                       DateTime.now()
@@ -216,6 +247,50 @@ class _CartScreenState extends State<CartScreen> {
   double get subtotal => _subtotal;
   double get _shipping => 0.0; // TODO: Get from API
   double get _total => _subtotal + _shipping;
+
+  /// Calculate subtotal for USD products
+  double get _usdSubtotal {
+    return _cartItems.fold(0.0, (sum, item) {
+      String currency = item.currency;
+      // Intelligently detect currency
+      if (currency == 'UZS' && item.price < 1000) {
+        currency = 'USD';
+      }
+      if (currency == 'USD') {
+        return sum + item.totalPrice;
+      }
+      return sum;
+    });
+  }
+
+  /// Calculate subtotal for UZS products
+  double get _uzsSubtotal {
+    return _cartItems.fold(0.0, (sum, item) {
+      String currency = item.currency;
+      // Intelligently detect currency
+      if (currency == 'UZS' && item.price < 1000) {
+        currency = 'USD';
+      }
+      if (currency == 'UZS') {
+        return sum + item.totalPrice;
+      }
+      return sum;
+    });
+  }
+
+  /// Check if cart has USD products
+  bool get _hasUsdProducts => _usdSubtotal > 0;
+
+  /// Check if cart has UZS products
+  bool get _hasUzsProducts => _uzsSubtotal > 0;
+
+  /// Format price with correct currency
+  String _getFormattedPrice(double price, String currency) {
+    if (currency == 'USD') {
+      return '\$${price.toStringAsFixed(2)}';
+    }
+    return '${price.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} $currency';
+  }
 
   Future<void> _proceedToCheckout() async {
     // Gate for guest users
@@ -385,77 +460,52 @@ class _CartScreenState extends State<CartScreen> {
           padding: const EdgeInsets.all(20),
           child: Column(
             children: [
-              // Subtotal
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    l10n.subtotal,
-                    style: AppTypography.body1.copyWith(
-                      color: isDark
-                          ? AppColors.darkSecondaryText
-                          : AppColors.gray700,
+              // USD Total (if present)
+              if (_hasUsdProducts) ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      _hasUzsProducts ? '${l10n.total} (USD)' : l10n.total,
+                      style: AppTypography.heading4.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: theme.colorScheme.onSurface,
+                      ),
                     ),
-                  ),
-                  Text(
-                    '${subtotal.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} UZS',
-                    style: AppTypography.body1.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: theme.colorScheme.onSurface,
+                    Text(
+                      _getFormattedPrice(_usdSubtotal + _shipping, 'USD'),
+                      style: AppTypography.heading4.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: theme.colorScheme.onSurface,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
+                  ],
+                ),
+                if (_hasUzsProducts) const SizedBox(height: 8),
+              ],
 
-              // Shipping
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    l10n.delivery,
-                    style: AppTypography.body1.copyWith(
-                      color: isDark
-                          ? AppColors.darkSecondaryText
-                          : AppColors.gray700,
+              // UZS Total (if present)
+              if (_hasUzsProducts) ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      _hasUsdProducts ? '${l10n.total} (UZS)' : l10n.total,
+                      style: AppTypography.heading4.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: theme.colorScheme.onSurface,
+                      ),
                     ),
-                  ),
-                  Text(
-                    _shipping == 0
-                        ? l10n.free.toUpperCase()
-                        : '${_shipping.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} UZS',
-                    style: AppTypography.body1.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: _shipping == 0
-                          ? Colors.green
-                          : theme.colorScheme.onSurface,
+                    Text(
+                      _getFormattedPrice(_uzsSubtotal + _shipping, 'UZS'),
+                      style: AppTypography.heading4.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: theme.colorScheme.onSurface,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-
-              const Divider(height: 24),
-
-              // Total
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    l10n.total,
-                    style: AppTypography.heading4.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: theme.colorScheme.onSurface,
-                    ),
-                  ),
-                  Text(
-                    '${_total.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} UZS',
-                    style: AppTypography.heading4.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: theme.colorScheme.onSurface,
-                    ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+              ],
 
               const SizedBox(height: 16),
 
@@ -576,7 +626,9 @@ class _CartItemCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    item.title,
+                    item.localizedTitle(
+                      Localizations.localeOf(context).languageCode,
+                    ),
                     style: AppTypography.body2.copyWith(
                       fontWeight: FontWeight.w500,
                       color: theme.colorScheme.onSurface,
@@ -588,12 +640,15 @@ class _CartItemCard extends StatelessWidget {
                   // Size and Color
                   Row(
                     children: [
-                      Text(
-                        '${l10n.size}: ${item.selectedSize}',
-                        style: AppTypography.caption.copyWith(
-                          color: isDark
-                              ? AppColors.darkSecondaryText
-                              : AppColors.gray600,
+                      Flexible(
+                        child: Text(
+                          '${l10n.size}: ${_formatSizeLabel(item.selectedSize)}',
+                          style: AppTypography.caption.copyWith(
+                            color: isDark
+                                ? AppColors.darkSecondaryText
+                                : AppColors.gray600,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       if (item.selectedColor != null) ...[
@@ -624,7 +679,7 @@ class _CartItemCard extends StatelessWidget {
                   Row(
                     children: [
                       Text(
-                        '${item.price.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} UZS',
+                        _formatCartItemPrice(item),
                         style: AppTypography.body2.copyWith(
                           fontWeight: FontWeight.bold,
                           color: theme.colorScheme.onSurface,

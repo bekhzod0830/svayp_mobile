@@ -7,6 +7,7 @@ import 'package:swipe/core/network/api_client.dart';
 import 'package:swipe/features/auth/data/services/auth_service.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/shared/widgets/widgets.dart';
+import 'package:swipe/core/utils/error_message_helper.dart';
 
 /// Partner Login Screen
 /// Hidden screen for sellers and sales representatives.
@@ -58,7 +59,10 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen> {
       ).pushNamedAndRemoveUntil('/partner-main', (_) => false);
     } on ApiException catch (e) {
       if (!mounted) return;
-      SnackBarHelper.showError(context, e.message);
+      SnackBarHelper.showError(
+        context,
+        ErrorMessageHelper.getLocalizedMessage(context, e),
+      );
     } catch (e) {
       if (!mounted) return;
       SnackBarHelper.showError(

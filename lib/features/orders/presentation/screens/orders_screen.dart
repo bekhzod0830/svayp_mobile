@@ -11,6 +11,51 @@ import 'package:swipe/core/di/service_locator.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:swipe/core/cache/image_cache_manager.dart';
 
+/// Helper function to detect item currency based on price
+String _detectItemCurrency(double price) {
+  // Intelligently detect currency based on price
+  if (price < 1000) {
+    return 'USD';
+  }
+  return 'UZS';
+}
+
+/// Helper function to format item price with intelligent currency detection
+String _formatItemPrice(double price) {
+  String currency = _detectItemCurrency(price);
+
+  if (currency == 'USD') {
+    return '\$${price.toStringAsFixed(2)}';
+  }
+  return '${price.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} $currency';
+}
+
+/// Helper function to format order total with multi-currency support
+String _formatOrderTotal(OrderModel order) {
+  double usdTotal = 0.0;
+  double uzsTotal = 0.0;
+
+  for (var item in order.items) {
+    if (_detectItemCurrency(item.unitPrice) == 'USD') {
+      usdTotal += item.subtotal;
+    } else {
+      uzsTotal += item.subtotal;
+    }
+  }
+
+  List<String> parts = [];
+  if (usdTotal > 0) {
+    parts.add('\$${usdTotal.toStringAsFixed(2)}');
+  }
+  if (uzsTotal > 0) {
+    parts.add(
+      '${uzsTotal.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} UZS',
+    );
+  }
+
+  return parts.isEmpty ? '\$0.00' : parts.join(' + ');
+}
+
 /// Refreshable interface for orders screen
 abstract class Refreshable {
   void refresh();
@@ -599,50 +644,50 @@ class _OrderCard extends StatelessWidget {
 
               const Divider(height: 24),
 
-              // Total and Action
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              // Total Amount
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l10n.totalAmount,
-                        style: AppTypography.caption.copyWith(
-                          color: isDark
-                              ? AppColors.darkSecondaryText
-                              : AppColors.gray600,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        order.formattedTotal,
-                        style: AppTypography.body1.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: theme.colorScheme.onSurface,
-                        ),
-                      ),
-                    ],
-                  ),
-                  OutlinedButton(
-                    onPressed: onTap,
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(
-                        color: isDark
-                            ? AppColors.darkPrimaryText
-                            : AppColors.black,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
+                  Text(
+                    l10n.totalAmount,
+                    style: AppTypography.caption.copyWith(
+                      color: isDark
+                          ? AppColors.darkSecondaryText
+                          : AppColors.gray600,
                     ),
-                    child: Text(
-                      l10n.viewDetails,
-                      style: AppTypography.body2.copyWith(
-                        color: isDark
-                            ? AppColors.darkPrimaryText
-                            : AppColors.black,
-                        fontWeight: FontWeight.w600,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _formatOrderTotal(order),
+                    style: AppTypography.body1.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // View Details Button
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: onTap,
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(
+                          color: isDark
+                              ? AppColors.darkPrimaryText
+                              : AppColors.black,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: Text(
+                        l10n.viewDetails,
+                        style: AppTypography.body2.copyWith(
+                          color: isDark
+                              ? AppColors.darkPrimaryText
+                              : AppColors.black,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),
@@ -669,6 +714,25 @@ class _OrderDetailSheet extends StatefulWidget {
 class _OrderDetailSheetState extends State<_OrderDetailSheet> {
   bool _itemsExpanded = false;
 
+  // Calculate separate USD and UZS subtotals
+  double get _usdSubtotal {
+    return widget.order.items.fold(0.0, (sum, item) {
+      if (_detectItemCurrency(item.unitPrice) == 'USD') {
+        return sum + item.subtotal;
+      }
+      return sum;
+    });
+  }
+
+  double get _uzsSubtotal {
+    return widget.order.items.fold(0.0, (sum, item) {
+      if (_detectItemCurrency(item.unitPrice) == 'UZS') {
+        return sum + item.subtotal;
+      }
+      return sum;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -681,226 +745,241 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
         color: isDark ? AppColors.darkCardBackground : AppColors.white,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Handle
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.darkSecondaryText : AppColors.gray300,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Order Number
-          Text(
-            '${l10n.order} ${widget.order.orderNumber}',
-            style: AppTypography.heading4.copyWith(
-              fontWeight: FontWeight.w700,
-              color: theme.colorScheme.onSurface,
-            ),
-          ),
-          const SizedBox(height: 8),
-
-          // Status
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: widget.order.statusColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              widget.order.getLocalizedStatus(context),
-              style: AppTypography.body2.copyWith(
-                color: widget.order.statusColor,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 24),
-
-          // Delivery Method
-          _DetailRow(
-            label: l10n.deliveryMethod,
-            value: widget.order.getLocalizedDeliveryMethod(context),
-          ),
-          const SizedBox(height: 12),
-
-          // Payment Method
-          _DetailRow(
-            label: l10n.paymentMethod,
-            value: widget.order.getLocalizedPaymentMethod(context),
-          ),
-          const SizedBox(height: 12),
-
-          // Total Amount
-          _DetailRow(label: l10n.total, value: widget.order.formattedTotal),
-
-          const SizedBox(height: 24),
-
-          // Items Section
-          InkWell(
-            onTap: () {
-              setState(() {
-                _itemsExpanded = !_itemsExpanded;
-              });
-            },
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '${l10n.items} (${widget.order.itemCount})',
-                  style: AppTypography.body1.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                ),
-                Icon(
-                  _itemsExpanded ? Icons.expand_less : Icons.expand_more,
-                  color: theme.colorScheme.onSurface,
-                ),
-              ],
-            ),
-          ),
-
-          // Expandable Items List
-          if (_itemsExpanded) ...[
-            const SizedBox(height: 16),
-            ...widget.order.items.map((item) {
-              return Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(12),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Handle
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
                 decoration: BoxDecoration(
                   color: isDark
-                      ? AppColors.darkMainBackground
-                      : AppColors.gray100,
-                  borderRadius: BorderRadius.circular(8),
+                      ? AppColors.darkSecondaryText
+                      : AppColors.gray300,
+                  borderRadius: BorderRadius.circular(2),
                 ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Product Image
-                    if (item.productImage != null)
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: CachedNetworkImage(
-                          imageUrl: item.productImage!,
-                          width: 60,
-                          height: 60,
-                          fit: BoxFit.cover,
-                          cacheManager: ImageCacheManager.instance,
-                          memCacheWidth: 120,
-                          memCacheHeight: 120,
-                          errorWidget: (context, url, error) {
-                            return Container(
-                              width: 60,
-                              height: 60,
-                              color: isDark
-                                  ? AppColors.darkSecondaryText
-                                  : AppColors.gray300,
-                              child: const Icon(Icons.image),
-                            );
-                          },
-                        ),
-                      ),
-                    const SizedBox(width: 12),
+              ),
+            ),
+            const SizedBox(height: 24),
 
-                    // Product Details
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            item.productTitle,
-                            style: AppTypography.body2.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: theme.colorScheme.onSurface,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
+            // Order Number
+            Text(
+              '${l10n.order} ${widget.order.orderNumber}',
+              style: AppTypography.heading4.copyWith(
+                fontWeight: FontWeight.w700,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // Status
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: widget.order.statusColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                widget.order.getLocalizedStatus(context),
+                style: AppTypography.body2.copyWith(
+                  color: widget.order.statusColor,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // Delivery Method
+            _DetailRow(
+              label: l10n.deliveryMethod,
+              value: widget.order.getLocalizedDeliveryMethod(context),
+            ),
+            const SizedBox(height: 12),
+
+            // Payment Method
+            _DetailRow(
+              label: l10n.paymentMethod,
+              value: widget.order.getLocalizedPaymentMethod(context),
+            ),
+            const SizedBox(height: 12),
+
+            // Total Amount - Multi-currency support
+            if (_usdSubtotal > 0)
+              _DetailRow(
+                label: l10n.total + ' (USD)',
+                value: '\$${_usdSubtotal.toStringAsFixed(2)}',
+              ),
+            if (_usdSubtotal > 0 && _uzsSubtotal > 0) const SizedBox(height: 8),
+            if (_uzsSubtotal > 0)
+              _DetailRow(
+                label: l10n.total + ' (UZS)',
+                value:
+                    '${_uzsSubtotal.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} UZS',
+              ),
+
+            const SizedBox(height: 24),
+
+            // Items Section
+            InkWell(
+              onTap: () {
+                setState(() {
+                  _itemsExpanded = !_itemsExpanded;
+                });
+              },
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '${l10n.items} (${widget.order.itemCount})',
+                    style: AppTypography.body1.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                  Icon(
+                    _itemsExpanded ? Icons.expand_less : Icons.expand_more,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ],
+              ),
+            ),
+
+            // Expandable Items List
+            if (_itemsExpanded) ...[
+              const SizedBox(height: 16),
+              ...widget.order.items.map((item) {
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? AppColors.darkMainBackground
+                        : AppColors.gray100,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Product Image
+                      if (item.productImage != null)
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: CachedNetworkImage(
+                            imageUrl: item.productImage!,
+                            width: 60,
+                            height: 60,
+                            fit: BoxFit.cover,
+                            cacheManager: ImageCacheManager.instance,
+                            memCacheWidth: 120,
+                            memCacheHeight: 120,
+                            errorWidget: (context, url, error) {
+                              return Container(
+                                width: 60,
+                                height: 60,
+                                color: isDark
+                                    ? AppColors.darkSecondaryText
+                                    : AppColors.gray300,
+                                child: const Icon(Icons.image),
+                              );
+                            },
                           ),
-                          const SizedBox(height: 4),
-                          // Size and Color
-                          if (item.selectedSize != null ||
-                              item.selectedColor != null)
+                        ),
+                      const SizedBox(width: 12),
+
+                      // Product Details
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.productTitle,
+                              style: AppTypography.body2.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: theme.colorScheme.onSurface,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            // Size and Color
+                            if (item.selectedSize != null ||
+                                item.selectedColor != null)
+                              Row(
+                                children: [
+                                  if (item.selectedSize != null) ...[
+                                    Text(
+                                      '${l10n.size}: ${item.selectedSize}',
+                                      style: AppTypography.caption.copyWith(
+                                        color: isDark
+                                            ? AppColors.darkSecondaryText
+                                            : AppColors.gray600,
+                                      ),
+                                    ),
+                                  ],
+                                  if (item.selectedSize != null &&
+                                      item.selectedColor != null) ...[
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      '\u2022',
+                                      style: AppTypography.caption.copyWith(
+                                        color: isDark
+                                            ? AppColors.darkSecondaryText
+                                            : AppColors.gray600,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                  ],
+                                  if (item.selectedColor != null) ...[
+                                    Text(
+                                      '${l10n.color}:',
+                                      style: AppTypography.caption.copyWith(
+                                        color: isDark
+                                            ? AppColors.darkSecondaryText
+                                            : AppColors.gray600,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    _buildColorCircle(item.selectedColor!),
+                                  ],
+                                ],
+                              ),
+                            const SizedBox(height: 4),
                             Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                if (item.selectedSize != null) ...[
-                                  Text(
-                                    '${l10n.size}: ${item.selectedSize}',
-                                    style: AppTypography.caption.copyWith(
-                                      color: isDark
-                                          ? AppColors.darkSecondaryText
-                                          : AppColors.gray600,
-                                    ),
+                                Text(
+                                  '${l10n.qty}: ${item.quantity}',
+                                  style: AppTypography.body2.copyWith(
+                                    color: isDark
+                                        ? AppColors.darkSecondaryText
+                                        : AppColors.gray600,
                                   ),
-                                ],
-                                if (item.selectedSize != null &&
-                                    item.selectedColor != null) ...[
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    '\u2022',
-                                    style: AppTypography.caption.copyWith(
-                                      color: isDark
-                                          ? AppColors.darkSecondaryText
-                                          : AppColors.gray600,
-                                    ),
+                                ),
+                                Text(
+                                  _formatItemPrice(item.subtotal),
+                                  style: AppTypography.body2.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    color: theme.colorScheme.onSurface,
                                   ),
-                                  const SizedBox(width: 8),
-                                ],
-                                if (item.selectedColor != null) ...[
-                                  Text(
-                                    '${l10n.color}:',
-                                    style: AppTypography.caption.copyWith(
-                                      color: isDark
-                                          ? AppColors.darkSecondaryText
-                                          : AppColors.gray600,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  _buildColorCircle(item.selectedColor!),
-                                ],
+                                ),
                               ],
                             ),
-                          const SizedBox(height: 4),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                '${l10n.qty}: ${item.quantity}',
-                                style: AppTypography.body2.copyWith(
-                                  color: isDark
-                                      ? AppColors.darkSecondaryText
-                                      : AppColors.gray600,
-                                ),
-                              ),
-                              Text(
-                                '${item.subtotal.toStringAsFixed(0)} ${widget.order.currency}',
-                                style: AppTypography.body2.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                  color: theme.colorScheme.onSurface,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
-          ],
+                    ],
+                  ),
+                );
+              }).toList(),
+            ],
 
-          const SizedBox(height: 24),
-        ],
+            const SizedBox(height: 24),
+          ],
+        ),
       ),
     );
   }

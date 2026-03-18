@@ -12,6 +12,7 @@ class Product {
   final List<String>? subcategory; // Subcategories
   final List<String> sizes; // Available sizes
   final List<String> colors; // Available colors
+  final Map<String, String>? colorImageMap; // Color to image URL mapping
   final List<String>? material; // Materials
   final List<String>? season; // Seasons
   final String currency; // Currency code (e.g., "UZS")
@@ -26,6 +27,8 @@ class Product {
   final bool inStock;
   final String? productUrl; // External link to product
   final String? countryOfOrigin; // Country where product is made
+  final Map<String, String> titleLocalized;
+  final Map<String, String> descriptionLocalized;
 
   Product({
     required this.id,
@@ -40,6 +43,7 @@ class Product {
     this.subcategory,
     this.sizes = const [],
     this.colors = const [],
+    this.colorImageMap,
     this.material,
     this.season,
     this.currency = 'UZS',
@@ -54,10 +58,27 @@ class Product {
     this.inStock = true,
     this.productUrl,
     this.countryOfOrigin,
+    this.titleLocalized = const {},
+    this.descriptionLocalized = const {},
   });
 
   /// Create Product from JSON
   factory Product.fromJson(Map<String, dynamic> json) {
+    // Parse color variants to create color-to-image mapping
+    Map<String, String>? colorImageMap;
+    final colorVariants = json['color_variants'] as List<dynamic>?;
+    if (colorVariants != null && colorVariants.isNotEmpty) {
+      colorImageMap = {};
+      for (final variant in colorVariants) {
+        final variantMap = variant as Map<String, dynamic>;
+        final color = variantMap['color'] as String?;
+        final image = variantMap['image'] as String?;
+        if (color != null && image != null) {
+          colorImageMap[color] = image;
+        }
+      }
+    }
+
     return Product(
       id: json['id'] as String,
       brand: json['brand'] as String,
@@ -83,6 +104,7 @@ class Product {
               ?.map((e) => e as String)
               .toList() ??
           [],
+      colorImageMap: colorImageMap,
       material: (json['material'] as List<dynamic>?)
           ?.map((e) => e as String)
           .toList(),
@@ -101,6 +123,16 @@ class Product {
       inStock: json['in_stock'] as bool? ?? true,
       productUrl: json['product_url'] as String?,
       countryOfOrigin: json['country_of_origin'] as String?,
+      titleLocalized:
+          (json['title_localized'] as Map<String, dynamic>?)?.map(
+            (k, v) => MapEntry(k, v.toString()),
+          ) ??
+          {},
+      descriptionLocalized:
+          (json['description_localized'] as Map<String, dynamic>?)?.map(
+            (k, v) => MapEntry(k, v.toString()),
+          ) ??
+          {},
     );
   }
 
@@ -133,7 +165,21 @@ class Product {
       'in_stock': inStock,
       'product_url': productUrl,
       'country_of_origin': countryOfOrigin,
+      'title_localized': titleLocalized,
+      'description_localized': descriptionLocalized,
     };
+  }
+
+  /// Get localized title or fall back to [title]
+  String localizedTitle(String languageCode) {
+    return titleLocalized[languageCode] ?? titleLocalized['en'] ?? title;
+  }
+
+  /// Get localized description or fall back to [description]
+  String localizedDescription(String languageCode) {
+    return descriptionLocalized[languageCode] ??
+        descriptionLocalized['en'] ??
+        description;
   }
 
   /// Get formatted price with correct currency symbol
@@ -179,6 +225,7 @@ class Product {
     List<String>? subcategory,
     List<String>? sizes,
     List<String>? colors,
+    Map<String, String>? colorImageMap,
     List<String>? material,
     List<String>? season,
     String? currency,
@@ -193,6 +240,8 @@ class Product {
     bool? inStock,
     String? productUrl,
     String? countryOfOrigin,
+    Map<String, String>? titleLocalized,
+    Map<String, String>? descriptionLocalized,
   }) {
     return Product(
       id: id ?? this.id,
@@ -207,6 +256,7 @@ class Product {
       subcategory: subcategory ?? this.subcategory,
       sizes: sizes ?? this.sizes,
       colors: colors ?? this.colors,
+      colorImageMap: colorImageMap ?? this.colorImageMap,
       material: material ?? this.material,
       season: season ?? this.season,
       currency: currency ?? this.currency,
@@ -221,6 +271,8 @@ class Product {
       inStock: inStock ?? this.inStock,
       productUrl: productUrl ?? this.productUrl,
       countryOfOrigin: countryOfOrigin ?? this.countryOfOrigin,
+      titleLocalized: titleLocalized ?? this.titleLocalized,
+      descriptionLocalized: descriptionLocalized ?? this.descriptionLocalized,
     );
   }
 }

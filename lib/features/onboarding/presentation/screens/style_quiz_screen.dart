@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:convert';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
-import 'package:swipe/core/services/product_api_service.dart';
+import 'package:swipe/core/di/service_locator.dart';
+import 'package:swipe/core/network/api_client.dart';
 import 'package:swipe/shared/widgets/widgets.dart';
 import 'package:swipe/features/onboarding/data/onboarding_data_manager.dart';
 
@@ -21,12 +21,10 @@ class StyleQuizScreen extends StatefulWidget {
 
 class _StyleQuizScreenState extends State<StyleQuizScreen> {
   final Map<int, bool> _answers = {}; // true = like, false = dislike
-  final ProductApiService _apiService = ProductApiService();
   bool _isCompleting = false;
   List<StyleQuizItem> _quizItems = [];
   String _gender = 'female';
   String _hijabPreference = 'uncovered';
-  String? _authToken;
   int _currentCardIndex = 0;
   final ValueNotifier<double> _dragProgressNotifier = ValueNotifier<double>(
     0.0,
@@ -44,23 +42,47 @@ class _StyleQuizScreenState extends State<StyleQuizScreen> {
         _hijabPreference = args['hijabPreference'] as String? ?? 'uncovered';
       }
 
+      // OnboardingDataManager is the authoritative source — always override
+      // with the value stored there (same pattern as FitPreferenceScreen).
+      // This prevents stale/null route args from defaulting to 'uncovered'.
+      final manager = context.read<OnboardingDataManager>();
+      if (manager.gender != null) {
+        _gender = manager.gender!;
+      }
+      if (manager.hijabPreference != null) {
+        _hijabPreference = manager.hijabPreference!;
+      }
+
       _initAndLoadQuiz();
     }
   }
 
   Future<void> _initAndLoadQuiz() async {
-    final prefs = await SharedPreferences.getInstance();
-    _authToken = prefs.getString('auth_token');
     _loadQuizImages();
   }
 
   void _loadQuizImages() async {
     // Try to load from the API first (GET /api/v1/feed/quiz?limit=10)
+    // Uses ApiClient (Dio) so the request is routed through the Charles proxy
+    // and the auth token is injected automatically.
     try {
-      final quizItems = await _apiService.getQuizFeed(
-        limit: 10,
-        token: _authToken,
+      final apiClient = getIt<ApiClient>();
+      final style = _hijabPreference == 'covered' ? 'covered' : 'uncovered';
+      final response = await apiClient.get<dynamic>(
+        '/feed/quiz',
+        queryParameters: {'limit': '15', 'style': style},
       );
+
+      List<Map<String, dynamic>> quizItems = [];
+      final data = response.data;
+      if (data is List) {
+        quizItems = data.whereType<Map<String, dynamic>>().toList();
+      } else if (data is Map<String, dynamic>) {
+        final inner = data['data'];
+        if (inner is List) {
+          quizItems = inner.whereType<Map<String, dynamic>>().toList();
+        }
+      }
 
       if (quizItems.isNotEmpty && mounted) {
         final l10n = AppLocalizations.of(context)!;
@@ -70,7 +92,6 @@ class _StyleQuizScreenState extends State<StyleQuizScreen> {
           _quizItems = quizItems.asMap().entries.map((entry) {
             final index = entry.key;
             final item = entry.value;
-            // QuizProductResponse fields: id, imageUrl (or image_url), plus optional title/category
             final imageUrl =
                 item['imageUrl'] as String? ??
                 item['image_url'] as String? ??
@@ -81,7 +102,7 @@ class _StyleQuizScreenState extends State<StyleQuizScreen> {
 
             return StyleQuizItem(
               id: index + 1,
-              imagePath: '', // unused when imageUrl is set
+              imagePath: '',
               imageUrl: imageUrl.isNotEmpty ? imageUrl : null,
               productId: item['id'] as String?,
               category: category,
@@ -91,7 +112,7 @@ class _StyleQuizScreenState extends State<StyleQuizScreen> {
         });
         return; // Successfully loaded from API
       }
-    } catch (_) {
+    } catch (e) {
       // API failed – fall back to local assets below
     }
 
@@ -192,12 +213,18 @@ class _StyleQuizScreenState extends State<StyleQuizScreen> {
 
     // Log swipe event to backend
     if (item.productId != null) {
-      _apiService.logEvent(
-        productId: item.productId!,
-        eventType: 'SWIPE',
-        swipeAction: 'DISLIKE',
-        token: _authToken,
-      );
+      () async {
+        try {
+          await getIt<ApiClient>().post<dynamic>(
+            '/events',
+            data: {
+              'productId': item.productId!,
+              'eventType': 'SWIPE',
+              'swipeAction': 'DISLIKE',
+            },
+          );
+        } catch (_) {} // fire-and-forget, never block UX
+      }();
     }
 
     setState(() {
@@ -224,12 +251,18 @@ class _StyleQuizScreenState extends State<StyleQuizScreen> {
 
     // Log swipe event to backend
     if (item.productId != null) {
-      _apiService.logEvent(
-        productId: item.productId!,
-        eventType: 'SWIPE',
-        swipeAction: 'LIKE',
-        token: _authToken,
-      );
+      () async {
+        try {
+          await getIt<ApiClient>().post<dynamic>(
+            '/events',
+            data: {
+              'productId': item.productId!,
+              'eventType': 'SWIPE',
+              'swipeAction': 'LIKE',
+            },
+          );
+        } catch (_) {} // fire-and-forget, never block UX
+      }();
     }
 
     setState(() {
@@ -310,7 +343,7 @@ class _StyleQuizScreenState extends State<StyleQuizScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '${_currentCardIndex + 1} of ${_quizItems.length}',
+                          '${_quizItems.isEmpty ? 1 : (_currentCardIndex + 1).clamp(1, _quizItems.length)} of ${_quizItems.length}',
                           style: AppTypography.body2.copyWith(
                             color: AppColors.secondaryText,
                           ),
@@ -422,15 +455,63 @@ class _StyleQuizScreenState extends State<StyleQuizScreen> {
   }
 
   Widget _buildCompletionState(AppLocalizations l10n) {
+    if (_isCompleting) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CircularProgressIndicator(color: AppColors.black),
+            const SizedBox(height: 24),
+            Text(
+              l10n.analyzingYourStyle,
+              style: AppTypography.heading4.copyWith(color: AppColors.black),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Returned from style-categories via back button — show completed state
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const CircularProgressIndicator(color: AppColors.black),
+          const Icon(
+            Icons.check_circle_outline,
+            size: 72,
+            color: AppColors.black,
+          ),
           const SizedBox(height: 24),
           Text(
             l10n.analyzingYourStyle,
             style: AppTypography.heading4.copyWith(color: AppColors.black),
+          ),
+          const SizedBox(height: 32),
+          SizedBox(
+            height: 56,
+            child: ElevatedButton(
+              onPressed: () =>
+                  Navigator.of(context).pushNamed('/style-categories'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.black,
+                foregroundColor: AppColors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 16,
+                ),
+                elevation: 0,
+              ),
+              child: Text(
+                l10n.continueButton,
+                style: AppTypography.button.copyWith(
+                  color: AppColors.white,
+                  fontSize: 16,
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -922,36 +1003,6 @@ class _SwipeableQuizCardState extends State<_SwipeableQuizCard>
                         );
                       },
                     ),
-                  Positioned(
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    child: Container(
-                      height: 120,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.transparent,
-                            AppColors.black.withOpacity(0.8),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    bottom: 20,
-                    left: 20,
-                    right: 20,
-                    child: Text(
-                      widget.item.category,
-                      style: AppTypography.heading3.copyWith(
-                        color: AppColors.white,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ),

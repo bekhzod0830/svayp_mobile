@@ -7,8 +7,6 @@ import 'package:swipe/features/product/presentation/screens/product_detail_scree
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:swipe/core/cache/image_cache_manager.dart';
 import 'package:swipe/features/shop/presentation/screens/seller_profile_screen.dart';
-import 'package:swipe/core/services/product_api_service.dart';
-import 'package:swipe/core/models/product.dart' as api_models;
 
 /// Shop Search Results Screen - TikTok Shop style
 class ShopSearchResultsScreen extends StatelessWidget {
@@ -340,7 +338,7 @@ class _SellerCard extends StatelessWidget {
   }
 }
 
-/// TikTok-style Product Card
+/// TikTok-style Product Card (matching shop_screen.dart)
 class _TikTokProductCard extends StatelessWidget {
   final Product product;
   final bool isDark;
@@ -366,7 +364,9 @@ class _TikTokProductCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.3 : 0.08),
+              color: isDark
+                  ? Colors.black.withOpacity(0.3)
+                  : Colors.black.withOpacity(0.08),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -376,7 +376,8 @@ class _TikTokProductCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Product Image with Seller Avatar
-            Expanded(
+            AspectRatio(
+              aspectRatio: 1.0,
               child: Stack(
                 children: [
                   // Product Image
@@ -386,49 +387,36 @@ class _TikTokProductCard extends StatelessWidget {
                     ),
                     child: Container(
                       width: double.infinity,
+                      height: double.infinity,
                       color: isDark
                           ? AppColors.darkMainBackground
                           : Colors.white,
-                      child: product.images.isNotEmpty
-                          ? LayoutBuilder(
-                              builder: (context, constraints) {
-                                final cacheWidth = (constraints.maxWidth * 2)
-                                    .toInt();
-                                return CachedNetworkImage(
-                                  imageUrl: product.images.first,
-                                  fit: BoxFit.contain,
-                                  cacheManager: ImageCacheManager.instance,
-                                  memCacheWidth: cacheWidth,
-                                  placeholder: (context, url) => Container(
-                                    color: isDark
-                                        ? AppColors.darkMainBackground
-                                        : AppColors.gray100,
-                                    child: Center(
-                                      child: CircularProgressIndicator(
-                                        color: isDark
-                                            ? AppColors.darkPrimaryText
-                                            : AppColors.gray400,
-                                        strokeWidth: 2,
-                                      ),
-                                    ),
-                                  ),
-                                  errorWidget: (context, url, error) =>
-                                      Container(
-                                        color: isDark
-                                            ? AppColors.darkMainBackground
-                                            : AppColors.gray100,
-                                        child: Icon(
-                                          Icons.image_outlined,
-                                          size: 32,
-                                          color: isDark
-                                              ? AppColors.darkSecondaryText
-                                              : AppColors.gray400,
-                                        ),
-                                      ),
-                                );
-                              },
-                            )
-                          : Container(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final cacheWidth = (constraints.maxWidth * 2).toInt();
+                          return CachedNetworkImage(
+                            imageUrl: product.images.isNotEmpty
+                                ? product.images.first
+                                : 'https://via.placeholder.com/400',
+                            fit: BoxFit.contain,
+                            width: double.infinity,
+                            height: double.infinity,
+                            cacheManager: ImageCacheManager.instance,
+                            memCacheWidth: cacheWidth,
+                            placeholder: (context, url) => Container(
+                              color: isDark
+                                  ? AppColors.darkMainBackground
+                                  : AppColors.gray100,
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  color: isDark
+                                      ? AppColors.darkPrimaryText
+                                      : AppColors.gray400,
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            ),
+                            errorWidget: (context, url, error) => Container(
                               color: isDark
                                   ? AppColors.darkMainBackground
                                   : AppColors.gray100,
@@ -440,74 +428,21 @@ class _TikTokProductCard extends StatelessWidget {
                                     : AppColors.gray400,
                               ),
                             ),
-                    ),
-                  ),
-                  // Seller Avatar (bottom-left)
-                  Positioned(
-                    bottom: 8,
-                    left: 8,
-                    child: GestureDetector(
-                      onTap: () => _navigateToSeller(context, sellerName),
-                      child: Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: _getGradientColors(sellerName),
-                          ),
-                          border: Border.all(color: Colors.white, width: 2),
-                        ),
-                        child: Center(
-                          child: Text(
-                            sellerName[0].toUpperCase(),
-                            style: AppTypography.caption.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
+                          );
+                        },
                       ),
                     ),
                   ),
-                  // NEW Badge
-                  if (product.isNew)
+                  // Discount Badge
+                  if (product.discountPercentage != null &&
+                      product.discountPercentage! > 0)
                     Positioned(
                       top: 8,
                       left: 8,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.7),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          'NEW',
-                          style: AppTypography.caption.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 9,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
-                    ),
-                  // Sale Badge
-                  if (product.discountPercentage != null &&
-                      product.discountPercentage! > 0)
-                    Positioned(
-                      top: 8,
-                      right: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
+                          horizontal: 6,
+                          vertical: 3,
                         ),
                         decoration: BoxDecoration(
                           color: Colors.red,
@@ -519,7 +454,6 @@ class _TikTokProductCard extends StatelessWidget {
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
                             fontSize: 9,
-                            letterSpacing: 0.5,
                           ),
                         ),
                       ),
@@ -528,176 +462,86 @@ class _TikTokProductCard extends StatelessWidget {
               ),
             ),
             // Product Info
-            Padding(
-              padding: const EdgeInsets.all(10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Title
-                  Text(
-                    product.title,
-                    style: AppTypography.body2.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: isDark
-                          ? AppColors.darkPrimaryText
-                          : AppColors.black,
-                      height: 1.2,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 6),
-                  // Price
-                  Text(
-                    _formatPrice(product.price),
-                    style: AppTypography.body2.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: isDark
-                          ? AppColors.darkPrimaryText
-                          : AppColors.black,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 6),
-                  // COMMENTED OUT - Rating display (for future use)
-                  // Rating & Seller
-                  Row(
+            Expanded(
+              child: ClipRect(
+                child: Padding(
+                  padding: const EdgeInsets.all(10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.max,
                     children: [
-                      // const Icon(
-                      //   Icons.star_rounded,
-                      //   size: 12,
-                      //   color: Colors.amber,
-                      // ),
-                      // const SizedBox(width: 2),
-                      // Text(
-                      //   product.rating.toStringAsFixed(1),
-                      //   style: AppTypography.caption.copyWith(
-                      //     fontWeight: FontWeight.w600,
-                      //     color: isDark
-                      //         ? AppColors.darkSecondaryText
-                      //         : AppColors.gray600,
-                      //     fontSize: 11,
-                      //   ),
-                      // ),
-                      // const SizedBox(width: 6),
-                      Flexible(
-                        child: Text(
-                          sellerName,
-                          style: AppTypography.caption.copyWith(
-                            color: isDark
-                                ? AppColors.darkSecondaryText
-                                : AppColors.gray600,
-                            fontSize: 11,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                      // Title — 1 line with ellipsis
+                      Text(
+                        product.localizedTitle(
+                          Localizations.localeOf(context).languageCode,
                         ),
+                        style: AppTypography.body2.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: isDark
+                              ? AppColors.darkPrimaryText
+                              : AppColors.black,
+                          height: 1.2,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 6),
+                      // Price with optional discount in a Row
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              product.formattedPrice,
+                              style: AppTypography.body2.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: isDark
+                                    ? AppColors.darkPrimaryText
+                                    : AppColors.black,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (product.hasDiscount) ...[
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                product.formattedDiscountPrice ?? '',
+                                style: AppTypography.caption.copyWith(
+                                  color: isDark
+                                      ? AppColors.gray400
+                                      : AppColors.gray500,
+                                  decoration: TextDecoration.lineThrough,
+                                  fontSize: 10,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      // Seller Name
+                      Text(
+                        sellerName,
+                        style: AppTypography.caption.copyWith(
+                          color: isDark
+                              ? AppColors.darkSecondaryText
+                              : AppColors.gray600,
+                          fontSize: 11,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
             ),
           ],
         ),
       ),
     );
-  }
-
-  void _navigateToSeller(BuildContext context, String sellerName) async {
-    final apiService = ProductApiService();
-
-    try {
-      // Fetch all products
-      final response = await apiService.getProducts(page: 0, size: 100);
-
-      // Filter products by seller
-      final sellerProducts = response.products
-          .where((p) => p.seller == sellerName)
-          .map((apiProduct) {
-            // Use seller if brand is "Unknown" or if seller is available
-            final displayBrand =
-                (apiProduct.brand == 'Unknown' || apiProduct.brand.isEmpty)
-                ? (apiProduct.seller ?? apiProduct.brand)
-                : apiProduct.brand;
-
-            return Product(
-              id: apiProduct.id,
-              title: apiProduct.title,
-              description: apiProduct.description ?? '',
-              price: apiProduct.price,
-              brand: displayBrand,
-              category: apiProduct.category.displayName,
-              images: apiProduct.images.isNotEmpty
-                  ? apiProduct.images
-                  : ['placeholder'],
-              sizes:
-                  apiProduct.sizes?.map((size) => size.displayName).toList() ??
-                  [],
-              colors: apiProduct.colors ?? [],
-              rating: apiProduct.rating ?? 4.5,
-              reviewCount: apiProduct.reviewCount ?? 0,
-              isNew: apiProduct.isNew ?? false,
-              isFeatured: apiProduct.isFeatured ?? false,
-              inStock: apiProduct.inStock,
-              seller: apiProduct.seller,
-              sellerId: apiProduct.sellerId,
-              discountPercentage: apiProduct.discountPercentage,
-              originalPrice: apiProduct.originalPrice,
-            );
-          })
-          .toList();
-
-      if (sellerProducts.isEmpty) return;
-
-      // Get sellerId from first product
-      final sellerId = sellerProducts.first.sellerId ?? 'unknown';
-
-      // Navigate to seller profile
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => SellerProfileScreen(
-            sellerId: sellerId,
-            sellerName: sellerName,
-            products: sellerProducts,
-          ),
-        ),
-      );
-    } catch (e) {}
-  }
-
-  List<Color> _getGradientColors(String name) {
-    final hash = name.hashCode;
-    final gradients = [
-      [const Color(0xFF667eea), const Color(0xFF764ba2)],
-      [const Color(0xFFf093fb), const Color(0xFFF5576c)],
-      [const Color(0xFF4facfe), const Color(0xFF00f2fe)],
-      [const Color(0xFF43e97b), const Color(0xFF38f9d7)],
-      [const Color(0xFFfa709a), const Color(0xFFfee140)],
-      [const Color(0xFF30cfd0), const Color(0xFF330867)],
-      [const Color(0xFFa8edea), const Color(0xFFfed6e3)],
-      [const Color(0xFFff9a9e), const Color(0xFFfecfef)],
-    ];
-    return gradients[hash.abs() % gradients.length];
-  }
-
-  String _formatPrice(int priceInCents) {
-    final price = priceInCents ~/ 100;
-    final priceStr = price.toString();
-
-    // Add thousand separators (e.g., 1234567 -> 1 234 567)
-    final buffer = StringBuffer();
-    final length = priceStr.length;
-
-    for (int i = 0; i < length; i++) {
-      if (i > 0 && (length - i) % 3 == 0) {
-        buffer.write(' ');
-      }
-      buffer.write(priceStr[i]);
-    }
-
-    return '${buffer.toString()} сўм';
   }
 }

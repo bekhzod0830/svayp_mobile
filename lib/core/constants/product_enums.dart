@@ -32,6 +32,12 @@ enum SizeEnum {
   size44('44'),
   size46('46'),
   size48('48'),
+  size50('50'),
+  size52('52'),
+  size54('54'),
+  size56('56'),
+  size58('58'),
+  size60('60'),
 
   // Children sizes
   size2t('2t'),
@@ -95,7 +101,14 @@ enum SizeEnum {
   static SizeEnum? fromString(String? value) {
     if (value == null) return null;
     try {
-      return SizeEnum.values.firstWhere((e) => e.value == value.toLowerCase());
+      // Strip "SIZE_" prefix if present (e.g., "SIZE_46" -> "46")
+      String cleanValue = value;
+      if (value.toUpperCase().startsWith('SIZE_')) {
+        cleanValue = value.substring(5);
+      }
+      return SizeEnum.values.firstWhere(
+        (e) => e.value == cleanValue.toLowerCase(),
+      );
     } catch (_) {
       return null;
     }

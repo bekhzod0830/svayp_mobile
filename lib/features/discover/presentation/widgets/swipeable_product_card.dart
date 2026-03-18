@@ -73,6 +73,9 @@ class SwipeableProductCardState extends State<SwipeableProductCard>
   // Gesture tracking
   bool _isDragging = false;
 
+  // Image carousel tracking
+  int _currentImageIndex = 0;
+
   // Thresholds
   static const double _swipeThreshold = 100.0;
   static const double _swipeUpThreshold = 120.0;
@@ -116,6 +119,14 @@ class SwipeableProductCardState extends State<SwipeableProductCard>
       // Add new listener
       if (widget.stackIndex == 1 && widget.dragProgressNotifier != null) {
         widget.dragProgressNotifier!.addListener(_onDragProgressChanged);
+      }
+    }
+
+    // Reset image index when the displayed product changes
+    if (oldWidget.product.id != widget.product.id) {
+      _currentImageIndex = 0;
+      if (_pageController.hasClients) {
+        _pageController.jumpToPage(0);
       }
     }
   }
@@ -613,6 +624,9 @@ class SwipeableProductCardState extends State<SwipeableProductCard>
                 ? const BouncingScrollPhysics()
                 : const NeverScrollableScrollPhysics(),
             itemCount: widget.product.images.length,
+            onPageChanged: (index) {
+              if (mounted) setState(() => _currentImageIndex = index);
+            },
             itemBuilder: (context, index) {
               return LayoutBuilder(
                 builder: (context, constraints) {
@@ -686,30 +700,71 @@ class SwipeableProductCardState extends State<SwipeableProductCard>
               ),
             ),
 
-          // NEW Badge
-          if (widget.product.isNew)
-            Positioned(
-              top: 16,
-              right: 16,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.black,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  'NEW',
-                  style: AppTypography.caption.copyWith(
-                    color: AppColors.white,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 11,
+          // Left/Right image navigation arrows
+          if (widget.product.images.length > 1 && widget.isTopCard) ...[
+            // Left arrow
+            if (_currentImageIndex > 0)
+              Positioned(
+                left: 10,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      _pageController.previousPage(
+                        duration: const Duration(milliseconds: 280),
+                        curve: Curves.easeInOut,
+                      );
+                    },
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: const BoxDecoration(
+                        color: Color(0x99000000),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.chevron_left_rounded,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
+            // Right arrow
+            if (_currentImageIndex < widget.product.images.length - 1)
+              Positioned(
+                right: 10,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      _pageController.nextPage(
+                        duration: const Duration(milliseconds: 280),
+                        curve: Curves.easeInOut,
+                      );
+                    },
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: const BoxDecoration(
+                        color: Color(0x99000000),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.chevron_right_rounded,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ],
       ),
     );
@@ -737,7 +792,9 @@ class SwipeableProductCardState extends State<SwipeableProductCard>
           // Title
           Flexible(
             child: Text(
-              widget.product.title,
+              widget.product.localizedTitle(
+                Localizations.localeOf(context).languageCode,
+              ),
               style: AppTypography.body1.copyWith(
                 fontWeight: FontWeight.w600,
                 color: isDark ? AppColors.white : AppColors.black,

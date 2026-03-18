@@ -14,6 +14,7 @@ import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/core/utils/local_storage_helper.dart';
 import 'package:swipe/features/auth/data/services/auth_service.dart';
 import 'package:swipe/core/network/api_client.dart';
+import 'package:swipe/core/utils/error_message_helper.dart';
 
 /// Phone Authentication Screen
 /// User enters their phone number to receive OTP
@@ -127,7 +128,10 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
       ).pushNamed('/otp-verification', arguments: phoneNumber);
     } on ApiException catch (e) {
       if (!mounted) return;
-      SnackBarHelper.showError(context, e.message);
+      SnackBarHelper.showError(
+        context,
+        ErrorMessageHelper.getLocalizedMessage(context, e),
+      );
     } catch (e) {
       if (!mounted) return;
       SnackBarHelper.showError(context, l10n.otpSendError);

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Debug-only network security config.
+    Trusts user-installed CA certificates (e.g. Charles Proxy root cert)
+    so HTTPS traffic is visible in proxy tools during development.
+    This file is NOT included in release/profile builds.
+-->
+<network-security-config>
+    <!-- This file only exists in the debug source set, so it never ships in
+         release builds. We use base-config (not debug-overrides) so it applies
+         regardless of the android:debuggable flag value. -->
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <!-- Trust the system CA store -->
+            <certificates src="system" />
+            <!-- Trust user-installed CAs (Charles, mitmproxy, etc.) -->
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

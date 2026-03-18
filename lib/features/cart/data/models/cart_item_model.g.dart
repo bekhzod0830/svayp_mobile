@@ -26,6 +26,13 @@ class CartItemModelAdapter extends TypeAdapter<CartItemModel> {
       selectedSize: fields[6] as String,
       selectedColor: fields[7] as String?,
       category: fields[8] as String,
+      currency:
+          (fields[10] as String?) ??
+          'UZS', // Default to UZS for backward compatibility
+      titleLocalized: (fields[11] as Map<dynamic, dynamic>?)
+          ?.cast<String, String>(),
+      descriptionLocalized: (fields[12] as Map<dynamic, dynamic>?)
+          ?.cast<String, String>(),
       addedAt: fields[9] as DateTime?,
     );
   }
@@ -33,7 +40,7 @@ class CartItemModelAdapter extends TypeAdapter<CartItemModel> {
   @override
   void write(BinaryWriter writer, CartItemModel obj) {
     writer
-      ..writeByte(10)
+      ..writeByte(13)
       ..writeByte(0)
       ..write(obj.productId)
       ..writeByte(1)
@@ -53,7 +60,13 @@ class CartItemModelAdapter extends TypeAdapter<CartItemModel> {
       ..writeByte(8)
       ..write(obj.category)
       ..writeByte(9)
-      ..write(obj.addedAt);
+      ..write(obj.addedAt)
+      ..writeByte(10)
+      ..write(obj.currency)
+      ..writeByte(11)
+      ..write(obj.titleLocalized)
+      ..writeByte(12)
+      ..write(obj.descriptionLocalized);
   }
 
   @override

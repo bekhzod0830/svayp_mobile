@@ -9,10 +9,21 @@ class CartService {
 
   /// Initialize the cart box
   Future<void> init() async {
-    if (!Hive.isBoxOpen(_boxName)) {
-      _cartBox = await Hive.openBox<CartItemModel>(_boxName);
-    } else {
-      _cartBox = Hive.box<CartItemModel>(_boxName);
+    try {
+      if (!Hive.isBoxOpen(_boxName)) {
+        _cartBox = await Hive.openBox<CartItemModel>(_boxName);
+      } else {
+        _cartBox = Hive.box<CartItemModel>(_boxName);
+      }
+    } catch (e) {
+      // If there's an error (likely due to schema change), delete the old box and create new one
+      try {
+        await Hive.deleteBoxFromDisk(_boxName);
+        _cartBox = await Hive.openBox<CartItemModel>(_boxName);
+      } catch (deleteError) {
+        // If deletion also fails, rethrow the original error
+        rethrow;
+      }
     }
   }
 

@@ -141,8 +141,8 @@ class OrderConfirmationScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                       _buildDetailRow(
-                        'Items',
-                        '$itemsCount ${itemsCount == 1 ? "item" : "items"}',
+                        l10n.items,
+                        l10n.itemsCount(itemsCount),
                         context,
                       ),
                     ],

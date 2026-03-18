@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
+import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/features/address/data/models/address_model.dart';
 import 'package:swipe/features/address/data/services/address_service.dart';
+import 'package:swipe/features/auth/data/services/auth_service.dart';
 
 /// Add/Edit Address Screen - Form to create or update delivery address
 class AddEditAddressScreen extends StatefulWidget {
@@ -97,6 +99,26 @@ class _AddEditAddressScreenState extends State<AddEditAddressScreen> {
       _selectedCity = widget.address!.city;
       _selectedRegion = widget.address!.region;
       _isDefault = widget.address!.isDefault;
+    } else {
+      // Prefill name and phone from user account for new addresses
+      _prefillUserDetails();
+    }
+  }
+
+  Future<void> _prefillUserDetails() async {
+    try {
+      final authService = getIt<AuthService>();
+      final user = await authService.getCurrentUser();
+      if (!mounted) return;
+      if (_fullNameController.text.isEmpty &&
+          (user.fullName?.isNotEmpty ?? false)) {
+        _fullNameController.text = user.fullName!;
+      }
+      if (_phoneController.text.isEmpty && user.phoneNumber.isNotEmpty) {
+        _phoneController.text = user.phoneNumber;
+      }
+    } catch (_) {
+      // Silently ignore — user can fill manually
     }
   }
 

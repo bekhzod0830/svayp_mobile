@@ -17,6 +17,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:swipe/core/models/product.dart' as api_models;
 import 'package:swipe/features/discover/domain/entities/product.dart';
 
+/// Helper function to format size label by removing SIZE_ prefix
+String _formatSizeLabel(String size) {
+  // Remove SIZE_ prefix if present (e.g., "SIZE_46" -> "46")
+  if (size.toUpperCase().startsWith('SIZE_')) {
+    return size.substring(5);
+  }
+  return size;
+}
+
 /// Chat Detail Screen - Individual conversation with a seller
 class ChatDetailScreen extends StatefulWidget {
   final String chatId;
@@ -160,6 +169,24 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         setState(() {
           _isLoading = false;
         });
+      }
+    }
+  }
+
+  Future<void> _reloadChat() async {
+    try {
+      await _loadChat();
+      await _loadMessages();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to reload chat'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       }
     }
   }
@@ -338,56 +365,74 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           ],
         ),
         actions: [
-          // WebSocket connection indicator
-          if (_isWebSocketConnected)
-            Padding(
-              padding: const EdgeInsets.only(right: 16),
-              child: Tooltip(
-                message: 'Real-time messaging active',
-                child: Icon(Icons.sync, size: 20, color: Colors.green),
+          // WebSocket connection indicator / Reload button
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: IconButton(
+              icon: Icon(
+                Icons.sync,
+                size: 24,
+                color: _isWebSocketConnected ? Colors.green : Colors.grey,
               ),
+              tooltip: _isWebSocketConnected
+                  ? 'Real-time active. Tap to reload'
+                  : 'Tap to reload chat',
+              onPressed: _reloadChat,
             ),
+          ),
         ],
       ),
       body: Column(
         children: [
           // Messages List
           Expanded(
-            child: _messages.isEmpty
-                ? Center(
-                    child: Text(
-                      l10n.noMessagesYet,
-                      style: AppTypography.body1.copyWith(
-                        color: isDark
-                            ? AppColors.darkSecondaryText
-                            : AppColors.gray600,
-                      ),
-                    ),
-                  )
-                : ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _messages.length,
-                    itemBuilder: (context, index) {
-                      final message = _messages[index];
-                      final isMine = message.senderId == _currentUserId;
+            child: RefreshIndicator(
+              onRefresh: _reloadChat,
+              child: _messages.isEmpty
+                  ? ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        SizedBox(
+                          height: MediaQuery.of(context).size.height * 0.5,
+                          child: Center(
+                            child: Text(
+                              l10n.noMessagesYet,
+                              style: AppTypography.body1.copyWith(
+                                color: isDark
+                                    ? AppColors.darkSecondaryText
+                                    : AppColors.gray600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : ListView.builder(
+                      controller: _scrollController,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _messages.length,
+                      itemBuilder: (context, index) {
+                        final message = _messages[index];
+                        final isMine = message.senderId == _currentUserId;
 
-                      // Render based on message type
-                      if (message.messageType == MessageType.product) {
-                        return _ProductMessageBubble(
+                        // Render based on message type
+                        if (message.messageType == MessageType.product) {
+                          return _ProductMessageBubble(
+                            message: message,
+                            isDark: isDark,
+                          );
+                        }
+
+                        return _MessageBubble(
                           message: message,
+                          isMine: isMine,
                           isDark: isDark,
+                          senderName: message.senderName,
                         );
-                      }
-
-                      return _MessageBubble(
-                        message: message,
-                        isMine: isMine,
-                        isDark: isDark,
-                        senderName: message.senderName,
-                      );
-                    },
-                  ),
+                      },
+                    ),
+            ),
           ),
 
           // Message Input
@@ -669,11 +714,19 @@ class _ProductMessageBubble extends StatelessWidget {
   const _ProductMessageBubble({required this.message, required this.isDark});
 
   String _formatPrice(int price) {
-    final formatted = price.toString().replaceAllMapped(
-      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-      (match) => '${match[1]} ',
-    );
-    return '$formatted UZS';
+    // Intelligently detect currency based on price range
+    // USD prices are typically < 1000, UZS prices are typically > 1000
+    if (price < 1000) {
+      // Likely USD
+      return '\$$price';
+    } else {
+      // Likely UZS
+      final formatted = price.toString().replaceAllMapped(
+        RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+        (match) => '${match[1]} ',
+      );
+      return '$formatted UZS';
+    }
   }
 
   Color _parseColor(String colorString) {
@@ -772,7 +825,7 @@ class _ProductMessageBubble extends StatelessWidget {
           apiProduct.originalCategoryString ??
           apiProduct.category.value, // Use original string if available
       subcategory: apiProduct.subcategory?.map((e) => e.displayName).toList(),
-      sizes: apiProduct.sizes?.map((e) => e.displayName).toList() ?? [],
+      sizes: apiProduct.sizes ?? [],
       colors: apiProduct.colors ?? [],
       material: apiProduct.material?.map((e) => e.displayName).toList(),
       season: apiProduct.season?.map((e) => e.displayName).toList(),
@@ -784,6 +837,8 @@ class _ProductMessageBubble extends StatelessWidget {
       discountPercentage: apiProduct.discountPercentage,
       originalPrice: apiProduct.originalPrice,
       inStock: apiProduct.inStock,
+      titleLocalized: apiProduct.titleLocalized,
+      descriptionLocalized: apiProduct.descriptionLocalized,
     );
   }
 
@@ -819,12 +874,12 @@ class _ProductMessageBubble extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                     child: CachedNetworkImage(
                       imageUrl: message.productImage!,
-                      width: 60,
-                      height: 80,
+                      width: 70,
+                      height: 95,
                       fit: BoxFit.cover,
                       cacheManager: ImageCacheManager.instance,
-                      memCacheWidth: 120,
-                      memCacheHeight: 160,
+                      memCacheWidth: 140,
+                      memCacheHeight: 190,
                     ),
                   ),
                 const SizedBox(width: 12),
@@ -846,81 +901,83 @@ class _ProductMessageBubble extends StatelessWidget {
                         ),
                       if (message.productPrice != null) ...[
                         const SizedBox(height: 4),
+                        Text(
+                          _formatPrice(message.productPrice!),
+                          style: AppTypography.body2.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: isDark
+                                ? AppColors.darkPrimaryText
+                                : AppColors.black,
+                          ),
+                        ),
+                      ],
+                      if (message.color != null ||
+                          message.size != null ||
+                          message.quantity != null) ...[
+                        const SizedBox(height: 4),
                         Row(
                           children: [
-                            Text(
-                              _formatPrice(message.productPrice!),
-                              style: AppTypography.body2.copyWith(
-                                fontWeight: FontWeight.w700,
-                                color: isDark
-                                    ? AppColors.darkPrimaryText
-                                    : AppColors.black,
-                              ),
-                            ),
-                            if (message.color != null ||
-                                message.size != null ||
-                                message.quantity != null) ...[
-                              const SizedBox(width: 8),
-                              Text(
-                                '•',
-                                style: AppTypography.caption.copyWith(
-                                  color: isDark
-                                      ? AppColors.darkSecondaryText
-                                      : AppColors.gray600,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
+                            if (message.color != null) ...[
                               Flexible(
                                 child: Row(
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    if (message.color != null) ...[
-                                      Container(
-                                        width: 16,
-                                        height: 16,
-                                        decoration: BoxDecoration(
-                                          color: _parseColor(message.color!),
-                                          shape: BoxShape.circle,
-                                          border: Border.all(
-                                            color: isDark
-                                                ? AppColors.darkSecondaryText
-                                                : AppColors.gray300,
-                                            width: 1,
-                                          ),
+                                    Text(
+                                      '${l10n.color}: ',
+                                      style: AppTypography.caption.copyWith(
+                                        color: isDark
+                                            ? AppColors.darkSecondaryText
+                                            : AppColors.gray600,
+                                      ),
+                                    ),
+                                    Container(
+                                      width: 16,
+                                      height: 16,
+                                      decoration: BoxDecoration(
+                                        color: _parseColor(message.color!),
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: isDark
+                                              ? AppColors.darkSecondaryText
+                                              : AppColors.gray300,
+                                          width: 1,
                                         ),
                                       ),
-                                      const SizedBox(width: 6),
-                                    ],
-                                    if (message.size != null) ...[
-                                      Flexible(
-                                        child: Text(
-                                          '${l10n.sizeLabel} ${message.size}',
-                                          style: AppTypography.caption.copyWith(
-                                            color: isDark
-                                                ? AppColors.darkSecondaryText
-                                                : AppColors.gray600,
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                      if (message.quantity != null)
-                                        const SizedBox(width: 6),
-                                    ],
-                                    if (message.quantity != null)
-                                      Flexible(
-                                        child: Text(
-                                          '${l10n.qtyLabel} ${message.quantity}',
-                                          style: AppTypography.caption.copyWith(
-                                            color: isDark
-                                                ? AppColors.darkSecondaryText
-                                                : AppColors.gray600,
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
+                              if (message.size != null ||
+                                  message.quantity != null)
+                                const SizedBox(width: 6),
                             ],
+                            if (message.size != null) ...[
+                              Flexible(
+                                child: Text(
+                                  '${l10n.sizeLabel} ${_formatSizeLabel(message.size!)}',
+                                  style: AppTypography.caption.copyWith(
+                                    color: isDark
+                                        ? AppColors.darkSecondaryText
+                                        : AppColors.gray600,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (message.quantity != null)
+                                const SizedBox(width: 6),
+                            ],
+                            if (message.quantity != null)
+                              Flexible(
+                                child: Text(
+                                  '${l10n.qtyLabel} ${message.quantity}',
+                                  style: AppTypography.caption.copyWith(
+                                    color: isDark
+                                        ? AppColors.darkSecondaryText
+                                        : AppColors.gray600,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
                           ],
                         ),
                       ],

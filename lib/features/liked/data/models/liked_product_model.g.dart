@@ -29,7 +29,7 @@ class LikedProductModelAdapter extends TypeAdapter<LikedProductModel> {
       discountPercentage: fields[9] as int?,
       originalPrice: fields[10] as int?,
       sellerId: fields[11] as String?,
-      currency: fields[12] as String? ?? 'UZS',
+      currency: fields[12] as String,
     );
   }
 

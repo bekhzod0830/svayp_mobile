@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
 import 'package:flutter/foundation.dart';
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -35,6 +36,15 @@ class ApiClient {
     _dio = Dio(baseOptions);
     _refreshDio = Dio(baseOptions);
 
+    // In debug mode, route traffic through Charles Proxy if configured.
+    // Usage: flutter run --dart-define=CHARLES_PROXY=192.168.x.x:8888
+    // Replace 192.168.x.x with your Mac's local IP (Charles → Help → Local IP).
+    const charlesProxy = String.fromEnvironment('CHARLES_PROXY');
+    if (kDebugMode && charlesProxy.isNotEmpty) {
+      _applyCharlesProxy(_dio, charlesProxy);
+      _applyCharlesProxy(_refreshDio, charlesProxy);
+    }
+
     // Single queued interceptor handles auth headers + automatic 401 refresh
     _dio.interceptors.add(_tokenRefreshInterceptor());
 
@@ -51,6 +61,22 @@ class ApiClient {
         ),
       );
     }
+  }
+
+  /// Routes all Dio traffic through a Charles Proxy instance.
+  ///
+  /// [proxy] must be in the form "host:port", e.g. "192.168.1.5:8888".
+  /// The SSL certificate check is disabled so the Charles root cert is
+  /// accepted without needing it in the Flutter trust store.
+  void _applyCharlesProxy(Dio dio, String proxy) {
+    dio.httpClientAdapter = IOHttpClientAdapter(
+      onHttpClientCreate: (client) {
+        client.findProxy = (uri) => 'PROXY $proxy';
+        // Accept the self-signed Charles root certificate
+        client.badCertificateCallback = (cert, host, port) => true;
+        return client;
+      },
+    );
   }
 
   /// Combined auth + token-refresh interceptor.
@@ -429,7 +455,33 @@ class ApiClient {
     final statusCode = response.statusCode ?? 500;
     String message;
 
-    // Try to extract error message from response
+    // For 5xx server errors, always show a user-friendly message
+    // (never expose raw HTML / gateway error bodies to the user)
+    if (statusCode >= 500) {
+      switch (statusCode) {
+        case 502:
+          message =
+              'The server is temporarily unavailable. Please try again in a moment.';
+          break;
+        case 503:
+          message = 'Service is currently unavailable. Please try again later.';
+          break;
+        case 504:
+          message = 'The request timed out. Please try again later.';
+          break;
+        case 500:
+        default:
+          message = 'Something went wrong on our end. Please try again later.';
+          break;
+      }
+      return ApiException(
+        message: message,
+        statusCode: statusCode,
+        response: response,
+      );
+    }
+
+    // For 4xx errors, try to extract a meaningful message from the response body
     try {
       if (response.data is Map) {
         message =
@@ -444,10 +496,12 @@ class ApiClient {
       message = 'An error occurred';
     }
 
-    // Handle specific status codes
+    // Handle specific 4xx status codes
     switch (statusCode) {
       case 400:
-        message = message.isEmpty ? 'Bad request' : message;
+        message = message.isEmpty
+            ? 'Invalid request. Please check your input.'
+            : message;
         break;
       case 401:
         message = 'Unauthorized. Please login again.';
@@ -458,11 +512,8 @@ class ApiClient {
       case 404:
         message = 'Resource not found';
         break;
-      case 500:
-        message = 'Server error. Please try again later.';
-        break;
-      case 503:
-        message = 'Service unavailable. Please try again later.';
+      case 429:
+        message = 'Too many requests. Please wait a moment and try again.';
         break;
     }
 

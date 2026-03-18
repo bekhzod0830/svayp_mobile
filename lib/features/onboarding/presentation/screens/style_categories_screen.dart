@@ -165,8 +165,20 @@ class _StyleCategoriesScreenState extends State<StyleCategoriesScreen> {
                   MediaQuery.of(context).padding.bottom + 16,
                 ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
+                    // Back Button (transparent background)
+                    IconButton(
+                      icon: const Icon(
+                        Icons.arrow_back,
+                        color: AppColors.black,
+                        size: 28,
+                      ),
+                      onPressed: _isLoading
+                          ? null
+                          : () => Navigator.of(context).pop(),
+                    ),
+
                     // Next Button (pill-shaped, dynamic width)
                     SizedBox(
                       height: 56,

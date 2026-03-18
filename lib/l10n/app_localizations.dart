@@ -412,6 +412,36 @@ abstract class AppLocalizations {
   /// **'Wrong number?'**
   String get wrongNumber;
 
+  /// No description provided for @serverError502.
+  ///
+  /// In en, this message translates to:
+  /// **'The server is temporarily unavailable. Please try again in a moment.'**
+  String get serverError502;
+
+  /// No description provided for @serverError503.
+  ///
+  /// In en, this message translates to:
+  /// **'Service is currently unavailable. Please try again later.'**
+  String get serverError503;
+
+  /// No description provided for @serverError504.
+  ///
+  /// In en, this message translates to:
+  /// **'The request timed out. Please try again later.'**
+  String get serverError504;
+
+  /// No description provided for @serverError500.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong on our end. Please try again later.'**
+  String get serverError500;
+
+  /// No description provided for @serverErrorGeneric.
+  ///
+  /// In en, this message translates to:
+  /// **'A server error occurred. Please try again later.'**
+  String get serverErrorGeneric;
+
   /// No description provided for @tellUsAboutYourself.
   ///
   /// In en, this message translates to:
@@ -2707,7 +2737,7 @@ abstract class AppLocalizations {
   /// No description provided for @payWhenYouReceive.
   ///
   /// In en, this message translates to:
-  /// **'Pay when you receive your order'**
+  /// **'Pay by cash or card when receiving'**
   String get payWhenYouReceive;
 
   /// No description provided for @qty.
@@ -3538,6 +3568,18 @@ abstract class AppLocalizations {
   /// **'Not your style? Swipe left to see the next item.'**
   String get swipeLeftDescription;
 
+  /// No description provided for @swipeUpToCart.
+  ///
+  /// In en, this message translates to:
+  /// **'Swipe Up to Add to Cart'**
+  String get swipeUpToCart;
+
+  /// No description provided for @swipeUpDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready to buy? Swipe up to instantly add the item to your cart.'**
+  String get swipeUpDescription;
+
   /// No description provided for @skipTutorial.
   ///
   /// In en, this message translates to:
@@ -3658,6 +3700,12 @@ abstract class AppLocalizations {
   /// **'Cotton'**
   String get materialCotton;
 
+  /// No description provided for @materialPolyester.
+  ///
+  /// In en, this message translates to:
+  /// **'Polyester'**
+  String get materialPolyester;
+
   /// No description provided for @materialSilk.
   ///
   /// In en, this message translates to:
@@ -3682,6 +3730,18 @@ abstract class AppLocalizations {
   /// **'Chiffon'**
   String get materialChiffon;
 
+  /// No description provided for @materialSatin.
+  ///
+  /// In en, this message translates to:
+  /// **'Satin'**
+  String get materialSatin;
+
+  /// No description provided for @materialVelvet.
+  ///
+  /// In en, this message translates to:
+  /// **'Velvet'**
+  String get materialVelvet;
+
   /// No description provided for @materialDenim.
   ///
   /// In en, this message translates to:
@@ -3693,6 +3753,72 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Leather'**
   String get materialLeather;
+
+  /// No description provided for @materialSuede.
+  ///
+  /// In en, this message translates to:
+  /// **'Suede'**
+  String get materialSuede;
+
+  /// No description provided for @materialJersey.
+  ///
+  /// In en, this message translates to:
+  /// **'Jersey'**
+  String get materialJersey;
+
+  /// No description provided for @materialModal.
+  ///
+  /// In en, this message translates to:
+  /// **'Modal'**
+  String get materialModal;
+
+  /// No description provided for @materialRayon.
+  ///
+  /// In en, this message translates to:
+  /// **'Rayon'**
+  String get materialRayon;
+
+  /// No description provided for @materialSpandex.
+  ///
+  /// In en, this message translates to:
+  /// **'Spandex'**
+  String get materialSpandex;
+
+  /// No description provided for @materialLycra.
+  ///
+  /// In en, this message translates to:
+  /// **'Lycra'**
+  String get materialLycra;
+
+  /// No description provided for @materialNylon.
+  ///
+  /// In en, this message translates to:
+  /// **'Nylon'**
+  String get materialNylon;
+
+  /// No description provided for @materialViscose.
+  ///
+  /// In en, this message translates to:
+  /// **'Viscose'**
+  String get materialViscose;
+
+  /// No description provided for @materialBamboo.
+  ///
+  /// In en, this message translates to:
+  /// **'Bamboo'**
+  String get materialBamboo;
+
+  /// No description provided for @materialCashmere.
+  ///
+  /// In en, this message translates to:
+  /// **'Cashmere'**
+  String get materialCashmere;
+
+  /// No description provided for @materialMixed.
+  ///
+  /// In en, this message translates to:
+  /// **'Mixed'**
+  String get materialMixed;
 
   /// No description provided for @seasonSpring.
   ///
@@ -3963,6 +4089,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Outerwear'**
   String get categoryOuterwear;
+
+  /// No description provided for @categoryTopwear.
+  ///
+  /// In en, this message translates to:
+  /// **'Topwear'**
+  String get categoryTopwear;
+
+  /// No description provided for @categoryBottomwear.
+  ///
+  /// In en, this message translates to:
+  /// **'Bottomwear'**
+  String get categoryBottomwear;
+
+  /// No description provided for @categoryOnePiece.
+  ///
+  /// In en, this message translates to:
+  /// **'One-piece'**
+  String get categoryOnePiece;
+
+  /// No description provided for @categoryIslamicModestWear.
+  ///
+  /// In en, this message translates to:
+  /// **'Islamic / Modest Wear'**
+  String get categoryIslamicModestWear;
+
+  /// No description provided for @categoryFootwear.
+  ///
+  /// In en, this message translates to:
+  /// **'Footwear'**
+  String get categoryFootwear;
+
+  /// No description provided for @categoryTwoPieceSet.
+  ///
+  /// In en, this message translates to:
+  /// **'Two-Piece Set'**
+  String get categoryTwoPieceSet;
+
+  /// No description provided for @categoryThreePieceSet.
+  ///
+  /// In en, this message translates to:
+  /// **'Three-Piece Set'**
+  String get categoryThreePieceSet;
+
+  /// No description provided for @categoryBodysuitsTriko.
+  ///
+  /// In en, this message translates to:
+  /// **'Bodysuits & Triko'**
+  String get categoryBodysuitsTriko;
+
+  /// No description provided for @categoryHomewear.
+  ///
+  /// In en, this message translates to:
+  /// **'Homewear'**
+  String get categoryHomewear;
 
   /// No description provided for @modestyLevel.
   ///
@@ -5067,6 +5247,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Powered by AI'**
   String get vsPoweredByAI;
+
+  /// No description provided for @vsTutorialDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap the camera icon in the shop to find similar items by photo.'**
+  String get vsTutorialDesc;
+
+  /// No description provided for @tutorialWhiteBlouse.
+  ///
+  /// In en, this message translates to:
+  /// **'White Blouse'**
+  String get tutorialWhiteBlouse;
+
+  /// No description provided for @tutorialLongDress.
+  ///
+  /// In en, this message translates to:
+  /// **'Long Dress'**
+  String get tutorialLongDress;
+
+  /// No description provided for @tutorialBeigeShoes.
+  ///
+  /// In en, this message translates to:
+  /// **'Beige Shoes'**
+  String get tutorialBeigeShoes;
 }
 
 class _AppLocalizationsDelegate

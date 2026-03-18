@@ -172,6 +172,26 @@ class AppLocalizationsUz extends AppLocalizations {
   String get wrongNumber => 'Noto\'g\'ri raqammi?';
 
   @override
+  String get serverError502 =>
+      'Server vaqtincha ishlamayapti. Bir ozdan so\'ng qayta urinib ko\'ring.';
+
+  @override
+  String get serverError503 =>
+      'Xizmat hozirda mavjud emas. Keyinroq qayta urinib ko\'ring.';
+
+  @override
+  String get serverError504 =>
+      'So\'rov vaqti tugadi. Keyinroq qayta urinib ko\'ring.';
+
+  @override
+  String get serverError500 =>
+      'Bizning tarafda xatolik yuz berdi. Keyinroq qayta urinib ko\'ring.';
+
+  @override
+  String get serverErrorGeneric =>
+      'Server xatosi yuz berdi. Keyinroq qayta urinib ko\'ring.';
+
+  @override
   String get tellUsAboutYourself => 'O\'zingiz haqida\ngapirib bering';
 
   @override
@@ -423,13 +443,13 @@ class AppLocalizationsUz extends AppLocalizations {
   String get tops => 'Ustki kiyim';
 
   @override
-  String get bottoms => 'Ostki kiyimlar';
+  String get bottoms => 'Pastki kiyim';
 
   @override
   String get dresses => 'Ko\'ylaklar';
 
   @override
-  String get jeanWaist => 'Jinsi bel';
+  String get jeanWaist => 'Shimning beli';
 
   @override
   String get braBand => 'Lif hajmi';
@@ -1188,7 +1208,7 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String itemsCount(int count) {
-    return '$count ta mahsulot';
+    return '$count mahsulot';
   }
 
   @override
@@ -1377,7 +1397,8 @@ class AppLocalizationsUz extends AppLocalizations {
   String get pickup => 'Olib ketish';
 
   @override
-  String get payWhenYouReceive => 'Buyurtmani qabul qilganda to\'lang';
+  String get payWhenYouReceive =>
+      'Qabul qilganda naqd yoki karta orqali to\'lang';
 
   @override
   String get qty => 'Soni';
@@ -1807,13 +1828,13 @@ class AppLocalizationsUz extends AppLocalizations {
   String get free => 'Bepul';
 
   @override
-  String get bra => 'Sutyen';
+  String get bra => 'Byustgalter';
 
   @override
-  String get band => 'Bel aylanasi';
+  String get band => 'Aylanasi';
 
   @override
-  String get cup => 'Kosecha';
+  String get cup => 'Chashkasi';
 
   @override
   String get swipeRightDescription =>
@@ -1822,6 +1843,13 @@ class AppLocalizationsUz extends AppLocalizations {
   @override
   String get swipeLeftDescription =>
       'Sizning stilingiz emasmi? Keyingi mahsulotni ko\'rish uchun chapga suring.';
+
+  @override
+  String get swipeUpToCart => 'Savatga qo\'shish uchun yuqoriga suring';
+
+  @override
+  String get swipeUpDescription =>
+      'Sotib olishga tayyormisiz? Mahsulotni savatga darhol qo\'shish uchun yuqoriga suring.';
 
   @override
   String get skipTutorial => 'O\'qituvni o\'tkazib yuborish';
@@ -1884,6 +1912,9 @@ class AppLocalizationsUz extends AppLocalizations {
   String get materialCotton => 'Paxta';
 
   @override
+  String get materialPolyester => 'Poliester';
+
+  @override
   String get materialSilk => 'Ipak';
 
   @override
@@ -1896,10 +1927,49 @@ class AppLocalizationsUz extends AppLocalizations {
   String get materialChiffon => 'Shifon';
 
   @override
+  String get materialSatin => 'Atlas';
+
+  @override
+  String get materialVelvet => 'Baxmal';
+
+  @override
   String get materialDenim => 'Denim';
 
   @override
   String get materialLeather => 'Teri';
+
+  @override
+  String get materialSuede => 'Zamsh';
+
+  @override
+  String get materialJersey => 'Jersi';
+
+  @override
+  String get materialModal => 'Modal';
+
+  @override
+  String get materialRayon => 'Rayon';
+
+  @override
+  String get materialSpandex => 'Spandeks';
+
+  @override
+  String get materialLycra => 'Laykra';
+
+  @override
+  String get materialNylon => 'Neylon';
+
+  @override
+  String get materialViscose => 'Viskoza';
+
+  @override
+  String get materialBamboo => 'Bambuk';
+
+  @override
+  String get materialCashmere => 'Kashmir';
+
+  @override
+  String get materialMixed => 'Aralash';
 
   @override
   String get seasonSpring => 'Bahor';
@@ -2035,6 +2105,33 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get categoryOuterwear => 'Ustki kiyim';
+
+  @override
+  String get categoryTopwear => 'Ustki kiyim';
+
+  @override
+  String get categoryBottomwear => 'Pastki kiyim';
+
+  @override
+  String get categoryOnePiece => 'Ko\'ylaklar va yaxlit buyumlar';
+
+  @override
+  String get categoryIslamicModestWear => 'Islomiy kiyim';
+
+  @override
+  String get categoryFootwear => 'Oyoq kiyim';
+
+  @override
+  String get categoryTwoPieceSet => 'Ikki qismli to\'plam';
+
+  @override
+  String get categoryThreePieceSet => 'Uch qismli to\'plam';
+
+  @override
+  String get categoryBodysuitsTriko => 'Triko';
+
+  @override
+  String get categoryHomewear => 'Uy kiyimi';
 
   @override
   String get modestyLevel => 'Kamtarinlik darajasi';
@@ -2604,4 +2701,17 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get vsPoweredByAI => 'Sun\'iy intellekt asosida';
+
+  @override
+  String get vsTutorialDesc =>
+      'Do\'konda kamera ikonkasiga bosib, rasmdan o\'xshash mahsulotlarni toping.';
+
+  @override
+  String get tutorialWhiteBlouse => 'Oq bluzka';
+
+  @override
+  String get tutorialLongDress => 'Uzun ko\'ylak';
+
+  @override
+  String get tutorialBeigeShoes => 'Krem rangli poyabzal';
 }

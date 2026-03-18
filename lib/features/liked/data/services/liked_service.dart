@@ -16,9 +16,9 @@ class LikedService {
     }
   }
 
-  /// Get all liked products
+  /// Get all liked products (newest first)
   List<LikedProductModel> getLikedProducts() {
-    return _likedBox?.values.toList() ?? [];
+    return _likedBox?.values.toList().reversed.toList() ?? [];
   }
 
   /// Get liked count
