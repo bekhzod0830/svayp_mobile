@@ -316,6 +316,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             ? AppColors.darkMainBackground
             : AppColors.white,
         elevation: 0,
+        scrolledUnderElevation: 0,
         leading: IconButton(
           icon: Icon(
             Icons.arrow_back,
@@ -1883,6 +1884,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         sellerLogo: null, // Add seller logo if available
                         productId: widget.product.id,
                         productTitle: widget.product.title,
+                        productTitleLocalized:
+                            widget.product.titleLocalized.isNotEmpty
+                            ? widget.product.titleLocalized
+                            : null,
                         productImage: widget.product.images.isNotEmpty
                             ? widget.product.images[0]
                             : null,

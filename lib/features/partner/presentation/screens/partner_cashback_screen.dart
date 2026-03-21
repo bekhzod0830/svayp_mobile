@@ -9,6 +9,9 @@ import 'package:swipe/core/models/product.dart';
 import 'package:swipe/core/network/api_client.dart';
 import 'package:swipe/features/auth/data/models/auth_models.dart';
 import 'package:swipe/features/partner/data/services/partner_service.dart';
+import 'package:swipe/features/partner/presentation/screens/partner_product_detail_screen.dart';
+import 'package:swipe/features/discover/domain/entities/product.dart'
+    as discover;
 import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/shared/widgets/widgets.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -25,6 +28,33 @@ class PartnerCashbackScreen extends StatefulWidget {
 }
 
 class _PartnerCashbackScreenState extends State<PartnerCashbackScreen> {
+  List<Product> _products = [];
+  bool _isLoadingProducts = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProducts();
+  }
+
+  Future<void> _loadProducts() async {
+    if (!mounted) return;
+    setState(() => _isLoadingProducts = true);
+    try {
+      final apiClient = getIt<ApiClient>();
+      final partnerService = PartnerService(apiClient);
+      final response = await partnerService.getSellerProducts(limit: 100);
+      if (mounted) {
+        setState(() {
+          _products = response.products;
+          _isLoadingProducts = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingProducts = false);
+    }
+  }
+
   void _openScanner() async {
     final result = await Navigator.of(
       context,
@@ -35,26 +65,52 @@ class _PartnerCashbackScreenState extends State<PartnerCashbackScreen> {
   }
 
   void _proceedWithUserId(String userId) {
-    // Create a basic user object with the scanned ID
     final user = UserResponse(
       id: userId,
-      phoneNumber: '', // Will be filled later or from backend
-      email: '', // Will be filled later
-      fullName: '', // Will be filled later
+      phoneNumber: '',
+      email: '',
+      fullName: '',
       isActive: true,
       isVerified: true,
       createdAt: DateTime.now(),
       hasProfile: false,
       cashbackBalance: 0.0,
     );
-
-    // Navigate directly to product selection
     _openProductSelection(user);
   }
 
   void _openProductSelection(UserResponse user) {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => _ProductSelectionScreen(user: user)),
+    );
+  }
+
+  void _openProductDetail(Product product) {
+    final discoverProduct = discover.Product(
+      id: product.id,
+      brand: product.brand,
+      title: product.title,
+      description: product.description ?? '',
+      price: product.price.toInt(),
+      images: product.images,
+      category: product.category.name,
+      sizes: product.sizes ?? [],
+      colors: product.colors ?? [],
+      currency: product.currency,
+      seller: product.seller,
+      sellerId: product.sellerId,
+      isNew: product.isNew ?? false,
+      isFeatured: product.isFeatured ?? false,
+      rating: product.rating ?? 0.0,
+      reviewCount: product.reviewCount ?? 0,
+      inStock: true,
+      titleLocalized: product.titleLocalized,
+      descriptionLocalized: product.descriptionLocalized,
+    );
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PartnerProductDetailScreen(product: discoverProduct),
+      ),
     );
   }
 
@@ -67,42 +123,93 @@ class _PartnerCashbackScreenState extends State<PartnerCashbackScreen> {
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkMainBackground : AppColors.white,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 20),
-
-              // Title - Left aligned at top
-              Text(
-                l10n.partnerCashbackTitle,
-                style: AppTypography.heading1.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? AppColors.darkPrimaryText : AppColors.black,
-                  fontSize: 34,
-                  letterSpacing: -0.5,
-                ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Header ──────────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.partnerCashbackTitle,
+                    style: AppTypography.heading1.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: isDark
+                          ? AppColors.darkPrimaryText
+                          : AppColors.black,
+                      fontSize: 34,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    l10n.partnerCashbackSubtitle,
+                    style: AppTypography.body1.copyWith(
+                      color: isDark
+                          ? AppColors.darkSecondaryText
+                          : AppColors.gray700,
+                      fontSize: 17,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
               ),
+            ),
 
-              const SizedBox(height: 8),
+            const SizedBox(height: 20),
 
-              // Subtitle
-              Text(
-                l10n.partnerCashbackSubtitle,
-                style: AppTypography.body1.copyWith(
-                  color: isDark
-                      ? AppColors.darkSecondaryText
-                      : AppColors.gray700,
-                  fontSize: 17,
-                  height: 1.4,
-                ),
-              ),
+            // ── Products Section ─────────────────────────────────────────
+            Expanded(
+              child: _isLoadingProducts
+                  ? Center(
+                      child: CircularProgressIndicator(
+                        color: isDark
+                            ? AppColors.darkPrimaryText
+                            : AppColors.black,
+                      ),
+                    )
+                  : _products.isEmpty
+                  ? const SizedBox.shrink()
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+                          child: Text(
+                            l10n.myProducts,
+                            style: AppTypography.heading4.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: isDark
+                                  ? AppColors.darkPrimaryText
+                                  : AppColors.black,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            itemCount: _products.length,
+                            itemBuilder: (context, index) {
+                              final product = _products[index];
+                              return _ProductListItem(
+                                product: product,
+                                isSelected: false,
+                                isDark: isDark,
+                                onTap: () => _openProductDetail(product),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
 
-              const Spacer(),
-
-              // Scan Button - At bottom
-              GestureDetector(
+            // ── Scan Button ──────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+              child: GestureDetector(
                 onTap: _openScanner,
                 child: Container(
                   width: double.infinity,
@@ -136,10 +243,8 @@ class _PartnerCashbackScreenState extends State<PartnerCashbackScreen> {
                   ),
                 ),
               ),
-
-              const SizedBox(height: 24),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -679,6 +784,10 @@ class _ProductListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final langCode = Localizations.localeOf(context).languageCode;
+    final localizedTitle = product.localizedTitle(langCode);
+    final localizedDescription = product.localizedDescription(langCode);
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -710,7 +819,7 @@ class _ProductListItem extends StatelessWidget {
                       imageUrl: product.images.first,
                       width: 60,
                       height: 60,
-                      fit: BoxFit.cover,
+                      fit: BoxFit.contain,
                       cacheManager: ImageCacheManager.instance,
                       memCacheWidth: 120,
                       memCacheHeight: 120,
@@ -726,7 +835,7 @@ class _ProductListItem extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    product.title,
+                    localizedTitle,
                     style: AppTypography.body1.copyWith(
                       fontWeight: FontWeight.w600,
                       color: isDark
@@ -745,6 +854,19 @@ class _ProductListItem extends StatelessWidget {
                           : AppColors.secondaryText,
                     ),
                   ),
+                  if (localizedDescription.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      localizedDescription,
+                      style: AppTypography.caption.copyWith(
+                        color: isDark
+                            ? AppColors.darkSecondaryText
+                            : AppColors.secondaryText,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                   const SizedBox(height: 4),
                   Text(
                     '${product.price} ${product.currency}',
@@ -757,15 +879,6 @@ class _ProductListItem extends StatelessWidget {
                   ),
                 ],
               ),
-            ),
-
-            // Checkbox
-            Icon(
-              isSelected ? Icons.check_circle_rounded : Icons.circle_outlined,
-              color: isSelected
-                  ? Colors.green.shade600
-                  : (isDark ? AppColors.darkSecondaryText : AppColors.gray400),
-              size: 28,
             ),
           ],
         ),

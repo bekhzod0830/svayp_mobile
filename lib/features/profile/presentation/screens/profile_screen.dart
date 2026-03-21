@@ -23,6 +23,12 @@ import 'package:swipe/shared/widgets/widgets.dart';
 // TODO: Import payment methods screen when created
 // import 'package:swipe/features/payment/presentation/screens/payment_methods_screen.dart';
 import 'package:swipe/core/utils/local_storage_helper.dart';
+import 'package:swipe/features/cart/data/services/cart_service.dart';
+import 'package:swipe/features/liked/data/services/liked_service.dart';
+import 'package:swipe/features/chat/data/services/chat_cache_service.dart';
+import 'package:swipe/core/services/recommendation_cache_service.dart';
+import 'package:swipe/core/services/seen_products_service.dart';
+import 'package:swipe/core/cache/image_cache_manager.dart';
 
 /// Profile Screen - User profile and settings
 class ProfileScreen extends StatefulWidget {
@@ -197,9 +203,24 @@ class _ProfileScreenState extends State<ProfileScreen>
               final storage = await LocalStorageHelper.getInstance();
               final apiClient = getIt<ApiClient>();
 
+              // Clear auth tokens and onboarding flags
               await storage.clearOnboarding();
               await storage.clearAuthData();
               await apiClient.clearToken();
+
+              // Clear Hive caches (cart, liked, chat)
+              await CartService().clearCart();
+              await LikedService().clearAllLiked();
+              await ChatCacheService().clearCache();
+
+              // Clear recommendation cache and seen products list
+              await RecommendationCacheService.clearCache();
+              await SeenProductsService.clear();
+
+              // Clear image disk & memory cache
+              await ImageCacheManager.instance.emptyCache();
+              PaintingBinding.instance.imageCache.clear();
+              PaintingBinding.instance.imageCache.clearLiveImages();
 
               if (mounted) {
                 // Navigate directly to phone auth screen and clear navigation stack
@@ -228,6 +249,7 @@ class _ProfileScreenState extends State<ProfileScreen>
             ? AppColors.darkMainBackground
             : AppColors.white,
         elevation: 0,
+        scrolledUnderElevation: 0,
         title: Text(
           l10n.profile,
           style: AppTypography.heading2.copyWith(
@@ -287,6 +309,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                                               builder: (_) => _FullPageQrView(
                                                 userId: _userId,
                                                 userName: _userName,
+                                                points: _cashbackBalance,
                                               ),
                                             );
                                           }
@@ -843,8 +866,13 @@ class _ProfileMenuItem extends StatelessWidget {
 class _FullPageQrView extends StatefulWidget {
   final String userId;
   final String userName;
+  final double points;
 
-  const _FullPageQrView({required this.userId, required this.userName});
+  const _FullPageQrView({
+    required this.userId,
+    required this.userName,
+    required this.points,
+  });
 
   @override
   State<_FullPageQrView> createState() => _FullPageQrViewState();
@@ -972,6 +1000,29 @@ class _FullPageQrViewState extends State<_FullPageQrView> {
                           dataModuleShape: QrDataModuleShape.square,
                           color: AppColors.black,
                         ),
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                    Text(
+                      NumberFormat('#,###').format(widget.points.toInt()),
+                      style: AppTypography.heading1.copyWith(
+                        fontSize: 48,
+                        fontWeight: FontWeight.w800,
+                        color: isDark
+                            ? AppColors.darkPrimaryText
+                            : AppColors.black,
+                        letterSpacing: -1,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      l10n.points,
+                      style: AppTypography.body1.copyWith(
+                        color: isDark
+                            ? AppColors.darkSecondaryText
+                            : AppColors.gray600,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: 1.5,
                       ),
                     ),
                     const SizedBox(height: 80),

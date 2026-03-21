@@ -395,7 +395,7 @@
   "vsCatBottomwear": "Нижняя одежда",
   "vsCatDresses": "Платья",
   "vsCatOuterwear": "Верхняя одежда",
-  "vsCatOnePiece": "Комбинезоны",
+  "vsCatOnePiece": "Цельная одежда",
   "vsCatActivewear": "Спортивная одежда",
   "vsCatAccessories": "Аксессуары",
   "vsCatFootwear": "Обувь",
@@ -437,11 +437,29 @@
   "orderHistory": "История заказов",
   "orderHistoryAppearHere": "Ваша история заказов появится здесь",
   "noOrdersYet": "Пока нет заказов",
+  "noOrdersReceivedYet": "Пока не получено заказов",
+  "customerOrdersAppearHere": "Здесь будут появляться заказы от покупателей",
   "errorLoadingOrders": "Ошибка загрузки заказов",
   "retry": "Повторить",
   "startShoppingToSeeOrders": "Начните делать покупки, чтобы увидеть историю заказов здесь",
   "startShopping": "Начать покупки",
   "itemsCount": "{count} товаров",
+  "ordersCount": "{count, plural, =1{1 заказ} =2{2 заказа} other{{count} заказов}}",
+  "@ordersCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatsCount": "{count, plural, =1{1 диалог} =2{2 диалога} other{{count} диалогов}}",
+  "@chatsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "@itemsCount": {
     "placeholders": {
       "count": {
@@ -466,6 +484,10 @@
   "outForDelivery": "В пути",
   "delivered": "Доставлен",
   "cancelled": "Отменен",
+  "created": "Создан",
+  "paid": "Оплачен",
+  "refunded": "Возвращён",
+  "returned": "Возврат товара",
   
   "chat": "Чат",
   "noMessagesYet": "Пока нет сообщений",
@@ -520,6 +542,9 @@
   "changeAddress": "Изменить адрес",
   "addNewAddress": "Добавить новый адрес",
   "deliveryMethod": "Способ доставки",
+  "customerName": "Имя покупателя",
+  "customerPhone": "Телефон покупателя",
+  "changeStatus": "Изменить статус",
   "pickupInStore": "Самовывоз из магазина",
   "availableForPickup": "Доступно для самовывоза",
   "standard": "Стандартный",
@@ -1040,6 +1065,7 @@
   "partnerCashbackTitle": "Кэшбэк",
   "partnerCashbackSubtitle": "Отсканируйте QR-код покупателя, чтобы зарегистрировать продажу и начислить кэшбэк.",
   "partnerScanQr": "Сканировать QR",
+  "myProducts": "Мои товары",
   "partnerTapToOpenCamera": "Нажмите, чтобы открыть камеру",
   "partnerIdentifyCustomer": "Определить покупателя",
   "partnerSelectProduct": "Выбрать товар",
@@ -1082,6 +1108,7 @@
   "shopErrorTitle": "Ой, что-то пошло не так",
   "shopErrorSubtitle": "Не удалось загрузить товары. Проверьте подключение и попробуйте снова.",
   "shopRetry": "Повторить",
+  "shopLoadingProducts": "Загрузка товаров...",
   "errorGenericTitle": "Ой, что-то пошло не так",
   "errorGenericSubtitle": "Проверьте подключение и попробуйте снова.",
   "errorRetry": "Повторить",

@@ -26,6 +26,8 @@ import 'package:swipe/features/onboarding/presentation/screens/style_categories_
 // import 'package:swipe/features/onboarding/presentation/screens/brand_preferences_screen.dart'; // DISABLED
 import 'package:swipe/features/onboarding/presentation/screens/onboarding_completion_screen.dart';
 import 'package:swipe/features/main/presentation/screens/main_screen.dart';
+import 'package:swipe/features/profile/presentation/screens/notifications_screen.dart';
+import 'package:swipe/features/profile/presentation/screens/notification_preferences_screen.dart';
 
 /// App Routes
 class AppRoutes {
@@ -69,6 +71,7 @@ class AppRoutes {
   static const String settings = '/settings';
   static const String editProfile = '/edit-profile';
   static const String notifications = '/notifications';
+  static const String notificationPreferences = '/notification-preferences';
   static const String partnerLogin = '/partner-login';
   static const String partnerMain = '/partner-main';
 
@@ -185,6 +188,14 @@ class AppRoutes {
 
       case partnerLogin:
         return MaterialPageRoute(builder: (_) => const PartnerLoginScreen());
+
+      case notifications:
+        return MaterialPageRoute(builder: (_) => const NotificationsScreen());
+
+      case notificationPreferences:
+        return MaterialPageRoute(
+          builder: (_) => const NotificationPreferencesScreen(),
+        );
 
       case partnerMain:
         return MaterialPageRoute(builder: (_) => const PartnerMainScreen());

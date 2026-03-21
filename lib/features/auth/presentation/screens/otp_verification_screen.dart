@@ -11,6 +11,7 @@ import 'package:swipe/core/network/api_client.dart';
 import 'package:swipe/core/config/api_config.dart';
 import 'package:swipe/core/utils/local_storage_helper.dart';
 import 'package:swipe/core/utils/error_message_helper.dart';
+import 'package:swipe/core/services/seen_products_service.dart';
 
 /// OTP Verification Screen
 /// User enters 6-digit OTP code sent to their phone
@@ -185,6 +186,9 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       final storage = await LocalStorageHelper.getInstance();
       await storage.clearGuestMode();
 
+      // Clear seen product IDs only if a different account is logging in
+      await SeenProductsService.clearIfUserChanged(tokenResponse.user.id);
+
       if (!mounted) return;
 
       // Check if user has completed their profile
@@ -252,13 +256,21 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: isDark ? AppColors.darkMainBackground : AppColors.white,
       appBar: AppBar(
-        backgroundColor: AppColors.white,
+        backgroundColor: isDark
+            ? AppColors.darkMainBackground
+            : AppColors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.black),
+          icon: Icon(
+            Icons.arrow_back,
+            color: isDark ? AppColors.darkPrimaryText : AppColors.black,
+          ),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -276,7 +288,12 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                       // Title
                       Text(
                         l10n.verifyPhoneNumber,
-                        style: AppTypography.display2.copyWith(height: 1.2),
+                        style: AppTypography.display2.copyWith(
+                          height: 1.2,
+                          color: isDark
+                              ? AppColors.darkPrimaryText
+                              : AppColors.black,
+                        ),
                       ),
                       const SizedBox(height: 12),
 
@@ -285,13 +302,17 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                         TextSpan(
                           text: l10n.enterDigitCode,
                           style: AppTypography.body1.copyWith(
-                            color: AppColors.secondaryText,
+                            color: isDark
+                                ? AppColors.darkSecondaryText
+                                : AppColors.secondaryText,
                           ),
                           children: [
                             TextSpan(
                               text: _formatPhoneNumber(widget.phoneNumber),
                               style: AppTypography.body1.copyWith(
-                                color: AppColors.black,
+                                color: isDark
+                                    ? AppColors.darkPrimaryText
+                                    : AppColors.black,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -312,6 +333,9 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                               controller: _otpControllers[index],
                               focusNode: _otpFocusNodes[index],
                               keyboardType: TextInputType.number,
+                              keyboardAppearance: isDark
+                                  ? Brightness.dark
+                                  : Brightness.light,
                               textAlign: TextAlign.center,
                               textAlignVertical: TextAlignVertical.center,
                               maxLength:
@@ -322,33 +346,44 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                                   : null,
                               style: AppTypography.heading3.copyWith(
                                 height: 1.0,
+                                color: isDark
+                                    ? AppColors.darkPrimaryText
+                                    : AppColors.black,
                               ),
                               decoration: InputDecoration(
                                 counterText: '',
                                 filled: true,
-                                fillColor: AppColors.gray50,
+                                fillColor: isDark
+                                    ? AppColors.darkCardBackground
+                                    : AppColors.gray50,
                                 contentPadding: const EdgeInsets.symmetric(
                                   horizontal: 0,
                                   vertical: 16,
                                 ),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
-                                  borderSide: const BorderSide(
-                                    color: AppColors.standardBorder,
+                                  borderSide: BorderSide(
+                                    color: isDark
+                                        ? AppColors.darkStandardBorder
+                                        : AppColors.standardBorder,
                                     width: 1.5,
                                   ),
                                 ),
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
-                                  borderSide: const BorderSide(
-                                    color: AppColors.standardBorder,
+                                  borderSide: BorderSide(
+                                    color: isDark
+                                        ? AppColors.darkStandardBorder
+                                        : AppColors.standardBorder,
                                     width: 1.5,
                                   ),
                                 ),
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
-                                  borderSide: const BorderSide(
-                                    color: AppColors.black,
+                                  borderSide: BorderSide(
+                                    color: isDark
+                                        ? AppColors.white
+                                        : AppColors.black,
                                     width: 2,
                                   ),
                                 ),
@@ -432,17 +467,27 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                         child: _canResend
                             ? TextButton(
                                 onPressed: _isLoading ? null : _resendOTP,
+                                style: TextButton.styleFrom(
+                                  foregroundColor: isDark
+                                      ? AppColors.darkPrimaryText
+                                      : AppColors.black,
+                                ),
                                 child: Text(
                                   l10n.resendCode,
                                   style: AppTypography.button.copyWith(
                                     decoration: TextDecoration.underline,
+                                    color: isDark
+                                        ? AppColors.darkPrimaryText
+                                        : AppColors.black,
                                   ),
                                 ),
                               )
                             : Text(
                                 l10n.resendCodeIn(_secondsRemaining),
                                 style: AppTypography.body2.copyWith(
-                                  color: AppColors.tertiaryText,
+                                  color: isDark
+                                      ? AppColors.darkTertiaryText
+                                      : AppColors.tertiaryText,
                                 ),
                               ),
                       ),
@@ -454,10 +499,14 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                 Container(
                   padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
                   decoration: BoxDecoration(
-                    color: AppColors.white,
+                    color: isDark
+                        ? AppColors.darkMainBackground
+                        : AppColors.white,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
+                        color: isDark
+                            ? Colors.white.withOpacity(0.05)
+                            : Colors.black.withOpacity(0.05),
                         blurRadius: 10,
                         offset: const Offset(0, -2),
                       ),

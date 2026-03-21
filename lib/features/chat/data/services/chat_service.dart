@@ -130,7 +130,6 @@ class ChatService {
   /// POST /api/v1/chats
   Future<ChatResponse> createChat(CreateChatRequest request) async {
     try {
-
       final response = await _apiClient.post('/chats', data: request.toJson());
 
       // Handle nested data structure
@@ -153,7 +152,6 @@ class ChatService {
     SendMessageRequest request,
   ) async {
     try {
-
       final response = await _apiClient.post(
         '/chats/$chatId/messages',
         data: request.toJson(),
@@ -194,12 +192,23 @@ class ChatService {
 
   /// Get total unread count
   /// GET /api/v1/chats/unread-count
+  /// Falls back to summing unread_count across all chats when the endpoint returns 0.
   Future<int> getUnreadCount() async {
     try {
       final response = await _apiClient.get('/chats/unread-count');
 
       final data = response.data['data'] ?? response.data;
-      return data['count'] as int? ?? data['unreadCount'] as int? ?? 0;
+      final count = data['count'] as int? ?? data['unreadCount'] as int? ?? 0;
+
+      if (count > 0) return count;
+
+      // Fallback: sum unread_count from the full chats list
+      try {
+        final chats = await getChats();
+        return chats.fold<int>(0, (sum, chat) => sum + chat.unreadCount);
+      } catch (_) {
+        return 0;
+      }
     } catch (e) {
       return 0; // Return 0 on error instead of throwing
     }

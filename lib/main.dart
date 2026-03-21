@@ -1,11 +1,14 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:swipe/app/app.dart';
+import 'package:swipe/core/services/notification_service.dart';
 import 'package:swipe/features/cart/data/models/cart_item_model.dart';
 import 'package:swipe/features/liked/data/models/liked_product_model.dart';
 import 'package:swipe/features/address/data/models/address_model.dart';
 import 'package:swipe/features/payment/data/models/payment_method_model.dart';
+import 'package:swipe/features/chat/data/models/chat_cache_model.dart';
 import 'package:swipe/core/localization/models/language_model.dart';
 import 'package:swipe/core/di/service_locator.dart';
 
@@ -19,6 +22,9 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
 
+  // Initialize Firebase (auto-detects GoogleService-Info.plist / google-services.json)
+  await Firebase.initializeApp();
+
   // Initialize Hive
   await Hive.initFlutter();
 
@@ -27,10 +33,14 @@ void main() async {
   Hive.registerAdapter(LikedProductModelAdapter());
   Hive.registerAdapter(AddressModelAdapter());
   Hive.registerAdapter(PaymentMethodModelAdapter());
+  Hive.registerAdapter(ChatCacheModelAdapter());
   Hive.registerAdapter(LanguageModelAdapter());
 
   // Initialize dependencies (API client, services, etc.)
   await initializeDependencies();
+
+  // Initialize push notifications (FCM token, permission, message handlers)
+  await NotificationService.instance.initialize();
 
   // Limit in-memory image cache to reduce memory pressure on older devices
   // Default is 1000 images / 100MB — reduced to 100 images / 50MB

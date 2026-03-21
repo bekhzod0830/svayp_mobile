@@ -9,9 +9,7 @@ class RecommendationCacheService {
   static const String _cacheKey = 'cached_recommendations';
   static const String _cacheTimestampKey = 'cached_recommendations_timestamp';
   static const String _isFirstLaunchKey = 'is_first_launch_after_onboarding';
-  static const Duration _cacheValidity = Duration(
-    hours: 1,
-  ); // Cache valid for 1 hour
+  static const Duration _cacheValidity = Duration(hours: 24);
 
   /// Save recommended products to cache
   /// Used in onboarding completion screen after fetching recommendations
@@ -30,9 +28,7 @@ class RecommendationCacheService {
         DateTime.now().millisecondsSinceEpoch,
       );
       await prefs.setBool(_isFirstLaunchKey, true);
-
-    } catch (e) {
-    }
+    } catch (e) {}
   }
 
   /// Get cached recommendations if available and valid
@@ -84,8 +80,7 @@ class RecommendationCacheService {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_isFirstLaunchKey, false);
-    } catch (e) {
-    }
+    } catch (e) {}
   }
 
   /// Clear all cached recommendations
@@ -95,8 +90,7 @@ class RecommendationCacheService {
       await prefs.remove(_cacheKey);
       await prefs.remove(_cacheTimestampKey);
       await prefs.remove(_isFirstLaunchKey);
-    } catch (e) {
-    }
+    } catch (e) {}
   }
 
   /// Check if cached recommendations are available

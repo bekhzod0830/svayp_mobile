@@ -575,10 +575,15 @@ class SwipeableProductCardState extends State<SwipeableProductCard>
 
   Widget _buildCardContent(double cardWidth, double cardHeight) {
     final screenHeight = MediaQuery.of(context).size.height;
+    final isTabletOrDesktop = MediaQuery.of(context).size.width >= 600;
 
     // Calculate info section height based on screen size
     // Smaller screens get less space for image to ensure info doesn't overflow
-    final infoHeight = screenHeight < 700 ? 130.0 : 140.0;
+    final infoHeight = screenHeight < 700
+        ? 130.0
+        : isTabletOrDesktop
+        ? 160.0
+        : 140.0;
 
     return Container(
       width: cardWidth,
@@ -774,10 +779,31 @@ class SwipeableProductCardState extends State<SwipeableProductCard>
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final screenHeight = MediaQuery.of(context).size.height;
+    final isTabletOrDesktop = MediaQuery.of(context).size.width >= 600;
 
-    // Reduce padding on smaller screens
-    final verticalPadding = screenHeight < 700 ? 12.0 : 16.0;
-    final horizontalPadding = screenHeight < 700 ? 16.0 : 20.0;
+    // Reduce padding on smaller screens; increase for tablet
+    final verticalPadding = screenHeight < 700
+        ? 12.0
+        : isTabletOrDesktop
+        ? 20.0
+        : 16.0;
+    final horizontalPadding = screenHeight < 700
+        ? 16.0
+        : isTabletOrDesktop
+        ? 24.0
+        : 20.0;
+
+    // Font scale for tablet/desktop
+    final titleFontSize = isTabletOrDesktop
+        ? 18.0
+        : null; // null = use AppTypography default
+    final sellerFontSize = isTabletOrDesktop ? 14.0 : 12.0;
+    final priceFontSize = screenHeight < 700
+        ? 16.0
+        : isTabletOrDesktop
+        ? 22.0
+        : 18.0;
+    final discountBadgeFontSize = isTabletOrDesktop ? 12.0 : 10.0;
 
     return Container(
       color: isDark ? AppColors.darkCardBackground : AppColors.white,
@@ -797,6 +823,7 @@ class SwipeableProductCardState extends State<SwipeableProductCard>
               ),
               style: AppTypography.body1.copyWith(
                 fontWeight: FontWeight.w600,
+                fontSize: titleFontSize,
                 color: isDark ? AppColors.white : AppColors.black,
                 height: 1.2,
               ),
@@ -810,7 +837,7 @@ class SwipeableProductCardState extends State<SwipeableProductCard>
             widget.product.seller ?? 'SVAYP',
             style: AppTypography.caption.copyWith(
               color: isDark ? AppColors.gray400 : AppColors.gray600,
-              fontSize: 12,
+              fontSize: sellerFontSize,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -838,7 +865,7 @@ class SwipeableProductCardState extends State<SwipeableProductCard>
                             widget.product.formattedPrice,
                             style: AppTypography.heading3.copyWith(
                               fontWeight: FontWeight.w700,
-                              fontSize: screenHeight < 700 ? 16 : 18,
+                              fontSize: priceFontSize,
                               color: isDark ? AppColors.white : AppColors.black,
                               height: 1.0,
                             ),
@@ -864,7 +891,7 @@ class SwipeableProductCardState extends State<SwipeableProductCard>
                               style: AppTypography.caption.copyWith(
                                 color: AppColors.white,
                                 fontWeight: FontWeight.w600,
-                                fontSize: 10,
+                                fontSize: discountBadgeFontSize,
                               ),
                             ),
                           ),

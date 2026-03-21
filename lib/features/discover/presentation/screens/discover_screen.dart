@@ -18,6 +18,10 @@ import 'package:swipe/features/product/presentation/screens/product_detail_scree
 import 'package:swipe/core/services/product_api_service.dart';
 import 'package:swipe/core/models/product.dart' as api_models;
 import 'package:swipe/core/services/recommendation_cache_service.dart';
+import 'package:swipe/core/services/seen_products_service.dart';
+import 'package:swipe/core/cache/image_cache_manager.dart';
+import 'package:swipe/features/chat/data/services/chat_service.dart';
+import 'package:swipe/features/chat/presentation/screens/chat_list_screen.dart';
 
 /// Helper function to format size label by removing SIZE_ prefix
 String _formatSizeLabel(String size) {
@@ -49,11 +53,15 @@ class DiscoverScreenState extends State<DiscoverScreen> {
   List<Product> _products = [];
   List<Map<String, dynamic>> _swipeHistory =
       []; // For undo functionality: stores {product, action}
+  // Product IDs to exclude from the feed (already in cart, ordered, or swiped)
+  Set<String> _excludedProductIds = {};
   bool _isLoading = true;
   OverlayEntry? _tutorialOverlayEntry;
   int _currentCardIndex = 0;
   int _cartCount = 0;
+  int _chatUnreadCount = 0;
   String? _authToken;
+  late final ChatService _chatService;
 
   @override
   void initState() {
@@ -70,11 +78,36 @@ class DiscoverScreenState extends State<DiscoverScreen> {
   }
 
   Future<void> _initializeScreen() async {
-    // First initialize services and get auth token
-    await _initServices();
-    // Then load products with the auth token
+    // ── 1. Get the auth token synchronously – no network call needed ──
+    _authToken = getIt<ApiClient>().getToken();
+    _chatService = ChatService(getIt<ApiClient>());
+
+    // ── 2. Init Hive services in parallel (cart & liked are independent) ──
+    await Future.wait([_cartService.init(), _likedService.init()]);
+
+    // ── 3. Show cart count from local Hive immediately (zero-latency) ──
+    if (mounted) {
+      setState(() {
+        _cartCount = _cartService.getTotalQuantity();
+      });
+    }
+
+    // ── 3b. Build exclusion set: cart IDs (local/free) + previously seen IDs ──
+    final cartIds = _cartService
+        .getCartItems()
+        .map((item) => item.productId)
+        .toSet();
+    final seenIds = await SeenProductsService.getSeenIds();
+    _excludedProductIds = {...cartIds, ...seenIds};
+
+    // ── 4. Start product loading right away — don't wait for cart API ──
     await _loadProducts();
-    // Check if we should show the swipe tutorial (first-time users)
+
+    // ── 5. Refresh cart count from API in background (doesn't block products) ──
+    unawaited(_updateCartCount());
+    unawaited(_updateChatUnreadCount());
+
+    // ── 6. Show swipe tutorial for first-time users ──
     final show = await shouldShowSwipeTutorial();
     if (mounted && show) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -116,18 +149,20 @@ class DiscoverScreenState extends State<DiscoverScreen> {
           await _loadProducts(resetIndex: true);
         }
         await _updateCartCount();
+        unawaited(_updateChatUnreadCount());
       }
     });
   }
 
-  Future<void> _initServices() async {
-    await _cartService.init();
-    await _likedService.init();
-
-    // Get authentication token from ApiClient (authoritative source)
-    _authToken = getIt<ApiClient>().getToken();
-
-    await _updateCartCount();
+  Future<void> _updateChatUnreadCount() async {
+    if (!mounted || _authToken == null || _authToken!.isEmpty) return;
+    try {
+      final count = await _chatService.getUnreadCount();
+      if (!mounted) return;
+      setState(() {
+        _chatUnreadCount = count;
+      });
+    } catch (_) {}
   }
 
   Future<void> _updateCartCount() async {
@@ -193,6 +228,11 @@ class DiscoverScreenState extends State<DiscoverScreen> {
         _products = loadedProducts;
         _isLoading = false;
       });
+
+      // ── Preload images for the top 3 cards immediately after products arrive ──
+      // This kicks off HTTP fetches into ImageCacheManager before the widgets
+      // even build, so the first swipeable cards appear with images already cached.
+      _preloadTopCardImages(loadedProducts);
     } catch (e) {
       if (!mounted) return;
 
@@ -268,7 +308,31 @@ class DiscoverScreenState extends State<DiscoverScreen> {
       }
     }
 
+    // ── Client-side filter: remove products the user already interacted with ──
+    if (_excludedProductIds.isNotEmpty) {
+      loadedProducts = loadedProducts
+          .where((p) => !_excludedProductIds.contains(p.id))
+          .toList();
+    }
+
     return loadedProducts;
+  }
+
+  /// Preload images for the first N cards so they appear instantly when the
+  /// swipe stack renders. Runs in the background — never blocks the UI.
+  void _preloadTopCardImages(List<Product> products, {int count = 5}) {
+    final toPreload = products.take(count).toList();
+    for (final product in toPreload) {
+      if (product.images.isEmpty) continue;
+      // Only preload the first (hero) image of each card.
+      final url = product.images.first;
+      if (url.isEmpty) continue;
+      unawaited(() async {
+        try {
+          await ImageCacheManager.instance.downloadFile(url);
+        } catch (_) {}
+      }());
+    }
   }
 
   /// Convert API product model to local Product entity
@@ -323,6 +387,7 @@ class DiscoverScreenState extends State<DiscoverScreen> {
 
     final swipedProduct = _products[_currentCardIndex];
     _swipeHistory.add({'product': swipedProduct, 'action': 'dislike'});
+    _excludedProductIds.add(swipedProduct.id);
 
     setState(() {
       _currentCardIndex++;
@@ -357,6 +422,7 @@ class DiscoverScreenState extends State<DiscoverScreen> {
 
     final swipedProduct = _products[_currentCardIndex];
     _swipeHistory.add({'product': swipedProduct, 'action': 'like'});
+    _excludedProductIds.add(swipedProduct.id);
 
     // Update UI immediately
     setState(() {
@@ -517,6 +583,7 @@ class DiscoverScreenState extends State<DiscoverScreen> {
 
     // Proceed with adding to cart
     _swipeHistory.add({'product': swipedProduct, 'action': 'superlike'});
+    _excludedProductIds.add(swipedProduct.id);
 
     setState(() {
       _currentCardIndex++;
@@ -545,6 +612,13 @@ class DiscoverScreenState extends State<DiscoverScreen> {
           selectedColor: backendColor,
           quantity: 1,
           token: _authToken!,
+        );
+
+        // Notify the recommendation engine so this product is excluded from future feed results
+        _apiService.logEvent(
+          productId: swipedProduct.id,
+          eventType: 'CART_ADD',
+          token: _authToken,
         );
 
         await _updateCartCount();
@@ -645,54 +719,110 @@ class DiscoverScreenState extends State<DiscoverScreen> {
                           letterSpacing: -0.5,
                         ),
                       ),
-                      // Cart Button
-                      Stack(
-                        clipBehavior: Clip.none,
+                      // Right side action icons
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          IconButton(
-                            icon: const Icon(
-                              Icons.shopping_bag_outlined,
-                              size: 28,
-                            ),
-                            onPressed: () async {
-                              // Navigate to cart screen
-                              await Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (context) => const CartScreen(),
+                          // Cart Button
+                          Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.shopping_bag_outlined,
+                                  size: 28,
                                 ),
-                              );
-                              // Update cart count when returning
-                              await _updateCartCount();
-                            },
-                          ),
-                          // Badge showing cart item count
-                          if (_cartCount > 0)
-                            Positioned(
-                              right: 8,
-                              top: 8,
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: const BoxDecoration(
-                                  color: Colors.red,
-                                  shape: BoxShape.circle,
-                                ),
-                                constraints: const BoxConstraints(
-                                  minWidth: 18,
-                                  minHeight: 18,
-                                ),
-                                child: Text(
-                                  _cartCount > 99
-                                      ? '99+'
-                                      : _cartCount.toString(),
-                                  style: AppTypography.caption.copyWith(
-                                    color: AppColors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
+                                onPressed: () async {
+                                  // Navigate to cart screen
+                                  await Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (context) => const CartScreen(),
+                                    ),
+                                  );
+                                  // Update cart count when returning
+                                  await _updateCartCount();
+                                },
                               ),
-                            ),
+                              // Badge showing cart item count
+                              if (_cartCount > 0)
+                                Positioned(
+                                  right: 8,
+                                  top: 8,
+                                  child: IgnorePointer(
+                                    child: Container(
+                                      padding: const EdgeInsets.all(4),
+                                      decoration: const BoxDecoration(
+                                        color: Colors.red,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      constraints: const BoxConstraints(
+                                        minWidth: 18,
+                                        minHeight: 18,
+                                      ),
+                                      child: Text(
+                                        _cartCount > 99
+                                            ? '99+'
+                                            : _cartCount.toString(),
+                                        style: AppTypography.caption.copyWith(
+                                          color: AppColors.white,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          // Chat Button (Instagram-style send/DM icon)
+                          Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.send_outlined, size: 26),
+                                onPressed: () async {
+                                  await Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          const ChatListScreen(),
+                                    ),
+                                  );
+                                  unawaited(_updateChatUnreadCount());
+                                },
+                              ),
+                              // Badge showing unread chat count
+                              if (_chatUnreadCount > 0)
+                                Positioned(
+                                  right: 8,
+                                  top: 8,
+                                  child: IgnorePointer(
+                                    child: Container(
+                                      padding: const EdgeInsets.all(4),
+                                      decoration: const BoxDecoration(
+                                        color: Colors.red,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      constraints: const BoxConstraints(
+                                        minWidth: 18,
+                                        minHeight: 18,
+                                      ),
+                                      child: Text(
+                                        _chatUnreadCount > 99
+                                            ? '99+'
+                                            : _chatUnreadCount.toString(),
+                                        style: AppTypography.caption.copyWith(
+                                          color: AppColors.white,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
                         ],
                       ),
                     ],

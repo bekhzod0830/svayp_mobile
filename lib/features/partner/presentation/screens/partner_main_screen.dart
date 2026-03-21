@@ -3,6 +3,7 @@ import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/utils/responsive_utils.dart';
 import 'package:swipe/features/partner/presentation/screens/partner_cashback_screen.dart';
 import 'package:swipe/features/orders/presentation/screens/orders_screen.dart';
+import 'package:swipe/features/chat/presentation/screens/chat_list_screen.dart';
 import 'package:swipe/features/profile/presentation/screens/profile_screen.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 
@@ -20,9 +21,10 @@ class PartnerMainScreen extends StatefulWidget {
 class _PartnerMainScreenState extends State<PartnerMainScreen> {
   int _currentIndex = 0;
 
-  static const int _tabCount = 3;
+  static const int _tabCount = 4;
 
   final List<GlobalKey<NavigatorState>> _navKeys = [
+    GlobalKey<NavigatorState>(),
     GlobalKey<NavigatorState>(),
     GlobalKey<NavigatorState>(),
     GlobalKey<NavigatorState>(),
@@ -33,6 +35,16 @@ class _PartnerMainScreenState extends State<PartnerMainScreen> {
   int get _safeIndex => _currentIndex.clamp(0, _tabCount - 1);
 
   void _onTabTapped(int index) => setState(() => _currentIndex = index);
+
+  Widget _buildTab(int index, Widget child) {
+    final isActive = _safeIndex == index;
+    return AnimatedOpacity(
+      opacity: isActive ? 1.0 : 0.0,
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeInOut,
+      child: IgnorePointer(ignoring: !isActive, child: child),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -56,67 +68,96 @@ class _PartnerMainScreenState extends State<PartnerMainScreen> {
         }
       },
       child: Scaffold(
-        body: IndexedStack(
-          index: _safeIndex,
+        body: Stack(
           children: [
             // 0 – Cashback
-            Navigator(
-              key: _navKeys[0],
-              onGenerateRoute: (_) => MaterialPageRoute(
-                builder: (_) => const PartnerCashbackScreen(),
+            _buildTab(
+              0,
+              Navigator(
+                key: _navKeys[0],
+                onGenerateRoute: (_) => MaterialPageRoute(
+                  builder: (_) => const PartnerCashbackScreen(),
+                ),
               ),
             ),
 
             // 1 – Orders
-            Navigator(
-              key: _navKeys[1],
-              onGenerateRoute: (_) =>
-                  MaterialPageRoute(builder: (_) => const OrdersScreen()),
+            _buildTab(
+              1,
+              Navigator(
+                key: _navKeys[1],
+                onGenerateRoute: (_) =>
+                    MaterialPageRoute(builder: (_) => const OrdersScreen()),
+              ),
             ),
 
-            // 2 – Profile
-            Navigator(
-              key: _navKeys[2],
-              onGenerateRoute: (_) =>
-                  MaterialPageRoute(builder: (_) => const ProfileScreen()),
+            // 2 – Chat
+            _buildTab(
+              2,
+              Navigator(
+                key: _navKeys[2],
+                onGenerateRoute: (_) =>
+                    MaterialPageRoute(builder: (_) => const ChatListScreen()),
+              ),
+            ),
+
+            // 3 – Profile
+            _buildTab(
+              3,
+              Navigator(
+                key: _navKeys[3],
+                onGenerateRoute: (_) =>
+                    MaterialPageRoute(builder: (_) => const ProfileScreen()),
+              ),
             ),
           ],
         ),
-        bottomNavigationBar: BottomNavigationBar(
-          currentIndex: _safeIndex,
-          onTap: _onTabTapped,
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: isDark
-              ? AppColors.darkCardBackground
-              : AppColors.white,
-          selectedItemColor: isDark
-              ? AppColors.darkPrimaryText
-              : AppColors.black,
-          unselectedItemColor: isDark
-              ? AppColors.darkSecondaryText
-              : AppColors.gray600,
-          selectedFontSize: 12 * fontScale,
-          unselectedFontSize: 11 * fontScale,
-          iconSize: 24 * iconScale,
-          elevation: 8,
-          items: [
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.qr_code_scanner_outlined),
-              activeIcon: const Icon(Icons.qr_code_scanner),
-              label: l10n.partnerCashbackTitle,
-            ),
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.chat_bubble_outline),
-              activeIcon: const Icon(Icons.chat_bubble),
-              label: l10n.chat,
-            ),
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.person_outline),
-              activeIcon: const Icon(Icons.person),
-              label: l10n.profile,
-            ),
-          ],
-        ),
+        bottomNavigationBar: Theme(
+          data: Theme.of(context).copyWith(
+            splashFactory: NoSplash.splashFactory,
+            highlightColor: Colors.transparent,
+          ),
+          child: BottomNavigationBar(
+            currentIndex: _safeIndex,
+            onTap: _onTabTapped,
+            type: BottomNavigationBarType.fixed,
+            backgroundColor: isDark
+                ? AppColors.darkCardBackground
+                : AppColors.white,
+            selectedItemColor: isDark
+                ? AppColors.darkPrimaryText
+                : AppColors.black,
+            unselectedItemColor: isDark
+                ? AppColors.darkSecondaryText
+                : AppColors.gray600,
+            selectedFontSize: 12 * fontScale,
+            unselectedFontSize: 11 * fontScale,
+            iconSize: 24 * iconScale,
+            elevation: 8,
+            items: [
+              BottomNavigationBarItem(
+                icon: const Icon(Icons.qr_code_scanner_outlined),
+                activeIcon: const Icon(Icons.qr_code_scanner),
+                label: l10n.partnerCashbackTitle,
+              ),
+              BottomNavigationBarItem(
+                icon: const Icon(Icons.receipt_long_outlined),
+                activeIcon: const Icon(Icons.receipt_long),
+                label: l10n.orders,
+              ),
+              BottomNavigationBarItem(
+                icon: const Icon(Icons.chat_bubble_outline),
+                activeIcon: const Icon(Icons.chat_bubble),
+                label: l10n.chat,
+              ),
+              BottomNavigationBarItem(
+                icon: const Icon(Icons.person_outline),
+                activeIcon: const Icon(Icons.person),
+                label: l10n.profile,
+              ),
+            ],
+          ),
+        ), // Theme
       ),
     );
   }

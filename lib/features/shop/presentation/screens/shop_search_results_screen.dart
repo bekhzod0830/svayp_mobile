@@ -7,9 +7,10 @@ import 'package:swipe/features/product/presentation/screens/product_detail_scree
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:swipe/core/cache/image_cache_manager.dart';
 import 'package:swipe/features/shop/presentation/screens/seller_profile_screen.dart';
+import 'package:swipe/features/liked/data/services/liked_service.dart';
 
 /// Shop Search Results Screen - TikTok Shop style
-class ShopSearchResultsScreen extends StatelessWidget {
+class ShopSearchResultsScreen extends StatefulWidget {
   final String query;
   final List<Product> searchResults;
   final List<Product> allProducts;
@@ -24,6 +25,20 @@ class ShopSearchResultsScreen extends StatelessWidget {
   });
 
   @override
+  State<ShopSearchResultsScreen> createState() =>
+      _ShopSearchResultsScreenState();
+}
+
+class _ShopSearchResultsScreenState extends State<ShopSearchResultsScreen> {
+  final LikedService _likedService = LikedService();
+
+  @override
+  void initState() {
+    super.initState();
+    _likedService.init();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
@@ -31,7 +46,8 @@ class ShopSearchResultsScreen extends StatelessWidget {
 
     // Find matching sellers
     final matchingSellers = _findMatchingSellers();
-    final hasResults = searchResults.isNotEmpty || matchingSellers.isNotEmpty;
+    final hasResults =
+        widget.searchResults.isNotEmpty || matchingSellers.isNotEmpty;
 
     return Scaffold(
       backgroundColor: isDark
@@ -40,6 +56,7 @@ class ShopSearchResultsScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: isDark ? AppColors.darkCardBackground : Colors.white,
         elevation: 0,
+        scrolledUnderElevation: 0,
         leading: IconButton(
           icon: Icon(
             Icons.arrow_back,
@@ -48,7 +65,7 @@ class ShopSearchResultsScreen extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          '${l10n.searchResults}: "$query"',
+          '${l10n.searchResults}: "${widget.query}"',
           style: AppTypography.body1.copyWith(
             fontWeight: FontWeight.w600,
             color: isDark ? AppColors.darkPrimaryText : AppColors.black,
@@ -98,12 +115,12 @@ class ShopSearchResultsScreen extends StatelessWidget {
                 ],
 
                 // Products section
-                if (searchResults.isNotEmpty) ...[
+                if (widget.searchResults.isNotEmpty) ...[
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
                       child: Text(
-                        '${searchResults.length} ${l10n.productsFound}',
+                        '${widget.searchResults.length} ${l10n.productsFound}',
                         style: AppTypography.body2.copyWith(
                           color: isDark
                               ? AppColors.darkSecondaryText
@@ -125,12 +142,24 @@ class ShopSearchResultsScreen extends StatelessWidget {
                             mainAxisSpacing: 12,
                           ),
                       delegate: SliverChildBuilderDelegate((context, index) {
-                        final product = searchResults[index];
+                        final product = widget.searchResults[index];
                         return _TikTokProductCard(
                           product: product,
                           isDark: isDark,
+                          onTap: () async {
+                            // Navigate and await result to trigger rebuild
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    ProductDetailScreen(product: product),
+                              ),
+                            );
+                            // Trigger rebuild after returning
+                            if (mounted) setState(() {});
+                          },
                         );
-                      }, childCount: searchResults.length),
+                      }, childCount: widget.searchResults.length),
                     ),
                   ),
                 ],
@@ -143,14 +172,14 @@ class ShopSearchResultsScreen extends StatelessWidget {
     // Get all unique sellers
     final sellerMap = <String, List<Product>>{};
 
-    for (final product in allProducts) {
+    for (final product in widget.allProducts) {
       final seller = product.seller ?? 'SVAYP';
       sellerMap.putIfAbsent(seller, () => []).add(product);
     }
 
     // Filter sellers that match the query
     final matchingSellers = <Map<String, dynamic>>[];
-    final queryLower = query.toLowerCase();
+    final queryLower = widget.query.toLowerCase();
 
     sellerMap.forEach((sellerName, products) {
       if (sellerName.toLowerCase().contains(queryLower)) {
@@ -342,22 +371,20 @@ class _SellerCard extends StatelessWidget {
 class _TikTokProductCard extends StatelessWidget {
   final Product product;
   final bool isDark;
+  final VoidCallback onTap;
 
-  const _TikTokProductCard({required this.product, required this.isDark});
+  const _TikTokProductCard({
+    required this.product,
+    required this.isDark,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     final sellerName = product.seller ?? 'SVAYP';
 
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ProductDetailScreen(product: product),
-          ),
-        );
-      },
+      onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
           color: isDark ? AppColors.darkCardBackground : Colors.white,

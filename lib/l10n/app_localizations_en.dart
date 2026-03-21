@@ -1178,6 +1178,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noOrdersYet => 'No Orders Yet';
 
   @override
+  String get noOrdersReceivedYet => 'No Orders Received Yet';
+
+  @override
+  String get customerOrdersAppearHere =>
+      'Orders from customers will appear here';
+
+  @override
   String get errorLoadingOrders => 'Error Loading Orders';
 
   @override
@@ -1193,6 +1200,28 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String itemsCount(int count) {
     return '$count items';
+  }
+
+  @override
+  String ordersCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count orders',
+      one: '1 order',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String chatsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count conversations',
+      one: '1 conversation',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -1242,6 +1271,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get cancelled => 'Cancelled';
+
+  @override
+  String get created => 'Created';
+
+  @override
+  String get paid => 'Paid';
+
+  @override
+  String get refunded => 'Refunded';
+
+  @override
+  String get returned => 'Returned';
 
   @override
   String get chat => 'Chat';
@@ -1325,6 +1366,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get deliveryMethod => 'Delivery Method';
+
+  @override
+  String get customerName => 'Customer Name';
+
+  @override
+  String get customerPhone => 'Customer Phone';
+
+  @override
+  String get changeStatus => 'Change Status';
 
   @override
   String get pickupInStore => 'Pick up in store';
@@ -2517,6 +2567,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get partnerScanQr => 'Scan QR';
 
   @override
+  String get myProducts => 'My Products';
+
+  @override
   String get partnerTapToOpenCamera => 'Tap to open camera';
 
   @override
@@ -2642,6 +2695,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get shopRetry => 'Try Again';
+
+  @override
+  String get shopLoadingProducts => 'Loading products...';
 
   @override
   String get errorGenericTitle => 'Oops, something went wrong';

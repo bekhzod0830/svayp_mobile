@@ -13,6 +13,9 @@ import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/core/network/api_client.dart';
 import 'package:swipe/core/utils/local_storage_helper.dart';
 import 'package:swipe/shared/widgets/widgets.dart';
+import 'package:swipe/core/models/product.dart' as api_models;
+import 'package:swipe/features/discover/domain/entities/product.dart';
+import 'package:swipe/features/product/presentation/screens/product_detail_screen.dart';
 
 /// Helper function to format size label by removing SIZE_ prefix
 String _formatSizeLabel(String size) {
@@ -23,14 +26,9 @@ String _formatSizeLabel(String size) {
   return size;
 }
 
-/// Helper function to format cart item price with intelligent currency detection
+/// Helper function to format cart item price using the currency field from the API
 String _formatCartItemPrice(CartItemModel item) {
-  String currency = item.currency;
-
-  // Intelligently detect currency based on price
-  if (currency == 'UZS' && item.price < 1000) {
-    currency = 'USD';
-  }
+  final currency = item.currency;
 
   if (currency == 'USD') {
     return '\$${item.price.toStringAsFixed(2)}';
@@ -50,8 +48,9 @@ class _CartScreenState extends State<CartScreen> {
   final CartService _cartService = CartService();
   final ProductApiService _apiService = ProductApiService();
   List<CartItemModel> _cartItems = [];
-  Map<int, String> _cartItemIds = {}; // Map index to cart item ID from API
-  bool _isLoading = true;
+  Map<String, String> _cartItemIds =
+      {}; // Map productId to cart item ID from API
+  bool _isLoading = false; // Start with false, show cached data immediately
   double _subtotal = 0.0;
   int _totalItems = 0;
 
@@ -61,115 +60,248 @@ class _CartScreenState extends State<CartScreen> {
     _loadCart();
   }
 
+  Future<void> _openProductDetail(CartItemModel item) async {
+    if (!mounted) return;
+    // Capture navigator/messenger before any async gap to avoid stale context
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    navigator.push(
+      PageRouteBuilder(
+        opaque: false,
+        barrierDismissible: false,
+        pageBuilder: (_, __, ___) => const ColoredBox(
+          color: Color(0x66000000),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      ),
+    );
+    try {
+      final token = getIt<ApiClient>().getToken();
+      final api_models.Product apiProduct = await _apiService.getProductById(
+        item.productId,
+        token: token,
+      );
+
+      String displayBrand =
+          (apiProduct.brand == 'Unknown' || apiProduct.brand.isEmpty)
+          ? (apiProduct.seller ?? apiProduct.brand)
+          : apiProduct.brand;
+      if (displayBrand == 'Unknown' || displayBrand.isEmpty) {
+        displayBrand = 'SVAYP';
+      }
+
+      final product = Product(
+        id: apiProduct.id,
+        brand: displayBrand,
+        title: apiProduct.title,
+        description: apiProduct.description ?? '',
+        price: apiProduct.price,
+        images: apiProduct.images.isNotEmpty
+            ? apiProduct.images
+            : (item.imageUrl.isNotEmpty ? [item.imageUrl] : []),
+        category:
+            apiProduct.originalCategoryString ?? apiProduct.category.value,
+        subcategory: apiProduct.subcategory?.map((s) => s.displayName).toList(),
+        sizes: apiProduct.sizes ?? [],
+        colors: apiProduct.colors ?? [],
+        material: apiProduct.material?.map((m) => m.displayName).toList(),
+        season: apiProduct.season?.map((s) => s.displayName).toList(),
+        currency: apiProduct.currency,
+        rating: apiProduct.rating ?? 4.5,
+        reviewCount: apiProduct.reviewCount ?? 0,
+        inStock: apiProduct.inStock,
+        isNew: apiProduct.isNew ?? false,
+        isFeatured: false,
+        seller: apiProduct.seller,
+        sellerId: apiProduct.sellerId,
+        discountPercentage: apiProduct.discountPercentage,
+        originalPrice: apiProduct.originalPrice,
+        titleLocalized: apiProduct.titleLocalized,
+        descriptionLocalized: apiProduct.descriptionLocalized,
+      );
+
+      navigator.pop(); // dismiss loader overlay
+      navigator.push(
+        MaterialPageRoute(
+          builder: (_) => ProductDetailScreen(product: product),
+        ),
+      );
+    } catch (e) {
+      navigator.pop(); // dismiss loader overlay
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Failed to load product details')),
+      );
+    }
+  }
+
   Future<void> _loadCart() async {
+    // First, load from local cache and show immediately
+    await _cartService.init();
+    List<CartItemModel> cachedItems = _cartService.getCartItems();
+    double cachedSubtotal = _cartService.getSubtotal();
+    int cachedTotalItems = cachedItems.fold(
+      0,
+      (sum, item) => sum + item.quantity,
+    );
+
+    // Check if the user has a token so we know whether to wait for the API
+    final apiClient = getIt<ApiClient>();
+    final token = apiClient.getToken();
+    final hasToken = token != null && token.isNotEmpty;
+
     setState(() {
-      _isLoading = true;
+      _cartItems = cachedItems;
+      _subtotal = cachedSubtotal;
+      _totalItems = cachedTotalItems;
+      // Keep the spinner when Hive is empty AND the API can be reached,
+      // so the user sees a loader instead of the empty-cart screen while
+      // the network request is in-flight.
+      _isLoading = cachedItems.isEmpty && hasToken;
     });
 
-    List<CartItemModel> cartItems = [];
-    Map<int, String> cartItemIds = {};
-    double subtotal = 0.0;
-    int totalItems = 0;
+    if (!hasToken) return;
 
+    // Then, try to fetch from API in background to update ONLY cart IDs
     try {
-      // Get auth token
-      final apiClient = getIt<ApiClient>();
-      final token = apiClient.getToken();
+      // Fetch cart from API
+      final cartData = await _apiService.getCart(token: token);
 
-      if (token != null && token.isNotEmpty) {
-        // Fetch cart from API
-        final cartData = await _apiService.getCart(token: token);
+      final rawItems = cartData['items'];
+      final rawSummary = cartData['summary'];
+      if (rawItems == null || rawSummary == null) return;
 
-        final items = cartData['items'] as List<dynamic>;
-        final summary = cartData['summary'] as Map<String, dynamic>;
+      final items = rawItems as List<dynamic>;
+      final summary = rawSummary as Map<String, dynamic>;
 
-        subtotal = (summary['subtotal'] as num).toDouble();
-        totalItems = summary['total_items'] as int;
+      final subtotal = (summary['subtotal'] as num?)?.toDouble() ?? 0.0;
 
-        // Convert API items to CartItemModel and store their IDs
-        cartItems = items.asMap().entries.map((entry) {
-          final index = entry.key;
-          final item = entry.value;
-          final product = item['product'] as Map<String, dynamic>;
+      // Parse all API items into CartItemModel and build the ID map.
+      // This is the source of truth – sync everything to Hive so the
+      // cart is correct even after a fresh login.
+      Map<String, String> cartItemIds = {};
+      final List<CartItemModel> apiCartItems = [];
 
-          // Store the cart item ID for deletion (handle both int and String)
-          final itemId = item['id'];
-          cartItemIds[index] = itemId?.toString() ?? '';
+      // Keep a reference to the currently-cached items so we can fall back
+      // to locally-stored values (brand, size, color) when the API returns
+      // empty strings for those fields.
+      final cachedById = {for (final c in _cartItems) c.productId: c};
 
-          return CartItemModel(
-            productId: (product['id']?.toString() ?? ''),
-            brand: (product['brand'] as String? ?? ''),
-            title: (product['title'] as String? ?? 'Unknown'),
-            price: (product['price'] as int? ?? 0),
-            imageUrl: (product['images'] as List?)?.isNotEmpty == true
-                ? (product['images'][0] as String? ?? '')
-                : '',
-            quantity: (item['quantity'] as int? ?? 1),
-            selectedSize: (item['selected_size'] as String? ?? ''),
-            selectedColor: item['selected_color'] as String?,
-            category: '', // Not provided in API response
-            titleLocalized:
-                (product['title_localized'] as Map<String, dynamic>?)?.map(
-                  (key, value) => MapEntry(key, value.toString()),
-                ),
-            descriptionLocalized:
-                (product['description_localized'] as Map<String, dynamic>?)
-                    ?.map((key, value) => MapEntry(key, value.toString())),
+      for (final rawItem in items) {
+        if (rawItem is! Map<String, dynamic>) continue;
+        final item = rawItem;
+        final product = item['product'] as Map<String, dynamic>?;
+        if (product == null) continue;
+
+        final productId = product['id']?.toString() ?? '';
+        if (productId.isEmpty) continue;
+
+        cartItemIds[productId] = item['id']?.toString() ?? '';
+
+        final rawPrice = product['price'];
+        final price = rawPrice is num ? rawPrice.toInt() : 0;
+
+        final images = product['images'];
+        final imageList = images is List ? images : <dynamic>[];
+        final imageUrl = imageList.isNotEmpty ? imageList.first.toString() : '';
+
+        final titleLoc = (product['title_localized'] as Map<String, dynamic>?)
+            ?.map((k, v) => MapEntry(k, v.toString()));
+        final descLoc =
+            (product['description_localized'] as Map<String, dynamic>?)?.map(
+              (k, v) => MapEntry(k, v.toString()),
+            );
+
+        final cached = cachedById[productId];
+        final apiBrand = product['brand'] as String? ?? '';
+        final apiSeller = product['seller'] as String? ?? '';
+        // Mirror _convertApiProduct: prefer brand, fall back to seller, then cached.
+        final resolvedBrand = (apiBrand.isNotEmpty && apiBrand != 'Unknown')
+            ? apiBrand
+            : apiSeller.isNotEmpty
+            ? apiSeller
+            : (cached?.brand ?? '');
+
+        // The API uses selected_size / selected_color on the cart-item object.
+        // Fall back to the cached Hive value if the field is absent/empty.
+        final apiSize = item['selected_size'] as String? ?? '';
+        final apiColor = item['selected_color'] as String?;
+
+        apiCartItems.add(
+          CartItemModel(
+            productId: productId,
+            brand: resolvedBrand,
+            title: product['title'] as String? ?? '',
+            price: price,
+            imageUrl: imageUrl,
+            quantity: item['quantity'] is int ? item['quantity'] as int : 1,
+            selectedSize: apiSize.isNotEmpty
+                ? apiSize
+                : (cached?.selectedSize ?? ''),
+            selectedColor: apiColor ?? cached?.selectedColor,
+            category: product['category'] as String? ?? '',
+            currency: product['currency'] as String? ?? 'UZS',
+            titleLocalized: titleLoc,
+            descriptionLocalized: descLoc,
             addedAt: item['created_at'] != null
-                ? DateTime.tryParse(item['created_at'] as String) ??
+                ? DateTime.tryParse(item['created_at'].toString()) ??
                       DateTime.now()
-                : DateTime.now(),
-          );
-        }).toList();
-      } else {
-        // Not authenticated, use local cache
-        await _cartService.init();
-        cartItems = _cartService.getCartItems();
-        subtotal = _cartService.getSubtotal();
-        totalItems = cartItems.fold(0, (sum, item) => sum + item.quantity);
+                : (cached?.addedAt ?? DateTime.now()),
+          ),
+        );
+      }
+
+      // Sync Hive with the authoritative API data.
+      await _cartService.syncFromApi(apiCartItems);
+      final syncedItems = _cartService.getCartItems();
+      final syncedTotal = syncedItems.fold<int>(
+        0,
+        (sum, i) => sum + i.quantity,
+      );
+
+      if (mounted) {
+        setState(() {
+          _cartItemIds = cartItemIds;
+          _cartItems = syncedItems;
+          _subtotal = subtotal;
+          _totalItems = syncedTotal;
+          _isLoading = false;
+        });
       }
     } catch (e) {
-      // Fallback to local cache
-      await _cartService.init();
-      cartItems = _cartService.getCartItems();
-      subtotal = _cartService.getSubtotal();
-      totalItems = cartItems.fold(0, (sum, item) => sum + item.quantity);
+      // If API call fails, we already have cached data showing
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
-
-    setState(() {
-      _cartItems = cartItems;
-      _cartItemIds = cartItemIds;
-      _subtotal = subtotal;
-      _totalItems = totalItems;
-      _isLoading = false;
-    });
   }
 
   Future<void> _updateQuantity(int index, int delta) async {
-    final newQuantity = _cartItems[index].quantity + delta;
+    final item = _cartItems[index];
+    final newQuantity = item.quantity + delta;
     if (newQuantity > 0 && newQuantity <= 10) {
+      // Always update local Hive cache first so _loadCart shows fresh data
+      // immediately regardless of whether the API call succeeds.
+      await _cartService.updateQuantity(index, newQuantity);
+
+      // Fire-and-forget API update (best-effort sync), looked up by productId.
       try {
-        // Get auth token
         final apiClient = getIt<ApiClient>();
         final token = apiClient.getToken();
-
+        final cartItemId = _cartItemIds[item.productId];
         if (token != null &&
             token.isNotEmpty &&
-            _cartItemIds.containsKey(index)) {
-          // Update via API
-          final cartItemId = _cartItemIds[index]!;
+            cartItemId != null &&
+            cartItemId.isNotEmpty) {
           await _apiService.updateCartItem(
             itemId: cartItemId,
             quantity: newQuantity,
             token: token,
           );
-        } else {
-          // Update local cache
-          await _cartService.updateQuantity(index, newQuantity);
         }
-      } catch (e) {
-        // Fallback to local cache
-        await _cartService.updateQuantity(index, newQuantity);
+      } catch (_) {
+        // Local cache already updated – nothing more to do.
       }
 
       await _loadCart();
@@ -178,25 +310,23 @@ class _CartScreenState extends State<CartScreen> {
 
   Future<void> _removeItem(int index) async {
     final item = _cartItems[index];
+    final cartItemId = _cartItemIds[item.productId];
 
+    // Always remove from local cache
+    await _cartService.removeItem(index);
+
+    // Best-effort API delete, looked up by productId
     try {
-      // Get auth token
       final apiClient = getIt<ApiClient>();
       final token = apiClient.getToken();
-
       if (token != null &&
           token.isNotEmpty &&
-          _cartItemIds.containsKey(index)) {
-        // Delete from API
-        final cartItemId = _cartItemIds[index]!;
+          cartItemId != null &&
+          cartItemId.isNotEmpty) {
         await _apiService.deleteCartItem(itemId: cartItemId, token: token);
-      } else {
-        // Delete from local cache
-        await _cartService.removeItem(index);
       }
-    } catch (e) {
-      // Fallback to local cache
-      await _cartService.removeItem(index);
+    } catch (_) {
+      // Local cache already updated – nothing more to do.
     }
 
     await _loadCart();
@@ -204,7 +334,9 @@ class _CartScreenState extends State<CartScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Removed ${item.title}'),
+          content: Text(
+            'Removed ${item.localizedTitle(Localizations.localeOf(context).languageCode)}',
+          ),
           action: SnackBarAction(
             label: 'UNDO',
             onPressed: () async {
@@ -232,14 +364,13 @@ class _CartScreenState extends State<CartScreen> {
       if (token != null && token.isNotEmpty) {
         // Clear from API
         await _apiService.clearCart(token: token);
-      } else {
-        // Clear from local cache
-        await _cartService.clearCart();
       }
     } catch (e) {
-      // Fallback to local cache
-      await _cartService.clearCart();
+      // API clear failed – still wipe the local cache below
     }
+
+    // Always clear the local Hive cache so the UI reflects an empty cart
+    await _cartService.clearCart();
 
     await _loadCart();
   }
@@ -251,12 +382,7 @@ class _CartScreenState extends State<CartScreen> {
   /// Calculate subtotal for USD products
   double get _usdSubtotal {
     return _cartItems.fold(0.0, (sum, item) {
-      String currency = item.currency;
-      // Intelligently detect currency
-      if (currency == 'UZS' && item.price < 1000) {
-        currency = 'USD';
-      }
-      if (currency == 'USD') {
+      if (item.currency == 'USD') {
         return sum + item.totalPrice;
       }
       return sum;
@@ -266,12 +392,7 @@ class _CartScreenState extends State<CartScreen> {
   /// Calculate subtotal for UZS products
   double get _uzsSubtotal {
     return _cartItems.fold(0.0, (sum, item) {
-      String currency = item.currency;
-      // Intelligently detect currency
-      if (currency == 'UZS' && item.price < 1000) {
-        currency = 'USD';
-      }
-      if (currency == 'UZS') {
+      if (item.currency == 'UZS') {
         return sum + item.totalPrice;
       }
       return sum;
@@ -323,6 +444,7 @@ class _CartScreenState extends State<CartScreen> {
             ? AppColors.darkMainBackground
             : AppColors.white,
         elevation: 0,
+        scrolledUnderElevation: 0,
         title: Text(
           l10n.cart,
           style: AppTypography.heading3.copyWith(
@@ -357,18 +479,25 @@ class _CartScreenState extends State<CartScreen> {
               children: [
                 // Cart Items List
                 Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _cartItems.length,
-                    itemBuilder: (context, index) {
-                      final item = _cartItems[index];
-                      return _CartItemCard(
-                        item: item,
-                        onQuantityChanged: (delta) =>
-                            _updateQuantity(index, delta),
-                        onRemove: () => _removeItem(index),
-                      );
-                    },
+                  child: RefreshIndicator(
+                    onRefresh: _loadCart,
+                    color: isDark ? AppColors.white : AppColors.black,
+                    child: ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _cartItems.length,
+                      itemBuilder: (context, index) {
+                        final item = _cartItems[index];
+                        return GestureDetector(
+                          onTap: () => _openProductDetail(item),
+                          child: _CartItemCard(
+                            item: item,
+                            onQuantityChanged: (delta) =>
+                                _updateQuantity(index, delta),
+                            onRemove: () => _removeItem(index),
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ),
 
@@ -771,21 +900,48 @@ class _CartItemCard extends StatelessWidget {
 }
 
 /// Quantity Button Widget
-class _QuantityButton extends StatelessWidget {
+class _QuantityButton extends StatefulWidget {
   final IconData icon;
   final VoidCallback onPressed;
 
   const _QuantityButton({required this.icon, required this.onPressed});
 
   @override
+  State<_QuantityButton> createState() => _QuantityButtonState();
+}
+
+class _QuantityButtonState extends State<_QuantityButton> {
+  bool _pressed = false;
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
-    return InkWell(
-      onTap: onPressed,
-      child: Container(
-        padding: const EdgeInsets.all(4),
-        child: Icon(icon, size: 16, color: theme.colorScheme.onSurface),
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) {
+        setState(() => _pressed = false);
+        widget.onPressed();
+      },
+      onTapCancel: () => setState(() => _pressed = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 80),
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: _pressed
+              ? (isDark ? Colors.white24 : Colors.black12)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Icon(
+          widget.icon,
+          size: 18,
+          color: _pressed
+              ? (isDark ? AppColors.white : AppColors.black)
+              : theme.colorScheme.onSurface,
+        ),
       ),
     );
   }

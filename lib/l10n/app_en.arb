@@ -442,12 +442,30 @@
   "orderHistory": "Order History",
   "orderHistoryAppearHere": "Your order history will appear here",
   "noOrdersYet": "No Orders Yet",
+  "noOrdersReceivedYet": "No Orders Received Yet",
+  "customerOrdersAppearHere": "Orders from customers will appear here",
   "errorLoadingOrders": "Error Loading Orders",
   "retry": "Retry",
   "startShoppingToSeeOrders": "Start shopping to see your order history here",
   "startShopping": "Start Shopping",
   "itemsCount": "{count} items",
   "@itemsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ordersCount": "{count, plural, =1{1 order} other{{count} orders}}",
+  "@ordersCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatsCount": "{count, plural, =1{1 conversation} other{{count} conversations}}",
+  "@chatsCount": {
     "placeholders": {
       "count": {
         "type": "int"
@@ -471,6 +489,10 @@
   "outForDelivery": "Out for Delivery",
   "delivered": "Delivered",
   "cancelled": "Cancelled",
+  "created": "Created",
+  "paid": "Paid",
+  "refunded": "Refunded",
+  "returned": "Returned",
   
   "chat": "Chat",
   "noMessagesYet": "No Messages Yet",
@@ -525,6 +547,9 @@
   "changeAddress": "Change Address",
   "addNewAddress": "Add New Address",
   "deliveryMethod": "Delivery Method",
+  "customerName": "Customer Name",
+  "customerPhone": "Customer Phone",
+  "changeStatus": "Change Status",
   "pickupInStore": "Pick up in store",
   "availableForPickup": "Available for pickup",
   "standard": "Standard",
@@ -1036,6 +1061,7 @@
   "partnerCashbackTitle": "Cashback",
   "partnerCashbackSubtitle": "Scan a customer QR code to record a sale and issue cashback.",
   "partnerScanQr": "Scan QR",
+  "myProducts": "My Products",
   "partnerTapToOpenCamera": "Tap to open camera",
   "partnerIdentifyCustomer": "Identify customer",
   "partnerSelectProduct": "Select product",
@@ -1078,6 +1104,7 @@
   "shopErrorTitle": "Oops, something went wrong",
   "shopErrorSubtitle": "We couldn't load products. Please check your connection and try again.",
   "shopRetry": "Try Again",
+  "shopLoadingProducts": "Loading products...",
   "errorGenericTitle": "Oops, something went wrong",
   "errorGenericSubtitle": "Please check your connection and try again.",
   "errorRetry": "Try Again",

@@ -2362,6 +2362,18 @@ abstract class AppLocalizations {
   /// **'No Orders Yet'**
   String get noOrdersYet;
 
+  /// No description provided for @noOrdersReceivedYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No Orders Received Yet'**
+  String get noOrdersReceivedYet;
+
+  /// No description provided for @customerOrdersAppearHere.
+  ///
+  /// In en, this message translates to:
+  /// **'Orders from customers will appear here'**
+  String get customerOrdersAppearHere;
+
   /// No description provided for @errorLoadingOrders.
   ///
   /// In en, this message translates to:
@@ -2391,6 +2403,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count} items'**
   String itemsCount(int count);
+
+  /// No description provided for @ordersCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 order} other{{count} orders}}'**
+  String ordersCount(int count);
+
+  /// No description provided for @chatsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 conversation} other{{count} conversations}}'**
+  String chatsCount(int count);
 
   /// No description provided for @totalAmount.
   ///
@@ -2487,6 +2511,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Cancelled'**
   String get cancelled;
+
+  /// No description provided for @created.
+  ///
+  /// In en, this message translates to:
+  /// **'Created'**
+  String get created;
+
+  /// No description provided for @paid.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid'**
+  String get paid;
+
+  /// No description provided for @refunded.
+  ///
+  /// In en, this message translates to:
+  /// **'Refunded'**
+  String get refunded;
+
+  /// No description provided for @returned.
+  ///
+  /// In en, this message translates to:
+  /// **'Returned'**
+  String get returned;
 
   /// No description provided for @chat.
   ///
@@ -2631,6 +2679,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Delivery Method'**
   String get deliveryMethod;
+
+  /// No description provided for @customerName.
+  ///
+  /// In en, this message translates to:
+  /// **'Customer Name'**
+  String get customerName;
+
+  /// No description provided for @customerPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Customer Phone'**
+  String get customerPhone;
+
+  /// No description provided for @changeStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Change Status'**
+  String get changeStatus;
 
   /// No description provided for @pickupInStore.
   ///
@@ -4948,6 +5014,12 @@ abstract class AppLocalizations {
   /// **'Scan QR'**
   String get partnerScanQr;
 
+  /// No description provided for @myProducts.
+  ///
+  /// In en, this message translates to:
+  /// **'My Products'**
+  String get myProducts;
+
   /// No description provided for @partnerTapToOpenCamera.
   ///
   /// In en, this message translates to:
@@ -5199,6 +5271,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Try Again'**
   String get shopRetry;
+
+  /// No description provided for @shopLoadingProducts.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading products...'**
+  String get shopLoadingProducts;
 
   /// No description provided for @errorGenericTitle.
   ///

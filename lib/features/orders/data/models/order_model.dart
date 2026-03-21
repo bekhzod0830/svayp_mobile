@@ -26,6 +26,8 @@ class OrderItemModel {
   final double unitPrice;
   final int quantity;
   final double subtotal;
+  final Map<String, String>? productTitleLocalized;
+  final Map<String, String>? productDescriptionLocalized;
 
   OrderItemModel({
     required this.id,
@@ -38,7 +40,25 @@ class OrderItemModel {
     required this.unitPrice,
     required this.quantity,
     required this.subtotal,
+    this.productTitleLocalized,
+    this.productDescriptionLocalized,
   });
+
+  /// Get localized product title, falling back to productTitle
+  String localizedTitle(String languageCode) {
+    if (productTitleLocalized == null) return productTitle;
+    return productTitleLocalized![languageCode] ??
+        productTitleLocalized!['en'] ??
+        productTitle;
+  }
+
+  /// Get localized product description
+  String localizedDescription(String languageCode) {
+    if (productDescriptionLocalized == null) return '';
+    return productDescriptionLocalized![languageCode] ??
+        productDescriptionLocalized!['en'] ??
+        '';
+  }
 
   factory OrderItemModel.fromJson(Map<String, dynamic> json) {
     return OrderItemModel(
@@ -52,6 +72,14 @@ class OrderItemModel {
       unitPrice: (json['unitPrice'] ?? 0).toDouble(),
       quantity: json['quantity'] ?? 0,
       subtotal: (json['subtotal'] ?? 0).toDouble(),
+      productTitleLocalized:
+          (json['productTitleLocalized'] as Map<String, dynamic>?)?.map(
+            (k, v) => MapEntry(k, v.toString()),
+          ),
+      productDescriptionLocalized:
+          (json['productDescriptionLocalized'] as Map<String, dynamic>?)?.map(
+            (k, v) => MapEntry(k, v.toString()),
+          ),
     );
   }
 
@@ -129,6 +157,9 @@ class OrderModel {
   final DateTime? cancelledAt;
   final String? cancellationReason;
   final DateTime createdAt;
+  // Fields from admin/seller endpoint
+  final String? clientName;
+  final String? clientPhone;
 
   OrderModel({
     required this.id,
@@ -155,56 +186,119 @@ class OrderModel {
     this.cancelledAt,
     this.cancellationReason,
     required this.createdAt,
+    this.clientName,
+    this.clientPhone,
   });
 
-  /// Factory constructor from JSON - matches API response
+  /// Factory constructor from JSON.
+  /// Handles two API formats:
+  ///   1. Regular user format – has nested `items[]`, `subtotal`, `shippingCost`, `paymentStatus`
+  ///   2. Admin/seller flat format – has `clientName`, `pricePerUnit`, `finalAmount`, `deliveryFee`
   factory OrderModel.fromJson(Map<String, dynamic> json) {
-    return OrderModel(
-      id: json['id'] ?? '',
-      orderNumber: json['orderNumber'] ?? '',
-      deliveryMethod: json['deliveryMethod'] ?? 'DELIVERY',
-      shippingFullName: json['shippingFullName'],
-      shippingPhone: json['shippingPhone'],
-      shippingAddress: json['shippingAddress'],
-      shippingCity: json['shippingCity'],
-      subtotal: (json['subtotal'] ?? 0).toDouble(),
-      shippingCost: (json['shippingCost'] ?? 0).toDouble(),
-      discountAmount: (json['discountAmount'] ?? 0).toDouble(),
-      totalAmount: (json['totalAmount'] ?? 0).toDouble(),
-      currency: json['currency'] ?? 'UZS',
-      status: json['status'] ?? 'CREATED',
-      paymentMethod: json['paymentMethod'] ?? 'CASH',
-      paymentStatus: json['paymentStatus'] ?? 'PENDING',
-      customerNotes: json['customerNotes'],
-      items:
+    // Detect admin flat format by presence of flat product fields
+    final isAdminFormat =
+        json['clientName'] != null || json['pricePerUnit'] != null;
+
+    List<OrderItemModel> items;
+    double subtotal;
+    double shippingCost;
+    double totalAmount;
+
+    if (isAdminFormat) {
+      // Build a single synthetic OrderItemModel from the flat fields
+      final qty = (json['quantity'] as num?)?.toInt() ?? 1;
+      final unitPrice = (json['pricePerUnit'] as num?)?.toDouble() ?? 0.0;
+      final itemSubtotal =
+          (json['totalAmount'] as num?)?.toDouble() ?? unitPrice * qty;
+
+      items = [
+        OrderItemModel(
+          id: json['id'] as String? ?? '',
+          productId: json['productId'] as String? ?? '',
+          productTitle: json['productTitle'] as String? ?? '',
+          productImage: json['productImage'] as String?,
+          selectedSize: json['size'] as String?,
+          selectedColor: json['color'] as String?,
+          unitPrice: unitPrice,
+          quantity: qty,
+          subtotal: itemSubtotal,
+          productTitleLocalized:
+              (json['productTitleLocalized'] as Map<String, dynamic>?)?.map(
+                (k, v) => MapEntry(k, v.toString()),
+              ),
+          productDescriptionLocalized:
+              (json['productDescriptionLocalized'] as Map<String, dynamic>?)
+                  ?.map((k, v) => MapEntry(k, v.toString())),
+        ),
+      ];
+
+      subtotal = itemSubtotal;
+      shippingCost = (json['deliveryFee'] as num?)?.toDouble() ?? 0.0;
+      // `finalAmount` is the true total; fall back to `totalAmount` if absent
+      totalAmount =
+          (json['finalAmount'] as num?)?.toDouble() ??
+          (json['totalAmount'] as num?)?.toDouble() ??
+          0.0;
+    } else {
+      // Regular format
+      items =
           (json['items'] as List<dynamic>?)
               ?.map(
                 (item) => OrderItemModel.fromJson(item as Map<String, dynamic>),
               )
               .toList() ??
-          [],
-      statusHistory:
-          (json['statusHistory'] as List<dynamic>?)
-              ?.map(
-                (status) =>
-                    StatusHistoryModel.fromJson(status as Map<String, dynamic>),
-              )
-              .toList() ??
-          [],
-      paidAt: json['paidAt'] != null ? DateTime.parse(json['paidAt']) : null,
+          [];
+      subtotal = (json['subtotal'] as num?)?.toDouble() ?? 0.0;
+      shippingCost = (json['shippingCost'] as num?)?.toDouble() ?? 0.0;
+      totalAmount = (json['totalAmount'] as num?)?.toDouble() ?? 0.0;
+    }
+
+    return OrderModel(
+      id: json['id'] as String? ?? '',
+      orderNumber: json['orderNumber'] as String? ?? '',
+      deliveryMethod: json['deliveryMethod'] as String? ?? 'DELIVERY',
+      shippingFullName: json['shippingFullName'] as String?,
+      shippingPhone: json['shippingPhone'] as String?,
+      shippingAddress: json['shippingAddress'] as String?,
+      shippingCity: json['shippingCity'] as String?,
+      subtotal: subtotal,
+      shippingCost: shippingCost,
+      discountAmount: (json['discountAmount'] as num?)?.toDouble() ?? 0.0,
+      totalAmount: totalAmount,
+      currency: json['currency'] as String? ?? 'UZS',
+      status: json['status'] as String? ?? 'CREATED',
+      paymentMethod: json['paymentMethod'] as String? ?? 'CASH',
+      paymentStatus: json['paymentStatus'] as String? ?? 'PENDING',
+      customerNotes: json['customerNotes'] as String?,
+      items: items,
+      statusHistory: isAdminFormat
+          ? []
+          : (json['statusHistory'] as List<dynamic>?)
+                    ?.map(
+                      (s) => StatusHistoryModel.fromJson(
+                        s as Map<String, dynamic>,
+                      ),
+                    )
+                    .toList() ??
+                [],
+      paidAt: json['paidAt'] != null
+          ? DateTime.parse(json['paidAt'] as String)
+          : null,
       shippedAt: json['shippedAt'] != null
-          ? DateTime.parse(json['shippedAt'])
+          ? DateTime.parse(json['shippedAt'] as String)
           : null,
       deliveredAt: json['deliveredAt'] != null
-          ? DateTime.parse(json['deliveredAt'])
+          ? DateTime.parse(json['deliveredAt'] as String)
           : null,
       cancelledAt: json['cancelledAt'] != null
-          ? DateTime.parse(json['cancelledAt'])
+          ? DateTime.parse(json['cancelledAt'] as String)
           : null,
-      cancellationReason: json['cancellationReason'],
+      cancellationReason: json['cancellationReason'] as String?,
       createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'])
+          ? DateTime.parse(json['createdAt'] as String)
           : DateTime.now(),
+      clientName: json['clientName'] as String?,
+      clientPhone: json['clientPhone'] as String?,
     );
   }
 
@@ -276,11 +370,12 @@ class OrderModel {
   Color get statusColor {
     switch (orderStatus) {
       case OrderStatus.created:
-      case OrderStatus.confirmed:
         return const Color(0xFFFFA500); // Orange
+      case OrderStatus.confirmed:
+        return const Color(0xFF2196F3); // Blue
       case OrderStatus.processing:
       case OrderStatus.shipped:
-        return const Color(0xFF2196F3); // Blue
+        return const Color(0xFF1976D2); // Dark Blue
       case OrderStatus.delivered:
         return const Color(0xFF4CAF50); // Green
       case OrderStatus.cancelled:

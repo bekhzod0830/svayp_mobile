@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/core/constants/app_colors.dart';
@@ -7,6 +8,35 @@ import 'package:swipe/core/utils/validators.dart';
 import 'package:swipe/core/utils/responsive_utils.dart';
 import 'package:swipe/shared/widgets/widgets.dart';
 import 'package:swipe/features/onboarding/data/onboarding_data_manager.dart';
+
+/// Blocks digit input that would make the field value exceed [max].
+/// The [min] is only enforced once the text length reaches [fullLength]
+/// so that leading zeros like "05" are allowed as intermediate input.
+class _RangeInputFormatter extends TextInputFormatter {
+  final int min;
+  final int max;
+  final int fullLength;
+  const _RangeInputFormatter({
+    required this.min,
+    required this.max,
+    required this.fullLength,
+  });
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    if (newValue.text.isEmpty) return newValue;
+    final n = int.tryParse(newValue.text);
+    if (n == null) return oldValue;
+    // Always block if value already exceeds the maximum.
+    if (n > max) return oldValue;
+    // Only enforce minimum once the field is completely filled.
+    if (newValue.text.length >= fullLength && n < min) return oldValue;
+    return newValue;
+  }
+}
 
 /// Basic Info Screen - First step of profile setup
 /// User enters name, gender, and date of birth
@@ -24,6 +54,14 @@ class _BasicInfoScreenState extends State<BasicInfoScreen> {
 
   // Always set gender to female
   final String _selectedGender = 'female';
+
+  // Date input controllers
+  final _dayController = TextEditingController();
+  final _monthController = TextEditingController();
+  final _yearController = TextEditingController();
+  final _dayFocus = FocusNode();
+  final _monthFocus = FocusNode();
+  final _yearFocus = FocusNode();
 
   // Simple date picker state
   int? _selectedDay;
@@ -48,11 +86,15 @@ class _BasicInfoScreenState extends State<BasicInfoScreen> {
         _emailController.text = manager.email!;
       }
       if (manager.dateOfBirth != null) {
+        final d = manager.dateOfBirth!;
         setState(() {
-          _selectedDay = manager.dateOfBirth!.day;
-          _selectedMonth = manager.dateOfBirth!.month;
-          _selectedYear = manager.dateOfBirth!.year;
+          _selectedDay = d.day;
+          _selectedMonth = d.month;
+          _selectedYear = d.year;
         });
+        _dayController.text = d.day.toString().padLeft(2, '0');
+        _monthController.text = d.month.toString().padLeft(2, '0');
+        _yearController.text = d.year.toString();
       }
     }
   }
@@ -61,7 +103,39 @@ class _BasicInfoScreenState extends State<BasicInfoScreen> {
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
+    _dayController.dispose();
+    _monthController.dispose();
+    _yearController.dispose();
+    _dayFocus.dispose();
+    _monthFocus.dispose();
+    _yearFocus.dispose();
     super.dispose();
+  }
+
+  /// Parse and validate day/month/year text fields, updating state.
+  void _parseDateFields() {
+    final day = int.tryParse(_dayController.text);
+    final month = int.tryParse(_monthController.text);
+    final year = int.tryParse(_yearController.text);
+
+    setState(() {
+      // Validate ranges
+      _selectedDay = (day != null && day >= 1 && day <= 31) ? day : null;
+      _selectedMonth = (month != null && month >= 1 && month <= 12)
+          ? month
+          : null;
+      _selectedYear = (year != null && year >= 1900 && year <= 2026)
+          ? year
+          : null;
+
+      // Clamp day to actual days in month
+      if (_selectedDay != null &&
+          _selectedMonth != null &&
+          _selectedYear != null) {
+        final maxDay = DateTime(_selectedYear!, _selectedMonth! + 1, 0).day;
+        if (_selectedDay! > maxDay) _selectedDay = null;
+      }
+    });
   }
 
   DateTime? get _selectedDate {
@@ -73,12 +147,79 @@ class _BasicInfoScreenState extends State<BasicInfoScreen> {
     return null;
   }
 
-  List<int> _getDaysInMonth() {
-    if (_selectedMonth == null || _selectedYear == null) {
-      return List.generate(31, (index) => index + 1);
-    }
-    final daysInMonth = DateTime(_selectedYear!, _selectedMonth! + 1, 0).day;
-    return List.generate(daysInMonth, (index) => index + 1);
+  String? _validateDay(String? v) {
+    final n = int.tryParse(v ?? '');
+    if (n == null || n < 1 || n > 31) return 'DD';
+    return null;
+  }
+
+  String? _validateMonth(String? v) {
+    final n = int.tryParse(v ?? '');
+    if (n == null || n < 1 || n > 12) return 'MM';
+    return null;
+  }
+
+  String? _validateYear(String? v) {
+    final n = int.tryParse(v ?? '');
+    if (n == null || n < 1900 || n > 2026) return 'YYYY';
+    return null;
+  }
+
+  /// Build a compact numeric date input field
+  Widget _buildDateField({
+    required TextEditingController controller,
+    required FocusNode focusNode,
+    required String hint,
+    required int maxLength,
+    required int minValue,
+    required int maxValue,
+    required String? Function(String?) validator,
+    required ValueChanged<String> onChanged,
+  }) {
+    return TextFormField(
+      controller: controller,
+      focusNode: focusNode,
+      keyboardType: TextInputType.number,
+      textAlign: TextAlign.center,
+      maxLength: maxLength,
+      inputFormatters: [
+        FilteringTextInputFormatter.digitsOnly,
+        _RangeInputFormatter(
+          min: minValue,
+          max: maxValue,
+          fullLength: maxLength,
+        ),
+      ],
+      validator: validator,
+      onChanged: onChanged,
+      decoration: InputDecoration(
+        hintText: hint,
+        counterText: '',
+        hintStyle: AppTypography.body2.copyWith(color: AppColors.gray600),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.standardBorder),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.standardBorder),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.black, width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Colors.red),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Colors.red, width: 1.5),
+        ),
+      ),
+      style: AppTypography.body2.copyWith(fontWeight: FontWeight.w600),
+    );
   }
 
   Future<void> _continue() async {
@@ -187,7 +328,7 @@ class _BasicInfoScreenState extends State<BasicInfoScreen> {
                             ),
                             const SizedBox(height: 24),
 
-                            // Date of Birth - Simple Dropdowns
+                            // Date of Birth - Numeric input fields
                             Text(
                               l10n.dateOfBirth,
                               style: AppTypography.body1.copyWith(
@@ -196,457 +337,90 @@ class _BasicInfoScreenState extends State<BasicInfoScreen> {
                             ),
                             const SizedBox(height: 12),
                             Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                // Day Dropdown
+                                // Day field
                                 Expanded(
                                   flex: 2,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      border: Border.all(
-                                        color: AppColors.standardBorder,
-                                      ),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: DropdownButtonHideUnderline(
-                                      child: DropdownButton<int>(
-                                        value: _selectedDay,
-                                        dropdownColor: AppColors.white,
-                                        hint: Text(
-                                          l10n.day,
-                                          style: AppTypography.body2.copyWith(
-                                            color: AppColors.gray600,
-                                          ),
-                                        ),
-                                        isExpanded: true,
-                                        icon: const Icon(
-                                          Icons.arrow_drop_down,
-                                          color: AppColors.gray600,
-                                        ),
-                                        selectedItemBuilder:
-                                            (BuildContext context) {
-                                              return _getDaysInMonth().map((
-                                                day,
-                                              ) {
-                                                return Align(
-                                                  alignment:
-                                                      Alignment.centerLeft,
-                                                  child: Text(
-                                                    day.toString(),
-                                                    style: AppTypography.body2
-                                                        .copyWith(
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                        ),
-                                                  ),
-                                                );
-                                              }).toList();
-                                            },
-                                        items: _getDaysInMonth().map((day) {
-                                          return DropdownMenuItem<int>(
-                                            value: day,
-                                            child: Text(
-                                              day.toString(),
-                                              style: AppTypography.body2,
-                                            ),
-                                          );
-                                        }).toList(),
-                                        onChanged: _isLoading
-                                            ? null
-                                            : (value) {
-                                                setState(() {
-                                                  _selectedDay = value;
-                                                });
-                                              },
-                                      ),
+                                  child: _buildDateField(
+                                    controller: _dayController,
+                                    focusNode: _dayFocus,
+                                    hint: l10n.day,
+                                    maxLength: 2,
+                                    minValue: 1,
+                                    maxValue: 31,
+                                    validator: _validateDay,
+                                    onChanged: (v) {
+                                      _parseDateFields();
+                                      // Auto-advance to month when 2 digits entered
+                                      if (v.length == 2) {
+                                        FocusScope.of(
+                                          context,
+                                        ).requestFocus(_monthFocus);
+                                      }
+                                    },
+                                  ),
+                                ),
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 14,
+                                  ),
+                                  child: Text(
+                                    '.',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 12),
-                                // Month Dropdown
+                                // Month field
+                                Expanded(
+                                  flex: 2,
+                                  child: _buildDateField(
+                                    controller: _monthController,
+                                    focusNode: _monthFocus,
+                                    hint: l10n.month,
+                                    maxLength: 2,
+                                    minValue: 1,
+                                    maxValue: 12,
+                                    validator: _validateMonth,
+                                    onChanged: (v) {
+                                      _parseDateFields();
+                                      // Auto-advance to year when 2 digits entered
+                                      if (v.length == 2) {
+                                        FocusScope.of(
+                                          context,
+                                        ).requestFocus(_yearFocus);
+                                      }
+                                    },
+                                  ),
+                                ),
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 14,
+                                  ),
+                                  child: Text(
+                                    '.',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                                // Year field
                                 Expanded(
                                   flex: 3,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      border: Border.all(
-                                        color: AppColors.standardBorder,
-                                      ),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: DropdownButtonHideUnderline(
-                                      child: DropdownButton<int>(
-                                        value: _selectedMonth,
-                                        dropdownColor: AppColors.white,
-                                        hint: Text(
-                                          l10n.month,
-                                          style: AppTypography.body2.copyWith(
-                                            color: AppColors.gray600,
-                                          ),
-                                        ),
-                                        isExpanded: true,
-                                        icon: const Icon(
-                                          Icons.arrow_drop_down,
-                                          color: AppColors.gray600,
-                                        ),
-                                        selectedItemBuilder:
-                                            (BuildContext context) {
-                                              return [
-                                                Align(
-                                                  alignment:
-                                                      Alignment.centerLeft,
-                                                  child: Text(
-                                                    l10n.january,
-                                                    style: AppTypography.body2
-                                                        .copyWith(
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                        ),
-                                                  ),
-                                                ),
-                                                Align(
-                                                  alignment:
-                                                      Alignment.centerLeft,
-                                                  child: Text(
-                                                    l10n.february,
-                                                    style: AppTypography.body2
-                                                        .copyWith(
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                        ),
-                                                  ),
-                                                ),
-                                                Align(
-                                                  alignment:
-                                                      Alignment.centerLeft,
-                                                  child: Text(
-                                                    l10n.march,
-                                                    style: AppTypography.body2
-                                                        .copyWith(
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                        ),
-                                                  ),
-                                                ),
-                                                Align(
-                                                  alignment:
-                                                      Alignment.centerLeft,
-                                                  child: Text(
-                                                    l10n.april,
-                                                    style: AppTypography.body2
-                                                        .copyWith(
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                        ),
-                                                  ),
-                                                ),
-                                                Align(
-                                                  alignment:
-                                                      Alignment.centerLeft,
-                                                  child: Text(
-                                                    l10n.may,
-                                                    style: AppTypography.body2
-                                                        .copyWith(
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                        ),
-                                                  ),
-                                                ),
-                                                Align(
-                                                  alignment:
-                                                      Alignment.centerLeft,
-                                                  child: Text(
-                                                    l10n.june,
-                                                    style: AppTypography.body2
-                                                        .copyWith(
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                        ),
-                                                  ),
-                                                ),
-                                                Align(
-                                                  alignment:
-                                                      Alignment.centerLeft,
-                                                  child: Text(
-                                                    l10n.july,
-                                                    style: AppTypography.body2
-                                                        .copyWith(
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                        ),
-                                                  ),
-                                                ),
-                                                Align(
-                                                  alignment:
-                                                      Alignment.centerLeft,
-                                                  child: Text(
-                                                    l10n.august,
-                                                    style: AppTypography.body2
-                                                        .copyWith(
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                        ),
-                                                  ),
-                                                ),
-                                                Align(
-                                                  alignment:
-                                                      Alignment.centerLeft,
-                                                  child: Text(
-                                                    l10n.september,
-                                                    style: AppTypography.body2
-                                                        .copyWith(
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                        ),
-                                                  ),
-                                                ),
-                                                Align(
-                                                  alignment:
-                                                      Alignment.centerLeft,
-                                                  child: Text(
-                                                    l10n.october,
-                                                    style: AppTypography.body2
-                                                        .copyWith(
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                        ),
-                                                  ),
-                                                ),
-                                                Align(
-                                                  alignment:
-                                                      Alignment.centerLeft,
-                                                  child: Text(
-                                                    l10n.november,
-                                                    style: AppTypography.body2
-                                                        .copyWith(
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                        ),
-                                                  ),
-                                                ),
-                                                Align(
-                                                  alignment:
-                                                      Alignment.centerLeft,
-                                                  child: Text(
-                                                    l10n.december,
-                                                    style: AppTypography.body2
-                                                        .copyWith(
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                        ),
-                                                  ),
-                                                ),
-                                              ];
-                                            },
-                                        items: [
-                                          DropdownMenuItem(
-                                            value: 1,
-                                            child: Text(
-                                              l10n.january,
-                                              style: AppTypography.body2,
-                                            ),
-                                          ),
-                                          DropdownMenuItem(
-                                            value: 2,
-                                            child: Text(
-                                              l10n.february,
-                                              style: AppTypography.body2,
-                                            ),
-                                          ),
-                                          DropdownMenuItem(
-                                            value: 3,
-                                            child: Text(
-                                              l10n.march,
-                                              style: AppTypography.body2,
-                                            ),
-                                          ),
-                                          DropdownMenuItem(
-                                            value: 4,
-                                            child: Text(
-                                              l10n.april,
-                                              style: AppTypography.body2,
-                                            ),
-                                          ),
-                                          DropdownMenuItem(
-                                            value: 5,
-                                            child: Text(
-                                              l10n.may,
-                                              style: AppTypography.body2,
-                                            ),
-                                          ),
-                                          DropdownMenuItem(
-                                            value: 6,
-                                            child: Text(
-                                              l10n.june,
-                                              style: AppTypography.body2,
-                                            ),
-                                          ),
-                                          DropdownMenuItem(
-                                            value: 7,
-                                            child: Text(
-                                              l10n.july,
-                                              style: AppTypography.body2,
-                                            ),
-                                          ),
-                                          DropdownMenuItem(
-                                            value: 8,
-                                            child: Text(
-                                              l10n.august,
-                                              style: AppTypography.body2,
-                                            ),
-                                          ),
-                                          DropdownMenuItem(
-                                            value: 9,
-                                            child: Text(
-                                              l10n.september,
-                                              style: AppTypography.body2,
-                                            ),
-                                          ),
-                                          DropdownMenuItem(
-                                            value: 10,
-                                            child: Text(
-                                              l10n.october,
-                                              style: AppTypography.body2,
-                                            ),
-                                          ),
-                                          DropdownMenuItem(
-                                            value: 11,
-                                            child: Text(
-                                              l10n.november,
-                                              style: AppTypography.body2,
-                                            ),
-                                          ),
-                                          DropdownMenuItem(
-                                            value: 12,
-                                            child: Text(
-                                              l10n.december,
-                                              style: AppTypography.body2,
-                                            ),
-                                          ),
-                                        ],
-                                        onChanged: _isLoading
-                                            ? null
-                                            : (value) {
-                                                setState(() {
-                                                  _selectedMonth = value;
-                                                  // Reset day if it's invalid for the new month
-                                                  if (_selectedDay != null &&
-                                                      _selectedYear != null) {
-                                                    final daysInMonth =
-                                                        DateTime(
-                                                          _selectedYear!,
-                                                          value! + 1,
-                                                          0,
-                                                        ).day;
-                                                    if (_selectedDay! >
-                                                        daysInMonth) {
-                                                      _selectedDay =
-                                                          daysInMonth;
-                                                    }
-                                                  }
-                                                });
-                                              },
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                // Year Dropdown
-                                Expanded(
-                                  flex: 2,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      border: Border.all(
-                                        color: AppColors.standardBorder,
-                                      ),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: DropdownButtonHideUnderline(
-                                      child: DropdownButton<int>(
-                                        value: _selectedYear,
-                                        dropdownColor: AppColors.white,
-                                        hint: Text(
-                                          l10n.year,
-                                          style: AppTypography.body2.copyWith(
-                                            color: AppColors.gray600,
-                                          ),
-                                        ),
-                                        isExpanded: true,
-                                        icon: const Icon(
-                                          Icons.arrow_drop_down,
-                                          color: AppColors.gray600,
-                                        ),
-                                        selectedItemBuilder:
-                                            (BuildContext context) {
-                                              return List.generate(
-                                                (DateTime.now().year - 1950) +
-                                                    1,
-                                                (index) =>
-                                                    DateTime.now().year -
-                                                    13 -
-                                                    index,
-                                              ).map((year) {
-                                                return Align(
-                                                  alignment:
-                                                      Alignment.centerLeft,
-                                                  child: Text(
-                                                    year.toString(),
-                                                    style: AppTypography.body2
-                                                        .copyWith(
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                        ),
-                                                  ),
-                                                );
-                                              }).toList();
-                                            },
-                                        items:
-                                            List.generate(
-                                              (DateTime.now().year - 1950) + 1,
-                                              (index) =>
-                                                  DateTime.now().year -
-                                                  13 -
-                                                  index,
-                                            ).map((year) {
-                                              return DropdownMenuItem<int>(
-                                                value: year,
-                                                child: Text(
-                                                  year.toString(),
-                                                  style: AppTypography.body2,
-                                                ),
-                                              );
-                                            }).toList(),
-                                        onChanged: _isLoading
-                                            ? null
-                                            : (value) {
-                                                setState(() {
-                                                  _selectedYear = value;
-                                                  // Reset day if it's invalid for the new month/year
-                                                  if (_selectedDay != null &&
-                                                      _selectedMonth != null) {
-                                                    final daysInMonth =
-                                                        DateTime(
-                                                          value!,
-                                                          _selectedMonth! + 1,
-                                                          0,
-                                                        ).day;
-                                                    if (_selectedDay! >
-                                                        daysInMonth) {
-                                                      _selectedDay =
-                                                          daysInMonth;
-                                                    }
-                                                  }
-                                                });
-                                              },
-                                      ),
-                                    ),
+                                  child: _buildDateField(
+                                    controller: _yearController,
+                                    focusNode: _yearFocus,
+                                    hint: l10n.year,
+                                    maxLength: 4,
+                                    minValue: 1900,
+                                    maxValue: 2026,
+                                    validator: _validateYear,
+                                    onChanged: (_) => _parseDateFields(),
                                   ),
                                 ),
                               ],

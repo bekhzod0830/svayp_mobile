@@ -49,6 +49,14 @@ class MainScreenState extends State<MainScreen> {
     _currentIndex = widget.initialIndex;
   }
 
+  /// Pop all sub-routes in a tab navigator back to its root screen.
+  void _popTabToRoot(GlobalKey<NavigatorState> tabKey) {
+    final nav = tabKey.currentState;
+    if (nav != null && nav.canPop()) {
+      nav.popUntil((route) => route.isFirst);
+    }
+  }
+
   void _onTabTapped(int index) async {
     // Gate certain tabs for guest users
     if (index == 1 || index == 3 || index == 4) {
@@ -58,6 +66,17 @@ class MainScreenState extends State<MainScreen> {
         return;
       }
     }
+
+    // If tapping the already-active tab, pop its navigator to root (toggle behaviour).
+    if (index == _currentIndex) {
+      final keys = [_discoverKey, _likedKey, _shopKey, _ordersKey, _profileKey];
+      _popTabToRoot(keys[index]);
+      return;
+    }
+
+    // Pop all sub-routes in the tab we are leaving so it resets to root.
+    final keys = [_discoverKey, _likedKey, _shopKey, _ordersKey, _profileKey];
+    _popTabToRoot(keys[_currentIndex]);
 
     setState(() {
       _currentIndex = index;
@@ -73,9 +92,30 @@ class MainScreenState extends State<MainScreen> {
 
   /// Method to navigate to a specific tab from child screens
   void navigateToTab(int index) {
+    // Pop all routes in the current tab before switching
+    final keys = [_discoverKey, _likedKey, _shopKey, _ordersKey, _profileKey];
+    _popTabToRoot(keys[_currentIndex]);
+
     setState(() {
       _currentIndex = index;
     });
+
+    // Refresh orders screen when navigating to it so new orders appear immediately
+    if (index == 3) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _ordersScreenKey.currentState?.refresh();
+      });
+    }
+  }
+
+  Widget _buildTab(int index, Widget child) {
+    final isActive = _currentIndex == index;
+    return AnimatedOpacity(
+      opacity: isActive ? 1.0 : 0.0,
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeInOut,
+      child: IgnorePointer(ignoring: !isActive, child: child),
+    );
   }
 
   @override
@@ -130,94 +170,111 @@ class MainScreenState extends State<MainScreen> {
       child: Builder(
         builder: (context) {
           return Scaffold(
-            body: IndexedStack(
-              index: _currentIndex,
+            body: Stack(
               children: [
-                Navigator(
-                  key: _discoverKey,
-                  onGenerateRoute: (settings) => MaterialPageRoute(
-                    builder: (context) =>
-                        DiscoverScreen(key: _discoverScreenKey),
+                _buildTab(
+                  0,
+                  Navigator(
+                    key: _discoverKey,
+                    onGenerateRoute: (settings) => MaterialPageRoute(
+                      builder: (context) =>
+                          DiscoverScreen(key: _discoverScreenKey),
+                    ),
                   ),
                 ),
-                Navigator(
-                  key: _likedKey,
-                  onGenerateRoute: (settings) => MaterialPageRoute(
-                    builder: (context) => LikedScreen(key: _likedScreenKey),
+                _buildTab(
+                  1,
+                  Navigator(
+                    key: _likedKey,
+                    onGenerateRoute: (settings) => MaterialPageRoute(
+                      builder: (context) => LikedScreen(key: _likedScreenKey),
+                    ),
                   ),
                 ),
-                Navigator(
-                  key: _shopKey,
-                  onGenerateRoute: (settings) {
-                    return MaterialPageRoute(
+                _buildTab(
+                  2,
+                  Navigator(
+                    key: _shopKey,
+                    onGenerateRoute: (settings) => MaterialPageRoute(
                       builder: (context) => const ShopScreen(),
-                    );
-                  },
-                  onUnknownRoute: (settings) {
-                    return MaterialPageRoute(
+                    ),
+                    onUnknownRoute: (settings) => MaterialPageRoute(
                       builder: (context) => const ShopScreen(),
-                    );
-                  },
-                ),
-                Navigator(
-                  key: _ordersKey,
-                  onGenerateRoute: (settings) => MaterialPageRoute(
-                    builder: (context) => OrdersScreen(key: _ordersScreenKey),
+                    ),
                   ),
                 ),
-                Navigator(
-                  key: _profileKey,
-                  onGenerateRoute: (settings) => MaterialPageRoute(
-                    builder: (context) => const ProfileScreen(),
+                _buildTab(
+                  3,
+                  Navigator(
+                    key: _ordersKey,
+                    onGenerateRoute: (settings) => MaterialPageRoute(
+                      builder: (context) => OrdersScreen(key: _ordersScreenKey),
+                    ),
+                  ),
+                ),
+                _buildTab(
+                  4,
+                  Navigator(
+                    key: _profileKey,
+                    onGenerateRoute: (settings) => MaterialPageRoute(
+                      builder: (context) => const ProfileScreen(),
+                    ),
                   ),
                 ),
               ],
             ),
-            bottomNavigationBar: BottomNavigationBar(
-              currentIndex: _currentIndex,
-              onTap: _onTabTapped,
-              type: BottomNavigationBarType.fixed,
-              backgroundColor: isDark
-                  ? AppColors.darkCardBackground
-                  : AppColors.white,
-              selectedItemColor: isDark
-                  ? AppColors.darkPrimaryText
-                  : AppColors.black,
-              unselectedItemColor: isDark
-                  ? AppColors.darkSecondaryText
-                  : AppColors.gray600,
-              selectedFontSize: 12 * fontScale,
-              unselectedFontSize: 11 * fontScale,
-              iconSize: 24 * iconScale,
-              elevation: 8,
-              items: [
-                BottomNavigationBarItem(
-                  icon: const Icon(Icons.explore_outlined),
-                  activeIcon: const Icon(Icons.explore),
-                  label: l10n.discover,
-                ),
-                BottomNavigationBarItem(
-                  icon: const Icon(Icons.favorite_border),
-                  activeIcon: const Icon(Icons.favorite),
-                  label: l10n.liked,
-                ),
-                BottomNavigationBarItem(
-                  icon: const Icon(Icons.search),
-                  activeIcon: const Icon(Icons.search),
-                  label: l10n.shop,
-                ),
-                BottomNavigationBarItem(
-                  icon: const Icon(Icons.chat_bubble_outline),
-                  activeIcon: const Icon(Icons.chat_bubble),
-                  label: l10n.chat,
-                ),
-                BottomNavigationBarItem(
-                  icon: const Icon(Icons.person_outline),
-                  activeIcon: const Icon(Icons.person),
-                  label: l10n.profile,
-                ),
-              ],
-            ),
+            bottomNavigationBar: Theme(
+              data: Theme.of(context).copyWith(
+                // Remove the glitchy ink-splash ripple on nav items
+                splashFactory: NoSplash.splashFactory,
+                highlightColor: Colors.transparent,
+              ),
+              child: BottomNavigationBar(
+                currentIndex: _currentIndex,
+                onTap: _onTabTapped,
+                type: BottomNavigationBarType.fixed,
+                backgroundColor: isDark
+                    ? AppColors.darkCardBackground
+                    : AppColors.white,
+                selectedItemColor: isDark
+                    ? AppColors.darkPrimaryText
+                    : AppColors.black,
+                unselectedItemColor: isDark
+                    ? AppColors.darkSecondaryText
+                    : AppColors.gray600,
+                selectedFontSize: 12 * fontScale,
+                unselectedFontSize: 11 * fontScale,
+                iconSize: 24 * iconScale,
+                elevation: 8,
+                items: [
+                  BottomNavigationBarItem(
+                    icon: const Icon(Icons.explore_outlined),
+                    activeIcon: const Icon(Icons.explore),
+                    label: l10n.discover,
+                  ),
+                  BottomNavigationBarItem(
+                    icon: const Icon(Icons.favorite_border),
+                    activeIcon: const Icon(Icons.favorite),
+                    label: l10n.liked,
+                  ),
+                  BottomNavigationBarItem(
+                    icon: const Icon(Icons.search),
+                    activeIcon: const Icon(Icons.search),
+                    label: l10n.shop,
+                  ),
+                  BottomNavigationBarItem(
+                    icon: const Icon(Icons.receipt_long_outlined),
+                    activeIcon: const Icon(Icons.receipt_long),
+                    label: l10n.orders,
+                  ),
+                  BottomNavigationBarItem(
+                    icon: const Icon(Icons.person_outline),
+                    activeIcon: const Icon(Icons.person),
+                    label: l10n.profile,
+                  ),
+                ],
+              ),
+            ), // Theme
           );
         },
       ),

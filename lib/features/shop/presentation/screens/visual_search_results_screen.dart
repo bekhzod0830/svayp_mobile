@@ -9,10 +9,11 @@ import 'package:swipe/core/constants/app_typography.dart';
 import 'package:swipe/features/product/presentation/screens/product_detail_screen.dart';
 import 'package:swipe/features/discover/domain/entities/product.dart';
 import 'package:swipe/l10n/app_localizations.dart';
+import 'package:swipe/features/liked/data/services/liked_service.dart';
 
 /// Visual Search Results Screen
 /// Displays recommendations from the backend with the same card style as Shop.
-class VisualSearchResultsScreen extends StatelessWidget {
+class VisualSearchResultsScreen extends StatefulWidget {
   final List<VisualSearchResult> results;
   final File? uploadedImage;
 
@@ -21,6 +22,20 @@ class VisualSearchResultsScreen extends StatelessWidget {
     required this.results,
     this.uploadedImage,
   });
+
+  @override
+  State<VisualSearchResultsScreen> createState() =>
+      _VisualSearchResultsScreenState();
+}
+
+class _VisualSearchResultsScreenState extends State<VisualSearchResultsScreen> {
+  final LikedService _likedService = LikedService();
+
+  @override
+  void initState() {
+    super.initState();
+    _likedService.init();
+  }
 
   Product _toEntity(api_models.Product p) {
     final displayBrand = (p.brand == 'Unknown' || p.brand.isEmpty)
@@ -69,6 +84,7 @@ class VisualSearchResultsScreen extends StatelessWidget {
             ? AppColors.darkCardBackground
             : AppColors.cardBackground,
         elevation: 0,
+        scrolledUnderElevation: 0,
         leading: IconButton(
           icon: Icon(
             Icons.arrow_back,
@@ -88,7 +104,7 @@ class VisualSearchResultsScreen extends StatelessWidget {
       body: CustomScrollView(
         slivers: [
           // Uploaded image preview with scanning frame
-          if (uploadedImage != null)
+          if (widget.uploadedImage != null)
             SliverToBoxAdapter(
               child: Container(
                 margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -131,7 +147,10 @@ class VisualSearchResultsScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                     // Image with scanning frame overlay
-                    _ScannedImageFrame(image: uploadedImage!, isDark: isDark),
+                    _ScannedImageFrame(
+                      image: widget.uploadedImage!,
+                      isDark: isDark,
+                    ),
                   ],
                 ),
               ),
@@ -142,7 +161,7 @@ class VisualSearchResultsScreen extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
               child: Text(
-                l10n.similarProductsCount(results.length),
+                l10n.similarProductsCount(widget.results.length),
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -155,7 +174,7 @@ class VisualSearchResultsScreen extends StatelessWidget {
           ),
 
           // Empty state
-          if (results.isEmpty)
+          if (widget.results.isEmpty)
             SliverFillRemaining(
               child: Center(
                 child: Column(
@@ -183,7 +202,7 @@ class VisualSearchResultsScreen extends StatelessWidget {
             ),
 
           // Products grid
-          if (results.isNotEmpty)
+          if (widget.results.isNotEmpty)
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 32),
               sliver: SliverGrid(
@@ -194,19 +213,24 @@ class VisualSearchResultsScreen extends StatelessWidget {
                   mainAxisSpacing: 12,
                 ),
                 delegate: SliverChildBuilderDelegate((context, index) {
-                  final result = results[index];
+                  final result = widget.results[index];
                   return _VisualSearchProductCard(
                     result: result,
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ProductDetailScreen(
-                          product: _toEntity(result.product),
+                    onTap: () async {
+                      // Navigate and await result to trigger rebuild
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ProductDetailScreen(
+                            product: _toEntity(result.product),
+                          ),
                         ),
-                      ),
-                    ),
+                      );
+                      // Trigger rebuild after returning
+                      if (mounted) setState(() {});
+                    },
                   );
-                }, childCount: results.length),
+                }, childCount: widget.results.length),
               ),
             ),
         ],

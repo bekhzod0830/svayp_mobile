@@ -25,6 +25,7 @@ class ProfileInformationScreen extends StatelessWidget {
             ? AppColors.darkMainBackground
             : AppColors.white,
         elevation: 0,
+        scrolledUnderElevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: theme.colorScheme.onSurface),
           onPressed: () => Navigator.of(context).pop(),

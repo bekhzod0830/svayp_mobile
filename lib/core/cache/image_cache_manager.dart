@@ -1,5 +1,4 @@
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
-import 'package:swipe/core/constants/app_constants.dart';
 
 /// Custom cache manager for product images
 /// Configures caching behavior for all network images in the app
@@ -10,7 +9,7 @@ class ImageCacheManager {
   static CacheManager instance = CacheManager(
     Config(
       key,
-      stalePeriod: Duration(days: AppConstants.imageCacheDays),
+      stalePeriod: const Duration(hours: 24),
       maxNrOfCacheObjects:
           200, // Reduced from 500 to save memory on low-end devices
       repo: JsonCacheInfoRepository(databaseName: key),

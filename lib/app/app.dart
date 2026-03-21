@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:swipe/app/routes.dart';
 import 'package:swipe/app/theme.dart';
 import 'package:swipe/core/constants/app_constants.dart';
+import 'package:swipe/core/globals.dart';
 import 'package:swipe/core/localization/services/language_service.dart';
 import 'package:swipe/core/services/theme_service.dart';
 import 'package:swipe/l10n/app_localizations.dart';
@@ -18,16 +19,42 @@ class SwipeApp extends StatefulWidget {
   State<SwipeApp> createState() => SwipeAppState();
 }
 
-class SwipeAppState extends State<SwipeApp> {
+class SwipeAppState extends State<SwipeApp>
+    with SingleTickerProviderStateMixin {
   final LanguageService _languageService = LanguageService();
   final ThemeService _themeService = ThemeService();
   Locale _locale = const Locale('ru'); // Default to Russian
   bool _isInitialized = false;
 
+  // Overlay animation for smooth theme transitions (avoids gray interpolation)
+  late final AnimationController _themeOverlayController;
+  Color _overlayColor = Colors.black;
+
   @override
   void initState() {
     super.initState();
+    _themeOverlayController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 280),
+    );
+    _themeService.addListener(_onThemeChanged);
     _initialize();
+  }
+
+  void _onThemeChanged() {
+    // Destination bg covers the instant snap, then fades away revealing new theme
+    setState(() {
+      _overlayColor = _themeService.isDarkMode ? Colors.black : Colors.white;
+    });
+    _themeOverlayController.value = 1.0;
+    _themeOverlayController.animateTo(0.0, curve: Curves.easeOut);
+  }
+
+  @override
+  void dispose() {
+    _themeService.removeListener(_onThemeChanged);
+    _themeOverlayController.dispose();
+    super.dispose();
   }
 
   Future<void> _initialize() async {
@@ -58,28 +85,12 @@ class SwipeAppState extends State<SwipeApp> {
   @override
   Widget build(BuildContext context) {
     if (!_isInitialized) {
+      final bg = _themeService.isDarkMode
+          ? const Color(0xFF000000)
+          : const Color(0xFFFFFFFF);
       return MaterialApp(
         debugShowCheckedModeBanner: false,
-        home: Scaffold(
-          body: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 24),
-                Text(
-                  'SVAYP',
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 8,
-                    color: Colors.black,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+        home: Scaffold(backgroundColor: bg, body: const SizedBox.shrink()),
       );
     }
 
@@ -90,28 +101,14 @@ class SwipeAppState extends State<SwipeApp> {
       ],
       child: Consumer<ThemeService>(
         builder: (context, themeService, child) {
-          // Set system UI overlay style based on theme
-          SystemChrome.setSystemUIOverlayStyle(
-            SystemUiOverlayStyle(
-              statusBarColor: Colors.transparent,
-              statusBarIconBrightness: themeService.isDarkMode
-                  ? Brightness.light
-                  : Brightness.dark,
-              systemNavigationBarColor: themeService.isDarkMode
-                  ? const Color(0xFF1C1C1E)
-                  : Colors.white,
-              systemNavigationBarIconBrightness: themeService.isDarkMode
-                  ? Brightness.light
-                  : Brightness.dark,
-            ),
-          );
-
           return MaterialApp(
             title: AppConstants.appName,
             debugShowCheckedModeBanner: false,
             theme: AppTheme.lightTheme,
             darkTheme: AppTheme.darkTheme,
             themeMode: themeService.themeMode,
+            // Instant switch — our custom fade overlay handles the visual transition
+            themeAnimationDuration: Duration.zero,
 
             // Localization
             locale: _locale,
@@ -127,15 +124,52 @@ class SwipeAppState extends State<SwipeApp> {
               Locale('uz'), // Uzbek
             ],
 
+            navigatorKey: navigatorKey,
             initialRoute: AppRoutes.splash,
             onGenerateRoute: AppRoutes.onGenerateRoute,
             builder: (context, child) {
-              return MediaQuery(
-                data: MediaQuery.of(context).copyWith(
-                  textScaler:
-                      TextScaler.noScaling, // Prevent system text scaling
+              final brightness = Theme.of(context).brightness;
+              final isDark = brightness == Brightness.dark;
+              return AnnotatedRegion<SystemUiOverlayStyle>(
+                value: SystemUiOverlayStyle(
+                  statusBarColor: Colors.transparent,
+                  statusBarIconBrightness: isDark
+                      ? Brightness.light
+                      : Brightness.dark,
+                  systemNavigationBarColor: isDark
+                      ? const Color(0xFF1C1C1E)
+                      : Colors.white,
+                  systemNavigationBarIconBrightness: isDark
+                      ? Brightness.light
+                      : Brightness.dark,
                 ),
-                child: child!,
+                child: MediaQuery(
+                  data: MediaQuery.of(context).copyWith(
+                    textScaler:
+                        TextScaler.noScaling, // Prevent system text scaling
+                  ),
+                  // Overlay is inside MaterialApp so Directionality is available
+                  child: Stack(
+                    children: [
+                      child!,
+                      // Fade overlay — covers instant theme snap, fades out revealing new theme
+                      AnimatedBuilder(
+                        animation: _themeOverlayController,
+                        builder: (context, _) {
+                          if (_themeOverlayController.value == 0) {
+                            return const SizedBox.shrink();
+                          }
+                          return IgnorePointer(
+                            child: Opacity(
+                              opacity: _themeOverlayController.value,
+                              child: Container(color: _overlayColor),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
               );
             },
           );

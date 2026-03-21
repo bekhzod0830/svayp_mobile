@@ -31,6 +31,7 @@ class ChatComposeScreen extends StatefulWidget {
   final String? sellerLogo;
   final String productId;
   final String productTitle;
+  final Map<String, String>? productTitleLocalized;
   final String? productImage;
   final String productBrand;
   final String? color;
@@ -45,6 +46,7 @@ class ChatComposeScreen extends StatefulWidget {
     this.sellerLogo,
     required this.productId,
     required this.productTitle,
+    this.productTitleLocalized,
     this.productImage,
     required this.productBrand,
     this.color,
@@ -391,7 +393,14 @@ class _ChatComposeScreenState extends State<ChatComposeScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          widget.productTitle,
+                          () {
+                            final lang = Localizations.localeOf(
+                              context,
+                            ).languageCode;
+                            return widget.productTitleLocalized?[lang] ??
+                                widget.productTitleLocalized?['en'] ??
+                                widget.productTitle;
+                          }(),
                           style: AppTypography.body2.copyWith(
                             fontWeight: FontWeight.w600,
                             color: isDark

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
 import 'package:swipe/core/utils/local_storage_helper.dart';
@@ -22,50 +21,33 @@ class _SplashScreenState extends State<SplashScreen>
   late AnimationController _mainController;
   late Animation<double> _fadeInAnimation;
   late Animation<double> _scaleAnimation;
-  late Animation<double> _taglineFadeAnimation;
 
   @override
   void initState() {
     super.initState();
     _setupAnimations();
     _navigateToNext();
-
-    // Set status bar to dark content for white background
-    SystemChrome.setSystemUIOverlayStyle(
-      const SystemUiOverlayStyle(
-        statusBarBrightness: Brightness.light,
-        statusBarIconBrightness: Brightness.dark,
-      ),
-    );
   }
 
   void _setupAnimations() {
-    // Main animation controller
     _mainController = AnimationController(
-      duration: const Duration(milliseconds: 2000),
+      duration: const Duration(milliseconds: 1000),
       vsync: this,
     );
 
-    // Logo name fade in and scale
+    // Quick fade-in so the text is visible while it's still small
     _fadeInAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _mainController,
-        curve: const Interval(0.0, 0.5, curve: Curves.easeInOut),
+        curve: const Interval(0.0, 0.2, curve: Curves.easeOut),
       ),
     );
 
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.0).animate(
+    // Scale from tiny to full size with a springy overshoot
+    _scaleAnimation = Tween<double>(begin: 0.15, end: 1.0).animate(
       CurvedAnimation(
         parent: _mainController,
-        curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
-      ),
-    );
-
-    // Tagline fade in (delayed)
-    _taglineFadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _mainController,
-        curve: const Interval(0.5, 1.0, curve: Curves.easeIn),
+        curve: const Interval(0.0, 1.0, curve: Curves.easeOutBack),
       ),
     );
 
@@ -133,8 +115,9 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: isDark ? AppColors.darkMainBackground : AppColors.white,
       body: Center(
         child: AnimatedBuilder(
           animation: _mainController,
@@ -153,7 +136,9 @@ class _SplashScreenState extends State<SplashScreen>
                         fontSize: 56,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 12,
-                        color: AppColors.black,
+                        color: isDark
+                            ? AppColors.darkPrimaryText
+                            : AppColors.black,
                         height: 1.0,
                       ),
                     ),

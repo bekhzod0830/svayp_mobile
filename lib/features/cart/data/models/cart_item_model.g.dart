@@ -26,13 +26,9 @@ class CartItemModelAdapter extends TypeAdapter<CartItemModel> {
       selectedSize: fields[6] as String,
       selectedColor: fields[7] as String?,
       category: fields[8] as String,
-      currency:
-          (fields[10] as String?) ??
-          'UZS', // Default to UZS for backward compatibility
-      titleLocalized: (fields[11] as Map<dynamic, dynamic>?)
-          ?.cast<String, String>(),
-      descriptionLocalized: (fields[12] as Map<dynamic, dynamic>?)
-          ?.cast<String, String>(),
+      currency: fields[10] as String,
+      titleLocalized: (fields[11] as Map?)?.cast<String, String>(),
+      descriptionLocalized: (fields[12] as Map?)?.cast<String, String>(),
       addedAt: fields[9] as DateTime?,
     );
   }

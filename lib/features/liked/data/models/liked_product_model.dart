@@ -45,6 +45,12 @@ class LikedProductModel extends HiveObject {
   @HiveField(12)
   String currency;
 
+  @HiveField(13)
+  Map<String, String>? titleLocalized;
+
+  @HiveField(14)
+  Map<String, String>? descriptionLocalized;
+
   LikedProductModel({
     required this.productId,
     required this.brand,
@@ -59,7 +65,23 @@ class LikedProductModel extends HiveObject {
     this.originalPrice,
     this.sellerId,
     this.currency = 'UZS',
+    this.titleLocalized,
+    this.descriptionLocalized,
   }) : likedAt = likedAt ?? DateTime.now();
+
+  /// Get localized title, falling back to plain title
+  String localizedTitle(String languageCode) {
+    if (titleLocalized == null) return title;
+    return titleLocalized![languageCode] ?? titleLocalized!['en'] ?? title;
+  }
+
+  /// Get localized description
+  String localizedDescription(String languageCode) {
+    if (descriptionLocalized == null) return '';
+    return descriptionLocalized![languageCode] ??
+        descriptionLocalized!['en'] ??
+        '';
+  }
 
   @override
   String toString() {

@@ -62,6 +62,7 @@ class ChatResponse extends Equatable {
   final String? userAvatar;
   final String? productId;
   final String? productTitle;
+  final Map<String, String>? productTitleLocalized;
   final String? productImage;
   final String? orderId;
   final String? orderNumber;
@@ -82,6 +83,7 @@ class ChatResponse extends Equatable {
     this.userAvatar,
     this.productId,
     this.productTitle,
+    this.productTitleLocalized,
     this.productImage,
     this.orderId,
     this.orderNumber,
@@ -104,6 +106,9 @@ class ChatResponse extends Equatable {
       userAvatar: json['user_avatar'] as String?,
       productId: json['product_id'] as String?,
       productTitle: json['product_title'] as String?,
+      productTitleLocalized:
+          (json['product_title_localized'] as Map<String, dynamic>?)
+              ?.cast<String, String>(),
       productImage: json['product_image'] as String?,
       orderId: json['order_id'] as String?,
       orderNumber: json['order_number'] as String?,
@@ -142,6 +147,7 @@ class ChatResponse extends Equatable {
       'user_avatar': userAvatar,
       'product_id': productId,
       'product_title': productTitle,
+      'product_title_localized': productTitleLocalized,
       'product_image': productImage,
       'order_id': orderId,
       'order_number': orderNumber,
@@ -164,6 +170,7 @@ class ChatResponse extends Equatable {
     String? userAvatar,
     String? productId,
     String? productTitle,
+    Map<String, String>? productTitleLocalized,
     String? productImage,
     String? orderId,
     String? orderNumber,
@@ -184,6 +191,8 @@ class ChatResponse extends Equatable {
       userAvatar: userAvatar ?? this.userAvatar,
       productId: productId ?? this.productId,
       productTitle: productTitle ?? this.productTitle,
+      productTitleLocalized:
+          productTitleLocalized ?? this.productTitleLocalized,
       productImage: productImage ?? this.productImage,
       orderId: orderId ?? this.orderId,
       orderNumber: orderNumber ?? this.orderNumber,
@@ -192,6 +201,16 @@ class ChatResponse extends Equatable {
       unreadCount: unreadCount ?? this.unreadCount,
       createdAt: createdAt ?? this.createdAt,
     );
+  }
+
+  String localizedTitle(String languageCode) {
+    if (productTitleLocalized != null) {
+      return productTitleLocalized![languageCode] ??
+          productTitleLocalized!['en'] ??
+          productTitle ??
+          '';
+    }
+    return productTitle ?? '';
   }
 
   @override
@@ -207,6 +226,7 @@ class ChatResponse extends Equatable {
     userAvatar,
     productId,
     productTitle,
+    productTitleLocalized,
     productImage,
     orderId,
     orderNumber,
@@ -227,6 +247,9 @@ class ChatMessageResponse extends Equatable {
   final MessageType messageType;
   final String? productId;
   final String? productTitle;
+  final Map<String, String>? productTitleLocalized;
+  final String? productDescription;
+  final Map<String, String>? productDescriptionLocalized;
   final String? productImage;
   final int? productPrice;
   final String? color;
@@ -246,6 +269,9 @@ class ChatMessageResponse extends Equatable {
     required this.messageType,
     this.productId,
     this.productTitle,
+    this.productTitleLocalized,
+    this.productDescription,
+    this.productDescriptionLocalized,
     this.productImage,
     this.productPrice,
     this.color,
@@ -267,6 +293,13 @@ class ChatMessageResponse extends Equatable {
       messageType: _parseMessageType(json['message_type'] as String?),
       productId: json['product_id'] as String?,
       productTitle: json['product_title'] as String?,
+      productTitleLocalized:
+          (json['product_title_localized'] as Map<String, dynamic>?)
+              ?.cast<String, String>(),
+      productDescription: json['product_description'] as String?,
+      productDescriptionLocalized:
+          (json['product_description_localized'] as Map<String, dynamic>?)
+              ?.cast<String, String>(),
       productImage: json['product_image'] as String?,
       productPrice: json['product_price'] as int?,
       color: json['color'] as String?,
@@ -323,6 +356,9 @@ class ChatMessageResponse extends Equatable {
       'message_type': messageType.name.toUpperCase(),
       'product_id': productId,
       'product_title': productTitle,
+      'product_title_localized': productTitleLocalized,
+      'product_description': productDescription,
+      'product_description_localized': productDescriptionLocalized,
       'product_image': productImage,
       'product_price': productPrice,
       'color': color,
@@ -335,6 +371,26 @@ class ChatMessageResponse extends Equatable {
     };
   }
 
+  String localizedTitle(String languageCode) {
+    if (productTitleLocalized != null) {
+      return productTitleLocalized![languageCode] ??
+          productTitleLocalized!['en'] ??
+          productTitle ??
+          '';
+    }
+    return productTitle ?? '';
+  }
+
+  String localizedDescription(String languageCode) {
+    if (productDescriptionLocalized != null) {
+      return productDescriptionLocalized![languageCode] ??
+          productDescriptionLocalized!['en'] ??
+          productDescription ??
+          '';
+    }
+    return productDescription ?? '';
+  }
+
   @override
   List<Object?> get props => [
     id,
@@ -345,6 +401,9 @@ class ChatMessageResponse extends Equatable {
     messageType,
     productId,
     productTitle,
+    productTitleLocalized,
+    productDescription,
+    productDescriptionLocalized,
     productImage,
     productPrice,
     color,

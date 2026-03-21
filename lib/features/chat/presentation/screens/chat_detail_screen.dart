@@ -887,9 +887,12 @@ class _ProductMessageBubble extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (message.productTitle != null)
+                      if (message.productTitle != null ||
+                          message.productTitleLocalized != null)
                         Text(
-                          message.productTitle!,
+                          message.localizedTitle(
+                            Localizations.localeOf(context).languageCode,
+                          ),
                           style: AppTypography.body2.copyWith(
                             fontWeight: FontWeight.w600,
                             color: isDark

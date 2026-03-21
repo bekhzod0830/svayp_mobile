@@ -1108,7 +1108,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get vsCatOuterwear => 'Верхняя одежда';
 
   @override
-  String get vsCatOnePiece => 'Комбинезоны';
+  String get vsCatOnePiece => 'Цельная одежда';
 
   @override
   String get vsCatActivewear => 'Спортивная одежда';
@@ -1191,6 +1191,13 @@ class AppLocalizationsRu extends AppLocalizations {
   String get noOrdersYet => 'Пока нет заказов';
 
   @override
+  String get noOrdersReceivedYet => 'Пока не получено заказов';
+
+  @override
+  String get customerOrdersAppearHere =>
+      'Здесь будут появляться заказы от покупателей';
+
+  @override
   String get errorLoadingOrders => 'Ошибка загрузки заказов';
 
   @override
@@ -1206,6 +1213,30 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String itemsCount(int count) {
     return '$count товаров';
+  }
+
+  @override
+  String ordersCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count заказов',
+      two: '2 заказа',
+      one: '1 заказ',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String chatsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count диалогов',
+      two: '2 диалога',
+      one: '1 диалог',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -1255,6 +1286,18 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get cancelled => 'Отменен';
+
+  @override
+  String get created => 'Создан';
+
+  @override
+  String get paid => 'Оплачен';
+
+  @override
+  String get refunded => 'Возвращён';
+
+  @override
+  String get returned => 'Возврат товара';
 
   @override
   String get chat => 'Чат';
@@ -1338,6 +1381,15 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get deliveryMethod => 'Способ доставки';
+
+  @override
+  String get customerName => 'Имя покупателя';
+
+  @override
+  String get customerPhone => 'Телефон покупателя';
+
+  @override
+  String get changeStatus => 'Изменить статус';
 
   @override
   String get pickupInStore => 'Самовывоз из магазина';
@@ -2534,6 +2586,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get partnerScanQr => 'Сканировать QR';
 
   @override
+  String get myProducts => 'Мои товары';
+
+  @override
   String get partnerTapToOpenCamera => 'Нажмите, чтобы открыть камеру';
 
   @override
@@ -2660,6 +2715,9 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get shopRetry => 'Повторить';
+
+  @override
+  String get shopLoadingProducts => 'Загрузка товаров...';
 
   @override
   String get errorGenericTitle => 'Ой, что-то пошло не так';

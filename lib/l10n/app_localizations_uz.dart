@@ -1098,10 +1098,10 @@ class AppLocalizationsUz extends AppLocalizations {
   String get vsSearchButton => 'Qidirish';
 
   @override
-  String get vsCatTopwear => 'Yuqori kiyimlar';
+  String get vsCatTopwear => 'Ustki kiyim';
 
   @override
-  String get vsCatBottomwear => 'Pastki kiyimlar';
+  String get vsCatBottomwear => 'Pastki kiyim';
 
   @override
   String get vsCatDresses => 'Ko\'ylaklar';
@@ -1110,7 +1110,7 @@ class AppLocalizationsUz extends AppLocalizations {
   String get vsCatOuterwear => 'Ustki kiyimlar';
 
   @override
-  String get vsCatOnePiece => 'Kombinzonlar';
+  String get vsCatOnePiece => 'Yaxlit kiyim';
 
   @override
   String get vsCatActivewear => 'Sport kiyimlar';
@@ -1125,7 +1125,7 @@ class AppLocalizationsUz extends AppLocalizations {
   String get vsCatUnderwear => 'Ichki kiyimlar';
 
   @override
-  String get vsCatModestWear => 'Yopiq kiyimlar';
+  String get vsCatModestWear => 'Islomiy kiyim';
 
   @override
   String get vsCatTwoPieceSet => 'Dvo\'yka';
@@ -1194,6 +1194,13 @@ class AppLocalizationsUz extends AppLocalizations {
   String get noOrdersYet => 'Hali buyurtmalar yo\'q';
 
   @override
+  String get noOrdersReceivedYet => 'Hali buyurtma qabul qilinmagan';
+
+  @override
+  String get customerOrdersAppearHere =>
+      'Mijozlardan kelgan buyurtmalar bu yerda ko\'rinadi';
+
+  @override
   String get errorLoadingOrders => 'Buyurtmalarni yuklashda xatolik';
 
   @override
@@ -1209,6 +1216,28 @@ class AppLocalizationsUz extends AppLocalizations {
   @override
   String itemsCount(int count) {
     return '$count mahsulot';
+  }
+
+  @override
+  String ordersCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count buyurtma',
+      one: '1 buyurtma',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String chatsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count suhbat',
+      one: '1 suhbat',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -1258,6 +1287,18 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get cancelled => 'Bekor qilindi';
+
+  @override
+  String get created => 'Yaratildi';
+
+  @override
+  String get paid => 'To\'langan';
+
+  @override
+  String get refunded => 'Qaytarildi';
+
+  @override
+  String get returned => 'Tovar qaytarildi';
 
   @override
   String get chat => 'Suhbat';
@@ -1341,6 +1382,15 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get deliveryMethod => 'Yetkazib berish usuli';
+
+  @override
+  String get customerName => 'Mijoz ismi';
+
+  @override
+  String get customerPhone => 'Mijoz telefoni';
+
+  @override
+  String get changeStatus => 'Statusni o\'zgartirish';
 
   @override
   String get pickupInStore => 'Do\'kondan olib ketish';
@@ -2549,6 +2599,9 @@ class AppLocalizationsUz extends AppLocalizations {
   String get partnerScanQr => 'QR skanerlash';
 
   @override
+  String get myProducts => 'Mening mahsulotlarim';
+
+  @override
   String get partnerTapToOpenCamera => 'Kamerani ochish uchun bosing';
 
   @override
@@ -2676,6 +2729,9 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get shopRetry => 'Qayta urinish';
+
+  @override
+  String get shopLoadingProducts => 'Mahsulotlar yuklanmoqda...';
 
   @override
   String get errorGenericTitle => 'Voy, nimadir xato ketdi';

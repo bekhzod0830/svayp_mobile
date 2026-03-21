@@ -43,9 +43,10 @@ class ResponsiveUtils {
     if (isMobile(context)) {
       return screenWidth * 0.88; // 88% on mobile
     } else if (isTablet(context)) {
-      return 500; // Fixed width on tablet for better readability
+      // Use 70% of screen width on tablet, capped so it doesn't get too wide
+      return (screenWidth * 0.70).clamp(400, 700);
     } else {
-      return 600; // Slightly wider on desktop
+      return (screenWidth * 0.50).clamp(500, 800); // ~50% on desktop
     }
   }
 
@@ -66,8 +67,8 @@ class ResponsiveUtils {
         return (screenHeight * 0.65).clamp(0, 550);
       }
     } else {
-      // Tablet/Desktop - 70% with max 600px
-      return (screenHeight * 0.70).clamp(0, 600);
+      // Tablet/Desktop - 72% of screen height, wider range to fill the screen
+      return (screenHeight * 0.72).clamp(500, 900);
     }
   }
 

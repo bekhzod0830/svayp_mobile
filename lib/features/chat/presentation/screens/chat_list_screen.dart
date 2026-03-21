@@ -5,6 +5,7 @@ import 'package:swipe/core/constants/app_typography.dart';
 import 'package:swipe/features/chat/data/models/chat_model.dart';
 import 'package:swipe/features/chat/presentation/screens/chat_detail_screen.dart';
 import 'package:swipe/features/chat/data/services/chat_service.dart';
+import 'package:swipe/features/chat/data/services/chat_cache_service.dart';
 import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/core/network/api_client.dart';
 
@@ -19,9 +20,11 @@ class ChatListScreen extends StatefulWidget {
 class _ChatListScreenState extends State<ChatListScreen>
     with WidgetsBindingObserver {
   late final ChatService _chatService;
+  late final ChatCacheService _chatCacheService;
   late final ApiClient _apiClient;
   List<ChatResponse> _chats = [];
-  bool _isLoading = true;
+  bool _isLoading = false; // Start with false to show cached data immediately
+  bool _isFetchingFromApi = false; // Guard against concurrent API calls
   String? _errorMessage;
   bool _isAdmin = false;
 
@@ -30,6 +33,7 @@ class _ChatListScreenState extends State<ChatListScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _chatService = ChatService(getIt<ApiClient>());
+    _chatCacheService = ChatCacheService();
     _apiClient = getIt<ApiClient>();
     _checkUserRole();
     _loadChats();
@@ -42,15 +46,15 @@ class _ChatListScreenState extends State<ChatListScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Reload chats when dependencies change
-    _loadChats();
+    // Do NOT call _loadChats() here — it fires after initState too,
+    // which would cause duplicate concurrent API calls.
   }
 
   @override
   void didUpdateWidget(ChatListScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Reload chats when widget is rebuilt
-    _loadChats();
+    // Do NOT call _loadChats() here — key changes already create a fresh
+    // State via dispose+initState, so this would cause duplicate calls.
   }
 
   @override
@@ -69,27 +73,40 @@ class _ChatListScreenState extends State<ChatListScreen>
   Future<void> _loadChats() async {
     if (!mounted) return;
 
+    await _chatCacheService.init();
+
+    // Show cached data immediately (no spinner flash)
+    final cachedChats = await _chatCacheService.getCachedChats();
+    if (!mounted) return;
     setState(() {
-      _isLoading = true;
+      _chats = cachedChats;
       _errorMessage = null;
     });
 
+    // Guard: only one live API call at a time
+    if (_isFetchingFromApi) return;
+    _isFetchingFromApi = true;
+
     try {
       final chats = await _chatService.getChats();
-
       if (!mounted) return;
+
+      await _chatCacheService.updateChatsCache(chats);
 
       setState(() {
         _chats = chats;
         _isLoading = false;
       });
-    } catch (e, stackTrace) {
+    } catch (e) {
       if (!mounted) return;
-
-      setState(() {
-        _errorMessage = 'Failed to load chats: ${e.toString()}';
-        _isLoading = false;
-      });
+      if (_chats.isEmpty) {
+        setState(() {
+          _errorMessage = 'Failed to load chats: ${e.toString()}';
+          _isLoading = false;
+        });
+      }
+    } finally {
+      _isFetchingFromApi = false;
     }
   }
 
@@ -103,33 +120,91 @@ class _ChatListScreenState extends State<ChatListScreen>
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_errorMessage != null) {
-      return _buildErrorState(l10n, isDark);
-    }
-
-    if (_chats.isEmpty) {
-      return _buildEmptyState(l10n, isDark);
-    }
-
-    return RefreshIndicator(
-      onRefresh: _refreshChats,
-      child: ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        itemCount: _chats.length,
-        itemBuilder: (context, index) {
-          final chat = _chats[index];
-          return _ChatListItem(
-            chat: chat,
-            isDark: isDark,
-            l10n: l10n,
-            isAdmin: _isAdmin,
-            onChatDeleted: _refreshChats,
-          );
-        },
+    return Scaffold(
+      backgroundColor: isDark
+          ? AppColors.darkMainBackground
+          : theme.scaffoldBackgroundColor,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 8, 20, 8),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      Icons.arrow_back,
+                      color: isDark
+                          ? AppColors.darkPrimaryText
+                          : AppColors.black,
+                    ),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.chat,
+                          style: AppTypography.heading2.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: theme.colorScheme.onSurface,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          l10n.chatsCount(_chats.length),
+                          style: AppTypography.body2.copyWith(
+                            color: isDark
+                                ? AppColors.darkSecondaryText
+                                : AppColors.gray600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Content
+            Expanded(
+              child: _isLoading
+                  ? Center(
+                      child: CircularProgressIndicator(
+                        color: isDark
+                            ? AppColors.darkPrimaryText
+                            : AppColors.black,
+                      ),
+                    )
+                  : _errorMessage != null
+                  ? _buildErrorState(l10n, isDark)
+                  : _chats.isEmpty
+                  ? _buildEmptyState(l10n, isDark)
+                  : RefreshIndicator(
+                      onRefresh: _refreshChats,
+                      child: ListView.builder(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 8,
+                        ),
+                        itemCount: _chats.length,
+                        itemBuilder: (context, index) {
+                          final chat = _chats[index];
+                          return _ChatListItem(
+                            chat: chat,
+                            isDark: isDark,
+                            l10n: l10n,
+                            isAdmin: _isAdmin,
+                            onChatDeleted: _refreshChats,
+                          );
+                        },
+                      ),
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }

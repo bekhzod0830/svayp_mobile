@@ -20,6 +20,8 @@ import 'package:swipe/features/shop/presentation/screens/shop_search_results_scr
 import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/core/network/api_client.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:swipe/core/utils/local_storage_helper.dart';
+import 'package:swipe/shared/widgets/widgets.dart';
 
 // Pre-computed colors to avoid withOpacity() allocations during rebuilds
 const _kShadowBlack08 = Color(0x14000000); // black.withOpacity(0.08)
@@ -70,9 +72,50 @@ class _ShopScreenState extends State<ShopScreen>
   bool _hasMoreTrending = true;
   bool _isLoadingMoreTrending = false;
   String? _errorMessage;
-  int _selectedTab = 0; // 0: Trending, 1: All
+  int _selectedTab = 0; // 0: Trending, 1: All, 2+: Category
   bool _hasLoadedOnce = false;
   String? _authToken;
+
+  // Category tab state – active display
+  List<Product> _categoryProducts = [];
+  int _categoryPage = 0;
+  bool _hasMoreCategory = true;
+  bool _isLoadingMoreCategory = false;
+  String? _currentCategory;
+
+  // ── Cache ────────────────────────────────────────────────
+  static const Duration _kCacheTtl = Duration(hours: 24);
+
+  // Trending cache
+  DateTime? _trendingLoadedAt;
+
+  // All-products cache
+  DateTime? _allLoadedAt;
+
+  // Per-category cache: key = API category string
+  final Map<String, List<Product>> _categoryProductCache = {};
+  final Map<String, DateTime> _categoryLoadedAt = {};
+  final Map<String, int> _categoryPageCache = {};
+  final Map<String, bool> _categoryHasMoreCache = {};
+  // ─────────────────────────────────────────────────────────
+
+  // Ordered list of category API values matching tab indices 2..
+  // Order must match the chips built in the ListView below.
+  static const List<String> _kCategoryApiValues = [
+    'TOPWEAR', // tab 2
+    'BOTTOMWEAR', // tab 3
+    'ISLAMIC_MODEST_WEAR', // tab 4
+    'DRESSES', // tab 5
+    'ONE_PIECE', // tab 6
+    'TWO_PIECE_SET', // tab 7
+    'THREE_PIECE_SET', // tab 8
+    'FOOTWEAR', // tab 9
+    'OUTERWEAR', // tab 10
+    'ACTIVEWEAR', // tab 11
+    'HOMEWEAR', // tab 12
+    'UNDERWEAR', // tab 13
+    'ACCESSORIES', // tab 14
+  ];
 
   @override
   void initState() {
@@ -114,10 +157,15 @@ class _ShopScreenState extends State<ShopScreen>
         if (!_isLoadingMoreTrending && _hasMoreTrending) {
           _loadMoreTrendingProducts();
         }
-      } else {
+      } else if (_selectedTab == 1) {
         // All tab
         if (!_isLoadingMore && _hasMoreProducts) {
           _loadMoreProducts();
+        }
+      } else {
+        // Category tab
+        if (!_isLoadingMoreCategory && _hasMoreCategory) {
+          _loadMoreCategoryProducts();
         }
       }
     }
@@ -155,6 +203,7 @@ class _ShopScreenState extends State<ShopScreen>
         _isLoading = false;
         _hasMoreProducts = products.length >= _pageSize;
         if (products.isNotEmpty) _currentPage = 1;
+        _allLoadedAt = DateTime.now();
       });
       _filterProducts();
     } catch (e) {
@@ -227,6 +276,7 @@ class _ShopScreenState extends State<ShopScreen>
           _trendingProducts = trending;
           _hasMoreTrending = trending.length >= _pageSize;
           if (trending.isNotEmpty) _trendingPage = 1;
+          _trendingLoadedAt = DateTime.now();
         });
         _filterProducts();
       }
@@ -259,6 +309,201 @@ class _ShopScreenState extends State<ShopScreen>
       }
     } catch (_) {
       setState(() => _isLoadingMoreTrending = false);
+    }
+  }
+
+  /// Load initial products for a category tab
+  Future<void> _loadCategoryProducts(String category) async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+      _categoryProducts = [];
+      _categoryPage = 0;
+      _hasMoreCategory = true;
+      _currentCategory = category;
+    });
+
+    try {
+      final response = await _apiService.getProducts(
+        page: 0,
+        size: _pageSize,
+        category: category,
+        token: _authToken,
+      );
+
+      final products = <Product>[];
+      for (final apiProduct in response.products) {
+        try {
+          products.add(_convertApiProduct(apiProduct));
+        } catch (_) {}
+      }
+
+      if (mounted) {
+        // Persist in cache
+        _categoryProductCache[category] = products;
+        _categoryLoadedAt[category] = DateTime.now();
+        _categoryPageCache[category] = products.isNotEmpty ? 1 : 0;
+        _categoryHasMoreCache[category] = products.length >= _pageSize;
+        setState(() {
+          _categoryProducts = products;
+          _isLoading = false;
+          _hasMoreCategory = _categoryHasMoreCache[category]!;
+          _categoryPage = _categoryPageCache[category]!;
+        });
+        _filterProducts();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage =
+              'Unable to load products. Please check your connection and try again.';
+        });
+      }
+    }
+  }
+
+  /// Load next page for the current category tab
+  Future<void> _loadMoreCategoryProducts() async {
+    if (_isLoadingMoreCategory ||
+        !_hasMoreCategory ||
+        _currentCategory == null) {
+      return;
+    }
+    setState(() => _isLoadingMoreCategory = true);
+    try {
+      final response = await _apiService.getProducts(
+        page: _categoryPage,
+        size: _pageSize,
+        category: _currentCategory,
+        token: _authToken,
+      );
+      final newProducts = <Product>[];
+      for (final apiProduct in response.products) {
+        try {
+          newProducts.add(_convertApiProduct(apiProduct));
+        } catch (_) {}
+      }
+      final existingIds = _categoryProducts.map((p) => p.id).toSet();
+      final unique = newProducts
+          .where((p) => !existingIds.contains(p.id))
+          .toList();
+      if (mounted) {
+        setState(() {
+          _categoryProducts.addAll(unique);
+          _isLoadingMoreCategory = false;
+          _hasMoreCategory = newProducts.length >= _pageSize;
+          if (unique.isNotEmpty) _categoryPage++;
+        });
+        // Keep cache in sync with the newly extended list
+        if (_currentCategory != null) {
+          _categoryProductCache[_currentCategory!] = List.of(_categoryProducts);
+          _categoryPageCache[_currentCategory!] = _categoryPage;
+          _categoryHasMoreCache[_currentCategory!] = _hasMoreCategory;
+        }
+        _filterProducts();
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingMoreCategory = false);
+    }
+  }
+
+  // ── Cache helpers ─────────────────────────────────────────
+
+  bool _isCacheFresh(DateTime? loadedAt) {
+    if (loadedAt == null) return false;
+    return DateTime.now().difference(loadedAt) < _kCacheTtl;
+  }
+
+  /// Silent background refresh for the Trending tab (no spinner).
+  Future<void> _backgroundRefreshTrending() async {
+    try {
+      final apiClient = getIt<ApiClient>();
+      final response = await apiClient.get<dynamic>(
+        '/feed/trending',
+        queryParameters: {'limit': '$_pageSize', 'page': '0'},
+      );
+      final fresh = _parseTrendingResponse(response.data);
+      if (mounted) {
+        setState(() {
+          _trendingProducts = fresh;
+          _hasMoreTrending = fresh.length >= _pageSize;
+          _trendingPage = fresh.isNotEmpty ? 1 : 0;
+          _trendingLoadedAt = DateTime.now();
+        });
+        if (_selectedTab == 0) _filterProducts();
+      }
+    } catch (_) {}
+  }
+
+  /// Silent background refresh for the All tab (no spinner).
+  Future<void> _backgroundRefreshAll() async {
+    try {
+      final response = await _apiService.getProducts(
+        page: 0,
+        size: _pageSize,
+        token: _authToken,
+      );
+      final products = <Product>[];
+      for (final apiProduct in response.products) {
+        try {
+          products.add(_convertApiProduct(apiProduct));
+        } catch (_) {}
+      }
+      if (mounted) {
+        setState(() {
+          _products = products;
+          _hasMoreProducts = products.length >= _pageSize;
+          _currentPage = products.isNotEmpty ? 1 : 0;
+          _allLoadedAt = DateTime.now();
+        });
+        if (_selectedTab == 1) _filterProducts();
+      }
+    } catch (_) {}
+  }
+
+  /// Silent background refresh for a category tab (no spinner).
+  Future<void> _backgroundRefreshCategory(String category) async {
+    try {
+      final response = await _apiService.getProducts(
+        page: 0,
+        size: _pageSize,
+        category: category,
+        token: _authToken,
+      );
+      final products = <Product>[];
+      for (final apiProduct in response.products) {
+        try {
+          products.add(_convertApiProduct(apiProduct));
+        } catch (_) {}
+      }
+      if (mounted) {
+        _categoryProductCache[category] = products;
+        _categoryLoadedAt[category] = DateTime.now();
+        _categoryPageCache[category] = products.isNotEmpty ? 1 : 0;
+        _categoryHasMoreCache[category] = products.length >= _pageSize;
+        // Only update active display if still on this category
+        if (_currentCategory == category) {
+          setState(() {
+            _categoryProducts = products;
+            _categoryPage = _categoryPageCache[category]!;
+            _hasMoreCategory = _categoryHasMoreCache[category]!;
+          });
+          if (_selectedTab >= 2) _filterProducts();
+        }
+      }
+    } catch (_) {}
+  }
+
+  /// Pull-to-refresh: always force a full reload of the current tab.
+  Future<void> _refreshCurrentTab() async {
+    if (_selectedTab == 0) {
+      await _loadTrendingProducts();
+    } else if (_selectedTab == 1) {
+      await _loadProducts();
+    } else {
+      final category = _kCategoryApiValues[_selectedTab - 2];
+      await _loadCategoryProducts(category);
     }
   }
 
@@ -404,7 +649,18 @@ class _ShopScreenState extends State<ShopScreen>
         return;
       }
 
-      // All tab
+      // Category tab (index >= 2)
+      if (_selectedTab >= 2) {
+        _filteredProducts = _categoryProducts.where((product) {
+          return query.isEmpty ||
+              product.title.toLowerCase().contains(query) ||
+              product.brand.toLowerCase().contains(query) ||
+              product.category.toLowerCase().contains(query);
+        }).toList();
+        return;
+      }
+
+      // All tab (index == 1)
       _filteredProducts = _products.where((product) {
         return query.isEmpty ||
             product.title.toLowerCase().contains(query) ||
@@ -449,6 +705,14 @@ class _ShopScreenState extends State<ShopScreen>
   /// Handle visual search button tap
   Future<void> _handleVisualSearch() async {
     final l10n = AppLocalizations.of(context)!;
+
+    // Gate for guest users
+    final storage = await LocalStorageHelper.getInstance();
+    if (storage.isGuestMode()) {
+      if (mounted) GuestLoginPrompt.show(context);
+      return;
+    }
+
     try {
       // 1. Open photo library for the user to pick an image
       if (!mounted) return;
@@ -757,18 +1021,42 @@ class _ShopScreenState extends State<ShopScreen>
                   ),
                 ),
 
-                // TikTok-style Tabs
-                Container(
-                  height: 48,
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: isDark ? AppColors.darkCardBackground : Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
+                // Category tab bar – horizontally scrollable chips
+                SizedBox(
+                  height: 40,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
                     children: [
-                      _buildTab(l10n.trending, 0, isDark),
-                      _buildTab(l10n.all, 1, isDark),
+                      _buildCategoryChip(0, l10n.trending, isDark),
+                      const SizedBox(width: 8),
+                      _buildCategoryChip(1, l10n.all, isDark),
+                      const SizedBox(width: 8),
+                      _buildCategoryChip(2, l10n.vsCatTopwear, isDark),
+                      const SizedBox(width: 8),
+                      _buildCategoryChip(3, l10n.vsCatBottomwear, isDark),
+                      const SizedBox(width: 8),
+                      _buildCategoryChip(4, l10n.vsCatModestWear, isDark),
+                      const SizedBox(width: 8),
+                      _buildCategoryChip(5, l10n.vsCatDresses, isDark),
+                      const SizedBox(width: 8),
+                      _buildCategoryChip(6, l10n.vsCatOnePiece, isDark),
+                      const SizedBox(width: 8),
+                      _buildCategoryChip(7, l10n.vsCatTwoPieceSet, isDark),
+                      const SizedBox(width: 8),
+                      _buildCategoryChip(8, l10n.vsCatThreePieceSet, isDark),
+                      const SizedBox(width: 8),
+                      _buildCategoryChip(9, l10n.vsCatFootwear, isDark),
+                      const SizedBox(width: 8),
+                      _buildCategoryChip(10, l10n.vsCatOuterwear, isDark),
+                      const SizedBox(width: 8),
+                      _buildCategoryChip(11, l10n.vsCatActivewear, isDark),
+                      const SizedBox(width: 8),
+                      _buildCategoryChip(12, l10n.vsCatHomewear, isDark),
+                      const SizedBox(width: 8),
+                      _buildCategoryChip(13, l10n.vsCatUnderwear, isDark),
+                      const SizedBox(width: 8),
+                      _buildCategoryChip(14, l10n.vsCatAccessories, isDark),
                     ],
                   ),
                 ),
@@ -778,10 +1066,10 @@ class _ShopScreenState extends State<ShopScreen>
                 // Product Grid (TikTok-style 2-column)
                 Expanded(
                   child: _isLoading
-                      ? _buildLoadingState(isDark)
+                      ? _buildLoadingState(isDark, l10n)
                       : _errorMessage != null
                       ? RefreshIndicator(
-                          onRefresh: _loadProducts,
+                          onRefresh: _refreshCurrentTab,
                           color: isDark
                               ? AppColors.darkPrimaryText
                               : AppColors.black,
@@ -795,7 +1083,7 @@ class _ShopScreenState extends State<ShopScreen>
                         )
                       : _filteredProducts.isEmpty
                       ? RefreshIndicator(
-                          onRefresh: _loadProducts,
+                          onRefresh: _refreshCurrentTab,
                           color: isDark
                               ? AppColors.darkPrimaryText
                               : AppColors.black,
@@ -808,7 +1096,7 @@ class _ShopScreenState extends State<ShopScreen>
                           ),
                         )
                       : RefreshIndicator(
-                          onRefresh: _loadProducts,
+                          onRefresh: _refreshCurrentTab,
                           color: isDark
                               ? AppColors.darkPrimaryText
                               : AppColors.black,
@@ -848,7 +1136,9 @@ class _ShopScreenState extends State<ShopScreen>
                                       ),
                                 ),
                               ),
-                              if (_isLoadingMore || _isLoadingMoreTrending)
+                              if (_isLoadingMore ||
+                                  _isLoadingMoreTrending ||
+                                  _isLoadingMoreCategory)
                                 SliverToBoxAdapter(
                                   child: Center(
                                     child: Padding(
@@ -996,44 +1286,86 @@ class _ShopScreenState extends State<ShopScreen>
     );
   }
 
-  Widget _buildTab(String label, int index, bool isDark) {
+  void _onTabSelected(int index) {
+    if (_selectedTab == index) return;
+    setState(() => _selectedTab = index);
+    if (_scrollController.hasClients) _scrollController.jumpTo(0);
+
+    if (index == 0) {
+      // ── Trending ──────────────────────────────────────────
+      if (_trendingProducts.isNotEmpty && _isCacheFresh(_trendingLoadedAt)) {
+        // Cache is valid: show immediately, refresh silently
+        _filterProducts();
+        _backgroundRefreshTrending();
+      } else {
+        _loadTrendingProducts();
+      }
+    } else if (index == 1) {
+      // ── All ───────────────────────────────────────────────
+      if (_products.isNotEmpty && _isCacheFresh(_allLoadedAt)) {
+        _filterProducts();
+        _backgroundRefreshAll();
+      } else {
+        _loadProducts();
+      }
+    } else {
+      // ── Category ──────────────────────────────────────────
+      final category = _kCategoryApiValues[index - 2];
+      final cached = _categoryProductCache[category];
+      if (cached != null &&
+          cached.isNotEmpty &&
+          _isCacheFresh(_categoryLoadedAt[category])) {
+        // Restore pagination state & show immediately
+        setState(() {
+          _currentCategory = category;
+          _categoryProducts = cached;
+          _categoryPage = _categoryPageCache[category] ?? 1;
+          _hasMoreCategory = _categoryHasMoreCache[category] ?? false;
+        });
+        _filterProducts();
+        _backgroundRefreshCategory(category);
+      } else {
+        _loadCategoryProducts(category);
+      }
+    }
+  }
+
+  Widget _buildCategoryChip(int index, String label, bool isDark) {
     final isSelected = _selectedTab == index;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () {
-          setState(() {
-            _selectedTab = index;
-          });
-          _filterProducts();
-          // If switching to Trending and we have nothing yet, (re)load
-          if (index == 0 && _trendingProducts.isEmpty) {
-            _loadTrendingProducts();
-          }
-        },
-        child: Container(
-          decoration: BoxDecoration(
+    return GestureDetector(
+      onTap: () => _onTabSelected(index),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? (isDark ? AppColors.darkPrimaryText : AppColors.black)
+              : (isDark ? AppColors.darkCardBackground : Colors.white),
+          borderRadius: BorderRadius.circular(20),
+          border: isSelected
+              ? null
+              : Border.all(
+                  color: isDark
+                      ? AppColors.darkStandardBorder
+                      : AppColors.gray200,
+                  width: 1,
+                ),
+        ),
+        child: Text(
+          label,
+          style: AppTypography.body2.copyWith(
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
             color: isSelected
-                ? (isDark ? AppColors.darkPrimaryText : AppColors.black)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            label,
-            style: AppTypography.body2.copyWith(
-              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-              color: isSelected
-                  ? (isDark ? AppColors.black : Colors.white)
-                  : (isDark ? AppColors.darkSecondaryText : AppColors.gray600),
-              fontSize: 13,
-            ),
+                ? (isDark ? AppColors.black : Colors.white)
+                : (isDark ? AppColors.darkSecondaryText : AppColors.gray600),
+            fontSize: 13,
           ),
         ),
       ),
     );
   }
 
-  Widget _buildLoadingState(bool isDark) {
+  Widget _buildLoadingState(bool isDark, AppLocalizations l10n) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -1048,7 +1380,7 @@ class _ShopScreenState extends State<ShopScreen>
           ),
           const SizedBox(height: 16),
           Text(
-            'Loading products...',
+            l10n.shopLoadingProducts,
             style: AppTypography.body2.copyWith(
               color: isDark ? AppColors.darkSecondaryText : AppColors.gray600,
             ),

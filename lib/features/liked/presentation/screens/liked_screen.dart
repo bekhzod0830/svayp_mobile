@@ -32,7 +32,7 @@ class LikedScreenState extends State<LikedScreen>
   final ProductApiService _apiService = ProductApiService();
   List<LikedProductModel> _likedProducts = [];
   final Map<String, Product> _fullProducts = {}; // Store full products by ID
-  bool _isLoading = true;
+  bool _isLoading = false; // Start with false, show cached data immediately
   String? _authToken;
 
   @override
@@ -68,16 +68,17 @@ class LikedScreenState extends State<LikedScreen>
   }
 
   Future<void> _loadLikedProducts() async {
-    setState(() {
-      _isLoading = true;
-    });
-
     await _likedService.init();
 
-    // First, load from local storage
+    // First, load from local storage and show immediately (cached data)
     final localLikedProducts = _likedService.getLikedProducts();
 
-    // If user is authenticated, try to fetch favorites from API
+    setState(() {
+      _likedProducts = localLikedProducts;
+      _isLoading = false; // Stop loading, show cached data
+    });
+
+    // If user is authenticated, fetch from API in background to update
     if (_authToken != null && _authToken!.isNotEmpty) {
       try {
         final response = await _apiService.getFavoriteProducts(
@@ -138,24 +139,16 @@ class LikedScreenState extends State<LikedScreen>
           _fullProducts[product.id] = product;
         }
 
-        // Reload from local storage after sync
-        setState(() {
-          _likedProducts = _likedService.getLikedProducts();
-          _isLoading = false;
-        });
+        // Update UI with synced data from API
+        if (mounted) {
+          setState(() {
+            _likedProducts = _likedService.getLikedProducts();
+          });
+        }
       } catch (e) {
-        // If API call fails, use local data
-        setState(() {
-          _likedProducts = localLikedProducts;
-          _isLoading = false;
-        });
+        // If API call fails, we already have local data showing
+        // No need to do anything else
       }
-    } else {
-      // Not authenticated, use local data only
-      setState(() {
-        _likedProducts = localLikedProducts;
-        _isLoading = false;
-      });
     }
   }
 
@@ -561,7 +554,9 @@ class _TikTokLikedProductCard extends StatelessWidget {
                 children: [
                   // Title
                   Text(
-                    product.title,
+                    product.localizedTitle(
+                      Localizations.localeOf(context).languageCode,
+                    ),
                     style: AppTypography.body2.copyWith(
                       fontWeight: FontWeight.w600,
                       color: isDark
@@ -769,7 +764,9 @@ class _LikedProductCard extends StatelessWidget {
                     // Title
                     Flexible(
                       child: Text(
-                        product.title,
+                        product.localizedTitle(
+                          Localizations.localeOf(context).languageCode,
+                        ),
                         style: AppTypography.body2.copyWith(
                           fontWeight: FontWeight.w600,
                           color: isDark

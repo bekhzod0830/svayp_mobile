@@ -348,16 +348,16 @@
   "visualSearch": "Vizual qidiruv",
   "vsPickCategory": "Kategoriyani tanlang",
   "vsSearchButton": "Qidirish",
-  "vsCatTopwear": "Yuqori kiyimlar",
-  "vsCatBottomwear": "Pastki kiyimlar",
+  "vsCatTopwear": "Ustki kiyim",
+  "vsCatBottomwear": "Pastki kiyim",
   "vsCatDresses": "Ko'ylaklar",
   "vsCatOuterwear": "Ustki kiyimlar",
-  "vsCatOnePiece": "Kombinzonlar",
+  "vsCatOnePiece": "Yaxlit kiyim",
   "vsCatActivewear": "Sport kiyimlar",
   "vsCatAccessories": "Aksessuarlar",
   "vsCatFootwear": "Oyoq kiyimlar",
   "vsCatUnderwear": "Ichki kiyimlar",
-  "vsCatModestWear": "Yopiq kiyimlar",
+  "vsCatModestWear": "Islomiy kiyim",
   "vsCatTwoPieceSet": "Dvo'yka",
   "vsCatThreePieceSet": "Tro'yka",
   "vsCatBodysuits": "Bodi va triko",
@@ -392,11 +392,29 @@
   "orderHistory": "Buyurtmalar tarixi",
   "orderHistoryAppearHere": "Buyurtmalar tarixingiz shu yerda paydo bo'ladi",
   "noOrdersYet": "Hali buyurtmalar yo'q",
+  "noOrdersReceivedYet": "Hali buyurtma qabul qilinmagan",
+  "customerOrdersAppearHere": "Mijozlardan kelgan buyurtmalar bu yerda ko'rinadi",
   "errorLoadingOrders": "Buyurtmalarni yuklashda xatolik",
   "retry": "Qayta urinib ko'rish",
   "startShoppingToSeeOrders": "Buyurtmalar tarixini ko'rish uchun xarid qilishni boshlang",
   "startShopping": "Xarid qilishni boshlash",
   "itemsCount": "{count} mahsulot",
+  "ordersCount": "{count, plural, =1{1 buyurtma} other{{count} buyurtma}}",
+  "@ordersCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatsCount": "{count, plural, =1{1 suhbat} other{{count} suhbat}}",
+  "@chatsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "@itemsCount": {
     "placeholders": {
       "count": {
@@ -421,6 +439,10 @@
   "outForDelivery": "Yo'lda",
   "delivered": "Yetkazildi",
   "cancelled": "Bekor qilindi",
+  "created": "Yaratildi",
+  "paid": "To'langan",
+  "refunded": "Qaytarildi",
+  "returned": "Tovar qaytarildi",
   
   "chat": "Suhbat",
   "noMessagesYet": "Hali xabarlar yo'q",
@@ -475,6 +497,9 @@
   "changeAddress": "Manzilni o'zgartirish",
   "addNewAddress": "Yangi manzil qo'shish",
   "deliveryMethod": "Yetkazib berish usuli",
+  "customerName": "Mijoz ismi",
+  "customerPhone": "Mijoz telefoni",
+  "changeStatus": "Statusni o'zgartirish",
   "pickupInStore": "Do'kondan olib ketish",
   "availableForPickup": "Olib ketish uchun mavjud",
   "standard": "Standart",
@@ -1034,6 +1059,7 @@
   "partnerCashbackTitle": "Cashback",
   "partnerCashbackSubtitle": "Sotuv qayd etish va cashback berish uchun mijozning QR-kodini skanlang.",
   "partnerScanQr": "QR skanerlash",
+  "myProducts": "Mening mahsulotlarim",
   "partnerTapToOpenCamera": "Kamerani ochish uchun bosing",
   "partnerIdentifyCustomer": "Mijozni aniqlash",
   "partnerSelectProduct": "Mahsulot tanlash",
@@ -1076,6 +1102,7 @@
   "shopErrorTitle": "Voy, nimadir xato ketdi",
   "shopErrorSubtitle": "Mahsulotlarni yuklab bo'lmadi. Internetni tekshiring va qayta urinib ko'ring.",
   "shopRetry": "Qayta urinish",
+  "shopLoadingProducts": "Mahsulotlar yuklanmoqda...",
   "errorGenericTitle": "Voy, nimadir xato ketdi",
   "errorGenericSubtitle": "Internetni tekshiring va qayta urinib ko'ring.",
   "errorRetry": "Qayta urinish",

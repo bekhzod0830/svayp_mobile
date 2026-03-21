@@ -16,7 +16,11 @@ import 'package:swipe/core/cache/image_cache_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:swipe/core/network/api_client.dart';
 import 'package:swipe/core/services/product_api_service.dart';
+import 'package:swipe/core/services/seen_products_service.dart';
 import 'package:swipe/core/di/service_locator.dart';
+import 'package:swipe/core/models/product.dart' as api_models;
+import 'package:swipe/features/discover/domain/entities/product.dart';
+import 'package:swipe/features/product/presentation/screens/product_detail_screen.dart';
 
 /// Helper function to format size label by removing SIZE_ prefix
 String _formatSizeLabel(String size) {
@@ -27,16 +31,10 @@ String _formatSizeLabel(String size) {
   return size;
 }
 
-/// Helper function to format checkout item price with intelligent currency detection
+/// Helper function to format checkout item price using the currency field from the API
 String _formatCheckoutItemPrice(CartItemModel item) {
-  String currency = item.currency;
-
-  // Intelligently detect currency based on price
-  if (currency == 'UZS' && item.price < 1000) {
-    currency = 'USD';
-  }
-
-  double totalPrice = item.totalPrice;
+  final currency = item.currency;
+  final double totalPrice = item.totalPrice;
 
   if (currency == 'USD') {
     return '\$${totalPrice.toStringAsFixed(2)}';
@@ -83,80 +81,130 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Future<void> _loadCheckoutData() async {
-    setState(() {
-      _isLoading = true;
-    });
+    if (!mounted) return;
 
-    List<CartItemModel> cartItems = [];
-    double subtotal = 0.0;
-
-    try {
-      // Get auth token
-      final apiClient = getIt<ApiClient>();
-      final token = apiClient.getToken();
-
-      if (token != null && token.isNotEmpty) {
-        // Fetch cart from API
-        final cartData = await _apiService.getCart(token: token);
-
-        final items = cartData['items'] as List<dynamic>;
-        final summary = cartData['summary'] as Map<String, dynamic>;
-
-        // Get subtotal from API response
-        subtotal = (summary['subtotal'] as num?)?.toDouble() ?? 0.0;
-
-        // Convert API items to CartItemModel
-        cartItems = items.map((item) {
-          final product = item['product'] as Map<String, dynamic>;
-
-          return CartItemModel(
-            productId: (product['id']?.toString() ?? ''),
-            brand: (product['brand'] as String? ?? ''),
-            title: (product['title'] as String? ?? 'Unknown'),
-            price: (product['price'] as int? ?? 0),
-            imageUrl: (product['images'] as List?)?.isNotEmpty == true
-                ? (product['images'][0] as String? ?? '')
-                : '',
-            quantity: (item['quantity'] as int? ?? 1),
-            selectedSize: (item['selected_size'] as String? ?? ''),
-            selectedColor: item['selected_color'] as String?,
-            category: '',
-            titleLocalized:
-                (product['title_localized'] as Map<String, dynamic>?)?.map(
-                  (key, value) => MapEntry(key, value.toString()),
-                ),
-            descriptionLocalized:
-                (product['description_localized'] as Map<String, dynamic>?)
-                    ?.map((key, value) => MapEntry(key, value.toString())),
-            addedAt: item['created_at'] != null
-                ? DateTime.tryParse(item['created_at'] as String) ??
-                      DateTime.now()
-                : DateTime.now(),
-          );
-        }).toList();
-      } else {
-        // Not authenticated, use local cache
-        await _cartService.init();
-        cartItems = _cartService.getCartItems();
-        subtotal = _cartService.getSubtotal();
-      }
-    } catch (e) {
-      // Fallback to local cache
-      await _cartService.init();
-      cartItems = _cartService.getCartItems();
-      subtotal = _cartService.getSubtotal();
-    }
-
+    // ── Step 1: show local cache immediately so the screen is never blank ──
+    await _cartService.init();
     await _addressService.init();
     await _paymentMethodService.init();
 
+    final cachedItems = _cartService.getCartItems();
+    final cachedSubtotal = _cartService.getSubtotal();
+
+    if (!mounted) return;
     setState(() {
-      _cartItems = cartItems;
-      _subtotalAmount = subtotal;
+      _cartItems = cachedItems;
+      _subtotalAmount = cachedSubtotal;
       _selectedAddress = _addressService.getDefaultAddress();
       _selectedPaymentMethod = _paymentMethodService.getDefaultPaymentMethod();
       _isLoading = false;
     });
+
+    // ── Step 2: fetch fresh data from API in background ──
+    try {
+      final apiClient = getIt<ApiClient>();
+      final token = apiClient.getToken();
+
+      if (token == null || token.isEmpty) return;
+
+      final cartData = await _apiService.getCart(token: token);
+
+      final items = cartData['items'] as List<dynamic>;
+      final summary = cartData['summary'] as Map<String, dynamic>;
+      final subtotal = (summary['subtotal'] as num?)?.toDouble() ?? 0.0;
+
+      // Build a lookup keyed by productId|size|color so the same product
+      // added with different variations stays as separate entries.
+      String _variantKey(String productId, String size, String? color) =>
+          '$productId|$size|${color ?? ''}';
+
+      final cachedByVariant = {
+        for (var c in _cartItems)
+          _variantKey(c.productId, c.selectedSize, c.selectedColor): c,
+      };
+
+      final apiItemByVariant = <String, CartItemModel>{};
+      for (final item in items) {
+        final product = item['product'] as Map<String, dynamic>;
+        final productId = product['id']?.toString() ?? '';
+        final size = (item['selected_size'] as String? ?? '');
+        final color = item['selected_color'] as String?;
+        final variantKey = _variantKey(productId, size, color);
+
+        final cachedItem = cachedByVariant[variantKey];
+        final apiBrand = (product['brand'] as String?) ?? '';
+        final apiSeller = (product['seller'] as String?) ?? '';
+        // Mirror _convertApiProduct: prefer brand, fall back to seller, then cached.
+        final resolvedBrand = (apiBrand.isNotEmpty && apiBrand != 'Unknown')
+            ? apiBrand
+            : apiSeller.isNotEmpty
+            ? apiSeller
+            : (cachedItem?.brand ?? '');
+
+        apiItemByVariant[variantKey] = CartItemModel(
+          productId: productId,
+          brand: resolvedBrand,
+          title: (product['title'] as String? ?? 'Unknown'),
+          price: ((product['price'] as num?)?.toInt() ?? 0),
+          currency: (product['currency'] as String? ?? 'UZS'),
+          imageUrl: (product['images'] as List?)?.isNotEmpty == true
+              ? (product['images'][0] as String? ?? '')
+              : (cachedItem?.imageUrl ?? ''),
+          quantity: (item['quantity'] as int? ?? 1),
+          selectedSize: size,
+          selectedColor: color,
+          category: (cachedItem?.category ?? ''),
+          titleLocalized: (product['title_localized'] as Map<String, dynamic>?)
+              ?.map((key, value) => MapEntry(key, value.toString())),
+          descriptionLocalized:
+              (product['description_localized'] as Map<String, dynamic>?)?.map(
+                (key, value) => MapEntry(key, value.toString()),
+              ),
+          addedAt: item['created_at'] != null
+              ? DateTime.tryParse(item['created_at'] as String) ??
+                    DateTime.now()
+              : DateTime.now(),
+        );
+      }
+
+      if (!mounted) return;
+      if (apiItemByVariant.isNotEmpty) {
+        // Merge: preserve cached display order, replace data for matching
+        // variant keys, drop items no longer in the API response.
+        final merged = _cartItems
+            .map(
+              (c) =>
+                  apiItemByVariant[_variantKey(
+                    c.productId,
+                    c.selectedSize,
+                    c.selectedColor,
+                  )] ??
+                  c,
+            )
+            .where(
+              (c) => apiItemByVariant.containsKey(
+                _variantKey(c.productId, c.selectedSize, c.selectedColor),
+              ),
+            )
+            .toList();
+        // Append any new variants that weren't in the cached list.
+        for (final entry in apiItemByVariant.entries) {
+          if (!merged.any(
+            (c) =>
+                _variantKey(c.productId, c.selectedSize, c.selectedColor) ==
+                entry.key,
+          )) {
+            merged.add(entry.value);
+          }
+        }
+        setState(() {
+          _cartItems = merged;
+          _subtotalAmount = subtotal;
+        });
+      }
+    } catch (_) {
+      // API failed – cached data is already showing, nothing more to do.
+    }
   }
 
   Future<void> _selectAddress() async {
@@ -206,12 +254,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   /// Calculate subtotal for USD products
   double get _usdSubtotal {
     return _cartItems.fold(0.0, (sum, item) {
-      String currency = item.currency;
-      // Intelligently detect currency
-      if (currency == 'UZS' && item.price < 1000) {
-        currency = 'USD';
-      }
-      if (currency == 'USD') {
+      if (item.currency == 'USD') {
         return sum + item.totalPrice;
       }
       return sum;
@@ -221,12 +264,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   /// Calculate subtotal for UZS products
   double get _uzsSubtotal {
     return _cartItems.fold(0.0, (sum, item) {
-      String currency = item.currency;
-      // Intelligently detect currency
-      if (currency == 'UZS' && item.price < 1000) {
-        currency = 'USD';
-      }
-      if (currency == 'UZS') {
+      if (item.currency == 'UZS') {
         return sum + item.totalPrice;
       }
       return sum;
@@ -300,6 +338,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
       // Order is already saved on the server via placeOrderApi()
       // No need to save locally anymore - orders are fetched from API
+
+      // Persist purchased product IDs so the discovery feed excludes them
+      await SeenProductsService.addSeenIds(
+        _cartItems.map((item) => item.productId),
+      );
 
       // Clear cart after successful order
       await _cartService.clearCart();
@@ -829,127 +872,190 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
+  Future<void> _openProductDetail(CartItemModel item) async {
+    if (!mounted) return;
+    // Capture navigator/messenger before any async gap to avoid stale context
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    navigator.push(
+      PageRouteBuilder(
+        opaque: false,
+        barrierDismissible: false,
+        pageBuilder: (_, __, ___) => const ColoredBox(
+          color: Color(0x66000000),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      ),
+    );
+    try {
+      final token = getIt<ApiClient>().getToken();
+      final api_models.Product apiProduct = await _apiService.getProductById(
+        item.productId,
+        token: token,
+      );
+
+      String displayBrand =
+          (apiProduct.brand == 'Unknown' || apiProduct.brand.isEmpty)
+          ? (apiProduct.seller ?? apiProduct.brand)
+          : apiProduct.brand;
+      if (displayBrand == 'Unknown' || displayBrand.isEmpty) {
+        displayBrand = 'SVAYP';
+      }
+
+      final product = Product(
+        id: apiProduct.id,
+        brand: displayBrand,
+        title: apiProduct.title,
+        description: apiProduct.description ?? '',
+        price: apiProduct.price,
+        images: apiProduct.images.isNotEmpty
+            ? apiProduct.images
+            : (item.imageUrl.isNotEmpty ? [item.imageUrl] : []),
+        category:
+            apiProduct.originalCategoryString ?? apiProduct.category.value,
+        subcategory: apiProduct.subcategory?.map((s) => s.displayName).toList(),
+        sizes: apiProduct.sizes ?? [],
+        colors: apiProduct.colors ?? [],
+        material: apiProduct.material?.map((m) => m.displayName).toList(),
+        season: apiProduct.season?.map((s) => s.displayName).toList(),
+        currency: apiProduct.currency,
+        rating: apiProduct.rating ?? 4.5,
+        reviewCount: apiProduct.reviewCount ?? 0,
+        inStock: apiProduct.inStock,
+        isNew: apiProduct.isNew ?? false,
+        isFeatured: false,
+        seller: apiProduct.seller,
+        sellerId: apiProduct.sellerId,
+        discountPercentage: apiProduct.discountPercentage,
+        originalPrice: apiProduct.originalPrice,
+        titleLocalized: apiProduct.titleLocalized,
+        descriptionLocalized: apiProduct.descriptionLocalized,
+      );
+
+      navigator.pop(); // dismiss loader overlay
+      navigator.push(
+        MaterialPageRoute(
+          builder: (_) => ProductDetailScreen(product: product),
+        ),
+      );
+    } catch (e) {
+      navigator.pop(); // dismiss loader overlay
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Failed to load product details')),
+      );
+    }
+  }
+
   Widget _buildOrderItemCard(CartItemModel item, AppLocalizations l10n) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: isDark ? AppColors.darkStandardBorder : AppColors.gray200,
+    return GestureDetector(
+      onTap: () => _openProductDetail(item),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: isDark ? AppColors.darkStandardBorder : AppColors.gray200,
+            ),
           ),
         ),
-      ),
-      child: Row(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              width: 70,
-              height: 95,
-              color: isDark ? AppColors.darkMainBackground : AppColors.gray100,
-              child: CachedNetworkImage(
-                imageUrl: item.imageUrl,
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
                 width: 70,
                 height: 95,
-                fit: BoxFit.cover,
-                cacheManager: ImageCacheManager.instance,
-                memCacheWidth: 140,
-                memCacheHeight: 190,
+                color: isDark
+                    ? AppColors.darkMainBackground
+                    : AppColors.gray100,
+                child: CachedNetworkImage(
+                  imageUrl: item.imageUrl,
+                  width: 70,
+                  height: 95,
+                  fit: BoxFit.cover,
+                  cacheManager: ImageCacheManager.instance,
+                  memCacheWidth: 140,
+                  memCacheHeight: 190,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.brand,
-                  style: AppTypography.caption.copyWith(
-                    color: isDark
-                        ? AppColors.darkSecondaryText
-                        : AppColors.gray600,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.brand,
+                    style: AppTypography.caption.copyWith(
+                      color: isDark
+                          ? AppColors.darkSecondaryText
+                          : AppColors.gray600,
+                    ),
                   ),
-                ),
-                Text(
-                  item.localizedTitle(
-                    Localizations.localeOf(context).languageCode,
+                  Text(
+                    item.localizedTitle(
+                      Localizations.localeOf(context).languageCode,
+                    ),
+                    style: AppTypography.body2.copyWith(
+                      fontWeight: FontWeight.w500,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  style: AppTypography.body2.copyWith(
-                    fontWeight: FontWeight.w500,
-                    color: theme.colorScheme.onSurface,
+                  const SizedBox(height: 4),
+                  // Line 1: Size
+                  Text(
+                    '${l10n.size}: ${_formatSizeLabel(item.selectedSize)}',
+                    style: AppTypography.caption.copyWith(
+                      color: isDark
+                          ? AppColors.darkSecondaryText
+                          : AppColors.gray600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    // Size and Color
-                    Expanded(
-                      child: Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              '${l10n.size}: ${_formatSizeLabel(item.selectedSize)}',
-                              style: AppTypography.caption.copyWith(
-                                color: isDark
-                                    ? AppColors.darkSecondaryText
-                                    : AppColors.gray600,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                  const SizedBox(height: 2),
+                  // Line 2: Color + Quantity
+                  Row(
+                    children: [
+                      if (item.selectedColor != null) ...[
+                        Text(
+                          '${l10n.color}:',
+                          style: AppTypography.caption.copyWith(
+                            color: isDark
+                                ? AppColors.darkSecondaryText
+                                : AppColors.gray600,
                           ),
-                          if (item.selectedColor != null) ...[
-                            const SizedBox(width: 8),
-                            Text(
-                              '\u2022',
-                              style: AppTypography.caption.copyWith(
-                                color: isDark
-                                    ? AppColors.darkSecondaryText
-                                    : AppColors.gray600,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              '${l10n.color}:',
-                              style: AppTypography.caption.copyWith(
-                                color: isDark
-                                    ? AppColors.darkSecondaryText
-                                    : AppColors.gray600,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            _buildColorCircle(item.selectedColor!),
-                          ],
-                        ],
+                        ),
+                        const SizedBox(width: 6),
+                        _buildColorCircle(item.selectedColor!),
+                        const SizedBox(width: 10),
+                      ],
+                      Text(
+                        '${l10n.qty}: ${item.quantity}',
+                        style: AppTypography.caption.copyWith(
+                          color: isDark
+                              ? AppColors.darkSecondaryText
+                              : AppColors.gray600,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '${l10n.qty}: ${item.quantity}',
-                      style: AppTypography.caption.copyWith(
-                        color: isDark
-                            ? AppColors.darkSecondaryText
-                            : AppColors.gray600,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-          Text(
-            _formatCheckoutItemPrice(item),
-            style: AppTypography.body2.copyWith(
-              fontWeight: FontWeight.w600,
-              color: theme.colorScheme.onSurface,
+            Text(
+              _formatCheckoutItemPrice(item),
+              style: AppTypography.body2.copyWith(
+                fontWeight: FontWeight.w600,
+                color: theme.colorScheme.onSurface,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

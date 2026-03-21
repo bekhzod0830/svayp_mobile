@@ -4,8 +4,6 @@ import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
 import 'package:swipe/features/orders/data/models/order_model.dart';
 import 'package:swipe/features/orders/data/services/order_service.dart';
-import 'package:swipe/features/main/presentation/screens/main_screen.dart';
-import 'package:swipe/features/chat/presentation/screens/chat_list_screen.dart';
 import 'package:swipe/core/network/api_client.dart';
 import 'package:swipe/core/di/service_locator.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -76,8 +74,7 @@ class OrdersScreenState extends State<OrdersScreen>
   List<OrderModel> _orders = [];
   bool _isLoading = true;
   String? _errorMessage;
-  int _selectedTabIndex = 0; // 0 = Chat, 1 = Orders
-  int _chatRefreshKey = 0; // Counter to force ChatListScreen rebuild
+  bool _isPartner = false;
 
   @override
   bool get wantKeepAlive => true;
@@ -89,6 +86,7 @@ class OrdersScreenState extends State<OrdersScreen>
     // Initialize OrderService with ApiClient
     final apiClient = getIt<ApiClient>();
     _orderService = OrderService(apiClient);
+    _isPartner = apiClient.isPartnerLogin();
     _loadOrders();
   }
 
@@ -116,7 +114,9 @@ class OrdersScreenState extends State<OrdersScreen>
 
     try {
       // Fetch orders from API
-      final orders = await _orderService.fetchOrders();
+      final orders = _isPartner
+          ? await _orderService.fetchAdminOrders()
+          : await _orderService.fetchOrders();
 
       if (!mounted) return;
 
@@ -140,10 +140,6 @@ class OrdersScreenState extends State<OrdersScreen>
   void refresh() {
     if (mounted) {
       _loadOrders();
-      // Increment refresh key to force ChatListScreen rebuild
-      setState(() {
-        _chatRefreshKey++;
-      });
     }
   }
 
@@ -156,8 +152,151 @@ class OrdersScreenState extends State<OrdersScreen>
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       isScrollControlled: true,
-      builder: (context) => _OrderDetailSheet(order: order),
+      builder: (context) =>
+          _OrderDetailSheet(order: order, isPartner: _isPartner),
     );
+  }
+
+  Future<void> _onChangeStatusTap(OrderModel order) async {
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    Color statusColor(String s) {
+      switch (s.toUpperCase()) {
+        case 'CREATED':
+          return const Color(0xFFFFC107);
+        case 'PENDING':
+          return const Color(0xFFFF9800);
+        case 'CONFIRMED':
+          return const Color(0xFF2196F3);
+        case 'PROCESSING':
+          return const Color(0xFF1976D2);
+        case 'SHIPPED':
+          return const Color(0xFF3F51B5);
+        case 'OUT_FOR_DELIVERY':
+          return const Color(0xFF9C27B0);
+        case 'DELIVERED':
+          return const Color(0xFF4CAF50);
+        case 'CANCELLED':
+          return const Color(0xFFF44336);
+        case 'REFUNDED':
+          return const Color(0xFFFF5722);
+        case 'RETURNED':
+          return const Color(0xFF9E9E9E);
+        default:
+          return const Color(0xFFFFC107);
+      }
+    }
+
+    final statuses = [
+      ('CREATED', l10n.created),
+      ('CONFIRMED', l10n.confirmed),
+      ('PROCESSING', l10n.processing),
+      ('SHIPPED', l10n.shipped),
+      ('OUT_FOR_DELIVERY', l10n.outForDelivery),
+      ('DELIVERED', l10n.delivered),
+      ('CANCELLED', l10n.cancelled),
+    ];
+
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: isDark ? AppColors.darkCardBackground : AppColors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? AppColors.darkSecondaryText
+                      : AppColors.gray300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Text(
+                  l10n.changeStatus,
+                  style: AppTypography.heading4.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ...statuses.map((entry) {
+                        final (apiValue, label) = entry;
+                        final isCurrent =
+                            apiValue == order.status.toUpperCase();
+                        final color = statusColor(apiValue);
+                        return ListTile(
+                          leading: Container(
+                            width: 12,
+                            height: 12,
+                            decoration: BoxDecoration(
+                              color: color,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          title: Text(
+                            label,
+                            style: AppTypography.body1.copyWith(
+                              color: isCurrent
+                                  ? color
+                                  : theme.colorScheme.onSurface,
+                              fontWeight: isCurrent
+                                  ? FontWeight.w700
+                                  : FontWeight.w400,
+                            ),
+                          ),
+                          trailing: isCurrent
+                              ? Icon(Icons.check_rounded, color: color)
+                              : null,
+                          onTap: () => Navigator.of(ctx).pop(apiValue),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (selected == null || selected == order.status.toUpperCase()) return;
+    if (!mounted) return;
+
+    try {
+      await _orderService.updateOrderStatus(order.id, selected);
+      if (mounted) _loadOrders();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.errorGenericSubtitle),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -174,120 +313,41 @@ class OrdersScreenState extends State<OrdersScreen>
       body: SafeArea(
         child: Column(
           children: [
-            // Header with Tab Buttons
+            // Header
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-              child: Column(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+              child: Row(
                 children: [
-                  // Tab Buttons
-                  Container(
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? AppColors.darkCardBackground
-                          : AppColors.gray100,
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    child: Row(
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Chat Tab
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                _selectedTabIndex = 0;
-                              });
-                            },
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: _selectedTabIndex == 0
-                                    ? (isDark
-                                          ? AppColors.white
-                                          : AppColors.black)
-                                    : Colors.transparent,
-                                borderRadius: BorderRadius.circular(24),
-                              ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                l10n.chat,
-                                style: AppTypography.button.copyWith(
-                                  color: _selectedTabIndex == 0
-                                      ? (isDark
-                                            ? AppColors.black
-                                            : AppColors.white)
-                                      : (isDark
-                                            ? AppColors.darkSecondaryText
-                                            : AppColors.gray600),
-                                  fontWeight: _selectedTabIndex == 0
-                                      ? FontWeight.w700
-                                      : FontWeight.w500,
-                                ),
-                              ),
-                            ),
+                        Text(
+                          l10n.orders,
+                          style: AppTypography.heading2.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: theme.colorScheme.onSurface,
+                            letterSpacing: -0.5,
                           ),
                         ),
-                        // Orders Tab
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                _selectedTabIndex = 1;
-                              });
-                            },
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: _selectedTabIndex == 1
-                                    ? (isDark
-                                          ? AppColors.white
-                                          : AppColors.black)
-                                    : Colors.transparent,
-                                borderRadius: BorderRadius.circular(24),
-                              ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                l10n.myOrders,
-                                style: AppTypography.button.copyWith(
-                                  color: _selectedTabIndex == 1
-                                      ? (isDark
-                                            ? AppColors.black
-                                            : AppColors.white)
-                                      : (isDark
-                                            ? AppColors.darkSecondaryText
-                                            : AppColors.gray600),
-                                  fontWeight: _selectedTabIndex == 1
-                                      ? FontWeight.w700
-                                      : FontWeight.w500,
-                                ),
-                              ),
-                            ),
+                        const SizedBox(height: 4),
+                        Text(
+                          l10n.ordersCount(_orders.length),
+                          style: AppTypography.body2.copyWith(
+                            color: isDark
+                                ? AppColors.darkSecondaryText
+                                : AppColors.gray600,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  if (_selectedTabIndex == 1) ...[
-                    const SizedBox(height: 12),
-                    // Order count subtitle (only show for orders tab)
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        '${_orders.length} ${_orders.length == 1 ? "order" : "orders"}',
-                        style: AppTypography.body2.copyWith(
-                          color: isDark
-                              ? AppColors.darkSecondaryText
-                              : AppColors.gray600,
-                        ),
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),
             // Content
             Expanded(
-              child: _selectedTabIndex == 0
-                  ? ChatListScreen(key: ValueKey(_chatRefreshKey))
-                  : _isLoading
+              child: _isLoading
                   ? Center(
                       child: CircularProgressIndicator(
                         color: isDark
@@ -313,6 +373,10 @@ class OrdersScreenState extends State<OrdersScreen>
                             order: order,
                             onTap: () => _onOrderTap(order),
                             l10n: l10n,
+                            isPartner: _isPartner,
+                            onChangeStatus: _isPartner
+                                ? () => _onChangeStatusTap(order)
+                                : null,
                           );
                         },
                       ),
@@ -400,13 +464,13 @@ class OrdersScreenState extends State<OrdersScreen>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.receipt_long_outlined,
+              _isPartner ? Icons.inbox_outlined : Icons.receipt_long_outlined,
               size: 100,
               color: isDark ? AppColors.darkSecondaryText : AppColors.gray400,
             ),
             const SizedBox(height: 24),
             Text(
-              l10n.noOrdersYet,
+              _isPartner ? l10n.noOrdersReceivedYet : l10n.noOrdersYet,
               style: AppTypography.heading3.copyWith(
                 color: theme.colorScheme.onSurface,
               ),
@@ -414,38 +478,15 @@ class OrdersScreenState extends State<OrdersScreen>
             ),
             const SizedBox(height: 12),
             Text(
-              l10n.orderHistoryAppearHere,
+              _isPartner
+                  ? l10n.customerOrdersAppearHere
+                  : l10n.orderHistoryAppearHere,
               style: AppTypography.body1.copyWith(
                 color: isDark
                     ? AppColors.darkSecondaryText
                     : AppColors.secondaryText,
               ),
               textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-            ElevatedButton(
-              onPressed: () {
-                // Navigate to Discover tab (index 0)
-                final mainScreenState = context
-                    .findAncestorStateOfType<MainScreenState>();
-                if (mainScreenState != null) {
-                  mainScreenState.navigateToTab(0);
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: isDark
-                    ? AppColors.darkPrimaryText
-                    : AppColors.black,
-                foregroundColor: isDark ? AppColors.black : AppColors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 16,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: Text(l10n.startShopping),
             ),
           ],
         ),
@@ -459,11 +500,15 @@ class _OrderCard extends StatelessWidget {
   final OrderModel order;
   final VoidCallback onTap;
   final AppLocalizations l10n;
+  final bool isPartner;
+  final VoidCallback? onChangeStatus;
 
   const _OrderCard({
     required this.order,
     required this.onTap,
     required this.l10n,
+    this.isPartner = false,
+    this.onChangeStatus,
   });
 
   String _formatDate(DateTime date) {
@@ -557,6 +602,36 @@ class _OrderCard extends StatelessWidget {
               ),
 
               const SizedBox(height: 12),
+
+              // Customer info row (partner/seller view)
+              if (isPartner && order.clientName != null) ...[
+                Row(
+                  children: [
+                    Icon(
+                      Icons.person_outline,
+                      size: 14,
+                      color: isDark
+                          ? AppColors.darkSecondaryText
+                          : AppColors.gray600,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        order.clientPhone != null
+                            ? '${order.clientName!}  •  ${order.clientPhone!}'
+                            : order.clientName!,
+                        style: AppTypography.body2.copyWith(
+                          color: isDark
+                              ? AppColors.darkSecondaryText
+                              : AppColors.gray600,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+              ],
 
               // Delivery Method and Payment Method
               Row(
@@ -666,30 +741,59 @@ class _OrderCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   // View Details Button
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton(
-                      onPressed: onTap,
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(
-                          color: isDark
-                              ? AppColors.darkPrimaryText
-                              : AppColors.black,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: onTap,
+                          style: OutlinedButton.styleFrom(
+                            fixedSize: const Size.fromHeight(48),
+                            side: BorderSide(
+                              color: isDark
+                                  ? AppColors.darkPrimaryText
+                                  : AppColors.black,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: Text(
+                            l10n.viewDetails,
+                            style: AppTypography.body2.copyWith(
+                              color: isDark
+                                  ? AppColors.darkPrimaryText
+                                  : AppColors.black,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
                       ),
-                      child: Text(
-                        l10n.viewDetails,
-                        style: AppTypography.body2.copyWith(
-                          color: isDark
-                              ? AppColors.darkPrimaryText
-                              : AppColors.black,
-                          fontWeight: FontWeight.w600,
+                      if (onChangeStatus != null) ...[
+                        const SizedBox(width: 8),
+                        OutlinedButton(
+                          onPressed: onChangeStatus,
+                          style: OutlinedButton.styleFrom(
+                            fixedSize: const Size(72, 48),
+                            side: BorderSide(
+                              color: isDark
+                                  ? AppColors.darkPrimaryText
+                                  : AppColors.black,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            padding: EdgeInsets.zero,
+                          ),
+                          child: Icon(
+                            Icons.swap_horiz_rounded,
+                            size: 22,
+                            color: isDark
+                                ? AppColors.darkPrimaryText
+                                : AppColors.black,
+                          ),
                         ),
-                      ),
-                    ),
+                      ],
+                    ],
                   ),
                 ],
               ),
@@ -704,8 +808,9 @@ class _OrderCard extends StatelessWidget {
 /// Order Detail Bottom Sheet
 class _OrderDetailSheet extends StatefulWidget {
   final OrderModel order;
+  final bool isPartner;
 
-  const _OrderDetailSheet({required this.order});
+  const _OrderDetailSheet({required this.order, this.isPartner = false});
 
   @override
   State<_OrderDetailSheet> createState() => _OrderDetailSheetState();
@@ -713,6 +818,13 @@ class _OrderDetailSheet extends StatefulWidget {
 
 class _OrderDetailSheetState extends State<_OrderDetailSheet> {
   bool _itemsExpanded = false;
+  late String _currentStatus; // tracks optimistic status update
+
+  @override
+  void initState() {
+    super.initState();
+    _currentStatus = widget.order.status;
+  }
 
   // Calculate separate USD and UZS subtotals
   double get _usdSubtotal {
@@ -775,23 +887,44 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
             ),
             const SizedBox(height: 8),
 
-            // Status
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: widget.order.statusColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                widget.order.getLocalizedStatus(context),
-                style: AppTypography.body2.copyWith(
-                  color: widget.order.statusColor,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
+            // Status badge (tracks optimistic update)
+            _StatusBadge(status: _currentStatus),
 
             const SizedBox(height: 24),
+
+            // Customer info box (partner/seller view only)
+            if (widget.isPartner &&
+                (widget.order.clientName != null ||
+                    widget.order.clientPhone != null)) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? AppColors.darkMainBackground
+                      : AppColors.gray100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (widget.order.clientName != null)
+                      _DetailRow(
+                        label: l10n.customerName,
+                        value: widget.order.clientName!,
+                      ),
+                    if (widget.order.clientPhone != null) ...[
+                      const SizedBox(height: 6),
+                      _DetailRow(
+                        label: l10n.customerPhone,
+                        value: widget.order.clientPhone!,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
 
             // Delivery Method
             _DetailRow(
@@ -896,7 +1029,9 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              item.productTitle,
+                              item.localizedTitle(
+                                Localizations.localeOf(context).languageCode,
+                              ),
                               style: AppTypography.body2.copyWith(
                                 fontWeight: FontWeight.w600,
                                 color: theme.colorScheme.onSurface,
@@ -1001,6 +1136,89 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
         color: color,
         shape: BoxShape.circle,
         border: Border.all(color: Colors.grey.shade400, width: 1),
+      ),
+    );
+  }
+}
+
+/// Status Badge Widget - shows coloured pill for any status string
+class _StatusBadge extends StatelessWidget {
+  final String status;
+  const _StatusBadge({required this.status});
+
+  Color get _color {
+    switch (status.toUpperCase()) {
+      case 'CREATED':
+        return const Color(0xFFFFC107);
+      case 'PENDING':
+        return const Color(0xFFFF9800);
+      case 'PAID':
+        return const Color(0xFF009688);
+      case 'CONFIRMED':
+        return const Color(0xFF2196F3);
+      case 'PROCESSING':
+        return const Color(0xFF1976D2);
+      case 'SHIPPED':
+        return const Color(0xFF3F51B5);
+      case 'OUT_FOR_DELIVERY':
+        return const Color(0xFF9C27B0);
+      case 'DELIVERED':
+        return const Color(0xFF4CAF50);
+      case 'CANCELLED':
+        return const Color(0xFFF44336);
+      case 'REFUNDED':
+        return const Color(0xFFFF5722);
+      case 'RETURNED':
+        return const Color(0xFF9E9E9E);
+      default:
+        return const Color(0xFFFFC107);
+    }
+  }
+
+  String _label(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    switch (status.toUpperCase()) {
+      case 'CREATED':
+        return l10n.created;
+      case 'PENDING':
+        return l10n.pending;
+      case 'PAID':
+        return l10n.paid;
+      case 'CONFIRMED':
+        return l10n.confirmed;
+      case 'PROCESSING':
+        return l10n.processing;
+      case 'SHIPPED':
+        return l10n.shipped;
+      case 'OUT_FOR_DELIVERY':
+        return l10n.outForDelivery;
+      case 'DELIVERED':
+        return l10n.delivered;
+      case 'CANCELLED':
+        return l10n.cancelled;
+      case 'REFUNDED':
+        return l10n.refunded;
+      case 'RETURNED':
+        return l10n.returned;
+      default:
+        return status;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: _color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        _label(context),
+        style: AppTypography.body2.copyWith(
+          color: _color,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }

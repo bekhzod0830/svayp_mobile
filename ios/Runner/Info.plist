@@ -54,5 +54,10 @@
 	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>Camera access is required to scan customer QR codes for cashback.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>remote-notification</string>
+	</array>
 </dict>
 </plist>

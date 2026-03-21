@@ -138,6 +138,16 @@ class CartService {
     await _cartBox?.clear();
   }
 
+  /// Sync cart items from API - replaces all Hive items with the provided list.
+  /// Call this whenever a fresh API response is available so Hive stays in sync.
+  Future<void> syncFromApi(List<CartItemModel> items) async {
+    await init();
+    await _cartBox?.clear();
+    for (final item in items) {
+      await _cartBox?.add(item);
+    }
+  }
+
   /// Calculate subtotal
   double getSubtotal() {
     final items = getCartItems();

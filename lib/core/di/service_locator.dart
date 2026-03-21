@@ -1,6 +1,7 @@
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:swipe/core/network/api_client.dart';
+import 'package:swipe/core/services/notification_preferences_service.dart';
 import 'package:swipe/features/auth/data/services/auth_service.dart';
 import 'package:swipe/features/profile/data/services/profile_service.dart';
 
@@ -25,4 +26,7 @@ Future<void> initializeDependencies() async {
   getIt.registerLazySingleton<ProfileService>(
     () => ProfileService(getIt<ApiClient>()),
   );
+
+  // Notification preferences (persisted toggles per type)
+  await NotificationPreferencesService.instance.init();
 }

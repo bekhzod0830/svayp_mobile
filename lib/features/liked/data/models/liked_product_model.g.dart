@@ -30,13 +30,15 @@ class LikedProductModelAdapter extends TypeAdapter<LikedProductModel> {
       originalPrice: fields[10] as int?,
       sellerId: fields[11] as String?,
       currency: fields[12] as String,
+      titleLocalized: (fields[13] as Map?)?.cast<String, String>(),
+      descriptionLocalized: (fields[14] as Map?)?.cast<String, String>(),
     );
   }
 
   @override
   void write(BinaryWriter writer, LikedProductModel obj) {
     writer
-      ..writeByte(13)
+      ..writeByte(15)
       ..writeByte(0)
       ..write(obj.productId)
       ..writeByte(1)
@@ -62,7 +64,11 @@ class LikedProductModelAdapter extends TypeAdapter<LikedProductModel> {
       ..writeByte(11)
       ..write(obj.sellerId)
       ..writeByte(12)
-      ..write(obj.currency);
+      ..write(obj.currency)
+      ..writeByte(13)
+      ..write(obj.titleLocalized)
+      ..writeByte(14)
+      ..write(obj.descriptionLocalized);
   }
 
   @override

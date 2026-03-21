@@ -79,6 +79,8 @@ class LikedService {
       originalPrice: product.originalPrice,
       sellerId: product.sellerId,
       currency: product.currency,
+      titleLocalized: product.titleLocalized,
+      descriptionLocalized: product.descriptionLocalized,
     );
 
     await _likedBox?.add(likedProduct);

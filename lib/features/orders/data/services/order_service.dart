@@ -40,8 +40,7 @@ class OrderService {
       for (final orderJson in ordersData) {
         try {
           orders.add(OrderModel.fromJson(orderJson as Map<String, dynamic>));
-        } catch (e) {
-        }
+        } catch (e) {}
       }
 
       // Sort by date, newest first
@@ -60,7 +59,6 @@ class OrderService {
     }
 
     try {
-
       final endpoint = ApiConfig.orderDetail.replaceAll('{id}', id);
       final response = await _apiClient.get(endpoint);
 
@@ -123,5 +121,66 @@ class OrderService {
     } catch (e) {
       rethrow;
     }
+  }
+
+  /// Fetch all orders for sellers/partners via admin endpoint
+  /// GET /admin/orders?skip=0&limit=20
+  Future<List<OrderModel>> fetchAdminOrders({
+    int skip = 0,
+    int limit = 20,
+  }) async {
+    if (_apiClient == null) {
+      throw Exception('ApiClient not initialized. Cannot fetch admin orders.');
+    }
+
+    try {
+      final response = await _apiClient.get(
+        '/admin/orders?skip=$skip&limit=$limit',
+      );
+
+      final data = response.data['data'];
+
+      List<dynamic> ordersData;
+      if (data is Map) {
+        ordersData = data['data'] ?? data['items'] ?? [];
+      } else if (data is List) {
+        ordersData = data;
+      } else {
+        ordersData = [];
+      }
+
+      final orders = <OrderModel>[];
+      for (final orderJson in ordersData) {
+        try {
+          orders.add(OrderModel.fromJson(orderJson as Map<String, dynamic>));
+        } catch (e) {}
+      }
+
+      orders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return orders;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Update order status (admin/seller only)
+  /// PATCH /admin/orders/{orderId}/status
+  /// Body: { "status": "CREATED", "note": "optional" }
+  Future<void> updateOrderStatus(
+    String orderId,
+    String status, {
+    String? note,
+  }) async {
+    if (_apiClient == null) {
+      throw Exception('ApiClient not initialized. Cannot update order status.');
+    }
+
+    final endpoint = ApiConfig.adminOrderStatus.replaceAll('{id}', orderId);
+    final body = <String, dynamic>{'status': status};
+    if (note != null && note.trim().isNotEmpty) {
+      body['note'] = note.trim();
+    }
+
+    await _apiClient.patch(endpoint, data: body);
   }
 }
