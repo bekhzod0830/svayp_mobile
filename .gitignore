@@ -44,3 +44,7 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 node_modules
+
+# Firebase config files — contain API keys, must not be committed
+ios/Runner/GoogleService-Info.plist
+android/app/google-services.json
