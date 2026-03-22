@@ -165,6 +165,11 @@ class _ChatListScreenState extends State<ChatListScreen>
       final idx = _chats.indexWhere((c) => c.id == event.chatId);
       if (idx == -1) return;
       final isOpen = wsService.activeChatId == event.chatId;
+
+      // Pre-warm the detail screen's in-memory cache so the new message
+      // appears instantly when the conversation is opened.
+      ChatDetailScreen.appendToCache(event.chatId, event.message);
+
       setState(() {
         _chats[idx] = _chats[idx].copyWith(
           lastMessagePreview: event.message.content,

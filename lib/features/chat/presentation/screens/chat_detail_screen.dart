@@ -42,6 +42,21 @@ class ChatDetailScreen extends StatefulWidget {
     this.pendingMessage,
   });
 
+  /// Appends [message] to the in-memory message cache for [chatId].
+  /// Called from the chat list screen when a new WS message arrives so
+  /// that opening the detail screen shows it instantly from cache.
+  static void appendToCache(String chatId, ChatMessageResponse message) {
+    final cache = _ChatDetailScreenState._messagesCache;
+    final existing = cache[chatId];
+    if (existing == null) {
+      cache[chatId] = [message];
+      return;
+    }
+    // Avoid duplicates
+    if (existing.any((m) => m.id == message.id)) return;
+    existing.add(message);
+  }
+
   @override
   State<ChatDetailScreen> createState() => _ChatDetailScreenState();
 }
@@ -109,6 +124,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
       if (cachedMessages != null && cachedMessages.isNotEmpty) {
         _messages = List.of(cachedMessages);
         _isLoading = false;
+        // Scroll to latest cached message immediately after first frame
+        WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
       }
       // Apply chat cache
       final cachedChat = _chatCache[widget.chatId];
@@ -152,28 +169,32 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
         }
       }
 
-      // Load chat and messages (background refresh; no spinner if cache hit)
-      await _loadChat();
-      await _loadMessages();
-
-      // Initialise presence from REST response and rebuild so the UI shows it
-      if (_chat != null && mounted) {
-        setState(() {
-          _isOtherOnline = _isAdmin ? _chat!.userOnline : _chat!.sellerOnline;
-          _otherLastSeen = _isAdmin
-              ? _chat!.userLastSeen
-              : _chat!.sellerLastSeen;
-        });
-        debugPrint(
-          '[Chat] Initial presence: online=$_isOtherOnline lastSeen=$_otherLastSeen',
-        );
-      }
-
-      // Mark as read via REST
-      await _chatService.markAsRead(widget.chatId);
-
-      // Connect STOMP WebSocket for real-time messaging
-      _connectWebSocket();
+      // Load chat and messages in parallel — neither depends on the other.
+      // markAsRead also fires immediately alongside them (no need to block).
+      // WebSocket is connected right after _loadChat so we have otherUserId.
+      await Future.wait([
+        _loadChat().then((_) {
+          // Connect WS as soon as we have chat metadata (for otherUserId).
+          // This allows real-time messages to start arriving ASAP.
+          if (mounted) _connectWebSocket();
+          // Initialise presence from REST response
+          if (_chat != null && mounted) {
+            setState(() {
+              _isOtherOnline = _isAdmin
+                  ? _chat!.userOnline
+                  : _chat!.sellerOnline;
+              _otherLastSeen = _isAdmin
+                  ? _chat!.userLastSeen
+                  : _chat!.sellerLastSeen;
+            });
+            debugPrint(
+              '[Chat] Initial presence: online=$_isOtherOnline lastSeen=$_otherLastSeen',
+            );
+          }
+        }),
+        _loadMessages(),
+        _chatService.markAsRead(widget.chatId).catchError((_) {}),
+      ]);
 
       _isInitialized = true;
     } catch (e) {
