@@ -3,7 +3,7 @@ class AppConstants {
   AppConstants._();
 
   // App Info
-  static const String appName = 'Swipe';
+  static const String appName = 'SVAYP';
   static const String appTagline = 'Discover Your Style';
 
   // API Configuration
