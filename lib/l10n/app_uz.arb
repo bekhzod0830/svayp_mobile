@@ -432,6 +432,7 @@
   "orderDetails": "Buyurtma tafsilotlari",
   "reorder": "Qayta buyurtma qilish",
   "cancelOrder": "Buyurtmani bekor qilish",
+  "waiting": "Tasdiqlanishni kutmoqda",
   "pending": "Kutilmoqda",
   "confirmed": "Tasdiqlandi",
   "processing": "Tayyorlanmoqda",
@@ -443,6 +444,9 @@
   "paid": "To'langan",
   "refunded": "Qaytarildi",
   "returned": "Tovar qaytarildi",
+  "readyToShip": "Yuborishga tayyor",
+  "readyForPickup": "Olib ketishga tayyor",
+  "voided": "Bekor qilindi",
   
   "chat": "Suhbat",
   "noMessagesYet": "Hali xabarlar yo'q",
@@ -480,7 +484,36 @@
     }
   },
   "yesterday": "Kecha",
-  "interestedInProduct": "Salom! Men ushbu mahsulot bilan qiziqaman. U mavjudmi?",
+  "chatToday": "Bugun",
+  "chatPresenceOnline": "onlayn",
+  "chatPresenceOffline": "oflayn",
+  "chatPresenceTyping": "terilmoqda...",
+  "chatLastSeenJustNow": "hozirgina",
+  "chatLastSeenMinutes": "{minutes} daqiqa oldin",
+  "@chatLastSeenMinutes": {
+    "placeholders": {
+      "minutes": { "type": "int" }
+    }
+  },
+  "chatLastSeenHours": "{hours} soat oldin",
+  "@chatLastSeenHours": {
+    "placeholders": {
+      "hours": { "type": "int" }
+    }
+  },
+  "chatLastSeenDays": "{days} kun oldin",
+  "@chatLastSeenDays": {
+    "placeholders": {
+      "days": { "type": "int" }
+    }
+  },
+  "chatFailedToLoad": "Chatni yuklab bo'lmadi",
+  "chatFailedToReload": "Chatni yangilab bo'lmadi",
+  "chatReconnecting": "Qayta ulanmoqda… bir ozdan keyin qayta urinib ko'ring.",
+  "chatGoBack": "Orqaga",
+  "chatNotFound": "Chat topilmadi",
+  "chatFailedToLoadProduct": "Mahsulot ma'lumotlarini yuklab bo'lmadi",
+  "interestedInProduct": "Assalomu alaykum, sizda shu mahsulotdan bormi?",
   "sellerAutoResponse": "Xabaringiz uchun rahmat! Men tekshirib, tez orada siz bilan bog'lanaman.",
   "typeMessage": "Xabar yozing...",
   "typeAMessage": "Xabaringizni yozing...",

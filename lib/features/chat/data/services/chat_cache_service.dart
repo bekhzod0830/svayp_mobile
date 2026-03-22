@@ -69,6 +69,18 @@ class ChatCacheService {
     return _chatBox?.values.any((chat) => chat.chatId == chatId) ?? false;
   }
 
+  /// Get a single cached chat by ID
+  Future<ChatResponse?> getCachedChat(String chatId) async {
+    await init();
+    final cache = _chatBox?.values
+        .cast<ChatCacheModel?>()
+        .firstWhere(
+          (chat) => chat?.chatId == chatId,
+          orElse: () => null,
+        );
+    return cache?.toChatResponse();
+  }
+
   /// Save/update chats from API response
   Future<void> updateChatsCache(List<ChatResponse> chats) async {
     await init();

@@ -482,7 +482,7 @@
   "orderDetails": "Order Details",
   "reorder": "Reorder",
   "cancelOrder": "Cancel Order",
-  "pending": "Pending",
+  "waiting": "Awaiting Confirmation",
   "confirmed": "Confirmed",
   "processing": "Processing",
   "shipped": "Shipped",
@@ -493,6 +493,9 @@
   "paid": "Paid",
   "refunded": "Refunded",
   "returned": "Returned",
+  "readyToShip": "Ready to Ship",
+  "readyForPickup": "Ready for Pickup",
+  "voided": "Voided",
   
   "chat": "Chat",
   "noMessagesYet": "No Messages Yet",
@@ -530,7 +533,36 @@
     }
   },
   "yesterday": "Yesterday",
-  "interestedInProduct": "Hello! I'm interested in this product. Is it available?",
+  "chatToday": "Today",
+  "chatPresenceOnline": "online",
+  "chatPresenceOffline": "offline",
+  "chatPresenceTyping": "typing...",
+  "chatLastSeenJustNow": "just now",
+  "chatLastSeenMinutes": "last seen {minutes}m ago",
+  "@chatLastSeenMinutes": {
+    "placeholders": {
+      "minutes": { "type": "int" }
+    }
+  },
+  "chatLastSeenHours": "last seen {hours}h ago",
+  "@chatLastSeenHours": {
+    "placeholders": {
+      "hours": { "type": "int" }
+    }
+  },
+  "chatLastSeenDays": "last seen {days}d ago",
+  "@chatLastSeenDays": {
+    "placeholders": {
+      "days": { "type": "int" }
+    }
+  },
+  "chatFailedToLoad": "Failed to load chat",
+  "chatFailedToReload": "Failed to reload chat",
+  "chatReconnecting": "Reconnecting… please try again in a moment.",
+  "chatGoBack": "Go Back",
+  "chatNotFound": "Chat not found",
+  "chatFailedToLoadProduct": "Failed to load product details",
+  "interestedInProduct": "Hi, do you have this product in stock?",
   "sellerAutoResponse": "Thank you for your message! I'll check and get back to you shortly.",
   "typeMessage": "Type a message...",
   "typeAMessage": "Type your message...",

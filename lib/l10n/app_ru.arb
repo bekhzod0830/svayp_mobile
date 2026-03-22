@@ -477,6 +477,7 @@
   "orderDetails": "Детали заказа",
   "reorder": "Заказать снова",
   "cancelOrder": "Отменить заказ",
+  "waiting": "Ожидает подтверждения",
   "pending": "Ожидание",
   "confirmed": "Подтвержден",
   "processing": "Обработка",
@@ -488,6 +489,9 @@
   "paid": "Оплачен",
   "refunded": "Возвращён",
   "returned": "Возврат товара",
+  "readyToShip": "Готов к отправке",
+  "readyForPickup": "Готов к выдаче",
+  "voided": "Аннулирован",
   
   "chat": "Чат",
   "noMessagesYet": "Пока нет сообщений",
@@ -525,7 +529,36 @@
     }
   },
   "yesterday": "Вчера",
-  "interestedInProduct": "Здравствуйте! Меня интересует этот товар. Он доступен?",
+  "chatToday": "Сегодня",
+  "chatPresenceOnline": "онлайн",
+  "chatPresenceOffline": "офлайн",
+  "chatPresenceTyping": "печатает...",
+  "chatLastSeenJustNow": "только что",
+  "chatLastSeenMinutes": "{minutes} мин назад",
+  "@chatLastSeenMinutes": {
+    "placeholders": {
+      "minutes": { "type": "int" }
+    }
+  },
+  "chatLastSeenHours": "{hours} ч назад",
+  "@chatLastSeenHours": {
+    "placeholders": {
+      "hours": { "type": "int" }
+    }
+  },
+  "chatLastSeenDays": "{days} дн назад",
+  "@chatLastSeenDays": {
+    "placeholders": {
+      "days": { "type": "int" }
+    }
+  },
+  "chatFailedToLoad": "Не удалось загрузить чат",
+  "chatFailedToReload": "Не удалось обновить чат",
+  "chatReconnecting": "Переподключение… попробуйте снова через мгновение.",
+  "chatGoBack": "Назад",
+  "chatNotFound": "Чат не найден",
+  "chatFailedToLoadProduct": "Не удалось загрузить информацию о товаре",
+  "interestedInProduct": "Привет, есть ли в наличии этот продукт?",
   "sellerAutoResponse": "Спасибо за ваше сообщение! Я проверю и свяжусь с вами в ближайшее время.",
   "typeMessage": "Введите сообщение...",
   "typeAMessage": "Введите ваше сообщение...",

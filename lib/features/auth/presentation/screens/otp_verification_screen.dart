@@ -12,6 +12,7 @@ import 'package:swipe/core/config/api_config.dart';
 import 'package:swipe/core/utils/local_storage_helper.dart';
 import 'package:swipe/core/utils/error_message_helper.dart';
 import 'package:swipe/core/services/seen_products_service.dart';
+import 'package:swipe/core/services/notification_service.dart';
 
 /// OTP Verification Screen
 /// User enters 6-digit OTP code sent to their phone
@@ -188,6 +189,9 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 
       // Clear seen product IDs only if a different account is logging in
       await SeenProductsService.clearIfUserChanged(tokenResponse.user.id);
+
+      // Register FCM token (fire-and-forget — non-critical)
+      unawaited(NotificationService.instance.registerTokenWithBackend());
 
       if (!mounted) return;
 

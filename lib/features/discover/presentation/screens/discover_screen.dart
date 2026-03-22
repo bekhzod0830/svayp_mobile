@@ -22,6 +22,7 @@ import 'package:swipe/core/services/seen_products_service.dart';
 import 'package:swipe/core/cache/image_cache_manager.dart';
 import 'package:swipe/features/chat/data/services/chat_service.dart';
 import 'package:swipe/features/chat/presentation/screens/chat_list_screen.dart';
+import 'package:swipe/core/services/notification_service.dart';
 
 /// Helper function to format size label by removing SIZE_ prefix
 String _formatSizeLabel(String size) {
@@ -67,6 +68,9 @@ class DiscoverScreenState extends State<DiscoverScreen> {
   void initState() {
     super.initState();
     _initializeScreen();
+    // Request notification permission here — after login/registration.
+    // iOS shows the system dialog only once; subsequent calls are instant & silent.
+    NotificationService.instance.requestPermissionAndRegisterToken().ignore();
   }
 
   @override

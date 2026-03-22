@@ -1,4 +1,7 @@
+import 'dart:async';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:swipe/core/cache/image_cache_manager.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
@@ -6,6 +9,7 @@ import 'package:swipe/features/chat/data/models/chat_model.dart';
 import 'package:swipe/features/chat/presentation/screens/chat_detail_screen.dart';
 import 'package:swipe/features/chat/data/services/chat_service.dart';
 import 'package:swipe/features/chat/data/services/chat_cache_service.dart';
+import 'package:swipe/features/chat/data/services/chat_websocket_service.dart';
 import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/core/network/api_client.dart';
 
@@ -27,6 +31,7 @@ class _ChatListScreenState extends State<ChatListScreen>
   bool _isFetchingFromApi = false; // Guard against concurrent API calls
   String? _errorMessage;
   bool _isAdmin = false;
+  StreamSubscription? _listMessageSub;
 
   @override
   void initState() {
@@ -60,6 +65,8 @@ class _ChatListScreenState extends State<ChatListScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _listMessageSub?.cancel();
+    getIt<ChatWebSocketService>().closeList();
     super.dispose();
   }
 
@@ -75,11 +82,21 @@ class _ChatListScreenState extends State<ChatListScreen>
 
     await _chatCacheService.init();
 
-    // Show cached data immediately (no spinner flash)
+    // Show cached data immediately (no spinner flash).
+    // Merge with current in-memory unreadCounts so that an already-cleared
+    // badge (optimistic reset when opening a chat) is never overwritten by
+    // stale cache data before the API response arrives.
     final cachedChats = await _chatCacheService.getCachedChats();
     if (!mounted) return;
+    final currentUnreadMap = {for (final c in _chats) c.id: c.unreadCount};
     setState(() {
-      _chats = cachedChats;
+      _chats = cachedChats.map((c) {
+        final current = currentUnreadMap[c.id];
+        if (current != null && current < c.unreadCount) {
+          return c.copyWith(unreadCount: current);
+        }
+        return c;
+      }).toList();
       _errorMessage = null;
     });
 
@@ -96,7 +113,10 @@ class _ChatListScreenState extends State<ChatListScreen>
       setState(() {
         _chats = chats;
         _isLoading = false;
+        _errorMessage = null;
       });
+
+      _openListSubscription();
     } catch (e) {
       if (!mounted) return;
       if (_chats.isEmpty) {
@@ -114,96 +134,144 @@ class _ChatListScreenState extends State<ChatListScreen>
     await _loadChats();
   }
 
+  Future<void> _openChat(ChatResponse chat) async {
+    // Optimistically reset unread count before entering the chat
+    final idx = _chats.indexWhere((c) => c.id == chat.id);
+    if (idx != -1 && _chats[idx].unreadCount > 0 && mounted) {
+      setState(() {
+        _chats[idx] = _chats[idx].copyWith(unreadCount: 0);
+      });
+    }
+    if (!mounted) return;
+    await Navigator.of(context, rootNavigator: true).push(
+      MaterialPageRoute(
+        builder: (context) => ChatDetailScreen(chatId: chat.id),
+      ),
+    );
+    // Background refresh after returning so the list is accurate
+    _refreshChats();
+  }
+
+  /// Subscribe to all loaded chat rooms for real-time list updates via WS.
+  void _openListSubscription() {
+    if (!mounted || _chats.isEmpty) return;
+    final wsService = getIt<ChatWebSocketService>();
+    wsService.openList(_chats.map((c) => c.id).toList());
+
+    // Set up the stream listener only once; cancel previous if re-loading.
+    _listMessageSub?.cancel();
+    _listMessageSub = wsService.listMessageStream.listen((event) {
+      if (!mounted) return;
+      final idx = _chats.indexWhere((c) => c.id == event.chatId);
+      if (idx == -1) return;
+      final isOpen = wsService.activeChatId == event.chatId;
+      setState(() {
+        _chats[idx] = _chats[idx].copyWith(
+          lastMessagePreview: event.message.content,
+          lastMessageAt: event.message.createdAt,
+          unreadCount: isOpen ? 0 : _chats[idx].unreadCount + 1,
+        );
+        // Bubble updated chat to top
+        final updated = _chats.removeAt(idx);
+        _chats.insert(0, updated);
+      });
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    return Scaffold(
-      backgroundColor: isDark
-          ? AppColors.darkMainBackground
-          : theme.scaffoldBackgroundColor,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.fromLTRB(4, 8, 20, 8),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: Icon(
-                      Icons.arrow_back,
+    return PopScope(
+      canPop: !_isAdmin,
+      child: Scaffold(
+        backgroundColor: isDark
+            ? AppColors.darkMainBackground
+            : AppColors.white,
+        body: SafeArea(
+          child: Column(
+            children: [
+              // Header
+              Container(
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? AppColors.darkCardBackground
+                      : AppColors.white,
+                  border: Border(
+                    bottom: BorderSide(
                       color: isDark
-                          ? AppColors.darkPrimaryText
-                          : AppColors.black,
+                          ? AppColors.darkStandardBorder
+                          : const Color(0xFFE0E0E0),
+                      width: 0.5,
                     ),
-                    onPressed: () => Navigator.of(context).pop(),
                   ),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
+                ),
+                padding: const EdgeInsets.fromLTRB(4, 8, 20, 8),
+                child: Row(
+                  children: [
+                    if (!_isAdmin)
+                      IconButton(
+                        icon: Icon(
+                          Icons.arrow_back,
+                          color: isDark
+                              ? AppColors.darkPrimaryText
+                              : AppColors.black,
+                        ),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.only(left: _isAdmin ? 16 : 0),
+                        child: Text(
                           l10n.chat,
                           style: AppTypography.heading2.copyWith(
                             fontWeight: FontWeight.w700,
                             color: theme.colorScheme.onSurface,
-                            letterSpacing: -0.5,
+                            letterSpacing: -0.3,
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          l10n.chatsCount(_chats.length),
-                          style: AppTypography.body2.copyWith(
-                            color: isDark
-                                ? AppColors.darkSecondaryText
-                                : AppColors.gray600,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            // Content
-            Expanded(
-              child: _isLoading
-                  ? Center(
-                      child: CircularProgressIndicator(
-                        color: isDark
-                            ? AppColors.darkPrimaryText
-                            : AppColors.black,
-                      ),
-                    )
-                  : _errorMessage != null
-                  ? _buildErrorState(l10n, isDark)
-                  : _chats.isEmpty
-                  ? _buildEmptyState(l10n, isDark)
-                  : RefreshIndicator(
-                      onRefresh: _refreshChats,
-                      child: ListView.builder(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 8,
+              // Content
+              Expanded(
+                child: _isLoading
+                    ? Center(
+                        child: CircularProgressIndicator(
+                          color: isDark
+                              ? AppColors.darkPrimaryText
+                              : AppColors.black,
                         ),
-                        itemCount: _chats.length,
-                        itemBuilder: (context, index) {
-                          final chat = _chats[index];
-                          return _ChatListItem(
-                            chat: chat,
-                            isDark: isDark,
-                            l10n: l10n,
-                            isAdmin: _isAdmin,
-                            onChatDeleted: _refreshChats,
-                          );
-                        },
+                      )
+                    : _errorMessage != null
+                    ? _buildErrorState(l10n, isDark)
+                    : _chats.isEmpty
+                    ? _buildEmptyState(l10n, isDark)
+                    : RefreshIndicator(
+                        onRefresh: _refreshChats,
+                        child: ListView.builder(
+                          padding: EdgeInsets.zero,
+                          itemCount: _chats.length,
+                          itemBuilder: (context, index) {
+                            final chat = _chats[index];
+                            return _ChatListItem(
+                              chat: chat,
+                              isDark: isDark,
+                              l10n: l10n,
+                              isAdmin: _isAdmin,
+                              onChatDeleted: _refreshChats,
+                              onTap: () => _openChat(chat),
+                            );
+                          },
+                        ),
                       ),
-                    ),
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -315,6 +383,7 @@ class _ChatListItem extends StatelessWidget {
   final AppLocalizations l10n;
   final bool isAdmin;
   final VoidCallback onChatDeleted;
+  final VoidCallback? onTap;
 
   const _ChatListItem({
     required this.chat,
@@ -322,13 +391,16 @@ class _ChatListItem extends StatelessWidget {
     required this.l10n,
     required this.isAdmin,
     required this.onChatDeleted,
+    this.onTap,
   });
 
   String _formatTime(DateTime time) {
     final now = DateTime.now();
     final difference = now.difference(time);
 
-    if (difference.inMinutes < 60) {
+    if (difference.inMinutes < 1) {
+      return l10n.chatLastSeenJustNow;
+    } else if (difference.inMinutes < 60) {
       return l10n.minutesAgo(difference.inMinutes);
     } else if (difference.inHours < 24) {
       return l10n.hoursAgo(difference.inHours);
@@ -345,153 +417,203 @@ class _ChatListItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final lastMessageTime = chat.lastMessageAt ?? chat.createdAt;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.darkCardBackground : AppColors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDark ? AppColors.darkStandardBorder : AppColors.gray200,
-          width: 1,
-        ),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () async {
-            await Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => ChatDetailScreen(chatId: chat.id),
-              ),
-            );
-            // Refresh chat list when returning from chat detail
-            onChatDeleted();
-          },
-          borderRadius: BorderRadius.circular(16),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Avatar with first letter - shows user/seller based on role
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: _getGradientColors(
-                        isAdmin ? (chat.userName ?? 'User') : chat.sellerName,
-                      ),
-                    ),
-                  ),
-                  child: Center(
-                    child: Text(
-                      () {
-                        final displayName = isAdmin
-                            ? (chat.userName ?? 'U')
-                            : chat.sellerName;
-                        return displayName.isNotEmpty
-                            ? displayName[0].toUpperCase()
-                            : (isAdmin ? 'U' : 'S');
-                      }(),
-                      style: AppTypography.heading4.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                // Content
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          // Display name based on user role
-                          // Admin/Seller sees user name, User sees seller name
-                          Text(
-                            isAdmin
-                                ? (chat.userName ?? 'Unknown User')
-                                : chat.sellerName,
-                            style: AppTypography.body1.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: isDark
-                                  ? AppColors.darkPrimaryText
-                                  : AppColors.black,
+    return Material(
+      color: isDark ? AppColors.darkMainBackground : AppColors.white,
+      child: InkWell(
+        onTap: onTap,
+        // Navigation and unread-count reset is handled by the parent.
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Avatar - shows real image if available, else initials
+                  _buildAvatar(),
+                  const SizedBox(width: 12),
+                  // Content
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            // Display name based on user role
+                            // Admin/Seller sees user name, User sees seller name
+                            Expanded(
+                              child: Text(
+                                isAdmin
+                                    ? (chat.userName ?? 'Unknown User')
+                                    : chat.sellerName,
+                                style: AppTypography.body1.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: isDark
+                                      ? AppColors.darkPrimaryText
+                                      : AppColors.black,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                          ),
-                          // Time
-                          Text(
-                            _formatTime(lastMessageTime),
-                            style: AppTypography.caption.copyWith(
-                              color: isDark
-                                  ? AppColors.darkSecondaryText
-                                  : AppColors.gray600,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      // Last message
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              chat.lastMessagePreview ?? 'No messages yet',
-                              style: AppTypography.body2.copyWith(
+                            const SizedBox(width: 8),
+                            // Time
+                            Text(
+                              _formatTime(lastMessageTime),
+                              style: AppTypography.caption.copyWith(
                                 color: chat.unreadCount > 0
                                     ? (isDark
                                           ? AppColors.darkPrimaryText
                                           : AppColors.black)
                                     : (isDark
                                           ? AppColors.darkSecondaryText
-                                          : AppColors.gray600),
+                                          : AppColors.gray500),
                                 fontWeight: chat.unreadCount > 0
                                     ? FontWeight.w600
                                     : FontWeight.w400,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (chat.unreadCount > 0) ...[
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? AppColors.white
-                                    : AppColors.black,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                chat.unreadCount.toString(),
-                                style: AppTypography.caption.copyWith(
-                                  color: isDark
-                                      ? AppColors.black
-                                      : AppColors.white,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 11,
-                                ),
+                                fontSize: 12,
                               ),
                             ),
                           ],
-                        ],
-                      ),
-                    ],
+                        ),
+                        const SizedBox(height: 3),
+                        // Last message
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                chat.lastMessagePreview ?? 'No messages yet',
+                                style: AppTypography.body2.copyWith(
+                                  color: chat.unreadCount > 0
+                                      ? (isDark
+                                            ? AppColors.darkPrimaryText
+                                            : AppColors.black)
+                                      : (isDark
+                                            ? AppColors.darkSecondaryText
+                                            : AppColors.gray500),
+                                  fontWeight: chat.unreadCount > 0
+                                      ? FontWeight.w500
+                                      : FontWeight.w400,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (chat.unreadCount > 0) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                constraints: const BoxConstraints(
+                                  minWidth: 20,
+                                  minHeight: 20,
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isDark
+                                      ? AppColors.white
+                                      : AppColors.black,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  chat.unreadCount > 99
+                                      ? '99+'
+                                      : chat.unreadCount.toString(),
+                                  style: AppTypography.caption.copyWith(
+                                    color: isDark
+                                        ? AppColors.black
+                                        : AppColors.white,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 11,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
+            Divider(
+              height: 1,
+              thickness: 0.5,
+              indent: 82,
+              color: isDark
+                  ? AppColors.darkStandardBorder
+                  : const Color(0xFFE0E0E0),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAvatar() {
+    final displayName = isAdmin ? (chat.userName ?? 'User') : chat.sellerName;
+    final imageUrl = isAdmin ? chat.userAvatar : chat.sellerLogo;
+    final isOnline = isAdmin ? chat.userOnline : chat.sellerOnline;
+
+    final Widget avatar = imageUrl != null && imageUrl.isNotEmpty
+        ? ClipOval(
+            child: CachedNetworkImage(
+              imageUrl: imageUrl,
+              cacheManager: ImageCacheManager.instance,
+              width: 54,
+              height: 54,
+              fit: BoxFit.cover,
+              placeholder: (_, __) => _buildAvatarFallback(displayName),
+              errorWidget: (_, __, ___) => _buildAvatarFallback(displayName),
+            ),
+          )
+        : _buildAvatarFallback(displayName);
+
+    return Stack(
+      children: [
+        avatar,
+        Positioned(
+          right: 1,
+          bottom: 1,
+          child: Container(
+            width: 14,
+            height: 14,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isOnline ? const Color(0xFF4CAF50) : Colors.grey.shade400,
+              border: Border.all(
+                color: isDark ? AppColors.darkMainBackground : AppColors.white,
+                width: 2,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAvatarFallback(String displayName) {
+    return Container(
+      width: 54,
+      height: 54,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: _getGradientColors(displayName),
+        ),
+      ),
+      child: Center(
+        child: Text(
+          displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',
+          style: AppTypography.heading4.copyWith(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
           ),
         ),
       ),

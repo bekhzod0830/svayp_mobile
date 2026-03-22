@@ -92,11 +92,13 @@ class _NotificationPreferencesScreenState
     final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor:
-          isDark ? AppColors.darkMainBackground : AppColors.pageBackground,
+      backgroundColor: isDark
+          ? AppColors.darkMainBackground
+          : AppColors.pageBackground,
       appBar: AppBar(
-        backgroundColor:
-            isDark ? AppColors.darkCardBackground : AppColors.white,
+        backgroundColor: isDark
+            ? AppColors.darkCardBackground
+            : AppColors.white,
         elevation: 0,
         leading: IconButton(
           icon: Icon(
@@ -142,8 +144,8 @@ class _NotificationPreferencesScreenState
               iconColor: _prefs.isEnabled(type)
                   ? (isDark ? AppColors.darkPrimaryText : AppColors.black)
                   : (isDark
-                      ? AppColors.darkSecondaryText
-                      : AppColors.secondaryText),
+                        ? AppColors.darkSecondaryText
+                        : AppColors.secondaryText),
               label: _label(type),
               description: _description(type),
               value: _prefs.isEnabled(type),
@@ -173,8 +175,7 @@ class _SectionHeader extends StatelessWidget {
       child: Text(
         label.toUpperCase(),
         style: AppTypography.caption.copyWith(
-          color:
-              isDark ? AppColors.darkSecondaryText : AppColors.secondaryText,
+          color: isDark ? AppColors.darkSecondaryText : AppColors.secondaryText,
           letterSpacing: 0.8,
           fontWeight: FontWeight.w600,
         ),
@@ -217,15 +218,17 @@ class _ToggleTile extends StatelessWidget {
         subtitle: Text(
           description,
           style: AppTypography.body2.copyWith(
-            color:
-                isDark ? AppColors.darkSecondaryText : AppColors.secondaryText,
+            color: isDark
+                ? AppColors.darkSecondaryText
+                : AppColors.secondaryText,
           ),
         ),
         trailing: CupertinoSwitch(
           value: value,
           onChanged: onChanged,
-          activeTrackColor:
-              isDark ? AppColors.darkPrimaryText : AppColors.black,
+          activeTrackColor: isDark
+              ? AppColors.darkPrimaryText
+              : AppColors.black,
         ),
         isThreeLine: false,
       ),

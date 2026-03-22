@@ -1,5 +1,7 @@
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:swipe/core/network/api_client.dart';
 import 'package:swipe/core/network/api_config.dart';
+import 'package:swipe/core/services/notification_service.dart';
 import 'package:swipe/features/auth/data/models/auth_models.dart';
 
 /// Authentication Service
@@ -152,14 +154,24 @@ class AuthService {
   /// ```
   Future<void> logout() async {
     try {
-      // Call logout endpoint if user is authenticated
+      // Capture the current FCM token BEFORE deleting it.
+      final fcmToken = await FirebaseMessaging.instance.getToken();
+
+      // Disable FCM immediately — persists to SharedPreferences so background
+      // isolate and foreground handlers both stop showing notifications.
+      await NotificationService.instance.onLogout();
+
+      // Call logout endpoint if user is authenticated.
       if (isAuthenticated()) {
         try {
           final refreshToken = _apiClient.getRefreshToken();
           if (refreshToken != null) {
             await _apiClient.post(
               ApiConfig.authLogout,
-              data: {'refreshToken': refreshToken},
+              data: {
+                'refreshToken': refreshToken,
+                'fcm_token': fcmToken,
+              },
             );
           }
         } catch (e) {

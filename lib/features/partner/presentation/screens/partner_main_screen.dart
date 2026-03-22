@@ -6,6 +6,9 @@ import 'package:swipe/features/orders/presentation/screens/orders_screen.dart';
 import 'package:swipe/features/chat/presentation/screens/chat_list_screen.dart';
 import 'package:swipe/features/profile/presentation/screens/profile_screen.dart';
 import 'package:swipe/l10n/app_localizations.dart';
+import 'package:swipe/core/di/service_locator.dart';
+import 'package:swipe/core/network/api_client.dart';
+import 'package:swipe/features/chat/data/services/chat_websocket_service.dart';
 
 /// Partner Main Screen
 /// Bottom navigation for partners (sellers, admins, managers, etc.)
@@ -18,8 +21,38 @@ class PartnerMainScreen extends StatefulWidget {
   State<PartnerMainScreen> createState() => _PartnerMainScreenState();
 }
 
-class _PartnerMainScreenState extends State<PartnerMainScreen> {
+class _PartnerMainScreenState extends State<PartnerMainScreen>
+    with WidgetsBindingObserver {
   int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _connectWebSocket();
+  }
+
+  void _connectWebSocket() {
+    final token = getIt<ApiClient>().getToken();
+    if (token == null) return;
+    getIt<ChatWebSocketService>().connect(token);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    getIt<ChatWebSocketService>().disconnect();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      getIt<ChatWebSocketService>().disconnect();
+    } else if (state == AppLifecycleState.resumed) {
+      _connectWebSocket();
+    }
+  }
 
   static const int _tabCount = 4;
 

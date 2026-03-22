@@ -129,7 +129,7 @@ class OrderConfirmationScreen extends StatelessWidget {
                     const SizedBox(height: 12),
                     _buildDetailRow(
                       l10n.orderStatus,
-                      _formatStatus(status),
+                      _getLocalizedStatus(status, context),
                       context,
                     ),
                     if (itemsCount > 0) ...[
@@ -160,16 +160,14 @@ class OrderConfirmationScreen extends StatelessWidget {
                     child: ElevatedButton(
                       onPressed: () {
                         // Find MainScreenState and navigate to Orders tab (index 3)
-                        final mainScreenState = context
-                            .findAncestorStateOfType<MainScreenState>();
-                        if (mainScreenState != null) {
-                          Navigator.of(
-                            context,
-                          ).popUntil((route) => route.isFirst);
-                          mainScreenState.navigateToTab(
-                            3,
-                          ); // Navigate to Orders tab
-                        }
+                        // Prefer ancestor lookup; fall back to the global key
+                        final mainScreenState =
+                            context.findAncestorStateOfType<MainScreenState>()
+                            ?? MainScreen.globalKey.currentState;
+                        Navigator.of(
+                          context,
+                        ).popUntil((route) => route.isFirst);
+                        mainScreenState?.navigateToTab(3);
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: isDark
@@ -265,14 +263,32 @@ class OrderConfirmationScreen extends StatelessWidget {
     );
   }
 
-  String _formatStatus(String status) {
-    // Capitalize first letter of each word
-    return status
-        .split('_')
-        .map((word) {
-          if (word.isEmpty) return word;
-          return word[0].toUpperCase() + word.substring(1).toLowerCase();
-        })
-        .join(' ');
+  String _getLocalizedStatus(String status, BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    switch (status.toUpperCase()) {
+      case 'WAITING':
+        return l10n.waiting;
+      case 'CONFIRMED':
+        return l10n.confirmed;
+      case 'READY_TO_SHIP':
+        return l10n.readyToShip;
+      case 'READY_FOR_PICKUP':
+        return l10n.readyForPickup;
+      case 'SHIPPED':
+        return l10n.shipped;
+      case 'DELIVERED':
+        return l10n.delivered;
+      case 'COMPLETED':
+        return l10n.completed;
+      case 'CANCELLED':
+        return l10n.cancelled;
+      case 'RETURNED':
+        return l10n.returned;
+      case 'VOIDED':
+        return l10n.voided;
+      default:
+        if (status.isEmpty) return status;
+        return status.replaceAll('_', ' ');
+    }
   }
 }

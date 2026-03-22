@@ -1,15 +1,70 @@
+import 'dart:io' show Platform;
+
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:swipe/core/enums/notification_type.dart';
 import 'package:swipe/core/globals.dart';
 import 'package:swipe/core/services/notification_preferences_service.dart';
+import 'package:swipe/core/localization/services/language_service.dart';
+import 'package:swipe/core/network/api_client.dart';
+import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/app/routes.dart';
 
 /// Handles FCM background messages (must be top-level).
+/// For data-only messages (no `notification` key) the OS won't auto-show a
+/// banner, so we do it manually here via flutter_local_notifications.
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // Firebase is already initialized at this point; no need to re-init.
-  // We just receive silently — the system tray notification is shown by FCM.
+  // Don't show notifications if the user has logged out.
+  final prefs = await SharedPreferences.getInstance();
+  if (prefs.getBool('fcm_enabled') != true) return;
+  if (prefs.getString('auth_token') == null) return;
+
+  // Only needed for data-only messages; if there's already a notification
+  // payload the OS will show it automatically.
+  if (message.notification != null) return;
+
+  final title = message.data['title'] as String?;
+  final body = message.data['body'] as String?;
+  if (title == null && body == null) return;
+
+  const channel = AndroidNotificationChannel(
+    'svayp_high_importance',
+    'SVAYP Notifications',
+    importance: Importance.high,
+  );
+
+  final plugin = FlutterLocalNotificationsPlugin();
+  await plugin.initialize(
+    const InitializationSettings(
+      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+      iOS: DarwinInitializationSettings(),
+    ),
+  );
+  await plugin
+      .resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin
+      >()
+      ?.createNotificationChannel(channel);
+
+  await plugin.show(
+    message.hashCode,
+    title,
+    body,
+    NotificationDetails(
+      android: AndroidNotificationDetails(
+        channel.id,
+        channel.name,
+        importance: Importance.high,
+        priority: Priority.high,
+        icon: '@mipmap/ic_launcher',
+      ),
+      iOS: const DarwinNotificationDetails(),
+    ),
+    payload: '${message.data["type"] ?? ""}|${message.data["entityId"] ?? ""}',
+  );
 }
 
 /// Central service for Firebase Cloud Messaging.
@@ -25,6 +80,11 @@ class NotificationService {
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
 
+  bool _tokenRefreshListenerAdded = false;
+  bool _registrationEnabled = false;
+
+  static const String _fcmEnabledKey = 'fcm_enabled';
+
   /// Android notification channel for high-importance notifications.
   static const AndroidNotificationChannel _channel = AndroidNotificationChannel(
     'svayp_high_importance',
@@ -35,11 +95,30 @@ class NotificationService {
 
   // ─── Public API ─────────────────────────────────────────────────────────────
 
+  /// Call once in main() — registers handlers and sets up local notifications.
+  /// Does NOT request permission or show any system dialog.
   Future<void> initialize() async {
-    // 1. Register background handler (must be called before any other FCM call).
+    // 1. Restore persisted login state so foreground guard works after cold start.
+    final prefs = await SharedPreferences.getInstance();
+    _registrationEnabled = prefs.getBool(_fcmEnabledKey) ?? false;
+
+    // 2. Register background handler (must be called before any other FCM call).
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-    // 2. Request permission (iOS shows system dialog; Android 13+ needs it too).
+    // 3. Set up local notifications plugin for foreground banners.
+    await _setupLocalNotifications();
+
+    // 4. Wire up message handlers.
+    _handleForegroundMessages();
+    _handleBackgroundTap();
+    await _handleTerminatedTap();
+  }
+
+  /// Call from the Discovery screen (after login/registration).
+  /// Requests permission, configures foreground presentation, and registers
+  /// the FCM token with the backend. Safe to call on every app launch —
+  /// iOS only shows the system dialog once; subsequent calls are silent.
+  Future<void> requestPermissionAndRegisterToken() async {
     await _fcm.requestPermission(
       alert: true,
       badge: true,
@@ -50,20 +129,39 @@ class NotificationService {
       provisional: false,
     );
 
-    // 3. Set up local notifications plugin for foreground banners.
-    await _setupLocalNotifications();
-
-    // 4. Tell FCM to show heads-up notifications on iOS when app is foreground.
     await _fcm.setForegroundNotificationPresentationOptions(
-      alert: true,
-      badge: true,
-      sound: true,
+      alert:
+          false, // flutter_local_notifications handles the banner — avoids duplicate
+      badge: true, // still update the app icon badge count
+      sound: false, // flutter_local_notifications plays the sound
     );
 
-    // 5. Wire up message handlers.
-    _handleForegroundMessages();
-    _handleBackgroundTap();
-    await _handleTerminatedTap();
+    _registrationEnabled = true;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_fcmEnabledKey, true);
+
+    // Register token now and on every refresh (guard against duplicate listeners).
+    await registerTokenWithBackend();
+    if (!_tokenRefreshListenerAdded) {
+      _tokenRefreshListenerAdded = true;
+      _fcm.onTokenRefresh.listen((_) => registerTokenWithBackend());
+    }
+  }
+
+  /// Call on logout — disables token re-registration and deletes the device
+  /// token from FCM so no further notifications are delivered.
+  Future<void> onLogout() async {
+    // Persist BEFORE deleteToken() so the background handler (separate isolate)
+    // and the onTokenRefresh callback both see the disabled state immediately.
+    _registrationEnabled = false;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_fcmEnabledKey, false);
+    try {
+      await _fcm.deleteToken();
+      debugPrint('[FCM] 🗑️ device token deleted');
+    } catch (e) {
+      debugPrint('[FCM] ⚠️ deleteToken failed: $e');
+    }
   }
 
   /// Returns the current FCM token for this device.
@@ -73,6 +171,35 @@ class NotificationService {
   /// Stream that fires whenever the token is refreshed.
   /// Re-register with the backend inside the listener.
   Stream<String> get onTokenRefresh => _fcm.onTokenRefresh;
+
+  /// Registers the FCM token + current app language with the backend.
+  /// Call this after login and whenever [onTokenRefresh] fires.
+  Future<void> registerTokenWithBackend() async {
+    if (!_registrationEnabled) return;
+    final token = await _fcm.getToken();
+    if (token == null) {
+      debugPrint('[FCM] ⚠️ getToken() returned null');
+      return;
+    }
+    debugPrint('[FCM] 🔑 token: $token');
+
+    final languageCode = await LanguageService().getCurrentLanguageCode();
+
+    try {
+      final api = getIt<ApiClient>();
+      await api.put<dynamic>(
+        '/users/me/fcm-token',
+        data: {
+          'fcm_token': token,
+          'language': languageCode,
+          'platform': Platform.isIOS ? 'IOS' : 'ANDROID',
+        },
+      );
+      debugPrint('[FCM] ✅ token registered with backend');
+    } catch (e) {
+      debugPrint('[FCM] ❌ failed to register token: $e');
+    }
+  }
 
   // ─── Private helpers ─────────────────────────────────────────────────────────
 
@@ -99,12 +226,18 @@ class NotificationService {
     // Create the Android high-importance channel.
     await _localNotifications
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
+          AndroidFlutterLocalNotificationsPlugin
+        >()
         ?.createNotificationChannel(_channel);
   }
 
   /// Show a heads-up banner while app is in the foreground.
   Future<void> _showLocalNotification(RemoteMessage message) async {
+    // Read login state fresh from SharedPreferences — the in-memory flag can
+    // be stale after hot-restart or cross-isolate operations.
+    final sp = await SharedPreferences.getInstance();
+    if (sp.getBool('fcm_enabled') != true) return;
+    if (sp.getString('auth_token') == null) return;
     final type = NotificationType.fromString(
       message.data['type'] as String? ?? '',
     );
@@ -113,8 +246,11 @@ class NotificationService {
     final prefs = NotificationPreferencesService.instance;
     if (!prefs.isEnabled(type)) return;
 
-    final notification = message.notification;
-    if (notification == null) return;
+    // Support both notification-payload messages and data-only messages.
+    final title =
+        message.notification?.title ?? message.data['title'] as String?;
+    final body = message.notification?.body ?? message.data['body'] as String?;
+    if (title == null && body == null) return;
 
     final androidDetails = AndroidNotificationDetails(
       _channel.id,
@@ -128,8 +264,8 @@ class NotificationService {
 
     await _localNotifications.show(
       message.hashCode,
-      notification.title,
-      notification.body,
+      title,
+      body,
       NotificationDetails(android: androidDetails, iOS: iosDetails),
       payload: _buildPayload(message.data),
     );
@@ -137,6 +273,9 @@ class NotificationService {
 
   void _handleForegroundMessages() {
     FirebaseMessaging.onMessage.listen((message) {
+      debugPrint(
+        '[FCM] 📩 onMessage fired — notification: ${message.notification?.title}, data: ${message.data}',
+      );
       _showLocalNotification(message);
     });
   }

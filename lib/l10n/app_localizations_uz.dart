@@ -1268,7 +1268,7 @@ class AppLocalizationsUz extends AppLocalizations {
   String get cancelOrder => 'Buyurtmani bekor qilish';
 
   @override
-  String get pending => 'Kutilmoqda';
+  String get waiting => 'Tasdiqlanishni kutmoqda';
 
   @override
   String get confirmed => 'Tasdiqlandi';
@@ -1299,6 +1299,15 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get returned => 'Tovar qaytarildi';
+
+  @override
+  String get readyToShip => 'Yuborishga tayyor';
+
+  @override
+  String get readyForPickup => 'Olib ketishga tayyor';
+
+  @override
+  String get voided => 'Bekor qilindi';
 
   @override
   String get chat => 'Suhbat';
@@ -1334,8 +1343,58 @@ class AppLocalizationsUz extends AppLocalizations {
   String get yesterday => 'Kecha';
 
   @override
+  String get chatToday => 'Bugun';
+
+  @override
+  String get chatPresenceOnline => 'onlayn';
+
+  @override
+  String get chatPresenceOffline => 'oflayn';
+
+  @override
+  String get chatPresenceTyping => 'terilmoqda...';
+
+  @override
+  String get chatLastSeenJustNow => 'hozirgina';
+
+  @override
+  String chatLastSeenMinutes(int minutes) {
+    return '$minutes daqiqa oldin';
+  }
+
+  @override
+  String chatLastSeenHours(int hours) {
+    return '$hours soat oldin';
+  }
+
+  @override
+  String chatLastSeenDays(int days) {
+    return '$days kun oldin';
+  }
+
+  @override
+  String get chatFailedToLoad => 'Chatni yuklab bo\'lmadi';
+
+  @override
+  String get chatFailedToReload => 'Chatni yangilab bo\'lmadi';
+
+  @override
+  String get chatReconnecting =>
+      'Qayta ulanmoqda… bir ozdan keyin qayta urinib ko\'ring.';
+
+  @override
+  String get chatGoBack => 'Orqaga';
+
+  @override
+  String get chatNotFound => 'Chat topilmadi';
+
+  @override
+  String get chatFailedToLoadProduct =>
+      'Mahsulot ma\'lumotlarini yuklab bo\'lmadi';
+
+  @override
   String get interestedInProduct =>
-      'Salom! Men ushbu mahsulot bilan qiziqaman. U mavjudmi?';
+      'Assalomu alaykum, sizda shu mahsulotdan bormi?';
 
   @override
   String get sellerAutoResponse =>

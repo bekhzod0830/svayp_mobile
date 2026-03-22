@@ -8,50 +8,24 @@ import 'package:swipe/core/network/api_client.dart';
 import 'package:swipe/core/di/service_locator.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:swipe/core/cache/image_cache_manager.dart';
+import 'package:swipe/core/services/product_api_service.dart';
+import 'package:swipe/core/models/product.dart' as api_models;
+import 'package:swipe/features/discover/domain/entities/product.dart';
+import 'package:swipe/features/product/presentation/screens/product_detail_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-/// Helper function to detect item currency based on price
-String _detectItemCurrency(double price) {
-  // Intelligently detect currency based on price
-  if (price < 1000) {
-    return 'USD';
-  }
-  return 'UZS';
-}
-
-/// Helper function to format item price with intelligent currency detection
-String _formatItemPrice(double price) {
-  String currency = _detectItemCurrency(price);
-
+/// Helper function to format a price with the given currency code
+String _formatItemPrice(double price, String currency) {
   if (currency == 'USD') {
     return '\$${price.toStringAsFixed(2)}';
   }
   return '${price.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} $currency';
 }
 
-/// Helper function to format order total with multi-currency support
+/// Helper function to format order total using the order's own currency
 String _formatOrderTotal(OrderModel order) {
-  double usdTotal = 0.0;
-  double uzsTotal = 0.0;
-
-  for (var item in order.items) {
-    if (_detectItemCurrency(item.unitPrice) == 'USD') {
-      usdTotal += item.subtotal;
-    } else {
-      uzsTotal += item.subtotal;
-    }
-  }
-
-  List<String> parts = [];
-  if (usdTotal > 0) {
-    parts.add('\$${usdTotal.toStringAsFixed(2)}');
-  }
-  if (uzsTotal > 0) {
-    parts.add(
-      '${uzsTotal.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} UZS',
-    );
-  }
-
-  return parts.isEmpty ? '\$0.00' : parts.join(' + ');
+  final total = order.items.fold(0.0, (sum, item) => sum + item.subtotal);
+  return _formatItemPrice(total, order.currency);
 }
 
 /// Refreshable interface for orders screen
@@ -147,7 +121,7 @@ class OrdersScreenState extends State<OrdersScreen>
     // Show order details in bottom sheet
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.white,
+      backgroundColor: Colors.transparent,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -165,39 +139,42 @@ class OrdersScreenState extends State<OrdersScreen>
 
     Color statusColor(String s) {
       switch (s.toUpperCase()) {
-        case 'CREATED':
-          return const Color(0xFFFFC107);
-        case 'PENDING':
+        case 'WAITING':
           return const Color(0xFFFF9800);
         case 'CONFIRMED':
           return const Color(0xFF2196F3);
-        case 'PROCESSING':
-          return const Color(0xFF1976D2);
+        case 'READY_TO_SHIP':
+          return const Color(0xFF009688);
+        case 'READY_FOR_PICKUP':
+          return const Color(0xFF00BCD4);
         case 'SHIPPED':
           return const Color(0xFF3F51B5);
-        case 'OUT_FOR_DELIVERY':
-          return const Color(0xFF9C27B0);
         case 'DELIVERED':
+          return const Color(0xFF8BC34A);
+        case 'COMPLETED':
           return const Color(0xFF4CAF50);
         case 'CANCELLED':
           return const Color(0xFFF44336);
-        case 'REFUNDED':
-          return const Color(0xFFFF5722);
         case 'RETURNED':
           return const Color(0xFF9E9E9E);
+        case 'VOIDED':
+          return const Color(0xFF607D8B);
         default:
-          return const Color(0xFFFFC107);
+          return const Color(0xFFFF9800);
       }
     }
 
     final statuses = [
-      ('CREATED', l10n.created),
+      ('WAITING', l10n.waiting),
       ('CONFIRMED', l10n.confirmed),
-      ('PROCESSING', l10n.processing),
+      ('READY_TO_SHIP', l10n.readyToShip),
+      ('READY_FOR_PICKUP', l10n.readyForPickup),
       ('SHIPPED', l10n.shipped),
-      ('OUT_FOR_DELIVERY', l10n.outForDelivery),
       ('DELIVERED', l10n.delivered),
+      ('COMPLETED', l10n.completed),
       ('CANCELLED', l10n.cancelled),
+      ('RETURNED', l10n.returned),
+      ('VOIDED', l10n.voided),
     ];
 
     final selected = await showModalBottomSheet<String>(
@@ -581,23 +558,7 @@ class _OrderCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: order.statusColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      order.getLocalizedStatus(context),
-                      style: AppTypography.caption.copyWith(
-                        color: order.statusColor,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
+                  _StatusBadge(status: order.status),
                 ],
               ),
 
@@ -819,6 +780,7 @@ class _OrderDetailSheet extends StatefulWidget {
 class _OrderDetailSheetState extends State<_OrderDetailSheet> {
   bool _itemsExpanded = false;
   late String _currentStatus; // tracks optimistic status update
+  bool _isOpeningProduct = false;
 
   @override
   void initState() {
@@ -826,23 +788,93 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
     _currentStatus = widget.order.status;
   }
 
-  // Calculate separate USD and UZS subtotals
-  double get _usdSubtotal {
-    return widget.order.items.fold(0.0, (sum, item) {
-      if (_detectItemCurrency(item.unitPrice) == 'USD') {
-        return sum + item.subtotal;
+  Future<void> _openProductDetail(OrderItemModel item) async {
+    if (_isOpeningProduct || !mounted) return;
+    setState(() => _isOpeningProduct = true);
+
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+
+    // Show loading overlay
+    navigator.push(
+      PageRouteBuilder(
+        opaque: false,
+        barrierDismissible: false,
+        pageBuilder: (_, __, ___) => const ColoredBox(
+          color: Color(0x66000000),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      ),
+    );
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      final apiService = ProductApiService();
+      final api_models.Product apiProduct =
+          await apiService.getProductById(item.productId, token: token);
+
+      String displayBrand =
+          (apiProduct.brand == 'Unknown' || apiProduct.brand.isEmpty)
+              ? (apiProduct.seller ?? apiProduct.brand)
+              : apiProduct.brand;
+      if (displayBrand == 'Unknown' || displayBrand.isEmpty) {
+        displayBrand = 'SVAYP';
       }
-      return sum;
-    });
+
+      final product = Product(
+        id: apiProduct.id,
+        brand: displayBrand,
+        title: apiProduct.title,
+        description: apiProduct.description ?? '',
+        price: apiProduct.price,
+        images: apiProduct.images.isNotEmpty ? apiProduct.images : [],
+        category:
+            apiProduct.originalCategoryString ?? apiProduct.category.value,
+        subcategory:
+            apiProduct.subcategory?.map((s) => s.displayName).toList(),
+        sizes: apiProduct.sizes ?? [],
+        colors: apiProduct.colors ?? [],
+        material: apiProduct.material?.map((m) => m.displayName).toList(),
+        season: apiProduct.season?.map((s) => s.displayName).toList(),
+        currency: apiProduct.currency,
+        rating: apiProduct.rating ?? 4.5,
+        reviewCount: apiProduct.reviewCount ?? 0,
+        inStock: apiProduct.inStock,
+        isNew: apiProduct.isNew ?? false,
+        isFeatured: false,
+        seller: apiProduct.seller,
+        sellerId: apiProduct.sellerId,
+        discountPercentage: apiProduct.discountPercentage,
+        originalPrice: apiProduct.originalPrice,
+        titleLocalized: apiProduct.titleLocalized,
+        descriptionLocalized: apiProduct.descriptionLocalized,
+      );
+
+      if (mounted) navigator.pop(); // dismiss loader
+      if (mounted) {
+        navigator.push(
+          MaterialPageRoute(
+            builder: (_) => ProductDetailScreen(product: product),
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) navigator.pop(); // dismiss loader
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Could not load product details. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isOpeningProduct = false);
+    }
   }
 
-  double get _uzsSubtotal {
-    return widget.order.items.fold(0.0, (sum, item) {
-      if (_detectItemCurrency(item.unitPrice) == 'UZS') {
-        return sum + item.subtotal;
-      }
-      return sum;
-    });
+  // Calculate items subtotal
+  double get _itemsSubtotal {
+    return widget.order.items.fold(0.0, (sum, item) => sum + item.subtotal);
   }
 
   @override
@@ -940,19 +972,11 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
             ),
             const SizedBox(height: 12),
 
-            // Total Amount - Multi-currency support
-            if (_usdSubtotal > 0)
-              _DetailRow(
-                label: l10n.total + ' (USD)',
-                value: '\$${_usdSubtotal.toStringAsFixed(2)}',
-              ),
-            if (_usdSubtotal > 0 && _uzsSubtotal > 0) const SizedBox(height: 8),
-            if (_uzsSubtotal > 0)
-              _DetailRow(
-                label: l10n.total + ' (UZS)',
-                value:
-                    '${_uzsSubtotal.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} UZS',
-              ),
+            // Total Amount
+            _DetailRow(
+              label: l10n.totalAmount,
+              value: _formatItemPrice(_itemsSubtotal, widget.order.currency),
+            ),
 
             const SizedBox(height: 24),
 
@@ -985,7 +1009,9 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
             if (_itemsExpanded) ...[
               const SizedBox(height: 16),
               ...widget.order.items.map((item) {
-                return Container(
+                return GestureDetector(
+                  onTap: () => _openProductDetail(item),
+                  child: Container(
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
@@ -997,22 +1023,22 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Product Image
+                      // Product Image (3:4 aspect ratio)
                       if (item.productImage != null)
                         ClipRRect(
                           borderRadius: BorderRadius.circular(8),
                           child: CachedNetworkImage(
                             imageUrl: item.productImage!,
                             width: 60,
-                            height: 60,
+                            height: 80,
                             fit: BoxFit.cover,
                             cacheManager: ImageCacheManager.instance,
                             memCacheWidth: 120,
-                            memCacheHeight: 120,
+                            memCacheHeight: 160,
                             errorWidget: (context, url, error) {
                               return Container(
                                 width: 60,
-                                height: 60,
+                                height: 80,
                                 color: isDark
                                     ? AppColors.darkSecondaryText
                                     : AppColors.gray300,
@@ -1095,7 +1121,7 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                                   ),
                                 ),
                                 Text(
-                                  _formatItemPrice(item.subtotal),
+                                  _formatItemPrice(item.subtotal, widget.order.currency),
                                   style: AppTypography.body2.copyWith(
                                     fontWeight: FontWeight.w600,
                                     color: theme.colorScheme.onSurface,
@@ -1107,6 +1133,7 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                         ),
                       ),
                     ],
+                  ),
                   ),
                 );
               }).toList(),
@@ -1148,58 +1175,54 @@ class _StatusBadge extends StatelessWidget {
 
   Color get _color {
     switch (status.toUpperCase()) {
-      case 'CREATED':
-        return const Color(0xFFFFC107);
-      case 'PENDING':
+      case 'WAITING':
         return const Color(0xFFFF9800);
-      case 'PAID':
-        return const Color(0xFF009688);
       case 'CONFIRMED':
         return const Color(0xFF2196F3);
-      case 'PROCESSING':
-        return const Color(0xFF1976D2);
+      case 'READY_TO_SHIP':
+        return const Color(0xFF009688);
+      case 'READY_FOR_PICKUP':
+        return const Color(0xFF00BCD4);
       case 'SHIPPED':
         return const Color(0xFF3F51B5);
-      case 'OUT_FOR_DELIVERY':
-        return const Color(0xFF9C27B0);
       case 'DELIVERED':
+        return const Color(0xFF8BC34A);
+      case 'COMPLETED':
         return const Color(0xFF4CAF50);
       case 'CANCELLED':
         return const Color(0xFFF44336);
-      case 'REFUNDED':
-        return const Color(0xFFFF5722);
       case 'RETURNED':
         return const Color(0xFF9E9E9E);
+      case 'VOIDED':
+        return const Color(0xFF607D8B);
       default:
-        return const Color(0xFFFFC107);
+        return const Color(0xFFFF9800);
     }
   }
 
   String _label(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     switch (status.toUpperCase()) {
-      case 'CREATED':
-        return l10n.created;
-      case 'PENDING':
-        return l10n.pending;
-      case 'PAID':
-        return l10n.paid;
+      case 'WAITING':
+        return l10n.waiting;
       case 'CONFIRMED':
         return l10n.confirmed;
-      case 'PROCESSING':
-        return l10n.processing;
+      case 'READY_TO_SHIP':
+        return l10n.readyToShip;
+      case 'READY_FOR_PICKUP':
+        return l10n.readyForPickup;
       case 'SHIPPED':
         return l10n.shipped;
-      case 'OUT_FOR_DELIVERY':
-        return l10n.outForDelivery;
       case 'DELIVERED':
         return l10n.delivered;
+      case 'COMPLETED':
+        return l10n.completed;
       case 'CANCELLED':
         return l10n.cancelled;
-      case 'REFUNDED':
-        return l10n.refunded;
       case 'RETURNED':
         return l10n.returned;
+      case 'VOIDED':
+        return l10n.voided;
       default:
         return status;
     }
@@ -1238,18 +1261,28 @@ class _DetailRow extends StatelessWidget {
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: AppTypography.body2.copyWith(
-            color: isDark ? AppColors.darkSecondaryText : AppColors.gray600,
+        Flexible(
+          child: Text(
+            label,
+            style: AppTypography.body2.copyWith(
+              color: isDark ? AppColors.darkSecondaryText : AppColors.gray600,
+            ),
+            overflow: TextOverflow.ellipsis,
           ),
         ),
-        Text(
-          value,
-          style: AppTypography.body2.copyWith(
-            fontWeight: FontWeight.w600,
-            color: theme.colorScheme.onSurface,
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            value,
+            style: AppTypography.body2.copyWith(
+              fontWeight: FontWeight.w600,
+              color: theme.colorScheme.onSurface,
+            ),
+            textAlign: TextAlign.end,
+            overflow: TextOverflow.ellipsis,
+            maxLines: 2,
           ),
         ),
       ],

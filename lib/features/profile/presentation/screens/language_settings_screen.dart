@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
 import 'package:swipe/core/localization/services/language_service.dart';
+import 'package:swipe/core/services/notification_service.dart';
 import 'package:swipe/app/app.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 
@@ -42,6 +43,9 @@ class _LanguageSettingsScreenState extends State<LanguageSettingsScreen> {
 
     // Save language
     await _languageService.saveLanguage(languageCode);
+
+    // Re-register FCM token so backend stores the new language preference
+    NotificationService.instance.registerTokenWithBackend().ignore();
 
     // Update app locale
     final locale = Locale(languageCode);

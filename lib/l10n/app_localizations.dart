@@ -2470,11 +2470,11 @@ abstract class AppLocalizations {
   /// **'Cancel Order'**
   String get cancelOrder;
 
-  /// No description provided for @pending.
+  /// No description provided for @waiting.
   ///
   /// In en, this message translates to:
-  /// **'Pending'**
-  String get pending;
+  /// **'Awaiting Confirmation'**
+  String get waiting;
 
   /// No description provided for @confirmed.
   ///
@@ -2536,6 +2536,24 @@ abstract class AppLocalizations {
   /// **'Returned'**
   String get returned;
 
+  /// No description provided for @readyToShip.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready to Ship'**
+  String get readyToShip;
+
+  /// No description provided for @readyForPickup.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready for Pickup'**
+  String get readyForPickup;
+
+  /// No description provided for @voided.
+  ///
+  /// In en, this message translates to:
+  /// **'Voided'**
+  String get voided;
+
   /// No description provided for @chat.
   ///
   /// In en, this message translates to:
@@ -2584,10 +2602,94 @@ abstract class AppLocalizations {
   /// **'Yesterday'**
   String get yesterday;
 
+  /// No description provided for @chatToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get chatToday;
+
+  /// No description provided for @chatPresenceOnline.
+  ///
+  /// In en, this message translates to:
+  /// **'online'**
+  String get chatPresenceOnline;
+
+  /// No description provided for @chatPresenceOffline.
+  ///
+  /// In en, this message translates to:
+  /// **'offline'**
+  String get chatPresenceOffline;
+
+  /// No description provided for @chatPresenceTyping.
+  ///
+  /// In en, this message translates to:
+  /// **'typing...'**
+  String get chatPresenceTyping;
+
+  /// No description provided for @chatLastSeenJustNow.
+  ///
+  /// In en, this message translates to:
+  /// **'just now'**
+  String get chatLastSeenJustNow;
+
+  /// No description provided for @chatLastSeenMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'last seen {minutes}m ago'**
+  String chatLastSeenMinutes(int minutes);
+
+  /// No description provided for @chatLastSeenHours.
+  ///
+  /// In en, this message translates to:
+  /// **'last seen {hours}h ago'**
+  String chatLastSeenHours(int hours);
+
+  /// No description provided for @chatLastSeenDays.
+  ///
+  /// In en, this message translates to:
+  /// **'last seen {days}d ago'**
+  String chatLastSeenDays(int days);
+
+  /// No description provided for @chatFailedToLoad.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load chat'**
+  String get chatFailedToLoad;
+
+  /// No description provided for @chatFailedToReload.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to reload chat'**
+  String get chatFailedToReload;
+
+  /// No description provided for @chatReconnecting.
+  ///
+  /// In en, this message translates to:
+  /// **'Reconnecting… please try again in a moment.'**
+  String get chatReconnecting;
+
+  /// No description provided for @chatGoBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Go Back'**
+  String get chatGoBack;
+
+  /// No description provided for @chatNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat not found'**
+  String get chatNotFound;
+
+  /// No description provided for @chatFailedToLoadProduct.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load product details'**
+  String get chatFailedToLoadProduct;
+
   /// No description provided for @interestedInProduct.
   ///
   /// In en, this message translates to:
-  /// **'Hello! I\'m interested in this product. Is it available?'**
+  /// **'Hi, do you have this product in stock?'**
   String get interestedInProduct;
 
   /// No description provided for @sellerAutoResponse.

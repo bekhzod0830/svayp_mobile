@@ -39,8 +39,10 @@ void main() async {
   // Initialize dependencies (API client, services, etc.)
   await initializeDependencies();
 
-  // Initialize push notifications (FCM token, permission, message handlers)
-  await NotificationService.instance.initialize();
+  // Initialize push notifications asynchronously — must NOT be awaited.
+  // On iOS, requestPermission() shows a system dialog; awaiting it here
+  // would block main() and leave the app frozen on the splash screen.
+  NotificationService.instance.initialize().ignore();
 
   // Limit in-memory image cache to reduce memory pressure on older devices
   // Default is 1000 images / 100MB — reduced to 100 images / 50MB

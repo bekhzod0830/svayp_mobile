@@ -9,6 +9,9 @@ import 'package:swipe/features/orders/presentation/screens/orders_screen.dart';
 import 'package:swipe/features/profile/presentation/screens/profile_screen.dart';
 import 'package:swipe/core/utils/local_storage_helper.dart';
 import 'package:swipe/shared/widgets/widgets.dart';
+import 'package:swipe/core/di/service_locator.dart';
+import 'package:swipe/core/network/api_client.dart';
+import 'package:swipe/features/chat/data/services/chat_websocket_service.dart';
 
 /// Main Screen - Container with bottom navigation
 /// Houses all main app features: Discover, Liked, Shop, Orders, Profile
@@ -25,7 +28,7 @@ class MainScreen extends StatefulWidget {
   State<MainScreen> createState() => MainScreenState();
 }
 
-class MainScreenState extends State<MainScreen> {
+class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   late int _currentIndex;
 
   // Global keys for screen access
@@ -47,6 +50,30 @@ class MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
+    WidgetsBinding.instance.addObserver(this);
+    _connectWebSocket();
+  }
+
+  void _connectWebSocket() {
+    final token = getIt<ApiClient>().getToken();
+    if (token == null) return;
+    getIt<ChatWebSocketService>().connect(token);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    getIt<ChatWebSocketService>().disconnect();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      getIt<ChatWebSocketService>().disconnect();
+    } else if (state == AppLifecycleState.resumed) {
+      _connectWebSocket();
+    }
   }
 
   /// Pop all sub-routes in a tab navigator back to its root screen.

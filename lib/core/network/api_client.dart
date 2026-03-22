@@ -52,9 +52,10 @@ class ApiClient {
     if (kDebugMode) {
       _dio.interceptors.add(
         PrettyDioLogger(
-          requestHeader: true,
+          requestHeader: false, // skip verbose auth headers
           requestBody: true,
-          responseBody: true,
+          responseBody:
+              false, // full JSON bodies are too noisy; use Charles or breakpoints instead
           responseHeader: false,
           error: true,
           compact: true,

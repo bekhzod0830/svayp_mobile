@@ -16,6 +16,7 @@ import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/shared/widgets/widgets.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:swipe/core/cache/image_cache_manager.dart';
+import 'package:swipe/core/services/notification_service.dart';
 
 /// Partner Cashback Screen
 /// Partners scan a customer's unique QR code, verify the user,
@@ -35,6 +36,7 @@ class _PartnerCashbackScreenState extends State<PartnerCashbackScreen> {
   void initState() {
     super.initState();
     _loadProducts();
+    NotificationService.instance.requestPermissionAndRegisterToken().ignore();
   }
 
   Future<void> _loadProducts() async {

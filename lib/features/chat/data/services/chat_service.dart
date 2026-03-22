@@ -190,6 +190,19 @@ class ChatService {
     }
   }
 
+  /// One-time presence lookup for a user.
+  /// GET /api/v1/chats/presence/{userId}
+  Future<PresenceResponse> getPresence(String userId) async {
+    try {
+      final response = await _apiClient.get('/chats/presence/$userId');
+      final map = response.data as Map<String, dynamic>;
+      final data = map['data'] ?? response.data;
+      return PresenceResponse.fromJson(data as Map<String, dynamic>);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   /// Get total unread count
   /// GET /api/v1/chats/unread-count
   /// Falls back to summing unread_count across all chats when the endpoint returns 0.

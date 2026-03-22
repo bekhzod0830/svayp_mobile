@@ -3,12 +3,16 @@ import 'package:swipe/l10n/app_localizations.dart';
 
 /// Order Status Enum - matches API values
 enum OrderStatus {
-  created,
-  confirmed,
-  processing,
-  shipped,
-  delivered,
-  cancelled,
+  waiting,        // WAITING          – created, awaiting seller confirmation
+  confirmed,      // CONFIRMED        – confirmed by seller
+  readyToShip,    // READY_TO_SHIP    – ready to ship (delivery)
+  readyForPickup, // READY_FOR_PICKUP – ready for pickup (self-pickup)
+  shipped,        // SHIPPED          – in delivery
+  delivered,      // DELIVERED        – delivered by courier
+  completed,      // COMPLETED        – customer received the goods
+  cancelled,      // CANCELLED        – cancelled
+  returned,       // RETURNED         – goods returned
+  voided,         // VOIDED           – voided (terminal)
 }
 
 /// Payment Status Enum - matches API values
@@ -266,7 +270,7 @@ class OrderModel {
       discountAmount: (json['discountAmount'] as num?)?.toDouble() ?? 0.0,
       totalAmount: totalAmount,
       currency: json['currency'] as String? ?? 'UZS',
-      status: json['status'] as String? ?? 'CREATED',
+      status: json['status'] as String? ?? 'WAITING',
       paymentMethod: json['paymentMethod'] as String? ?? 'CASH',
       paymentStatus: json['paymentStatus'] as String? ?? 'PENDING',
       customerNotes: json['customerNotes'] as String?,
@@ -305,20 +309,28 @@ class OrderModel {
   /// Get order status enum
   OrderStatus get orderStatus {
     switch (status.toUpperCase()) {
-      case 'CREATED':
-        return OrderStatus.created;
+      case 'WAITING':
+        return OrderStatus.waiting;
       case 'CONFIRMED':
         return OrderStatus.confirmed;
-      case 'PROCESSING':
-        return OrderStatus.processing;
+      case 'READY_TO_SHIP':
+        return OrderStatus.readyToShip;
+      case 'READY_FOR_PICKUP':
+        return OrderStatus.readyForPickup;
       case 'SHIPPED':
         return OrderStatus.shipped;
       case 'DELIVERED':
         return OrderStatus.delivered;
+      case 'COMPLETED':
+        return OrderStatus.completed;
       case 'CANCELLED':
         return OrderStatus.cancelled;
+      case 'RETURNED':
+        return OrderStatus.returned;
+      case 'VOIDED':
+        return OrderStatus.voided;
       default:
-        return OrderStatus.created;
+        return OrderStatus.waiting;
     }
   }
 
@@ -369,17 +381,26 @@ class OrderModel {
   /// Get status color
   Color get statusColor {
     switch (orderStatus) {
-      case OrderStatus.created:
-        return const Color(0xFFFFA500); // Orange
+      case OrderStatus.waiting:
+        return const Color(0xFFFF9800); // Orange
       case OrderStatus.confirmed:
         return const Color(0xFF2196F3); // Blue
-      case OrderStatus.processing:
+      case OrderStatus.readyToShip:
+        return const Color(0xFF009688); // Teal
+      case OrderStatus.readyForPickup:
+        return const Color(0xFF00BCD4); // Cyan
       case OrderStatus.shipped:
-        return const Color(0xFF1976D2); // Dark Blue
+        return const Color(0xFF3F51B5); // Indigo
       case OrderStatus.delivered:
+        return const Color(0xFF8BC34A); // Light Green
+      case OrderStatus.completed:
         return const Color(0xFF4CAF50); // Green
       case OrderStatus.cancelled:
         return const Color(0xFFF44336); // Red
+      case OrderStatus.returned:
+        return const Color(0xFF9E9E9E); // Grey
+      case OrderStatus.voided:
+        return const Color(0xFF607D8B); // Blue Grey
     }
   }
 
@@ -387,18 +408,26 @@ class OrderModel {
   String getLocalizedStatus(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     switch (orderStatus) {
-      case OrderStatus.created:
-        return l10n.pending;
+      case OrderStatus.waiting:
+        return l10n.waiting;
       case OrderStatus.confirmed:
         return l10n.confirmed;
-      case OrderStatus.processing:
-        return l10n.processing;
+      case OrderStatus.readyToShip:
+        return l10n.readyToShip;
+      case OrderStatus.readyForPickup:
+        return l10n.readyForPickup;
       case OrderStatus.shipped:
         return l10n.shipped;
       case OrderStatus.delivered:
         return l10n.delivered;
+      case OrderStatus.completed:
+        return l10n.completed;
       case OrderStatus.cancelled:
         return l10n.cancelled;
+      case OrderStatus.returned:
+        return l10n.returned;
+      case OrderStatus.voided:
+        return l10n.voided;
     }
   }
 

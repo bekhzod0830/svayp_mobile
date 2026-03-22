@@ -55,6 +55,8 @@ class ChatResponse extends Equatable {
   final String? subject;
   final ChatStatus status;
   final String sellerId;
+  final String?
+  sellerUserId; // staff member's personal user UUID (for presence subscription)
   final String sellerName;
   final String? sellerLogo;
   final String? userId;
@@ -69,6 +71,10 @@ class ChatResponse extends Equatable {
   final String? lastMessagePreview;
   final DateTime? lastMessageAt;
   final int unreadCount;
+  final bool userOnline;
+  final DateTime? userLastSeen;
+  final bool sellerOnline;
+  final DateTime? sellerLastSeen;
   final DateTime createdAt;
 
   const ChatResponse({
@@ -76,6 +82,7 @@ class ChatResponse extends Equatable {
     this.subject,
     required this.status,
     required this.sellerId,
+    this.sellerUserId,
     required this.sellerName,
     this.sellerLogo,
     this.userId,
@@ -90,6 +97,10 @@ class ChatResponse extends Equatable {
     this.lastMessagePreview,
     this.lastMessageAt,
     this.unreadCount = 0,
+    this.userOnline = false,
+    this.userLastSeen,
+    this.sellerOnline = false,
+    this.sellerLastSeen,
     required this.createdAt,
   });
 
@@ -99,6 +110,7 @@ class ChatResponse extends Equatable {
       subject: json['subject'] as String?,
       status: _parseStatus(json['status'] as String?),
       sellerId: json['seller_id'] as String? ?? '',
+      sellerUserId: json['seller_user_id'] as String?,
       sellerName: json['seller_name'] as String? ?? '',
       sellerLogo: json['seller_logo'] as String?,
       userId: json['user_id'] as String?,
@@ -114,11 +126,19 @@ class ChatResponse extends Equatable {
       orderNumber: json['order_number'] as String?,
       lastMessagePreview: json['last_message_preview'] as String?,
       lastMessageAt: json['last_message_at'] != null
-          ? DateTime.parse(json['last_message_at'] as String)
+          ? DateTime.parse(json['last_message_at'] as String).toLocal()
           : null,
       unreadCount: json['unread_count'] as int? ?? 0,
+      userOnline: json['user_online'] as bool? ?? false,
+      userLastSeen: json['user_last_seen'] != null
+          ? DateTime.parse(json['user_last_seen'] as String).toLocal()
+          : null,
+      sellerOnline: json['seller_online'] as bool? ?? false,
+      sellerLastSeen: json['seller_last_seen'] != null
+          ? DateTime.parse(json['seller_last_seen'] as String).toLocal()
+          : null,
       createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at'] as String)
+          ? DateTime.parse(json['created_at'] as String).toLocal()
           : DateTime.now(),
     );
   }
@@ -140,6 +160,7 @@ class ChatResponse extends Equatable {
       'subject': subject,
       'status': status.name.toUpperCase(),
       'seller_id': sellerId,
+      'seller_user_id': sellerUserId,
       'seller_name': sellerName,
       'seller_logo': sellerLogo,
       'user_id': userId,
@@ -154,6 +175,10 @@ class ChatResponse extends Equatable {
       'last_message_preview': lastMessagePreview,
       'last_message_at': lastMessageAt?.toIso8601String(),
       'unread_count': unreadCount,
+      'user_online': userOnline,
+      'user_last_seen': userLastSeen?.toIso8601String(),
+      'seller_online': sellerOnline,
+      'seller_last_seen': sellerLastSeen?.toIso8601String(),
       'created_at': createdAt.toIso8601String(),
     };
   }
@@ -163,6 +188,7 @@ class ChatResponse extends Equatable {
     String? subject,
     ChatStatus? status,
     String? sellerId,
+    String? sellerUserId,
     String? sellerName,
     String? sellerLogo,
     String? userId,
@@ -177,6 +203,10 @@ class ChatResponse extends Equatable {
     String? lastMessagePreview,
     DateTime? lastMessageAt,
     int? unreadCount,
+    bool? userOnline,
+    DateTime? userLastSeen,
+    bool? sellerOnline,
+    DateTime? sellerLastSeen,
     DateTime? createdAt,
   }) {
     return ChatResponse(
@@ -184,6 +214,7 @@ class ChatResponse extends Equatable {
       subject: subject ?? this.subject,
       status: status ?? this.status,
       sellerId: sellerId ?? this.sellerId,
+      sellerUserId: sellerUserId ?? this.sellerUserId,
       sellerName: sellerName ?? this.sellerName,
       sellerLogo: sellerLogo ?? this.sellerLogo,
       userId: userId ?? this.userId,
@@ -199,6 +230,10 @@ class ChatResponse extends Equatable {
       lastMessagePreview: lastMessagePreview ?? this.lastMessagePreview,
       lastMessageAt: lastMessageAt ?? this.lastMessageAt,
       unreadCount: unreadCount ?? this.unreadCount,
+      userOnline: userOnline ?? this.userOnline,
+      userLastSeen: userLastSeen ?? this.userLastSeen,
+      sellerOnline: sellerOnline ?? this.sellerOnline,
+      sellerLastSeen: sellerLastSeen ?? this.sellerLastSeen,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -219,6 +254,7 @@ class ChatResponse extends Equatable {
     subject,
     status,
     sellerId,
+    sellerUserId,
     sellerName,
     sellerLogo,
     userId,
@@ -233,6 +269,10 @@ class ChatResponse extends Equatable {
     lastMessagePreview,
     lastMessageAt,
     unreadCount,
+    userOnline,
+    userLastSeen,
+    sellerOnline,
+    sellerLastSeen,
     createdAt,
   ];
 }
@@ -242,6 +282,7 @@ class ChatMessageResponse extends Equatable {
   final String id;
   final String senderId;
   final String senderName;
+  final String? senderImage;
   final SenderType senderType;
   final String content;
   final MessageType messageType;
@@ -264,6 +305,7 @@ class ChatMessageResponse extends Equatable {
     required this.id,
     required this.senderId,
     required this.senderName,
+    this.senderImage,
     required this.senderType,
     required this.content,
     required this.messageType,
@@ -288,6 +330,7 @@ class ChatMessageResponse extends Equatable {
       id: json['id'] as String? ?? '',
       senderId: json['sender_id'] as String? ?? '',
       senderName: json['sender_name'] as String? ?? '',
+      senderImage: json['sender_image'] as String?,
       senderType: _parseSenderType(json['sender_type'] as String?),
       content: json['content'] as String? ?? '',
       messageType: _parseMessageType(json['message_type'] as String?),
@@ -307,7 +350,7 @@ class ChatMessageResponse extends Equatable {
       quantity: json['quantity'] as int?,
       isRead: json['is_read'] as bool? ?? false,
       readAt: json['read_at'] != null
-          ? DateTime.parse(json['read_at'] as String)
+          ? DateTime.parse(json['read_at'] as String).toLocal()
           : null,
       attachments:
           (json['attachments'] as List<dynamic>?)
@@ -317,7 +360,7 @@ class ChatMessageResponse extends Equatable {
               .toList() ??
           [],
       createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at'] as String)
+          ? DateTime.parse(json['created_at'] as String).toLocal()
           : DateTime.now(),
     );
   }
@@ -351,6 +394,7 @@ class ChatMessageResponse extends Equatable {
       'id': id,
       'sender_id': senderId,
       'sender_name': senderName,
+      'sender_image': senderImage,
       'sender_type': senderType.name.toUpperCase(),
       'content': content,
       'message_type': messageType.name.toUpperCase(),
@@ -369,6 +413,56 @@ class ChatMessageResponse extends Equatable {
       'attachments': attachments.map((a) => a.toJson()).toList(),
       'created_at': createdAt.toIso8601String(),
     };
+  }
+
+  ChatMessageResponse copyWith({
+    String? id,
+    String? senderId,
+    String? senderName,
+    String? senderImage,
+    SenderType? senderType,
+    String? content,
+    MessageType? messageType,
+    String? productId,
+    String? productTitle,
+    Map<String, String>? productTitleLocalized,
+    String? productDescription,
+    Map<String, String>? productDescriptionLocalized,
+    String? productImage,
+    int? productPrice,
+    String? color,
+    String? size,
+    int? quantity,
+    bool? isRead,
+    DateTime? readAt,
+    List<MessageAttachment>? attachments,
+    DateTime? createdAt,
+  }) {
+    return ChatMessageResponse(
+      id: id ?? this.id,
+      senderId: senderId ?? this.senderId,
+      senderName: senderName ?? this.senderName,
+      senderImage: senderImage ?? this.senderImage,
+      senderType: senderType ?? this.senderType,
+      content: content ?? this.content,
+      messageType: messageType ?? this.messageType,
+      productId: productId ?? this.productId,
+      productTitle: productTitle ?? this.productTitle,
+      productTitleLocalized:
+          productTitleLocalized ?? this.productTitleLocalized,
+      productDescription: productDescription ?? this.productDescription,
+      productDescriptionLocalized:
+          productDescriptionLocalized ?? this.productDescriptionLocalized,
+      productImage: productImage ?? this.productImage,
+      productPrice: productPrice ?? this.productPrice,
+      color: color ?? this.color,
+      size: size ?? this.size,
+      quantity: quantity ?? this.quantity,
+      isRead: isRead ?? this.isRead,
+      readAt: readAt ?? this.readAt,
+      attachments: attachments ?? this.attachments,
+      createdAt: createdAt ?? this.createdAt,
+    );
   }
 
   String localizedTitle(String languageCode) {
@@ -396,6 +490,7 @@ class ChatMessageResponse extends Equatable {
     id,
     senderId,
     senderName,
+    senderImage,
     senderType,
     content,
     messageType,
@@ -482,6 +577,25 @@ class SendMessageRequest {
       if (quantity != null) 'quantity': quantity,
       if (attachments != null) 'attachments': attachments,
     };
+  }
+}
+
+/// Presence Response from WebSocket or REST
+class PresenceResponse {
+  final String userId;
+  final bool online;
+  final DateTime? lastSeen;
+
+  PresenceResponse({required this.userId, required this.online, this.lastSeen});
+
+  factory PresenceResponse.fromJson(Map<String, dynamic> json) {
+    return PresenceResponse(
+      userId: json['user_id'] as String? ?? '',
+      online: json['online'] as bool? ?? false,
+      lastSeen: json['last_seen'] != null
+          ? DateTime.parse(json['last_seen'] as String).toLocal()
+          : null,
+    );
   }
 }
 

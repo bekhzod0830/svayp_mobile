@@ -1267,7 +1267,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get cancelOrder => 'Отменить заказ';
 
   @override
-  String get pending => 'Ожидание';
+  String get waiting => 'Ожидает подтверждения';
 
   @override
   String get confirmed => 'Подтвержден';
@@ -1298,6 +1298,15 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get returned => 'Возврат товара';
+
+  @override
+  String get readyToShip => 'Готов к отправке';
+
+  @override
+  String get readyForPickup => 'Готов к выдаче';
+
+  @override
+  String get voided => 'Аннулирован';
 
   @override
   String get chat => 'Чат';
@@ -1333,8 +1342,57 @@ class AppLocalizationsRu extends AppLocalizations {
   String get yesterday => 'Вчера';
 
   @override
-  String get interestedInProduct =>
-      'Здравствуйте! Меня интересует этот товар. Он доступен?';
+  String get chatToday => 'Сегодня';
+
+  @override
+  String get chatPresenceOnline => 'онлайн';
+
+  @override
+  String get chatPresenceOffline => 'офлайн';
+
+  @override
+  String get chatPresenceTyping => 'печатает...';
+
+  @override
+  String get chatLastSeenJustNow => 'только что';
+
+  @override
+  String chatLastSeenMinutes(int minutes) {
+    return '$minutes мин назад';
+  }
+
+  @override
+  String chatLastSeenHours(int hours) {
+    return '$hours ч назад';
+  }
+
+  @override
+  String chatLastSeenDays(int days) {
+    return '$days дн назад';
+  }
+
+  @override
+  String get chatFailedToLoad => 'Не удалось загрузить чат';
+
+  @override
+  String get chatFailedToReload => 'Не удалось обновить чат';
+
+  @override
+  String get chatReconnecting =>
+      'Переподключение… попробуйте снова через мгновение.';
+
+  @override
+  String get chatGoBack => 'Назад';
+
+  @override
+  String get chatNotFound => 'Чат не найден';
+
+  @override
+  String get chatFailedToLoadProduct =>
+      'Не удалось загрузить информацию о товаре';
+
+  @override
+  String get interestedInProduct => 'Привет, есть ли в наличии этот продукт?';
 
   @override
   String get sellerAutoResponse =>

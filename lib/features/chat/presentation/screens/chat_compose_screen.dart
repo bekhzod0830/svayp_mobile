@@ -206,7 +206,8 @@ class _ChatComposeScreenState extends State<ChatComposeScreen> {
         sellerId: widget.sellerId,
         productId: widget.productId,
         subject: '${widget.productBrand} - ${widget.productTitle}',
-        message: content,
+        // No message here — it will be sent via WebSocket after navigation
+        // so the seller receives the WS broadcast in real time.
         color: widget.color,
         size: widget.size,
         quantity: widget.quantity,
@@ -215,14 +216,18 @@ class _ChatComposeScreenState extends State<ChatComposeScreen> {
       final chat = await chatService.createChat(request);
 
       if (mounted) {
-        // Navigate to the actual chat screen
+        // Navigate to chat screen and send the message via WebSocket.
+        // This ensures the seller receives it in real time through WS broadcast.
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (context) => ChatDetailScreen(chatId: chat.id),
+            builder: (context) => ChatDetailScreen(
+              chatId: chat.id,
+              pendingMessage: content,
+            ),
           ),
         );
       }
-    } catch (e, stackTrace) {
+    } catch (e) {
       if (mounted) {
         setState(() {
           _isSending = false;

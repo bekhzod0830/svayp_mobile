@@ -1252,7 +1252,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cancelOrder => 'Cancel Order';
 
   @override
-  String get pending => 'Pending';
+  String get waiting => 'Awaiting Confirmation';
 
   @override
   String get confirmed => 'Confirmed';
@@ -1283,6 +1283,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get returned => 'Returned';
+
+  @override
+  String get readyToShip => 'Ready to Ship';
+
+  @override
+  String get readyForPickup => 'Ready for Pickup';
+
+  @override
+  String get voided => 'Voided';
 
   @override
   String get chat => 'Chat';
@@ -1318,8 +1327,55 @@ class AppLocalizationsEn extends AppLocalizations {
   String get yesterday => 'Yesterday';
 
   @override
-  String get interestedInProduct =>
-      'Hello! I\'m interested in this product. Is it available?';
+  String get chatToday => 'Today';
+
+  @override
+  String get chatPresenceOnline => 'online';
+
+  @override
+  String get chatPresenceOffline => 'offline';
+
+  @override
+  String get chatPresenceTyping => 'typing...';
+
+  @override
+  String get chatLastSeenJustNow => 'just now';
+
+  @override
+  String chatLastSeenMinutes(int minutes) {
+    return 'last seen ${minutes}m ago';
+  }
+
+  @override
+  String chatLastSeenHours(int hours) {
+    return 'last seen ${hours}h ago';
+  }
+
+  @override
+  String chatLastSeenDays(int days) {
+    return 'last seen ${days}d ago';
+  }
+
+  @override
+  String get chatFailedToLoad => 'Failed to load chat';
+
+  @override
+  String get chatFailedToReload => 'Failed to reload chat';
+
+  @override
+  String get chatReconnecting => 'Reconnecting… please try again in a moment.';
+
+  @override
+  String get chatGoBack => 'Go Back';
+
+  @override
+  String get chatNotFound => 'Chat not found';
+
+  @override
+  String get chatFailedToLoadProduct => 'Failed to load product details';
+
+  @override
+  String get interestedInProduct => 'Hi, do you have this product in stock?';
 
   @override
   String get sellerAutoResponse =>
