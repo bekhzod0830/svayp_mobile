@@ -18,10 +18,10 @@ class ChatListScreen extends StatefulWidget {
   const ChatListScreen({super.key});
 
   @override
-  State<ChatListScreen> createState() => _ChatListScreenState();
+  State<ChatListScreen> createState() => ChatListScreenState();
 }
 
-class _ChatListScreenState extends State<ChatListScreen>
+class ChatListScreenState extends State<ChatListScreen>
     with WidgetsBindingObserver {
   late final ChatService _chatService;
   late final ChatCacheService _chatCacheService;
@@ -32,6 +32,10 @@ class _ChatListScreenState extends State<ChatListScreen>
   String? _errorMessage;
   bool _isAdmin = false;
   StreamSubscription? _listMessageSub;
+
+  /// Called from parent (MainScreen / PartnerMainScreen) when the chat tab
+  /// becomes active so newly created conversations are fetched immediately.
+  void refresh() => _loadChats();
 
   @override
   void initState() {
@@ -99,6 +103,9 @@ class _ChatListScreenState extends State<ChatListScreen>
       }).toList();
       _errorMessage = null;
     });
+    // Do NOT call _syncBadge() here — cache may have stale 0 unreadCounts,
+    // which would momentarily zero the badge before the API response arrives.
+    // The badge is kept by _badgeListSub and will be corrected from API data.
 
     // Guard: only one live API call at a time
     if (_isFetchingFromApi) return;
@@ -110,11 +117,22 @@ class _ChatListScreenState extends State<ChatListScreen>
 
       await _chatCacheService.updateChatsCache(chats);
 
+      // Capture the current in-memory unreadCounts (updated by WS events)
+      // so they aren't lost when API data lands. Take the higher of the two —
+      // API may lag behind WS increments.
+      final inMemoryMap = {for (final c in _chats) c.id: c.unreadCount};
       setState(() {
-        _chats = chats;
+        _chats = chats.map((c) {
+          final mem = inMemoryMap[c.id];
+          if (mem != null && mem > c.unreadCount) {
+            return c.copyWith(unreadCount: mem);
+          }
+          return c;
+        }).toList();
         _isLoading = false;
         _errorMessage = null;
       });
+      _syncBadge();
 
       _openListSubscription();
     } catch (e) {
@@ -134,6 +152,13 @@ class _ChatListScreenState extends State<ChatListScreen>
     await _loadChats();
   }
 
+  /// Keeps the global bottom-nav badge in sync with the actual total of
+  /// unread messages across all loaded chats.
+  void _syncBadge() {
+    final total = _chats.fold<int>(0, (sum, c) => sum + c.unreadCount);
+    getIt<ChatWebSocketService>().unreadCountNotifier.value = total;
+  }
+
   Future<void> _openChat(ChatResponse chat) async {
     // Optimistically reset unread count before entering the chat
     final idx = _chats.indexWhere((c) => c.id == chat.id);
@@ -141,6 +166,7 @@ class _ChatListScreenState extends State<ChatListScreen>
       setState(() {
         _chats[idx] = _chats[idx].copyWith(unreadCount: 0);
       });
+      _syncBadge();
     }
     if (!mounted) return;
     await Navigator.of(context, rootNavigator: true).push(
@@ -154,16 +180,23 @@ class _ChatListScreenState extends State<ChatListScreen>
 
   /// Subscribe to all loaded chat rooms for real-time list updates via WS.
   void _openListSubscription() {
-    if (!mounted || _chats.isEmpty) return;
+    if (!mounted) return;
     final wsService = getIt<ChatWebSocketService>();
-    wsService.openList(_chats.map((c) => c.id).toList());
+    if (_chats.isNotEmpty) {
+      wsService.openList(_chats.map((c) => c.id).toList());
+    }
 
     // Set up the stream listener only once; cancel previous if re-loading.
     _listMessageSub?.cancel();
     _listMessageSub = wsService.listMessageStream.listen((event) {
       if (!mounted) return;
       final idx = _chats.indexWhere((c) => c.id == event.chatId);
-      if (idx == -1) return;
+      if (idx == -1) {
+        // A message arrived for an unknown chat (e.g. the first ever message
+        // after an empty list). Reload so the new conversation appears.
+        _refreshChats();
+        return;
+      }
       final isOpen = wsService.activeChatId == event.chatId;
 
       // Pre-warm the detail screen's in-memory cache so the new message
@@ -180,6 +213,7 @@ class _ChatListScreenState extends State<ChatListScreen>
         final updated = _chats.removeAt(idx);
         _chats.insert(0, updated);
       });
+      _syncBadge();
     });
   }
 
@@ -213,29 +247,16 @@ class _ChatListScreenState extends State<ChatListScreen>
                     ),
                   ),
                 ),
-                padding: const EdgeInsets.fromLTRB(4, 8, 20, 8),
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
                 child: Row(
                   children: [
-                    if (!_isAdmin)
-                      IconButton(
-                        icon: Icon(
-                          Icons.arrow_back,
-                          color: isDark
-                              ? AppColors.darkPrimaryText
-                              : AppColors.black,
-                        ),
-                        onPressed: () => Navigator.of(context).pop(),
-                      ),
                     Expanded(
-                      child: Padding(
-                        padding: EdgeInsets.only(left: _isAdmin ? 16 : 0),
-                        child: Text(
-                          l10n.chat,
-                          style: AppTypography.heading2.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: theme.colorScheme.onSurface,
-                            letterSpacing: -0.3,
-                          ),
+                      child: Text(
+                        l10n.chat,
+                        style: AppTypography.heading2.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: theme.colorScheme.onSurface,
+                          letterSpacing: -0.3,
                         ),
                       ),
                     ),
@@ -253,9 +274,31 @@ class _ChatListScreenState extends State<ChatListScreen>
                         ),
                       )
                     : _errorMessage != null
-                    ? _buildErrorState(l10n, isDark)
+                    ? RefreshIndicator(
+                        onRefresh: _refreshChats,
+                        child: ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          children: [
+                            SizedBox(
+                              height: MediaQuery.of(context).size.height * 0.65,
+                              child: _buildErrorState(l10n, isDark),
+                            ),
+                          ],
+                        ),
+                      )
                     : _chats.isEmpty
-                    ? _buildEmptyState(l10n, isDark)
+                    ? RefreshIndicator(
+                        onRefresh: _refreshChats,
+                        child: ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          children: [
+                            SizedBox(
+                              height: MediaQuery.of(context).size.height * 0.65,
+                              child: _buildEmptyState(l10n, isDark),
+                            ),
+                          ],
+                        ),
+                      )
                     : RefreshIndicator(
                         onRefresh: _refreshChats,
                         child: ListView.builder(

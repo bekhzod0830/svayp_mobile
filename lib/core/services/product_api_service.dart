@@ -758,6 +758,58 @@ class ProductApiService {
       rethrow;
     }
   }
+
+  /// Get paginated list of all active sellers
+  ///
+  /// Endpoint: GET /api/v1/sellers?skip=0&limit=50&isActive=true
+  Future<List<SellerInfo>> getSellers({
+    int skip = 0,
+    int limit = 50,
+    bool isActive = true,
+    String? token,
+  }) async {
+    try {
+      final queryParams = <String, String>{
+        'skip': skip.toString(),
+        'limit': limit.toString(),
+        'isActive': isActive.toString(),
+      };
+      final uri = Uri.parse(
+        '$baseUrl/sellers',
+      ).replace(queryParameters: queryParams);
+      final headers = <String, String>{'Content-Type': 'application/json'};
+      if (token != null) headers['Authorization'] = 'Bearer $token';
+
+      final response = await http.get(uri, headers: headers);
+
+      if (response.statusCode == 200) {
+        final jsonData = json.decode(response.body) as Map<String, dynamic>;
+        // Handle multiple possible response shapes
+        final data = jsonData['data'] ?? jsonData;
+        final List<dynamic> items;
+        if (data is List) {
+          items = data;
+        } else if (data is Map) {
+          items =
+              (data['items'] ??
+                      data['sellers'] ??
+                      data['content'] ??
+                      data['data'] ??
+                      [])
+                  as List<dynamic>;
+        } else {
+          items = [];
+        }
+        return items
+            .map((e) => SellerInfo.fromJson(e as Map<String, dynamic>))
+            .toList();
+      } else {
+        throw Exception('Failed to load sellers: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
 }
 
 /// A single physical location of a seller (store/outlet)
@@ -790,6 +842,15 @@ class SellerLocation {
   }
 
   bool get hasCoordinates => latitude != null && longitude != null;
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'address': address,
+    'latitude': latitude,
+    'longitude': longitude,
+    'phone_number': phoneNumber,
+    'is_primary': isPrimary,
+  };
 }
 
 /// Basic seller info returned by GET /api/v1/sellers/{sellerId}
@@ -834,4 +895,16 @@ class SellerInfo {
       phoneNumber: json['phone_number'] as String?,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'logo_img': logoImg,
+    'description': description,
+    'product_count': productCount,
+    'locations': locations.map((l) => l.toJson()).toList(),
+    'website_url': websiteUrl,
+    'primary_address': primaryAddress,
+    'phone_number': phoneNumber,
+  };
 }

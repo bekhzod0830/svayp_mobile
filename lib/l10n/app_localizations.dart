@@ -2284,6 +2284,42 @@ abstract class AppLocalizations {
   /// **'Sellers'**
   String get sellers;
 
+  /// No description provided for @browseSellers.
+  ///
+  /// In en, this message translates to:
+  /// **'Browse Shops'**
+  String get browseSellers;
+
+  /// No description provided for @searchSellers.
+  ///
+  /// In en, this message translates to:
+  /// **'Search sellers...'**
+  String get searchSellers;
+
+  /// No description provided for @noSellersFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No sellers found'**
+  String get noSellersFound;
+
+  /// No description provided for @noSellersFoundSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Try adjusting your search'**
+  String get noSellersFoundSubtitle;
+
+  /// No description provided for @loadingSellers.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading sellers...'**
+  String get loadingSellers;
+
+  /// No description provided for @productsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} products'**
+  String productsCount(int count);
+
   /// No description provided for @productsFound.
   ///
   /// In en, this message translates to:

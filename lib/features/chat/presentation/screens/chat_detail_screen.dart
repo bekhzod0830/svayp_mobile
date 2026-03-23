@@ -599,7 +599,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    if (_isLoading) {
+    if (_isLoading || (!_isInitialized && _chat == null)) {
       return Scaffold(
         backgroundColor: isDark
             ? AppColors.darkMainBackground
@@ -813,7 +813,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
                         // reverse: true means index 0 = last message (newest)
                         final reversedIndex = _messages.length - 1 - index;
                         final message = _messages[reversedIndex];
-                        final isMine = message.senderId == _currentUserId;
+                        // Use senderType for reliable bubble alignment:
+                        // - Seller view (_isAdmin): seller/admin messages are mine
+                        // - User view: only user messages are mine
+                        final isMine = _isAdmin
+                            ? message.senderType != SenderType.user
+                            : message.senderType == SenderType.user;
 
                         // Check if a date separator is needed
                         bool showDateSeparator = false;

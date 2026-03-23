@@ -220,10 +220,8 @@ class _ChatComposeScreenState extends State<ChatComposeScreen> {
         // This ensures the seller receives it in real time through WS broadcast.
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (context) => ChatDetailScreen(
-              chatId: chat.id,
-              pendingMessage: content,
-            ),
+            builder: (context) =>
+                ChatDetailScreen(chatId: chat.id, pendingMessage: content),
           ),
         );
       }
@@ -311,25 +309,12 @@ class _ChatComposeScreenState extends State<ChatComposeScreen> {
             const SizedBox(width: 12),
             // Seller info
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.sellerName,
-                    style: AppTypography.body1.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: theme.colorScheme.onSurface,
-                    ),
-                  ),
-                  Text(
-                    'New Message',
-                    style: AppTypography.caption.copyWith(
-                      color: isDark
-                          ? AppColors.darkSecondaryText
-                          : AppColors.gray600,
-                    ),
-                  ),
-                ],
+              child: Text(
+                widget.sellerName,
+                style: AppTypography.body1.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: theme.colorScheme.onSurface,
+                ),
               ),
             ),
           ],

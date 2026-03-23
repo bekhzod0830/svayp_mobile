@@ -1149,6 +1149,26 @@ class AppLocalizationsUz extends AppLocalizations {
   String get sellers => 'Sotuvchilar';
 
   @override
+  String get browseSellers => 'Do\'konlar';
+
+  @override
+  String get searchSellers => 'Sotuvchilarni qidirish...';
+
+  @override
+  String get noSellersFound => 'Sotuvchilar topilmadi';
+
+  @override
+  String get noSellersFoundSubtitle => 'Qidiruvni o\'zgartirib ko\'ring';
+
+  @override
+  String get loadingSellers => 'Sotuvchilar yuklanmoqda...';
+
+  @override
+  String productsCount(int count) {
+    return '$count ta mahsulot';
+  }
+
+  @override
   String get productsFound => 'mahsulot topildi';
 
   @override

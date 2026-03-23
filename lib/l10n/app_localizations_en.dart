@@ -1135,6 +1135,26 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sellers => 'Sellers';
 
   @override
+  String get browseSellers => 'Browse Shops';
+
+  @override
+  String get searchSellers => 'Search sellers...';
+
+  @override
+  String get noSellersFound => 'No sellers found';
+
+  @override
+  String get noSellersFoundSubtitle => 'Try adjusting your search';
+
+  @override
+  String get loadingSellers => 'Loading sellers...';
+
+  @override
+  String productsCount(int count) {
+    return '$count products';
+  }
+
+  @override
   String get productsFound => 'products found';
 
   @override

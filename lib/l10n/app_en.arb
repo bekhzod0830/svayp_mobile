@@ -413,6 +413,19 @@
   "visualSearchResults": "Visual Search Results",
   "searchResults": "Search Results",
   "sellers": "Sellers",
+  "browseSellers": "Browse Shops",
+  "searchSellers": "Search sellers...",
+  "noSellersFound": "No sellers found",
+  "noSellersFoundSubtitle": "Try adjusting your search",
+  "loadingSellers": "Loading sellers...",
+  "productsCount": "{count} products",
+  "@productsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "productsFound": "products found",
   "noProductsFound": "No products found",
   "tryDifferentSearch": "Try searching with different keywords",

@@ -82,6 +82,11 @@ class ApiConfig {
   static const String brands = '/brands';
   static const String brandDetail = '/brands/{id}';
 
+  // ==================== Seller Endpoints ====================
+  static const String sellers = '/sellers';
+  static const String sellerDetail = '/sellers/{id}';
+  static const String sellerProducts = '/sellers/{id}/detail';
+
   // ==================== Upload Endpoints ====================
   static const String uploadImage = '/upload/image';
 

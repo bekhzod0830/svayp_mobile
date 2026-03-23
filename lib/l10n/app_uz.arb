@@ -365,6 +365,19 @@
   "visualSearchResults": "Vizual qidiruv natijalari",
   "searchResults": "Qidiruv natijalari",
   "sellers": "Sotuvchilar",
+  "browseSellers": "Do'konlar",
+  "searchSellers": "Sotuvchilarni qidirish...",
+  "noSellersFound": "Sotuvchilar topilmadi",
+  "noSellersFoundSubtitle": "Qidiruvni o'zgartirib ko'ring",
+  "loadingSellers": "Sotuvchilar yuklanmoqda...",
+  "productsCount": "{count} ta mahsulot",
+  "@productsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "productsFound": "mahsulot topildi",
   "noProductsFound": "Mahsulotlar topilmadi",
   "tryDifferentSearch": "Boshqa kalit so'zlar bilan qidirishga harakat qiling",  "yourSearchImage": "Qidiruv uchun rasmingiz",  "analyzingImageWithAI": "O'xshash uslublar qidirilmoqda",

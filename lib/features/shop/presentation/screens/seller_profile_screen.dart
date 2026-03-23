@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -43,6 +44,10 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
   String? _authToken;
   static const int _pageSize = 20;
 
+  // Cache keys scoped to this seller
+  String get _infoCacheKey => 'seller_info_${widget.sellerId}';
+  String get _productsCacheKey => 'seller_products_${widget.sellerId}';
+
   @override
   void initState() {
     super.initState();
@@ -57,23 +62,94 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
     final token = prefs.getString('auth_token');
     if (mounted) setState(() => _authToken = token);
 
-    // Fetch fresh seller info and first product page in parallel
-    await Future.wait([_fetchSellerInfo(token), _loadInitialProducts(token)]);
+    // Load from cache immediately, then refresh in background
+    final hadCache = _loadFromCache(prefs);
+
+    if (hadCache) {
+      // Show cached data right away, refresh silently
+      _refreshInBackground(token, prefs);
+    } else {
+      // No cache — fetch with loading indicator
+      await Future.wait([
+        _fetchSellerInfo(token, prefs: prefs),
+        _loadInitialProducts(token, prefs: prefs),
+      ]);
+    }
   }
 
-  Future<void> _fetchSellerInfo(String? token) async {
+  /// Returns true if cache was found and applied.
+  bool _loadFromCache(SharedPreferences prefs) {
+    bool found = false;
+
+    // Seller info
+    final infoRaw = prefs.getString(_infoCacheKey);
+    if (infoRaw != null) {
+      try {
+        final info = SellerInfo.fromJson(
+          jsonDecode(infoRaw) as Map<String, dynamic>,
+        );
+        if (mounted) setState(() => _sellerInfo = info);
+        found = true;
+      } catch (_) {}
+    }
+
+    // Products
+    final productsRaw = prefs.getString(_productsCacheKey);
+    if (productsRaw != null) {
+      try {
+        final list = jsonDecode(productsRaw) as List<dynamic>;
+        final cached = list
+            .map((e) => api_models.Product.fromJson(e as Map<String, dynamic>))
+            .map(_convertApiProduct)
+            .toList();
+        if (mounted) {
+          setState(() {
+            _products = cached;
+            _hasMore = cached.length >= _pageSize;
+            _isLoadingInitial = false;
+          });
+        }
+        found = true;
+      } catch (_) {}
+    }
+
+    return found;
+  }
+
+  Future<void> _refreshInBackground(
+    String? token,
+    SharedPreferences prefs,
+  ) async {
+    // Fire both requests in parallel, silently update UI when they complete
+    await Future.wait([
+      _fetchSellerInfo(token, prefs: prefs),
+      _loadInitialProducts(token, prefs: prefs),
+    ]);
+  }
+
+  Future<void> _fetchSellerInfo(
+    String? token, {
+    SharedPreferences? prefs,
+  }) async {
     try {
       final info = await _apiService.getSeller(
         sellerId: widget.sellerId,
         token: token,
       );
+      final resolvedPrefs = prefs ?? await SharedPreferences.getInstance();
+      try {
+        await resolvedPrefs.setString(_infoCacheKey, jsonEncode(info.toJson()));
+      } catch (_) {}
       if (mounted) setState(() => _sellerInfo = info);
     } catch (_) {
       // Keep whatever was passed from the previous screen as fallback
     }
   }
 
-  Future<void> _loadInitialProducts(String? token) async {
+  Future<void> _loadInitialProducts(
+    String? token, {
+    SharedPreferences? prefs,
+  }) async {
     try {
       final response = await _apiService.getBrandDetail(
         brandId: widget.sellerId,
@@ -87,6 +163,16 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
           loaded.add(_convertApiProduct(apiProduct));
         } catch (_) {}
       }
+
+      // Save raw api products to cache
+      try {
+        final resolvedPrefs = prefs ?? await SharedPreferences.getInstance();
+        await resolvedPrefs.setString(
+          _productsCacheKey,
+          jsonEncode(response.products.map((p) => p.toJson()).toList()),
+        );
+      } catch (_) {}
+
       if (mounted) {
         setState(() {
           if (loaded.isNotEmpty) _products = loaded;

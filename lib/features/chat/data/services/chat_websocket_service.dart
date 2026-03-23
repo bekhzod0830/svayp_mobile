@@ -37,6 +37,11 @@ class ChatWebSocketService {
         ({String chatId, ChatMessageResponse message})
       >.broadcast();
 
+  /// Global unread message count for the bottom-nav badge.
+  /// Increment from outside when a new message arrives on a non-active tab;
+  /// reset to 0 when the user opens the chat list.
+  final ValueNotifier<int> unreadCountNotifier = ValueNotifier(0);
+
   static const String _wsUrl = 'https://app.svaypai.com/ws/chat';
 
   // ── Public streams ───────────────────────────────────────────────────────
@@ -232,6 +237,20 @@ class ChatWebSocketService {
     if (isConnected) {
       for (final id in _listChatIds) _subscribeToListChat(id);
     }
+  }
+
+  /// Dynamically subscribe to a single [chatId] without disturbing existing
+  /// subscriptions. Call when a new chat is created after [openList] was
+  /// already called (e.g. a buyer starts a conversation with a seller).
+  /// Returns [true] if the chatId was newly added, [false] if already known.
+  bool addChatToList(String chatId) {
+    if (_listChatIds.contains(chatId)) return false;
+    _listChatIds.add(chatId);
+    debugPrint(
+      '[STOMP] addChatToList: $chatId (now ${_listChatIds.length} chats)',
+    );
+    if (isConnected) _subscribeToListChat(chatId);
+    return true;
   }
 
   /// Unsubscribe from all list-mode topics.

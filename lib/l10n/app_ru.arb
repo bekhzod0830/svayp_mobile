@@ -408,6 +408,19 @@
   "visualSearchResults": "Результаты визуального поиска",
   "searchResults": "Результаты поиска",
   "sellers": "Продавцы",
+  "browseSellers": "Магазины",
+  "searchSellers": "Поиск продавцов...",
+  "noSellersFound": "Продавцы не найдены",
+  "noSellersFoundSubtitle": "Попробуйте изменить запрос",
+  "loadingSellers": "Загрузка продавцов...",
+  "productsCount": "{count} товаров",
+  "@productsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "productsFound": "товаров найдено",
   "noProductsFound": "Товары не найдены",
   "tryDifferentSearch": "Попробуйте поискать по другим ключевым словам",

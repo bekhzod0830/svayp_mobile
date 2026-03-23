@@ -13,6 +13,7 @@ import 'package:swipe/features/address/presentation/screens/address_list_screen.
 import 'package:swipe/features/profile/presentation/screens/language_settings_screen.dart';
 import 'package:swipe/features/profile/presentation/screens/profile_information_screen.dart';
 import 'package:swipe/features/main/presentation/screens/main_screen.dart';
+import 'package:swipe/features/orders/presentation/screens/orders_screen.dart';
 import 'package:swipe/core/localization/services/language_service.dart';
 import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/core/network/api_client.dart';
@@ -626,14 +627,12 @@ class _ProfileScreenState extends State<ProfileScreen>
                                           icon: Icons.shopping_bag_outlined,
                                           title: l10n.myOrders,
                                           onTap: () {
-                                            // Navigate to Orders tab (index 3)
-                                            final mainScreenState = context
-                                                .findAncestorStateOfType<
-                                                  MainScreenState
-                                                >();
-                                            if (mainScreenState != null) {
-                                              mainScreenState.navigateToTab(3);
-                                            }
+                                            Navigator.of(context).push(
+                                              MaterialPageRoute(
+                                                builder: (_) =>
+                                                    const OrdersScreen(),
+                                              ),
+                                            );
                                           },
                                         ),
                                         _ProfileMenuItem(
@@ -742,7 +741,7 @@ class _ProfileScreenState extends State<ProfileScreen>
 
                                   // App Version
                                   Text(
-                                    l10n.version('1.0.3'),
+                                    l10n.version('1.0.4'),
                                     style: AppTypography.caption.copyWith(
                                       color: AppColors.gray500,
                                     ),

@@ -1881,7 +1881,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       builder: (context) => ChatComposeScreen(
                         sellerId: widget.product.sellerId ?? 'default-seller',
                         sellerName: widget.product.seller ?? 'Seller',
-                        sellerLogo: null, // Add seller logo if available
+                        sellerLogo: _sellerInfo?.logoImg,
                         productId: widget.product.id,
                         productTitle: widget.product.title,
                         productTitleLocalized:

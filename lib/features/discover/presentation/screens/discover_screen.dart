@@ -20,8 +20,6 @@ import 'package:swipe/core/models/product.dart' as api_models;
 import 'package:swipe/core/services/recommendation_cache_service.dart';
 import 'package:swipe/core/services/seen_products_service.dart';
 import 'package:swipe/core/cache/image_cache_manager.dart';
-import 'package:swipe/features/chat/data/services/chat_service.dart';
-import 'package:swipe/features/chat/presentation/screens/chat_list_screen.dart';
 import 'package:swipe/core/services/notification_service.dart';
 
 /// Helper function to format size label by removing SIZE_ prefix
@@ -60,9 +58,7 @@ class DiscoverScreenState extends State<DiscoverScreen> {
   OverlayEntry? _tutorialOverlayEntry;
   int _currentCardIndex = 0;
   int _cartCount = 0;
-  int _chatUnreadCount = 0;
   String? _authToken;
-  late final ChatService _chatService;
 
   @override
   void initState() {
@@ -84,7 +80,6 @@ class DiscoverScreenState extends State<DiscoverScreen> {
   Future<void> _initializeScreen() async {
     // ── 1. Get the auth token synchronously – no network call needed ──
     _authToken = getIt<ApiClient>().getToken();
-    _chatService = ChatService(getIt<ApiClient>());
 
     // ── 2. Init Hive services in parallel (cart & liked are independent) ──
     await Future.wait([_cartService.init(), _likedService.init()]);
@@ -109,7 +104,6 @@ class DiscoverScreenState extends State<DiscoverScreen> {
 
     // ── 5. Refresh cart count from API in background (doesn't block products) ──
     unawaited(_updateCartCount());
-    unawaited(_updateChatUnreadCount());
 
     // ── 6. Show swipe tutorial for first-time users ──
     final show = await shouldShowSwipeTutorial();
@@ -153,20 +147,8 @@ class DiscoverScreenState extends State<DiscoverScreen> {
           await _loadProducts(resetIndex: true);
         }
         await _updateCartCount();
-        unawaited(_updateChatUnreadCount());
       }
     });
-  }
-
-  Future<void> _updateChatUnreadCount() async {
-    if (!mounted || _authToken == null || _authToken!.isEmpty) return;
-    try {
-      final count = await _chatService.getUnreadCount();
-      if (!mounted) return;
-      setState(() {
-        _chatUnreadCount = count;
-      });
-    } catch (_) {}
   }
 
   Future<void> _updateCartCount() async {
@@ -767,54 +749,6 @@ class DiscoverScreenState extends State<DiscoverScreen> {
                                         _cartCount > 99
                                             ? '99+'
                                             : _cartCount.toString(),
-                                        style: AppTypography.caption.copyWith(
-                                          color: AppColors.white,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                        textAlign: TextAlign.center,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                          // Chat Button (Instagram-style send/DM icon)
-                          Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.send_outlined, size: 26),
-                                onPressed: () async {
-                                  await Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          const ChatListScreen(),
-                                    ),
-                                  );
-                                  unawaited(_updateChatUnreadCount());
-                                },
-                              ),
-                              // Badge showing unread chat count
-                              if (_chatUnreadCount > 0)
-                                Positioned(
-                                  right: 8,
-                                  top: 8,
-                                  child: IgnorePointer(
-                                    child: Container(
-                                      padding: const EdgeInsets.all(4),
-                                      decoration: const BoxDecoration(
-                                        color: Colors.red,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      constraints: const BoxConstraints(
-                                        minWidth: 18,
-                                        minHeight: 18,
-                                      ),
-                                      child: Text(
-                                        _chatUnreadCount > 99
-                                            ? '99+'
-                                            : _chatUnreadCount.toString(),
                                         style: AppTypography.caption.copyWith(
                                           color: AppColors.white,
                                           fontSize: 10,

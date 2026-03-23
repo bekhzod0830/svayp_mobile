@@ -11,6 +11,7 @@ import 'package:swipe/core/localization/services/language_service.dart';
 import 'package:swipe/core/network/api_client.dart';
 import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/app/routes.dart';
+import 'package:swipe/features/chat/data/services/chat_websocket_service.dart';
 
 /// Handles FCM background messages (must be top-level).
 /// For data-only messages (no `notification` key) the OS won't auto-show a
@@ -277,6 +278,21 @@ class NotificationService {
         '[FCM] 📩 onMessage fired — notification: ${message.notification?.title}, data: ${message.data}',
       );
       _showLocalNotification(message);
+      // When a message arrives for a chat the WS isn't subscribed to yet
+      // (e.g. a buyer started a brand-new conversation with the seller),
+      // subscribe to that chatId so future messages arrive via WS, and
+      // count this first message in the badge since the WS drop it.
+      final typeStr = message.data['type'] as String? ?? '';
+      if (NotificationType.fromString(typeStr) == NotificationType.newMessage) {
+        final chatId = message.data['entityId'] as String?;
+        if (chatId != null) {
+          final wsService = getIt<ChatWebSocketService>();
+          final wasNew = wsService.addChatToList(chatId);
+          if (wasNew) {
+            wsService.unreadCountNotifier.value += 1;
+          }
+        }
+      }
     });
   }
 

@@ -1147,6 +1147,26 @@ class AppLocalizationsRu extends AppLocalizations {
   String get sellers => 'Продавцы';
 
   @override
+  String get browseSellers => 'Магазины';
+
+  @override
+  String get searchSellers => 'Поиск продавцов...';
+
+  @override
+  String get noSellersFound => 'Продавцы не найдены';
+
+  @override
+  String get noSellersFoundSubtitle => 'Попробуйте изменить запрос';
+
+  @override
+  String get loadingSellers => 'Загрузка продавцов...';
+
+  @override
+  String productsCount(int count) {
+    return '$count товаров';
+  }
+
+  @override
   String get productsFound => 'товаров найдено';
 
   @override

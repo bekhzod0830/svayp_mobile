@@ -16,6 +16,7 @@ import 'package:swipe/features/shop/presentation/screens/visual_search_results_s
 import 'package:swipe/features/shop/presentation/widgets/visual_search_loader.dart';
 import 'package:swipe/features/shop/presentation/screens/visual_search_crop_screen.dart';
 import 'package:swipe/features/shop/presentation/screens/seller_profile_screen.dart';
+import 'package:swipe/features/shop/presentation/screens/sellers_list_screen.dart';
 import 'package:swipe/features/shop/presentation/screens/shop_search_results_screen.dart';
 import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/core/network/api_client.dart';
@@ -731,7 +732,7 @@ class _ShopScreenState extends State<ShopScreen>
       final croppedImage = await _showCategoryPicker(image);
       if (croppedImage == null) return; // dismissed
 
-      // 5. Show loading dialog AFTER crop is confirmed
+      // 4. Show loading dialog AFTER crop is confirmed
       if (!mounted) return;
       showDialog(
         context: context,
@@ -742,14 +743,13 @@ class _ShopScreenState extends State<ShopScreen>
         ),
       );
 
-      // 7. Fetch recommendations from the backend
+      // 5. Fetch recommendations from the backend
       final response = await _visualSearchService.fetchRecommendations(
         image: croppedImage,
         token: _authToken,
-        // category: null, // Category selection removed
       );
 
-      // 8. Close loading dialog
+      // 6. Close loading dialog
       if (mounted) {
         Navigator.of(context, rootNavigator: true).pop();
       }
@@ -757,7 +757,7 @@ class _ShopScreenState extends State<ShopScreen>
       // Small delay to ensure dialog is fully closed
       await Future.delayed(const Duration(milliseconds: 100));
 
-      // 9. Navigate to results screen
+      // 7. Navigate to results screen
       if (mounted) {
         await Navigator.push(
           context,
@@ -1012,6 +1012,44 @@ class _ShopScreenState extends State<ShopScreen>
                           ],
                         ),
                       ),
+                      // Browse Sellers Button
+                      GestureDetector(
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const SellersListScreen(),
+                          ),
+                        ),
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          margin: const EdgeInsets.only(right: 8),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? AppColors.darkCardBackground
+                                : Colors.white,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: isDark
+                                  ? AppColors.darkStandardBorder
+                                  : AppColors.gray200,
+                            ),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: _kShadowBlack08,
+                                blurRadius: 8,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Icon(
+                            Icons.storefront_outlined,
+                            size: 20,
+                            color: isDark
+                                ? AppColors.darkPrimaryText
+                                : AppColors.black,
+                          ),
+                        ),
+                      ),
                       // Visual Search Button – animated
                       _AnimatedVisualSearchButton(
                         onTap: _handleVisualSearch,
@@ -1021,44 +1059,10 @@ class _ShopScreenState extends State<ShopScreen>
                   ),
                 ),
 
-                // Category tab bar – horizontally scrollable chips
-                SizedBox(
-                  height: 40,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    children: [
-                      _buildCategoryChip(0, l10n.trending, isDark),
-                      const SizedBox(width: 8),
-                      _buildCategoryChip(1, l10n.all, isDark),
-                      const SizedBox(width: 8),
-                      _buildCategoryChip(2, l10n.vsCatTopwear, isDark),
-                      const SizedBox(width: 8),
-                      _buildCategoryChip(3, l10n.vsCatBottomwear, isDark),
-                      const SizedBox(width: 8),
-                      _buildCategoryChip(4, l10n.vsCatModestWear, isDark),
-                      const SizedBox(width: 8),
-                      _buildCategoryChip(5, l10n.vsCatDresses, isDark),
-                      const SizedBox(width: 8),
-                      _buildCategoryChip(6, l10n.vsCatOnePiece, isDark),
-                      const SizedBox(width: 8),
-                      _buildCategoryChip(7, l10n.vsCatTwoPieceSet, isDark),
-                      const SizedBox(width: 8),
-                      _buildCategoryChip(8, l10n.vsCatThreePieceSet, isDark),
-                      const SizedBox(width: 8),
-                      _buildCategoryChip(9, l10n.vsCatFootwear, isDark),
-                      const SizedBox(width: 8),
-                      _buildCategoryChip(10, l10n.vsCatOuterwear, isDark),
-                      const SizedBox(width: 8),
-                      _buildCategoryChip(11, l10n.vsCatActivewear, isDark),
-                      const SizedBox(width: 8),
-                      _buildCategoryChip(12, l10n.vsCatHomewear, isDark),
-                      const SizedBox(width: 8),
-                      _buildCategoryChip(13, l10n.vsCatUnderwear, isDark),
-                      const SizedBox(width: 8),
-                      _buildCategoryChip(14, l10n.vsCatAccessories, isDark),
-                    ],
-                  ),
+                // Category dropdown
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: _buildCategoryDropdown(isDark, l10n),
                 ),
 
                 const SizedBox(height: 12),
@@ -1330,36 +1334,71 @@ class _ShopScreenState extends State<ShopScreen>
     }
   }
 
-  Widget _buildCategoryChip(int index, String label, bool isDark) {
-    final isSelected = _selectedTab == index;
-    return GestureDetector(
-      onTap: () => _onTabSelected(index),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? (isDark ? AppColors.darkPrimaryText : AppColors.black)
-              : (isDark ? AppColors.darkCardBackground : Colors.white),
-          borderRadius: BorderRadius.circular(20),
-          border: isSelected
-              ? null
-              : Border.all(
-                  color: isDark
-                      ? AppColors.darkStandardBorder
-                      : AppColors.gray200,
-                  width: 1,
-                ),
+  Widget _buildCategoryDropdown(bool isDark, AppLocalizations l10n) {
+    final items = [
+      (0, l10n.trending),
+      (1, l10n.all),
+      (2, l10n.vsCatTopwear),
+      (3, l10n.vsCatBottomwear),
+      (4, l10n.vsCatModestWear),
+      (5, l10n.vsCatDresses),
+      (6, l10n.vsCatOnePiece),
+      (7, l10n.vsCatTwoPieceSet),
+      (8, l10n.vsCatThreePieceSet),
+      (9, l10n.vsCatFootwear),
+      (10, l10n.vsCatOuterwear),
+      (11, l10n.vsCatActivewear),
+      (12, l10n.vsCatHomewear),
+      (13, l10n.vsCatUnderwear),
+      (14, l10n.vsCatAccessories),
+    ];
+
+    return Container(
+      height: 44,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkCardBackground : Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: isDark ? AppColors.darkStandardBorder : AppColors.gray200,
         ),
-        child: Text(
-          label,
-          style: AppTypography.body2.copyWith(
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-            color: isSelected
-                ? (isDark ? AppColors.black : Colors.white)
-                : (isDark ? AppColors.darkSecondaryText : AppColors.gray600),
-            fontSize: 13,
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<int>(
+          value: _selectedTab,
+          isExpanded: true,
+          dropdownColor: isDark ? AppColors.darkCardBackground : Colors.white,
+          icon: Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: isDark ? AppColors.darkPrimaryText : AppColors.black,
           ),
+          style: AppTypography.body2.copyWith(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: isDark ? AppColors.darkPrimaryText : AppColors.black,
+          ),
+          items: items
+              .map(
+                (item) => DropdownMenuItem<int>(
+                  value: item.$1,
+                  child: Text(
+                    item.$2,
+                    style: AppTypography.body2.copyWith(
+                      fontSize: 13,
+                      fontWeight: _selectedTab == item.$1
+                          ? FontWeight.w700
+                          : FontWeight.w500,
+                      color: isDark
+                          ? AppColors.darkPrimaryText
+                          : AppColors.black,
+                    ),
+                  ),
+                ),
+              )
+              .toList(),
+          onChanged: (index) {
+            if (index != null) _onTabSelected(index);
+          },
         ),
       ),
     );
