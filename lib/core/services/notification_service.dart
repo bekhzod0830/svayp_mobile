@@ -335,14 +335,22 @@ class NotificationService {
 
     switch (type) {
       case NotificationType.orderUpdate:
-        nav.pushNamed(AppRoutes.orders);
+        if (entityId != null && entityId.isNotEmpty) {
+          nav.pushNamed(AppRoutes.orderDetail, arguments: entityId);
+        } else {
+          nav.pushNamed(AppRoutes.orders);
+        }
       case NotificationType.newMessage:
-        nav.pushNamed(AppRoutes.main);
+        if (entityId != null && entityId.isNotEmpty) {
+          nav.pushNamed(AppRoutes.chatDetail, arguments: entityId);
+        } else {
+          nav.pushNamed(AppRoutes.chatList);
+        }
       case NotificationType.priceDrop:
       case NotificationType.restock:
       case NotificationType.newArrival:
       case NotificationType.recommendation:
-        if (entityId != null) {
+        if (entityId != null && entityId.isNotEmpty) {
           nav.pushNamed(AppRoutes.productDetail, arguments: entityId);
         } else {
           nav.pushNamed(AppRoutes.discover);

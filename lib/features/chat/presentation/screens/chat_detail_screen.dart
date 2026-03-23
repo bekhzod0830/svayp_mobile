@@ -17,6 +17,7 @@ import 'package:swipe/features/product/presentation/screens/product_detail_scree
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:swipe/core/models/product.dart' as api_models;
 import 'package:swipe/features/discover/domain/entities/product.dart';
+import 'package:swipe/app/routes.dart';
 
 /// Helper function to format size label by removing SIZE_ prefix
 String _formatSizeLabel(String size) {
@@ -36,10 +37,15 @@ class ChatDetailScreen extends StatefulWidget {
   /// WebSocket and is broadcast to the seller in real time.
   final String? pendingMessage;
 
+  /// When true, the back button navigates to the chat list instead of popping.
+  /// Set this when the screen is opened directly from a notification.
+  final bool fromNotification;
+
   const ChatDetailScreen({
     super.key,
     required this.chatId,
     this.pendingMessage,
+    this.fromNotification = false,
   });
 
   /// Appends [message] to the in-memory message cache for [chatId].
@@ -88,6 +94,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
   bool _isLoading = true;
   bool _isSending = false;
   bool _isInitialized = false;
+  bool _hasRetried = false;
   String? _errorMessage;
 
   // Pagination
@@ -198,6 +205,20 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
 
       _isInitialized = true;
     } catch (e) {
+      // When opened from a notification on a cold-start the 500 ms delay may
+      // fire before auth fully settles. Retry once before showing the error.
+      if (widget.fromNotification && !_hasRetried) {
+        _hasRetried = true;
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) {
+            setState(() {
+              _isLoading = true;
+            });
+            _initializeChat();
+          }
+        });
+        return;
+      }
       if (mounted) {
         setState(() {
           _errorMessage = 'Failed to load chat: ${e.toString()}';
@@ -593,13 +614,22 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
     }
   }
 
+  /// When opened from a notification, go to the chat list instead of popping.
+  void _onBack() {
+    if (widget.fromNotification) {
+      Navigator.of(context).pushReplacementNamed(AppRoutes.chatList);
+    } else {
+      Navigator.of(context).pop();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    if (_isLoading || (!_isInitialized && _chat == null)) {
+    if (_errorMessage == null && (_isLoading || (!_isInitialized && _chat == null))) {
       return Scaffold(
         backgroundColor: isDark
             ? AppColors.darkMainBackground
@@ -611,7 +641,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
           elevation: 0,
           leading: IconButton(
             icon: Icon(Icons.arrow_back, color: theme.colorScheme.onSurface),
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: _onBack,
           ),
           title: Text(l10n.loading),
         ),
@@ -631,7 +661,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
           elevation: 0,
           leading: IconButton(
             icon: Icon(Icons.arrow_back, color: theme.colorScheme.onSurface),
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: _onBack,
           ),
         ),
         body: Center(
@@ -644,11 +674,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
                 _errorMessage != null
                     ? l10n.chatFailedToLoad
                     : l10n.chatNotFound,
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: Text(l10n.chatGoBack),
               ),
             ],
           ),
@@ -675,7 +700,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
         ),
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: theme.colorScheme.onSurface),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: _onBack,
         ),
         title: Row(
           children: [

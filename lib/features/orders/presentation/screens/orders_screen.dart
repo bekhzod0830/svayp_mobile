@@ -13,6 +13,7 @@ import 'package:swipe/core/models/product.dart' as api_models;
 import 'package:swipe/features/discover/domain/entities/product.dart';
 import 'package:swipe/features/product/presentation/screens/product_detail_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:swipe/app/routes.dart';
 
 /// Helper function to format a price with the given currency code
 String _formatItemPrice(double price, String currency) {
@@ -118,16 +119,11 @@ class OrdersScreenState extends State<OrdersScreen>
   }
 
   void _onOrderTap(OrderModel order) {
-    // Show order details in bottom sheet
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) =>
+            OrderDetailScreen(order: order, isPartner: _isPartner),
       ),
-      isScrollControlled: true,
-      builder: (context) =>
-          _OrderDetailSheet(order: order, isPartner: _isPartner),
     );
   }
 
@@ -295,6 +291,17 @@ class OrdersScreenState extends State<OrdersScreen>
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
               child: Row(
                 children: [
+                  if (!_isPartner && Navigator.of(context).canPop()) ...[
+                    GestureDetector(
+                      onTap: () => Navigator.of(context).pop(),
+                      child: Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        size: 20,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                  ],
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -708,7 +715,8 @@ class _OrderCard extends StatelessWidget {
                         child: OutlinedButton(
                           onPressed: onTap,
                           style: OutlinedButton.styleFrom(
-                            fixedSize: const Size.fromHeight(48),
+                            minimumSize: const Size(0, 48),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             side: BorderSide(
                               color: isDark
                                   ? AppColors.darkPrimaryText
@@ -726,31 +734,37 @@ class _OrderCard extends StatelessWidget {
                                   : AppColors.black,
                               fontWeight: FontWeight.w600,
                             ),
+                            textAlign: TextAlign.center,
                           ),
                         ),
                       ),
                       if (onChangeStatus != null) ...[
                         const SizedBox(width: 8),
-                        OutlinedButton(
-                          onPressed: onChangeStatus,
-                          style: OutlinedButton.styleFrom(
-                            fixedSize: const Size(72, 48),
-                            side: BorderSide(
-                              color: isDark
-                                  ? AppColors.darkPrimaryText
-                                  : AppColors.black,
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: onChangeStatus,
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size(0, 48),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              side: BorderSide(
+                                color: isDark
+                                    ? AppColors.darkPrimaryText
+                                    : AppColors.black,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                             ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
+                            child: Text(
+                              l10n.changeStatus,
+                              style: AppTypography.body2.copyWith(
+                                color: isDark
+                                    ? AppColors.darkPrimaryText
+                                    : AppColors.black,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              textAlign: TextAlign.center,
                             ),
-                            padding: EdgeInsets.zero,
-                          ),
-                          child: Icon(
-                            Icons.swap_horiz_rounded,
-                            size: 22,
-                            color: isDark
-                                ? AppColors.darkPrimaryText
-                                : AppColors.black,
                           ),
                         ),
                       ],
@@ -766,30 +780,73 @@ class _OrderCard extends StatelessWidget {
   }
 }
 
-/// Order Detail Bottom Sheet
-class _OrderDetailSheet extends StatefulWidget {
-  final OrderModel order;
+/// Order Detail Screen - full page view of a single order
+class OrderDetailScreen extends StatefulWidget {
+  final OrderModel? order;
+  final String? orderId;
   final bool isPartner;
 
-  const _OrderDetailSheet({required this.order, this.isPartner = false});
+  const OrderDetailScreen({
+    super.key,
+    this.order,
+    this.orderId,
+    this.isPartner = false,
+  }) : assert(order != null || orderId != null);
 
   @override
-  State<_OrderDetailSheet> createState() => _OrderDetailSheetState();
+  State<OrderDetailScreen> createState() => _OrderDetailScreenState();
 }
 
-class _OrderDetailSheetState extends State<_OrderDetailSheet> {
-  bool _itemsExpanded = false;
-  late String _currentStatus; // tracks optimistic status update
+class _OrderDetailScreenState extends State<OrderDetailScreen> {
+  // items are always expanded on this page
+  final bool _itemsExpanded = true;
+  OrderModel? _order;
+  bool _isLoading = false;
+  late String _currentStatus;
   bool _isOpeningProduct = false;
 
   @override
   void initState() {
     super.initState();
-    _currentStatus = widget.order.status;
+    if (widget.order != null) {
+      _order = widget.order;
+      _currentStatus = _order!.status;
+    } else {
+      _currentStatus = '';
+      _loadOrder();
+    }
+  }
+
+  /// When opened from a notification (by orderId), go to the orders list.
+  /// Otherwise just pop back to where we came from.
+  void _onBack() {
+    if (widget.orderId != null) {
+      Navigator.of(context).pushReplacementNamed(AppRoutes.orders);
+    } else {
+      Navigator.of(context).pop();
+    }
+  }
+
+  Future<void> _loadOrder() async {
+    if (!mounted) return;
+    setState(() => _isLoading = true);
+    try {
+      final apiClient = getIt<ApiClient>();
+      final service = OrderService(apiClient);
+      final fetched = await service.fetchOrderById(widget.orderId!);
+      if (!mounted) return;
+      setState(() {
+        _order = fetched;
+        _currentStatus = fetched?.status ?? '';
+        _isLoading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   Future<void> _openProductDetail(OrderItemModel item) async {
-    if (_isOpeningProduct || !mounted) return;
+    if (_isOpeningProduct || !mounted || _order == null) return;
     setState(() => _isOpeningProduct = true);
 
     final navigator = Navigator.of(context);
@@ -874,7 +931,8 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
 
   // Calculate items subtotal
   double get _itemsSubtotal {
-    return widget.order.items.fold(0.0, (sum, item) => sum + item.subtotal);
+    return (_order?.items ?? []).fold(
+        0.0, (sum, item) => sum + item.subtotal);
   }
 
   @override
@@ -883,42 +941,86 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.darkCardBackground : AppColors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: isDark
+            ? AppColors.darkMainBackground
+            : theme.scaffoldBackgroundColor,
+        appBar: AppBar(
+          backgroundColor: isDark
+              ? AppColors.darkMainBackground
+              : theme.scaffoldBackgroundColor,
+          elevation: 0,
+          leading: IconButton(
+            icon: Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: theme.colorScheme.onSurface,
+              size: 20,
+            ),
+            onPressed: _onBack,
+          ),
+        ),
+        body: Center(
+          child: CircularProgressIndicator(
+            color: isDark ? AppColors.darkPrimaryText : AppColors.black,
+          ),
+        ),
+      );
+    }
+
+    if (_order == null) {
+      return Scaffold(
+        backgroundColor: isDark
+            ? AppColors.darkMainBackground
+            : theme.scaffoldBackgroundColor,
+        appBar: AppBar(
+          backgroundColor: isDark
+              ? AppColors.darkMainBackground
+              : theme.scaffoldBackgroundColor,
+          elevation: 0,
+          leading: IconButton(
+            icon: Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: theme.colorScheme.onSurface,
+              size: 20,
+            ),
+            onPressed: _onBack,
+          ),
+        ),
+        body: const Center(child: Text('Order not found')),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor:
+          isDark ? AppColors.darkMainBackground : theme.scaffoldBackgroundColor,
+      appBar: AppBar(
+        backgroundColor: isDark
+            ? AppColors.darkMainBackground
+            : theme.scaffoldBackgroundColor,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: theme.colorScheme.onSurface,
+            size: 20,
+          ),
+          onPressed: _onBack,
+        ),
+        title: Text(
+          '${l10n.order} ${_order!.orderNumber}',
+          style: AppTypography.heading4.copyWith(
+            fontWeight: FontWeight.w700,
+            color: theme.colorScheme.onSurface,
+          ),
+        ),
+        centerTitle: false,
       ),
-      child: SingleChildScrollView(
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Handle
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? AppColors.darkSecondaryText
-                      : AppColors.gray300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // Order Number
-            Text(
-              '${l10n.order} ${widget.order.orderNumber}',
-              style: AppTypography.heading4.copyWith(
-                fontWeight: FontWeight.w700,
-                color: theme.colorScheme.onSurface,
-              ),
-            ),
-            const SizedBox(height: 8),
-
             // Status badge (tracks optimistic update)
             _StatusBadge(status: _currentStatus),
 
@@ -926,8 +1028,8 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
 
             // Customer info box (partner/seller view only)
             if (widget.isPartner &&
-                (widget.order.clientName != null ||
-                    widget.order.clientPhone != null)) ...[
+                (_order!.clientName != null ||
+                    _order!.clientPhone != null)) ...[
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
@@ -940,16 +1042,16 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (widget.order.clientName != null)
+                    if (_order!.clientName != null)
                       _DetailRow(
                         label: l10n.customerName,
-                        value: widget.order.clientName!,
+                        value: _order!.clientName!,
                       ),
-                    if (widget.order.clientPhone != null) ...[
+                    if (_order!.clientPhone != null) ...[
                       const SizedBox(height: 6),
                       _DetailRow(
                         label: l10n.customerPhone,
-                        value: widget.order.clientPhone!,
+                        value: _order!.clientPhone!,
                       ),
                     ],
                   ],
@@ -961,54 +1063,42 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
             // Delivery Method
             _DetailRow(
               label: l10n.deliveryMethod,
-              value: widget.order.getLocalizedDeliveryMethod(context),
+              value: _order!.getLocalizedDeliveryMethod(context),
             ),
             const SizedBox(height: 12),
 
             // Payment Method
             _DetailRow(
               label: l10n.paymentMethod,
-              value: widget.order.getLocalizedPaymentMethod(context),
+              value: _order!.getLocalizedPaymentMethod(context),
             ),
             const SizedBox(height: 12),
 
             // Total Amount
             _DetailRow(
               label: l10n.totalAmount,
-              value: _formatItemPrice(_itemsSubtotal, widget.order.currency),
+              value: _formatItemPrice(_itemsSubtotal, _order!.currency),
             ),
 
             const SizedBox(height: 24),
 
             // Items Section
-            InkWell(
-              onTap: () {
-                setState(() {
-                  _itemsExpanded = !_itemsExpanded;
-                });
-              },
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    '${l10n.items} (${widget.order.itemCount})',
-                    style: AppTypography.body1.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: theme.colorScheme.onSurface,
-                    ),
-                  ),
-                  Icon(
-                    _itemsExpanded ? Icons.expand_less : Icons.expand_more,
+            Row(
+              children: [
+                Text(
+                  '${l10n.items} (${_order!.itemCount})',
+                  style: AppTypography.body1.copyWith(
+                    fontWeight: FontWeight.w600,
                     color: theme.colorScheme.onSurface,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
 
-            // Expandable Items List
+            // Items List (always expanded)
             if (_itemsExpanded) ...[
               const SizedBox(height: 16),
-              ...widget.order.items.map((item) {
+              ..._order!.items.map((item) {
                 return GestureDetector(
                   onTap: () => _openProductDetail(item),
                   child: Container(
@@ -1121,7 +1211,7 @@ class _OrderDetailSheetState extends State<_OrderDetailSheet> {
                                   ),
                                 ),
                                 Text(
-                                  _formatItemPrice(item.subtotal, widget.order.currency),
+                                  _formatItemPrice(item.subtotal, _order!.currency),
                                   style: AppTypography.body2.copyWith(
                                     fontWeight: FontWeight.w600,
                                     color: theme.colorScheme.onSurface,

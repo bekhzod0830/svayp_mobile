@@ -28,6 +28,9 @@ import 'package:swipe/features/onboarding/presentation/screens/onboarding_comple
 import 'package:swipe/features/main/presentation/screens/main_screen.dart';
 import 'package:swipe/features/profile/presentation/screens/notifications_screen.dart';
 import 'package:swipe/features/profile/presentation/screens/notification_preferences_screen.dart';
+import 'package:swipe/features/orders/presentation/screens/orders_screen.dart';
+import 'package:swipe/features/chat/presentation/screens/chat_list_screen.dart';
+import 'package:swipe/features/chat/presentation/screens/chat_detail_screen.dart';
 
 /// App Routes
 class AppRoutes {
@@ -74,6 +77,8 @@ class AppRoutes {
   static const String notificationPreferences = '/notification-preferences';
   static const String partnerLogin = '/partner-login';
   static const String partnerMain = '/partner-main';
+  static const String chatList = '/chat-list';
+  static const String chatDetail = '/chat-detail';
 
   /// Generate routes
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
@@ -200,8 +205,39 @@ class AppRoutes {
       case partnerMain:
         return MaterialPageRoute(builder: (_) => const PartnerMainScreen());
 
+      case orders:
+        return MaterialPageRoute(builder: (_) => const OrdersScreen());
+
+      case chatList:
+        return MaterialPageRoute(builder: (_) => const ChatListScreen());
+
+      case chatDetail:
+        final args = settings.arguments;
+        if (args is String) {
+          return MaterialPageRoute(
+            builder: (_) => ChatDetailScreen(
+              chatId: args,
+              fromNotification: true,
+            ),
+          );
+        }
+        return MaterialPageRoute(builder: (_) => const ChatListScreen());
+
       case main:
         return MaterialPageRoute(builder: (_) => MainScreen());
+
+      case orderDetail:
+        final args = settings.arguments;
+        if (args is String) {
+          return MaterialPageRoute(
+            builder: (_) => OrderDetailScreen(orderId: args),
+          );
+        }
+        return MaterialPageRoute(
+          builder: (_) => Scaffold(
+            body: Center(child: Text('No route defined for ${settings.name}')),
+          ),
+        );
 
       default:
         return MaterialPageRoute(
