@@ -123,8 +123,11 @@ class ApiClient {
         handler.next(options);
       },
       onError: (error, handler) async {
-        // Only handle 401 Unauthorized
-        if (error.response?.statusCode != 401) {
+        // Handle 401 Unauthorized and 403 Forbidden – both indicate the
+        // access token may be expired on this backend (403 is returned by
+        // some endpoints instead of 401 for expired/invalid tokens).
+        final responseStatusCode = error.response?.statusCode;
+        if (responseStatusCode != 401 && responseStatusCode != 403) {
           handler.next(error);
           return;
         }

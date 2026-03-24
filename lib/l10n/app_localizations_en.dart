@@ -2812,4 +2812,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get tutorialBeigeShoes => 'Beige Shoes';
+
+  @override
+  String get profileUpdatedSuccess => 'Profile updated successfully';
 }

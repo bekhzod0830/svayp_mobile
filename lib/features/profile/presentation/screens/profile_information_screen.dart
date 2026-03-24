@@ -2,13 +2,44 @@ import 'package:flutter/material.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
+import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/features/profile/data/models/profile_models.dart';
+import 'package:swipe/features/profile/data/services/profile_service.dart';
+import 'package:swipe/features/profile/presentation/screens/edit_profile_screen.dart';
 
 /// Profile Information Screen - Displays detailed profile information
-class ProfileInformationScreen extends StatelessWidget {
+class ProfileInformationScreen extends StatefulWidget {
   final UserProfileResponse profile;
 
   const ProfileInformationScreen({super.key, required this.profile});
+
+  @override
+  State<ProfileInformationScreen> createState() =>
+      _ProfileInformationScreenState();
+}
+
+class _ProfileInformationScreenState extends State<ProfileInformationScreen> {
+  late UserProfileResponse _profile;
+
+  @override
+  void initState() {
+    super.initState();
+    _profile = widget.profile;
+  }
+
+  Future<void> _openEditScreen() async {
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (context) => EditProfileScreen(profile: _profile),
+      ),
+    );
+    if (result == true && mounted) {
+      try {
+        final updated = await getIt<ProfileService>().getProfile();
+        if (mounted) setState(() => _profile = updated);
+      } catch (_) {}
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -37,6 +68,13 @@ class ProfileInformationScreen extends StatelessWidget {
             color: theme.colorScheme.onSurface,
           ),
         ),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.edit_outlined, color: theme.colorScheme.onSurface),
+            tooltip: l10n.edit,
+            onPressed: _openEditScreen,
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -51,21 +89,21 @@ class ProfileInformationScreen extends StatelessWidget {
                 _buildInfoRow(
                   context: context,
                   label: l10n.gender,
-                  value: _formatGender(context, profile.gender),
+                  value: _formatGender(context, _profile.gender),
                   icon: Icons.person_outline,
                 ),
-                if (profile.dateOfBirth != null)
+                if (_profile.dateOfBirth != null)
                   _buildInfoRow(
                     context: context,
                     label: l10n.dateOfBirth,
-                    value: profile.dateOfBirth!,
+                    value: _profile.dateOfBirth!,
                     icon: Icons.calendar_today_outlined,
                   ),
-                if (profile.age != null)
+                if (_profile.age != null)
                   _buildInfoRow(
                     context: context,
                     label: l10n.age,
-                    value: '${profile.age} ${l10n.years}',
+                    value: '${_profile.age} ${l10n.years}',
                     icon: Icons.cake_outlined,
                   ),
               ],
@@ -78,25 +116,25 @@ class ProfileInformationScreen extends StatelessWidget {
               context: context,
               title: l10n.bodyInformation,
               items: [
-                if (profile.heightCm != null)
+                if (_profile.heightCm != null)
                   _buildInfoRow(
                     context: context,
                     label: l10n.height,
-                    value: '${profile.heightCm} cm',
+                    value: '${_profile.heightCm} cm',
                     icon: Icons.height_outlined,
                   ),
-                if (profile.weightKg != null)
+                if (_profile.weightKg != null)
                   _buildInfoRow(
                     context: context,
                     label: l10n.weight,
-                    value: '${profile.weightKg} kg',
+                    value: '${_profile.weightKg} kg',
                     icon: Icons.monitor_weight_outlined,
                   ),
-                if (profile.bodyType != null)
+                if (_profile.bodyType != null)
                   _buildInfoRow(
                     context: context,
                     label: l10n.bodyType,
-                    value: _translateEnum(context, profile.bodyType!),
+                    value: _translateEnum(context, _profile.bodyType!),
                     icon: Icons.accessibility_new_outlined,
                   ),
               ],
@@ -110,39 +148,39 @@ class ProfileInformationScreen extends StatelessWidget {
                 context: context,
                 title: l10n.clothingSizes,
                 items: [
-                  if (profile.topSize != null)
+                  if (_profile.topSize != null)
                     _buildInfoRow(
                       context: context,
                       label: l10n.topSize,
-                      value: profile.topSize!,
+                      value: _profile.topSize!,
                       icon: Icons.checkroom_outlined,
                     ),
-                  if (profile.bottomSize != null)
+                  if (_profile.bottomSize != null)
                     _buildInfoRow(
                       context: context,
                       label: l10n.bottomSize,
-                      value: _extractSizeNumber(profile.bottomSize!),
+                      value: _extractSizeNumber(_profile.bottomSize!),
                       icon: Icons.accessibility_outlined,
                     ),
-                  if (profile.dressSize != null)
+                  if (_profile.dressSize != null)
                     _buildInfoRow(
                       context: context,
                       label: l10n.dressSize,
-                      value: profile.dressSize!,
+                      value: _profile.dressSize!,
                       icon: Icons.checkroom,
                     ),
-                  if (profile.jeanWaistSize != null)
+                  if (_profile.jeanWaistSize != null)
                     _buildInfoRow(
                       context: context,
                       label: l10n.jeanWaistSize,
-                      value: _extractSizeNumber(profile.jeanWaistSize!),
+                      value: _extractSizeNumber(_profile.jeanWaistSize!),
                       icon: Icons.straighten_outlined,
                     ),
-                  if (profile.shoeSize != null)
+                  if (_profile.shoeSize != null)
                     _buildInfoRow(
                       context: context,
                       label: l10n.shoeSize,
-                      value: _extractSizeNumber(profile.shoeSize!),
+                      value: _extractSizeNumber(_profile.shoeSize!),
                       icon: Icons.directions_walk_outlined,
                     ),
                 ],
@@ -156,18 +194,18 @@ class ProfileInformationScreen extends StatelessWidget {
                 context: context,
                 title: l10n.braSizes,
                 items: [
-                  if (profile.braBandSize != null)
+                  if (_profile.braBandSize != null)
                     _buildInfoRow(
                       context: context,
                       label: l10n.braBandSize,
-                      value: _extractSizeNumber(profile.braBandSize!),
+                      value: _extractSizeNumber(_profile.braBandSize!),
                       icon: Icons.straighten_outlined,
                     ),
-                  if (profile.braCupSize != null)
+                  if (_profile.braCupSize != null)
                     _buildInfoRow(
                       context: context,
                       label: l10n.braCupSize,
-                      value: profile.braCupSize!,
+                      value: _profile.braCupSize!,
                       icon: Icons.text_fields_outlined,
                     ),
                 ],
@@ -183,44 +221,44 @@ class ProfileInformationScreen extends StatelessWidget {
                 _buildInfoRow(
                   context: context,
                   label: l10n.hijabPreference,
-                  value: _translateEnum(context, profile.hijabPreference),
+                  value: _translateEnum(context, _profile.hijabPreference),
                   icon: Icons.checkroom_outlined,
                 ),
-                if (profile.fitPreference != null &&
-                    profile.fitPreference!.isNotEmpty)
+                if (_profile.fitPreference != null &&
+                    _profile.fitPreference!.isNotEmpty)
                   _buildInfoRow(
                     context: context,
                     label: l10n.fitPreference,
-                    value: profile.fitPreference!
+                    value: _profile.fitPreference!
                         .map((f) => _translateEnum(context, f))
                         .join(', '),
                     icon: Icons.straighten_outlined,
                   ),
-                if (profile.styleCategories != null &&
-                    profile.styleCategories!.isNotEmpty)
+                if (_profile.styleCategories != null &&
+                    _profile.styleCategories!.isNotEmpty)
                   _buildInfoRow(
                     context: context,
                     label: l10n.styleCategories,
-                    value: profile.styleCategories!
+                    value: _profile.styleCategories!
                         .map((s) => _translateEnum(context, s))
                         .join(', '),
                     icon: Icons.style_outlined,
                   ),
-                if (profile.stylePreference != null &&
-                    profile.stylePreference!.isNotEmpty)
+                if (_profile.stylePreference != null &&
+                    _profile.stylePreference!.isNotEmpty)
                   _buildInfoRow(
                     context: context,
                     label: l10n.stylePreferenceLabel,
-                    value: profile.stylePreference!
+                    value: _profile.stylePreference!
                         .map((s) => _translateEnum(context, s))
                         .join(', '),
                     icon: Icons.favorite_border_outlined,
                   ),
-                if (profile.budgetType != null)
+                if (_profile.budgetType != null)
                   _buildInfoRow(
                     context: context,
                     label: l10n.budgetType,
-                    value: _translateEnum(context, profile.budgetType!),
+                    value: _translateEnum(context, _profile.budgetType!),
                     icon: Icons.account_balance_wallet_outlined,
                   ),
               ],
@@ -233,25 +271,25 @@ class ProfileInformationScreen extends StatelessWidget {
               context: context,
               title: l10n.shoppingPreferences,
               items: [
-                if (profile.budgetMin != null || profile.budgetMax != null)
+                if (_profile.budgetMin != null || _profile.budgetMax != null)
                   _buildInfoRow(
                     context: context,
                     label: l10n.budget,
                     value: _formatBudget(
                       context,
-                      profile.budgetMin,
-                      profile.budgetMax,
+                      _profile.budgetMin,
+                      _profile.budgetMax,
                     ),
                     icon: Icons.monetization_on_outlined,
                   ),
                 _buildInfoRow(
                   context: context,
                   label: l10n.styleQuiz,
-                  value: profile.styleQuizCompleted
+                  value: _profile.styleQuizCompleted
                       ? l10n.completed
                       : l10n.notCompleted,
                   icon: Icons.check_circle_outline,
-                  valueColor: profile.styleQuizCompleted
+                  valueColor: _profile.styleQuizCompleted
                       ? Colors.green
                       : AppColors.gray600,
                 ),
@@ -514,15 +552,15 @@ class ProfileInformationScreen extends StatelessWidget {
 
   /// Check if profile has any size information
   bool _hasAnySizeInfo() {
-    return profile.topSize != null ||
-        profile.bottomSize != null ||
-        profile.dressSize != null ||
-        profile.jeanWaistSize != null ||
-        profile.shoeSize != null;
+    return _profile.topSize != null ||
+        _profile.bottomSize != null ||
+        _profile.dressSize != null ||
+        _profile.jeanWaistSize != null ||
+        _profile.shoeSize != null;
   }
 
   /// Check if profile has any bra information
   bool _hasAnyBraInfo() {
-    return profile.braBandSize != null || profile.braCupSize != null;
+    return _profile.braBandSize != null || _profile.braCupSize != null;
   }
 }

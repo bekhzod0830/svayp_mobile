@@ -2834,4 +2834,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get tutorialBeigeShoes => 'Бежевые туфли';
+
+  @override
+  String get profileUpdatedSuccess => 'Профиль успешно обновлён';
 }

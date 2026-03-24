@@ -1161,5 +1161,6 @@
   "vsTutorialDesc": "Tap the camera icon in the shop to find similar items by photo.",
   "tutorialWhiteBlouse": "White Blouse",
   "tutorialLongDress": "Long Dress",
-  "tutorialBeigeShoes": "Beige Shoes"
+  "tutorialBeigeShoes": "Beige Shoes",
+  "profileUpdatedSuccess": "Profile updated successfully"
 }

@@ -1166,5 +1166,6 @@
   "vsTutorialDesc": "Нажмите значок камеры в магазине, чтобы найти похожие товары по фото.",
   "tutorialWhiteBlouse": "Белая блузка",
   "tutorialLongDress": "Длинное платье",
-  "tutorialBeigeShoes": "Бежевые туфли"
+  "tutorialBeigeShoes": "Бежевые туфли",
+  "profileUpdatedSuccess": "Профиль успешно обновлён"
 }

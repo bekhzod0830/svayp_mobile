@@ -2849,4 +2849,7 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get tutorialBeigeShoes => 'Krem rangli poyabzal';
+
+  @override
+  String get profileUpdatedSuccess => 'Profil muvaffaqiyatli yangilandi';
 }

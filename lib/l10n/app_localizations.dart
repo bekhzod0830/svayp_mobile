@@ -5487,6 +5487,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Beige Shoes'**
   String get tutorialBeigeShoes;
+
+  /// No description provided for @profileUpdatedSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile updated successfully'**
+  String get profileUpdatedSuccess;
 }
 
 class _AppLocalizationsDelegate
