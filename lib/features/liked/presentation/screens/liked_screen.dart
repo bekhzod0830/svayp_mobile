@@ -10,6 +10,7 @@ import 'package:swipe/features/discover/domain/entities/product.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:swipe/core/cache/image_cache_manager.dart';
 import 'package:swipe/core/services/product_api_service.dart';
+import 'package:swipe/features/main/presentation/screens/main_screen.dart';
 
 /// Interface for refreshable screens
 abstract class Refreshable {
@@ -32,8 +33,14 @@ class LikedScreenState extends State<LikedScreen>
   final ProductApiService _apiService = ProductApiService();
   List<LikedProductModel> _likedProducts = [];
   final Map<String, Product> _fullProducts = {}; // Store full products by ID
-  bool _isLoading = false; // Start with false, show cached data immediately
+  bool _isLoading = true;
   String? _authToken;
+  int? _totalLikedCount; // Total count from API (may be > locally cached items)
+  int _currentPage = 0;
+  bool _isLoadingMore = false;
+  bool _hasMore = false;
+  int _apiLoadedCount = 0; // tracks items fetched from API across pages
+  final ScrollController _scrollController = ScrollController();
 
   @override
   bool get wantKeepAlive => true;
@@ -41,6 +48,7 @@ class LikedScreenState extends State<LikedScreen>
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     _initializeScreen();
   }
 
@@ -53,8 +61,19 @@ class LikedScreenState extends State<LikedScreen>
     await _loadLikedProducts();
   }
 
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      if (_hasMore && !_isLoadingMore) {
+        _loadMoreProducts();
+      }
+    }
+  }
+
   @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -70,91 +89,204 @@ class LikedScreenState extends State<LikedScreen>
   Future<void> _loadLikedProducts() async {
     await _likedService.init();
 
-    // First, load from local storage and show immediately (cached data)
+    // Reset pagination
+    _currentPage = 0;
+    _hasMore = false;
+    _apiLoadedCount = 0;
+
+    // Show local cache immediately (hides loading spinner as soon as we have anything)
     final localLikedProducts = _likedService.getLikedProducts();
 
-    setState(() {
-      _likedProducts = localLikedProducts;
-      _isLoading = false; // Stop loading, show cached data
-    });
-
-    // If user is authenticated, fetch from API in background to update
+    // Fetch fresh data from API (keep spinner until API responds to avoid reorder flash)
     if (_authToken != null && _authToken!.isNotEmpty) {
       try {
         final response = await _apiService.getFavoriteProducts(
           token: _authToken!,
+          page: 0,
         );
 
-        // Sync backend favorites with local storage
-        // This ensures the local storage is up-to-date with backend
-        for (final apiProduct in response.products) {
-          // Use seller as fallback when brand is "Unknown" or empty
-          String displayBrand =
-              (apiProduct.brand == 'Unknown' || apiProduct.brand.isEmpty)
-              ? (apiProduct.seller ?? apiProduct.brand)
-              : apiProduct.brand;
+        final apiItems = _buildLikedModels(response.products);
 
-          // If still "Unknown" or empty, use SVAYP as default
-          if (displayBrand == 'Unknown' || displayBrand.isEmpty) {
-            displayBrand = 'SVAYP';
-          }
+        // Cache to Hive in background for next cold start
+        _cacheToHive(response.products);
 
-          final product = Product(
-            id: apiProduct.id,
-            title: apiProduct.title,
-            description: apiProduct.description ?? '',
-            price: apiProduct.price,
-            brand: displayBrand,
-            category: apiProduct.category.displayName,
-            subcategory: apiProduct.subcategory
-                ?.map((sc) => sc.displayName)
-                .toList(),
-            images: apiProduct.images.isNotEmpty
-                ? apiProduct.images
-                : ['placeholder'],
-            sizes: apiProduct.sizes ?? [],
-            colors: apiProduct.colors ?? [],
-            material: apiProduct.material?.map((m) => m.displayName).toList(),
-            season: apiProduct.season?.map((s) => s.displayName).toList(),
-            currency: apiProduct.currency ?? 'UZS',
-            rating: apiProduct.rating ?? 4.5,
-            reviewCount: apiProduct.reviewCount ?? 0,
-            isNew: apiProduct.isNew ?? false,
-            isFeatured: apiProduct.isFeatured ?? false,
-            inStock: apiProduct.inStock,
-            seller: apiProduct.seller ?? displayBrand,
-            sellerId: apiProduct.sellerId,
-            discountPercentage: apiProduct.discountPercentage,
-            originalPrice: apiProduct.originalPrice,
-            titleLocalized: apiProduct.titleLocalized,
-            descriptionLocalized: apiProduct.descriptionLocalized,
-          );
-
-          // Add to local if not already there
-          if (!_likedService.isLiked(product.id)) {
-            await _likedService.addLike(product);
-          }
-
-          // Store full product in map
-          _fullProducts[product.id] = product;
-        }
-
-        // Update UI with synced data from API
         if (mounted) {
           setState(() {
-            _likedProducts = _likedService.getLikedProducts();
+            _likedProducts = apiItems;
+            _totalLikedCount = response.total;
+            _currentPage = 0;
+            _apiLoadedCount = apiItems.length;
+            _hasMore = response.total > _apiLoadedCount;
+            _isLoading = false;
           });
         }
       } catch (e) {
-        // If API call fails, we already have local data showing
-        // No need to do anything else
+        debugPrint('Error loading favorites: $e');
+        // On API failure, fall back to local cache
+        if (mounted) {
+          setState(() {
+            _likedProducts = localLikedProducts;
+            _isLoading = false;
+          });
+        }
       }
+    } else {
+      // Not authenticated — just show local cache
+      setState(() {
+        _likedProducts = localLikedProducts;
+        _isLoading = false;
+      });
     }
   }
 
-  Future<void> _removeLikedProduct(LikedProductModel product, int index) async {
-    final l10n = AppLocalizations.of(context)!;
+  /// Cache API products to Hive in background (fire-and-forget)
+  void _cacheToHive(List<dynamic> apiProducts) {
+    Future(() async {
+      try {
+        for (final ap in apiProducts) {
+          if (!_likedService.isLiked(ap.id)) {
+            // Build a minimal discover Product just for Hive caching
+            String brand = (ap.brand == 'Unknown' || ap.brand.isEmpty)
+                ? (ap.seller ?? 'SVAYP')
+                : ap.brand;
+            if (brand == 'Unknown' || brand.isEmpty) brand = 'SVAYP';
 
+            final images = (ap.images as List).cast<String>();
+            final product = Product(
+              id: ap.id,
+              brand: brand,
+              title: ap.title,
+              description: ap.description ?? '',
+              price: ap.price,
+              images: images.isNotEmpty ? images : ['placeholder'],
+              category: ap.category.displayName,
+              sizes: List<String>.from((ap.sizes ?? []) as List),
+              colors: List<String>.from((ap.colors ?? []) as List),
+              currency: ap.currency ?? 'UZS',
+              rating: ap.rating ?? 4.5,
+              reviewCount: ap.reviewCount ?? 0,
+              isNew: ap.isNew ?? false,
+              isFeatured: ap.isFeatured ?? false,
+              inStock: ap.inStock,
+              seller: ap.seller ?? brand,
+              sellerId: ap.sellerId,
+              discountPercentage: ap.discountPercentage,
+              originalPrice: ap.originalPrice,
+              titleLocalized: ap.titleLocalized,
+              descriptionLocalized: ap.descriptionLocalized,
+            );
+            await _likedService.addLike(product);
+          }
+        }
+      } catch (e) {
+        debugPrint('Background Hive cache error (non-critical): $e');
+      }
+    });
+  }
+
+  Future<void> _loadMoreProducts() async {
+    if (_isLoadingMore || !_hasMore || _authToken == null) return;
+
+    setState(() => _isLoadingMore = true);
+
+    try {
+      final nextPage = _currentPage + 1;
+      final response = await _apiService.getFavoriteProducts(
+        token: _authToken!,
+        page: nextPage,
+      );
+
+      final newItems = _buildLikedModels(response.products);
+
+      if (mounted) {
+        setState(() {
+          _likedProducts = [..._likedProducts, ...newItems];
+          _totalLikedCount = response.total;
+          _currentPage = nextPage;
+          _apiLoadedCount += newItems.length;
+          _hasMore = response.total > _apiLoadedCount;
+          _isLoadingMore = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading more favorites: $e');
+      if (mounted) setState(() => _isLoadingMore = false);
+    }
+  }
+
+  /// Build LikedProductModel list directly from API products (no Hive write/read)
+  List<LikedProductModel> _buildLikedModels(List<dynamic> apiProducts) {
+    final result = <LikedProductModel>[];
+    for (final ap in apiProducts) {
+      try {
+        String displayBrand = (ap.brand == 'Unknown' || ap.brand.isEmpty)
+            ? (ap.seller ?? ap.brand)
+            : ap.brand;
+        if (displayBrand == 'Unknown' || displayBrand.isEmpty)
+          displayBrand = 'SVAYP';
+
+        final images = (ap.images as List).cast<String>();
+
+        // Populate _fullProducts for detail navigation
+        _fullProducts[ap.id] = Product(
+          id: ap.id,
+          title: ap.title,
+          description: ap.description ?? '',
+          price: ap.price,
+          brand: displayBrand,
+          category: ap.category.displayName,
+          subcategory: (ap.subcategory as List?)
+              ?.map((sc) => sc.displayName as String)
+              .toList(),
+          images: images.isNotEmpty ? images : ['placeholder'],
+          sizes: List<String>.from((ap.sizes ?? []) as List),
+          colors: List<String>.from((ap.colors ?? []) as List),
+          material: (ap.material as List?)
+              ?.map((m) => m.displayName as String)
+              .toList(),
+          season: (ap.season as List?)
+              ?.map((s) => s.displayName as String)
+              .toList(),
+          currency: ap.currency ?? 'UZS',
+          rating: ap.rating ?? 4.5,
+          reviewCount: ap.reviewCount ?? 0,
+          isNew: ap.isNew ?? false,
+          isFeatured: ap.isFeatured ?? false,
+          inStock: ap.inStock,
+          seller: ap.seller ?? displayBrand,
+          sellerId: ap.sellerId,
+          discountPercentage: ap.discountPercentage,
+          originalPrice: ap.originalPrice,
+          titleLocalized: ap.titleLocalized,
+          descriptionLocalized: ap.descriptionLocalized,
+        );
+
+        result.add(
+          LikedProductModel(
+            productId: ap.id,
+            brand: displayBrand,
+            title: ap.title,
+            price: ap.price,
+            imageUrl: images.isNotEmpty ? images.first : '',
+            category: ap.category.displayName,
+            rating: ap.rating ?? 4.5,
+            isNew: ap.isNew ?? false,
+            discountPercentage: ap.discountPercentage,
+            originalPrice: ap.originalPrice,
+            sellerId: ap.sellerId,
+            currency: ap.currency ?? 'UZS',
+            titleLocalized: ap.titleLocalized,
+            descriptionLocalized: ap.descriptionLocalized,
+          ),
+        );
+      } catch (e) {
+        debugPrint('Skipping product ${ap.id}: $e');
+      }
+    }
+    return result;
+  }
+
+  Future<void> _removeLikedProduct(LikedProductModel product, int index) async {
     // If user is authenticated, send dislike request to API
     if (_authToken != null && _authToken!.isNotEmpty) {
       try {
@@ -167,9 +299,19 @@ class LikedScreenState extends State<LikedScreen>
       }
     }
 
-    // Remove from local storage
-    await _likedService.removeLikeAt(index);
-    await _loadLikedProducts();
+    // Remove from local storage (best-effort)
+    await _likedService.removeLike(product.productId).catchError((_) {});
+
+    // Update display list directly without full reload
+    if (mounted) {
+      setState(() {
+        _likedProducts = _likedProducts
+            .where((p) => p.productId != product.productId)
+            .toList();
+        _totalLikedCount = (_totalLikedCount ?? _likedProducts.length + 1) - 1;
+        _apiLoadedCount = _likedProducts.length;
+      });
+    }
   }
 
   Future<void> _clearAll() async {
@@ -306,7 +448,9 @@ class LikedScreenState extends State<LikedScreen>
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          l10n.itemsCount(_likedProducts.length),
+                          l10n.itemsCount(
+                            _totalLikedCount ?? _likedProducts.length,
+                          ),
                           style: AppTypography.body2.copyWith(
                             color: isDark
                                 ? AppColors.darkSecondaryText
@@ -350,6 +494,8 @@ class LikedScreenState extends State<LikedScreen>
                           ? AppColors.darkPrimaryText
                           : AppColors.black,
                       child: GridView.builder(
+                        controller: _scrollController,
+                        physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.fromLTRB(12, 0, 12, 20),
                         gridDelegate:
                             const SliverGridDelegateWithFixedCrossAxisCount(
@@ -358,8 +504,19 @@ class LikedScreenState extends State<LikedScreen>
                               crossAxisSpacing: 12,
                               mainAxisSpacing: 12,
                             ),
-                        itemCount: _likedProducts.length,
+                        itemCount:
+                            _likedProducts.length + (_isLoadingMore ? 2 : 0),
                         itemBuilder: (context, index) {
+                          if (index >= _likedProducts.length) {
+                            return Center(
+                              child: CircularProgressIndicator(
+                                color: isDark
+                                    ? AppColors.darkPrimaryText
+                                    : AppColors.black,
+                                strokeWidth: 2,
+                              ),
+                            );
+                          }
                           final product = _likedProducts[index];
                           return _TikTokLikedProductCard(
                             product: product,
@@ -402,8 +559,7 @@ class LikedScreenState extends State<LikedScreen>
             const SizedBox(height: 32),
             ElevatedButton(
               onPressed: () {
-                // Navigate to discover tab
-                DefaultTabController.of(context).animateTo(0);
+                MainScreen.globalKey.currentState?.navigateToTab(0);
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.black,

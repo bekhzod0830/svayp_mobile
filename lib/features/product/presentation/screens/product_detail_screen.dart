@@ -505,19 +505,23 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             },
           ),
         ),
-        const SizedBox(height: 16),
-        SmoothPageIndicator(
-          controller: _pageController,
-          count: widget.product.images.length,
-          effect: WormEffect(
-            dotHeight: 8,
-            dotWidth: 8,
-            activeDotColor: isDark
-                ? AppColors.darkPrimaryText
-                : AppColors.black,
-            dotColor: isDark ? AppColors.darkSecondaryText : AppColors.gray300,
+        if (widget.product.images.length > 1) ...[
+          const SizedBox(height: 16),
+          SmoothPageIndicator(
+            controller: _pageController,
+            count: widget.product.images.length,
+            effect: WormEffect(
+              dotHeight: 8,
+              dotWidth: 8,
+              activeDotColor: isDark
+                  ? AppColors.darkPrimaryText
+                  : AppColors.black,
+              dotColor: isDark
+                  ? AppColors.darkSecondaryText
+                  : AppColors.gray300,
+            ),
           ),
-        ),
+        ],
       ],
     );
   }

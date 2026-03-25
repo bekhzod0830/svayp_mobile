@@ -630,9 +630,14 @@ class DiscoverScreenState extends State<DiscoverScreen> {
     final product = lastSwipe['product'] as Product;
     final action = lastSwipe['action'] as String;
 
-    // If it was a like or superlike, remove from liked items
+    // If it was a like or superlike, remove from liked items and call DELETE /favorite
     if (action == 'like' || action == 'superlike') {
       _likedService.removeLike(product.id);
+      if (_authToken != null && _authToken!.isNotEmpty) {
+        _apiService
+            .dislikeProduct(productId: product.id, token: _authToken!)
+            .catchError((e) {});
+      }
     }
 
     setState(() {

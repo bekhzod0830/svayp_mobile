@@ -273,18 +273,18 @@ class ProductApiService {
     required String token,
   }) async {
     try {
-      final uri = Uri.parse('$baseUrl/products/$productId/dislike');
+      final uri = Uri.parse('$baseUrl/products/$productId/favorite');
 
       final headers = <String, String>{
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
       };
 
-      final response = await http.post(uri, headers: headers);
+      final response = await http.delete(uri, headers: headers);
 
-      if (response.statusCode != 200 && response.statusCode != 201) {
+      if (response.statusCode != 200 && response.statusCode != 204) {
         throw Exception(
-          'Failed to dislike product: ${response.statusCode} ${response.body}',
+          'Failed to remove favorite: ${response.statusCode} ${response.body}',
         );
       }
     } catch (e) {
@@ -298,9 +298,12 @@ class ProductApiService {
   /// - [token]: Required authentication token
   Future<ProductListResponse> getFavoriteProducts({
     required String token,
+    int page = 0,
   }) async {
     try {
-      final uri = Uri.parse('$baseUrl/products/favorites');
+      final uri = Uri.parse(
+        '$baseUrl/products/favorites',
+      ).replace(queryParameters: {'page': page.toString(), 'size': '10'});
 
       final headers = <String, String>{
         'Content-Type': 'application/json',
@@ -312,11 +315,15 @@ class ProductApiService {
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
 
-        // The favorites endpoint returns nested data: {"data": {"data": [...], "total": ...}}
-        // Extract the inner data object
+        // The favorites endpoint returns: {"data": {"data": [...], "pagination": {"total": 25, ...}}}
         final innerData = jsonData['data'] as Map<String, dynamic>;
+        final parsed = ProductListResponse.fromJson(innerData);
 
-        return ProductListResponse.fromJson(innerData);
+        // Extract real total from pagination (fromJson falls back to products.length)
+        final pagination = innerData['pagination'] as Map<String, dynamic>?;
+        final total = pagination?['total'] as int? ?? parsed.total;
+
+        return ProductListResponse(products: parsed.products, total: total);
       } else if (response.statusCode == 401) {
         throw Exception('Authentication required for favorites');
       } else if (response.statusCode == 404) {
