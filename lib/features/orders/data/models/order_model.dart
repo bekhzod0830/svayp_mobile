@@ -120,7 +120,7 @@ class StatusHistoryModel {
       status: json['status'] ?? '',
       note: json['note'],
       createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'])
+          ? DateTime.parse(json['createdAt']).toLocal()
           : DateTime.now(),
     );
   }
@@ -299,7 +299,7 @@ class OrderModel {
           : null,
       cancellationReason: json['cancellationReason'] as String?,
       createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'] as String)
+          ? DateTime.parse(json['createdAt'] as String).toLocal()
           : DateTime.now(),
       clientName: json['clientName'] as String?,
       clientPhone: json['clientPhone'] as String?,
@@ -370,7 +370,9 @@ class OrderModel {
       'Nov',
       'Dec',
     ];
-    return '${createdAt.day} ${months[createdAt.month - 1]}, ${createdAt.year}';
+    final hour = createdAt.hour.toString().padLeft(2, '0');
+    final minute = createdAt.minute.toString().padLeft(2, '0');
+    return '${createdAt.day} ${months[createdAt.month - 1]}, ${createdAt.year} $hour:$minute';
   }
 
   /// Get item count

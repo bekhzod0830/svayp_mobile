@@ -304,13 +304,12 @@ class OnboardingDataManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Format pants size: "24" -> "SIZE_24"
+  /// Format pants size: returns plain numeric value (e.g. "28")
   String? _formatPantsSize(String? size) {
     if (size == null) return null;
-    // If already formatted, return as-is
-    if (size.startsWith('SIZE_')) return size.toUpperCase();
-    // Format numeric size
-    return 'SIZE_$size';
+    // Strip any SIZE_ prefix if present
+    if (size.startsWith('SIZE_')) return size.replaceFirst('SIZE_', '');
+    return size;
   }
 
   /// Format shoe size: "37" -> "EU_37"

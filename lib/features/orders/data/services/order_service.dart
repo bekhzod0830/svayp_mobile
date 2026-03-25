@@ -52,7 +52,7 @@ class OrderService {
     }
   }
 
-  /// Get order by ID from API
+  /// Get order by ID from API (client endpoint)
   Future<OrderModel?> fetchOrderById(String id) async {
     if (_apiClient == null) {
       throw Exception('ApiClient not initialized. Cannot fetch order.');
@@ -60,6 +60,24 @@ class OrderService {
 
     try {
       final endpoint = ApiConfig.orderDetail.replaceAll('{id}', id);
+      final response = await _apiClient.get(endpoint);
+
+      final orderData = response.data['data'];
+      return OrderModel.fromJson(orderData as Map<String, dynamic>);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Get order by ID from the admin endpoint (seller/partner view)
+  /// GET /admin/orders/{id}
+  Future<OrderModel?> fetchAdminOrderById(String id) async {
+    if (_apiClient == null) {
+      throw Exception('ApiClient not initialized. Cannot fetch admin order.');
+    }
+
+    try {
+      final endpoint = ApiConfig.adminOrderDetail.replaceAll('{id}', id);
       final response = await _apiClient.get(endpoint);
 
       final orderData = response.data['data'];

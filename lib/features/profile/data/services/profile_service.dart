@@ -29,7 +29,6 @@ class ProfileService {
   /// ```
   Future<MessageResponse> createProfile(ProfileCreateRequest request) async {
     try {
-
       final response = await _apiClient.post(
         ApiConfig.userProfile,
         data: request.toJson(),
@@ -81,8 +80,8 @@ class ProfileService {
   /// ```
   Future<MessageResponse> updateProfile(Map<String, dynamic> data) async {
     try {
-      final response = await _apiClient.put(
-        ApiConfig.updateProfile,
+      final response = await _apiClient.patch(
+        ApiConfig.userProfile,
         data: data,
       );
 

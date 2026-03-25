@@ -510,7 +510,9 @@ class _OrderCard extends StatelessWidget {
       l10n.nov,
       l10n.dec,
     ];
-    return '${months[date.month - 1]} ${date.day}, ${date.year}';
+    final hour = date.hour.toString().padLeft(2, '0');
+    final minute = date.minute.toString().padLeft(2, '0');
+    return '${months[date.month - 1]} ${date.day}, ${date.year} $hour:$minute';
   }
 
   @override
@@ -833,7 +835,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     try {
       final apiClient = getIt<ApiClient>();
       final service = OrderService(apiClient);
-      final fetched = await service.fetchOrderById(widget.orderId!);
+      final fetched = widget.isPartner
+          ? await service.fetchAdminOrderById(widget.orderId!)
+          : await service.fetchOrderById(widget.orderId!);
       if (!mounted) return;
       setState(() {
         _order = fetched;
@@ -935,6 +939,16 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         0.0, (sum, item) => sum + item.subtotal);
   }
 
+  String _formatDetailDate(DateTime date) {
+    final months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    final hour = date.hour.toString().padLeft(2, '0');
+    final minute = date.minute.toString().padLeft(2, '0');
+    return '${months[date.month - 1]} ${date.day}, ${date.year} $hour:$minute';
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -1023,6 +1037,30 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           children: [
             // Status badge (tracks optimistic update)
             _StatusBadge(status: _currentStatus),
+
+            const SizedBox(height: 16),
+
+            // Order date
+            Row(
+              children: [
+                Icon(
+                  Icons.calendar_today_outlined,
+                  size: 14,
+                  color: isDark
+                      ? AppColors.darkSecondaryText
+                      : AppColors.gray600,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  _formatDetailDate(_order!.createdAt),
+                  style: AppTypography.body2.copyWith(
+                    color: isDark
+                        ? AppColors.darkSecondaryText
+                        : AppColors.gray600,
+                  ),
+                ),
+              ],
+            ),
 
             const SizedBox(height: 24),
 

@@ -29,6 +29,8 @@ import 'package:swipe/features/main/presentation/screens/main_screen.dart';
 import 'package:swipe/features/profile/presentation/screens/notifications_screen.dart';
 import 'package:swipe/features/profile/presentation/screens/notification_preferences_screen.dart';
 import 'package:swipe/features/orders/presentation/screens/orders_screen.dart';
+import 'package:swipe/core/network/api_client.dart';
+import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/features/chat/presentation/screens/chat_list_screen.dart';
 import 'package:swipe/features/chat/presentation/screens/chat_detail_screen.dart';
 
@@ -229,8 +231,12 @@ class AppRoutes {
       case orderDetail:
         final args = settings.arguments;
         if (args is String) {
+          final isPartner = getIt<ApiClient>().isPartnerLogin();
           return MaterialPageRoute(
-            builder: (_) => OrderDetailScreen(orderId: args),
+            builder: (_) => OrderDetailScreen(
+              orderId: args,
+              isPartner: isPartner,
+            ),
           );
         }
         return MaterialPageRoute(

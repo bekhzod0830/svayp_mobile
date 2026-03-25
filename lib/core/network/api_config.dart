@@ -67,6 +67,7 @@ class ApiConfig {
   static const String orderDetail = '/orders/{id}';
   static const String orderCancel = '/orders/{id}/cancel';
   static const String orderStats = '/orders/stats';
+  static const String adminOrderDetail = '/admin/orders/{id}';
   static const String adminOrderStatus = '/admin/orders/{id}/status';
 
   // ==================== Chat Endpoints ====================

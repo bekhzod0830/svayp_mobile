@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:swipe/l10n/app_localizations.dart';
@@ -375,8 +376,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   /// Format display value back to API enum: "24" -> "SIZE_24"
   String? _formatPantsSize(String? size) {
     if (size == null) return null;
-    if (size.startsWith('SIZE_')) return size.toUpperCase();
-    return 'SIZE_$size';
+    if (size.startsWith('SIZE_')) return size.replaceFirst('SIZE_', '');
+    return size;
   }
 
   /// Format display value back to API enum: "37" -> "EU_37"
@@ -571,6 +572,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         data['styleCategories'] = _selectedStyleCategories;
       }
       if (_selectedBudgetType != null) data['budgetType'] = _selectedBudgetType;
+
+      // DEBUG: print exact request body
+      debugPrint('UPDATE PROFILE REQUEST BODY: ${jsonEncode(data)}');
 
       await getIt<ProfileService>().updateProfile(data);
 
