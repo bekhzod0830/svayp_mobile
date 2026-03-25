@@ -702,11 +702,13 @@ class _TikTokLikedProductCard extends StatelessWidget {
               ),
             ),
             // Product Info
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
+            Expanded(
+              child: ClipRect(
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.max,
                 children: [
                   // Title
                   Text(
@@ -782,6 +784,8 @@ class _TikTokLikedProductCard extends StatelessWidget {
                 ],
               ),
             ),
+          ),
+        ),
           ],
         ),
       ),

@@ -29,12 +29,10 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
   final _phoneController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   final _scrollController = ScrollController();
-  final _checkboxKey = GlobalKey();
   bool _isLoading = false;
-  bool _agreedToTerms = false;
-  bool _showCheckboxError = false;
   late final AuthService _authService;
-  Timer? _longPressTimer;
+  int _logoTapCount = 0;
+  Timer? _logoTapResetTimer;
 
   Future<void> _launchUrl(String url) async {
     try {
@@ -67,7 +65,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
 
   @override
   void dispose() {
-    _longPressTimer?.cancel();
+    _logoTapResetTimer?.cancel();
     _phoneController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -85,29 +83,6 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
     }
 
     final l10n = AppLocalizations.of(context)!;
-
-    if (!_agreedToTerms) {
-      // Show error state on checkbox
-      setState(() {
-        _showCheckboxError = true;
-      });
-
-      // Scroll to checkbox to make it visible
-      Future.delayed(const Duration(milliseconds: 100), () {
-        final context = _checkboxKey.currentContext;
-        if (context != null) {
-          Scrollable.ensureVisible(
-            context,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-            alignment: 0.5,
-          );
-        }
-      });
-
-      SnackBarHelper.showError(context, l10n.agreeToTermsError);
-      return;
-    }
 
     setState(() {
       _isLoading = true;
@@ -165,6 +140,8 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
             ? AppColors.darkMainBackground
             : AppColors.white,
         elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
         automaticallyImplyLeading: false, // Remove back button
       ),
       body: SafeArea(
@@ -183,28 +160,36 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // SVΛYP Logo — hold for 3 s to open partner login
+                          // SVΛYP Logo — tap 5 times to open partner login
                           Center(
                             child: GestureDetector(
                               behavior: HitTestBehavior.opaque,
-                              onTapDown: (_) {
-                                _longPressTimer?.cancel();
-                                _longPressTimer = Timer(
-                                  const Duration(seconds: 3),
-                                  _openPartnerLogin,
-                                );
+                              onTap: () {
+                                _logoTapCount++;
+                                _logoTapResetTimer?.cancel();
+                                if (_logoTapCount >= 5) {
+                                  _logoTapCount = 0;
+                                  _openPartnerLogin();
+                                } else {
+                                  // Reset counter if no tap within 2 seconds
+                                  _logoTapResetTimer = Timer(
+                                    const Duration(seconds: 2),
+                                    () => _logoTapCount = 0,
+                                  );
+                                }
                               },
-                              onTapUp: (_) => _longPressTimer?.cancel(),
-                              onTapCancel: () => _longPressTimer?.cancel(),
-                              child: Text(
-                                'SVΛYP',
-                                style: AppTypography.heading2.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 48,
-                                  color: isDark
-                                      ? AppColors.darkPrimaryText
-                                      : AppColors.black,
-                                  letterSpacing: -1,
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Text(
+                                  'SVΛYP',
+                                  style: AppTypography.heading2.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 48,
+                                    color: isDark
+                                        ? AppColors.darkPrimaryText
+                                        : AppColors.black,
+                                    letterSpacing: -1,
+                                  ),
                                 ),
                               ),
                             ),
@@ -256,106 +241,70 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                             label: l10n.phoneNumber,
                             validator: Validators.phone,
                           ),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 16),
 
-                          // Terms & Privacy
-                          Row(
-                            key: _checkboxKey,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                width: 24,
-                                height: 24,
-                                decoration: _showCheckboxError
-                                    ? BoxDecoration(
-                                        border: Border.all(
-                                          color: Colors.red,
-                                          width: 2,
-                                        ),
-                                        borderRadius: BorderRadius.circular(4),
-                                      )
-                                    : null,
-                                child: Checkbox(
-                                  value: _agreedToTerms,
-                                  onChanged: _isLoading
-                                      ? null
-                                      : (value) {
-                                          setState(() {
-                                            _agreedToTerms = value ?? false;
-                                            if (_agreedToTerms) {
-                                              _showCheckboxError = false;
-                                            }
-                                          });
-                                        },
-                                  activeColor: isDark
-                                      ? AppColors.white
-                                      : AppColors.black,
-                                  checkColor: isDark
-                                      ? AppColors.black
-                                      : AppColors.white,
-                                  side: _showCheckboxError
-                                      ? const BorderSide(
-                                          color: Colors.red,
-                                          width: 2,
-                                        )
-                                      : null,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(4),
+                          // Terms & Privacy notice
+                          Text.rich(
+                            TextSpan(
+                              text: l10n.byContinuingYouAgreeTo,
+                              style: AppTypography.body2.copyWith(
+                                color: isDark
+                                    ? AppColors.darkSecondaryText
+                                    : AppColors.secondaryText,
+                                fontSize: 12,
+                              ),
+                              children: [
+                                TextSpan(
+                                  text: l10n.termsOfService,
+                                  style: AppTypography.body2.copyWith(
+                                    color: isDark
+                                        ? AppColors.darkPrimaryText
+                                        : AppColors.black,
+                                    decoration: TextDecoration.underline,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 12,
+                                  ),
+                                  recognizer: TapGestureRecognizer()
+                                    ..onTap = () => _launchUrl(
+                                      'https://svaypai.com/$locale/terms',
+                                    ),
+                                ),
+                                TextSpan(
+                                  text: l10n.and,
+                                  style: AppTypography.body2.copyWith(
+                                    color: isDark
+                                        ? AppColors.darkSecondaryText
+                                        : AppColors.secondaryText,
+                                    fontSize: 12,
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text.rich(
+                                TextSpan(
+                                  text: l10n.privacyPolicy,
+                                  style: AppTypography.body2.copyWith(
+                                    color: isDark
+                                        ? AppColors.darkPrimaryText
+                                        : AppColors.black,
+                                    decoration: TextDecoration.underline,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 12,
+                                  ),
+                                  recognizer: TapGestureRecognizer()
+                                    ..onTap = () => _launchUrl(
+                                      'https://svaypai.com/$locale/privacy',
+                                    ),
+                                ),
+                                if (l10n.agreeToTermsSuffix.isNotEmpty)
                                   TextSpan(
-                                    text: l10n.iAgreeToThe,
+                                    text: l10n.agreeToTermsSuffix,
                                     style: AppTypography.body2.copyWith(
                                       color: isDark
                                           ? AppColors.darkSecondaryText
                                           : AppColors.secondaryText,
+                                      fontSize: 12,
                                     ),
-                                    children: [
-                                      TextSpan(
-                                        text: l10n.termsOfService,
-                                        style: AppTypography.body2.copyWith(
-                                          color: isDark
-                                              ? AppColors.darkPrimaryText
-                                              : AppColors.black,
-                                          decoration: TextDecoration.underline,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                        recognizer: TapGestureRecognizer()
-                                          ..onTap = () => _launchUrl(
-                                            'https://svaypai.com/$locale/terms',
-                                          ),
-                                      ),
-                                      TextSpan(
-                                        text: l10n.and,
-                                        style: AppTypography.body2.copyWith(
-                                          color: isDark
-                                              ? AppColors.darkSecondaryText
-                                              : AppColors.secondaryText,
-                                        ),
-                                      ),
-                                      TextSpan(
-                                        text: l10n.privacyPolicy,
-                                        style: AppTypography.body2.copyWith(
-                                          color: isDark
-                                              ? AppColors.darkPrimaryText
-                                              : AppColors.black,
-                                          decoration: TextDecoration.underline,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                        recognizer: TapGestureRecognizer()
-                                          ..onTap = () => _launchUrl(
-                                            'https://svaypai.com/$locale/privacy',
-                                          ),
-                                      ),
-                                    ],
                                   ),
-                                ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ],
                       ),

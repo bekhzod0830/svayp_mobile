@@ -444,7 +444,7 @@ class _VisualSearchProductCard extends StatelessWidget {
                           return displayImage != null
                               ? CachedNetworkImage(
                                   imageUrl: displayImage,
-                                  fit: BoxFit.cover,
+                                  fit: BoxFit.contain,
                                   width: double.infinity,
                                   height: double.infinity,
                                   cacheManager: ImageCacheManager.instance,
@@ -556,62 +556,79 @@ class _VisualSearchProductCard extends StatelessWidget {
               ),
             ),
             // Product info
-            Padding(
-              padding: const EdgeInsets.all(10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    product.localizedTitle(
-                      Localizations.localeOf(context).languageCode,
-                    ),
-                    style: AppTypography.body2.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: theme.colorScheme.onSurface,
-                      height: 1.2,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    product.currency == 'USD'
-                        ? '\$${product.price}'
-                        : '${product.price.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} UZS',
-                    style: AppTypography.body2.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: theme.colorScheme.onSurface,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (product.originalPrice != null &&
-                      product.originalPrice! > product.price)
-                    Text(
-                      product.currency == 'USD'
-                          ? '\$${product.originalPrice}'
-                          : '${product.originalPrice.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} UZS',
-                      style: AppTypography.caption.copyWith(
-                        color: isDark ? AppColors.gray400 : AppColors.gray500,
-                        decoration: TextDecoration.lineThrough,
+            Expanded(
+              child: ClipRect(
+                child: Padding(
+                  padding: const EdgeInsets.all(10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.max,
+                    children: [
+                      // Title — 1 line with ellipsis
+                      Text(
+                        product.localizedTitle(
+                          Localizations.localeOf(context).languageCode,
+                        ),
+                        style: AppTypography.body2.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: theme.colorScheme.onSurface,
+                          height: 1.2,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  const SizedBox(height: 6),
-                  Text(
-                    sellerName,
-                    style: AppTypography.caption.copyWith(
-                      color: isDark
-                          ? AppColors.darkSecondaryText
-                          : AppColors.gray600,
-                      fontSize: 11,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                      const SizedBox(height: 6),
+                      // Price with optional discount in a Row
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              product.formattedPrice,
+                              style: AppTypography.body2.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: theme.colorScheme.onSurface,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (product.hasDiscount) ...[
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                product.currency == 'USD'
+                                    ? '\$${product.originalPrice}'
+                                    : '${product.originalPrice!.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} UZS',
+                                style: AppTypography.caption.copyWith(
+                                  color: isDark
+                                      ? AppColors.gray400
+                                      : AppColors.gray500,
+                                  decoration: TextDecoration.lineThrough,
+                                  fontSize: 10,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      // Seller Name
+                      Text(
+                        sellerName,
+                        style: AppTypography.caption.copyWith(
+                          color: isDark
+                              ? AppColors.darkSecondaryText
+                              : AppColors.gray600,
+                          fontSize: 11,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ],

@@ -998,11 +998,13 @@ class _TikTokProductCard extends StatelessWidget {
               ),
             ),
             // Product Info
-            Padding(
-              padding: const EdgeInsets.all(10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
+            Expanded(
+              child: ClipRect(
+                child: Padding(
+                  padding: const EdgeInsets.all(10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.max,
                 children: [
                   // Title
                   Text(
@@ -1057,6 +1059,7 @@ class _TikTokProductCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   // COMMENTED OUT - Product rating (for future use)
+                  const Spacer(),
                   // Rating & Seller
                   Row(
                     children: [
@@ -1093,6 +1096,8 @@ class _TikTokProductCard extends StatelessWidget {
                 ],
               ),
             ),
+          ),
+        ),
           ],
         ),
       ),

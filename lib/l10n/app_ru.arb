@@ -40,6 +40,8 @@
   "phoneVerificationSubtitle": "Мы отправим вам код подтверждения для проверки номера",
   "phoneNumber": "Номер телефона",
   "iAgreeToThe": "Я согласен с ",
+  "byContinuingYouAgreeTo": "Продолжая, вы принимаете наши ",
+  "agreeToTermsSuffix": "",
   "termsOfService": "Условиями обслуживания",
   "and": " и ",
   "privacyPolicy": "Политикой конфиденциальности",
@@ -444,6 +446,8 @@
       }
     }
   },
+  "visualSearchError": "Что-то пошло не так. Пожалуйста, попробуйте ещё раз.",
+  "@visualSearchError": {},
   
   "orders": "Заказы",
   "myOrders": "Мои заказы",

@@ -36,6 +36,8 @@
   "phoneVerificationSubtitle": "We'll send you a verification code to confirm your number",
   "phoneNumber": "Phone Number",
   "iAgreeToThe": "I agree to the ",
+  "byContinuingYouAgreeTo": "By continuing, you agree to our ",
+  "agreeToTermsSuffix": "",
   "termsOfService": "Terms of Service",
   "and": " and ",
   "privacyPolicy": "Privacy Policy",
@@ -449,6 +451,8 @@
       }
     }
   },
+  "visualSearchError": "Something went wrong. Please try again.",
+  "@visualSearchError": {},
   
   "orders": "Orders",
   "myOrders": "My Orders",

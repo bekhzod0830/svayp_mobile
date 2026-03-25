@@ -310,6 +310,18 @@ abstract class AppLocalizations {
   /// **'I agree to the '**
   String get iAgreeToThe;
 
+  /// No description provided for @byContinuingYouAgreeTo.
+  ///
+  /// In en, this message translates to:
+  /// **'By continuing, you agree to our '**
+  String get byContinuingYouAgreeTo;
+
+  /// No description provided for @agreeToTermsSuffix.
+  ///
+  /// In en, this message translates to:
+  /// **''**
+  String get agreeToTermsSuffix;
+
   /// No description provided for @termsOfService.
   ///
   /// In en, this message translates to:
@@ -2367,6 +2379,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Visual search failed: {error}'**
   String visualSearchFailed(String error);
+
+  /// No description provided for @visualSearchError.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong. Please try again.'**
+  String get visualSearchError;
 
   /// No description provided for @orders.
   ///

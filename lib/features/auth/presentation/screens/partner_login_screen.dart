@@ -223,28 +223,6 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen> {
                     },
                   ),
 
-                  const SizedBox(height: 12),
-
-                  // Forgot password
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: GestureDetector(
-                      onTap: () {
-                        // TODO: forgot password flow
-                      },
-                      child: Text(
-                        l10n.partnerForgotPassword,
-                        style: AppTypography.body2.copyWith(
-                          color: isDark
-                              ? AppColors.darkPrimaryText
-                              : AppColors.black,
-                          decoration: TextDecoration.underline,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-
                   const SizedBox(height: 40),
 
                   // Sign in button

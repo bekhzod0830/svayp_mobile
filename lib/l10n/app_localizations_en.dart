@@ -116,6 +116,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get iAgreeToThe => 'I agree to the ';
 
   @override
+  String get byContinuingYouAgreeTo => 'By continuing, you agree to our ';
+
+  @override
+  String get agreeToTermsSuffix => '';
+
+  @override
   String get termsOfService => 'Terms of Service';
 
   @override
@@ -1181,6 +1187,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String visualSearchFailed(String error) {
     return 'Visual search failed: $error';
   }
+
+  @override
+  String get visualSearchError => 'Something went wrong. Please try again.';
 
   @override
   String get orders => 'Orders';

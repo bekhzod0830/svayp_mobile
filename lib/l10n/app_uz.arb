@@ -203,6 +203,8 @@
   "phoneVerificationSubtitle": "Raqamingizni tasdiqlash uchun sizga tasdiqlash kodini yuboramiz",
   "phoneNumber": "Telefon raqami",
   "iAgreeToThe": "Men ",
+  "byContinuingYouAgreeTo": "Davom etish orqali siz bizning ",
+  "agreeToTermsSuffix": " ga rozilik berasiz",
   "termsOfService": "Xizmat shartlari",
   "and": " va ",
   "privacyPolicy": "Maxfiylik siyosati",
@@ -399,6 +401,8 @@
       }
     }
   },
+  "visualSearchError": "Xatolik yuz berdi. Iltimos, qayta urinib ko'ring.",
+  "@visualSearchError": {},
   
   "orders": "Buyurtmalar",
   "myOrders": "Buyurtmalar",

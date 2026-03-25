@@ -116,6 +116,12 @@ class AppLocalizationsUz extends AppLocalizations {
   String get iAgreeToThe => 'Men ';
 
   @override
+  String get byContinuingYouAgreeTo => 'Davom etish orqali siz bizning ';
+
+  @override
+  String get agreeToTermsSuffix => ' ga rozilik berasiz';
+
+  @override
   String get termsOfService => 'Xizmat shartlari';
 
   @override
@@ -1196,6 +1202,10 @@ class AppLocalizationsUz extends AppLocalizations {
   String visualSearchFailed(String error) {
     return 'Vizual qidiruv muvaffaqiyatsiz tugadi: $error';
   }
+
+  @override
+  String get visualSearchError =>
+      'Xatolik yuz berdi. Iltimos, qayta urinib ko\'ring.';
 
   @override
   String get orders => 'Buyurtmalar';

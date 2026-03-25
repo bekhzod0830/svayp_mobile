@@ -779,7 +779,7 @@ class _ShopScreenState extends State<ShopScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(l10n.visualSearchFailed(e.toString())),
+            content: Text(l10n.visualSearchError),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 4),
           ),
