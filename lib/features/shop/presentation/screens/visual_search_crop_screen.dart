@@ -135,6 +135,12 @@ class VisualSearchCropWidgetState extends State<VisualSearchCropWidget> {
   });
 
   /// Crop the source image to the current selection and return a new [XFile].
+  ///
+  /// Output is capped at [_maxOutputDim] on the longest side to keep upload
+  /// sizes well within server limits while retaining enough detail for AI
+  /// visual search.
+  static const int _maxOutputDim = 1200;
+
   Future<XFile> cropImage() async {
     if (_uiImage == null || _naturalSize == null || _selection == Rect.zero) {
       return widget.image;
@@ -150,16 +156,24 @@ class VisualSearchCropWidgetState extends State<VisualSearchCropWidget> {
         _naturalSize!.height,
       );
 
+      // Scale down so neither dimension exceeds _maxOutputDim.
+      final longestSide = cropW > cropH ? cropW : cropH;
+      final outputScale = longestSide > _maxOutputDim
+          ? _maxOutputDim / longestSide
+          : 1.0;
+      final outW = (cropW * outputScale).round().clamp(1, _maxOutputDim);
+      final outH = (cropH * outputScale).round().clamp(1, _maxOutputDim);
+
       final recorder = ui.PictureRecorder();
       final canvas = Canvas(recorder);
       canvas.drawImageRect(
         _uiImage!,
         Rect.fromLTWH(cropLeft, cropTop, cropW, cropH),
-        Rect.fromLTWH(0, 0, cropW, cropH),
-        Paint(),
+        Rect.fromLTWH(0, 0, outW.toDouble(), outH.toDouble()),
+        Paint()..filterQuality = FilterQuality.high,
       );
       final picture = recorder.endRecording();
-      final cropped = await picture.toImage(cropW.round(), cropH.round());
+      final cropped = await picture.toImage(outW, outH);
       final byteData = await cropped.toByteData(format: ui.ImageByteFormat.png);
       final bytes = byteData!.buffer.asUint8List();
 
@@ -170,7 +184,7 @@ class VisualSearchCropWidgetState extends State<VisualSearchCropWidget> {
       await outFile.writeAsBytes(bytes);
 
       return XFile(outFile.path);
-    } catch (_) {
+    } catch (e, stack) {
       return widget.image;
     }
   }

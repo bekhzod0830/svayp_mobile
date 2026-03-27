@@ -719,7 +719,9 @@ class _ShopScreenState extends State<ShopScreen>
       if (!mounted) return;
       final image = await ImagePicker().pickImage(
         source: ImageSource.gallery,
-        imageQuality: 90,
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 85,
       );
       if (image == null) return;
 

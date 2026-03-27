@@ -109,6 +109,7 @@ class VisualSearchApiService {
     // Detect MIME type from extension (jpeg/png/webp/etc.)
     final ext = image.path.split('.').last.toLowerCase();
     final mimeSubtype = ext == 'jpg' ? 'jpeg' : ext;
+
     request.files.add(
       await http.MultipartFile.fromPath(
         'image',

@@ -97,8 +97,8 @@ class _VisualSearchCameraScreenState extends State<VisualSearchCameraScreen>
     final picker = ImagePicker();
     final file = await picker.pickImage(
       source: ImageSource.gallery,
-      maxWidth: 1920,
-      maxHeight: 1920,
+      maxWidth: 1200,
+      maxHeight: 1200,
       imageQuality: 85,
     );
     if (file != null && mounted) Navigator.pop(context, file);
