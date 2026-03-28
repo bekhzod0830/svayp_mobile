@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
-import 'package:swipe/core/utils/responsive_utils.dart';
 import 'package:swipe/features/discover/domain/entities/product.dart';
 import 'package:swipe/features/cart/data/services/cart_service.dart';
 import 'package:swipe/features/cart/presentation/screens/cart_screen.dart';
@@ -446,14 +445,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    // Calculate responsive image height
-    // Mobile: 50% of screen height (max 400px)
-    // Tablet/Desktop: 60% of screen height (max 600px)
-    final double imageHeight = ResponsiveUtils.responsive<double>(
-      context: context,
-      mobile: (screenSize.height * 0.5).clamp(300.0, 400.0),
-      tablet: (screenSize.height * 0.6).clamp(400.0, 600.0),
-      desktop: (screenSize.height * 0.6).clamp(500.0, 700.0),
+    // Image height derived from screen width at 4:5 ratio,
+    // capped at 90% of screen height so it doesn't overflow on small devices.
+    final double imageHeight = (screenSize.width * 5 / 4).clamp(
+      0.0,
+      screenSize.height * 0.90,
     );
 
     return Column(
@@ -475,7 +471,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 child: isAsset
                     ? Image.asset(
                         imagePath,
-                        fit: BoxFit.contain,
+                        fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) {
                           return const Icon(Icons.error);
                         },
@@ -485,7 +481,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           final cacheWidth = (constraints.maxWidth * 2).toInt();
                           return CachedNetworkImage(
                             imageUrl: imagePath,
-                            fit: BoxFit.contain,
+                            fit: BoxFit.cover,
                             cacheManager: ImageCacheManager.instance,
                             memCacheWidth: cacheWidth,
                             placeholder: (context, url) => Center(

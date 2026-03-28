@@ -51,25 +51,27 @@ class ResponsiveUtils {
   }
 
   /// Get card height for swipeable cards
+  /// Derived from card width so the image section is exactly 4:5 ratio.
   static double getCardHeight(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
+    final cardWidth = getCardWidth(context);
+    final isTabletOrDesktop = !isMobile(context);
 
-    if (isMobile(context)) {
-      // More conservative heights to prevent overflow
-      if (screenHeight < 700) {
-        // Small screens (iPhone SE, etc.) - 58% with max 380px
-        return (screenHeight * 0.58).clamp(0, 380);
-      } else if (screenHeight < 800) {
-        // Medium screens - 62% with max 500px
-        return (screenHeight * 0.62).clamp(0, 500);
-      } else {
-        // Large screens - 65% with max 550px
-        return (screenHeight * 0.65).clamp(0, 550);
-      }
+    // Info section height must match what _buildCardContent uses
+    final double infoHeight;
+    if (screenHeight < 700) {
+      infoHeight = 130.0;
+    } else if (isTabletOrDesktop) {
+      infoHeight = 160.0;
     } else {
-      // Tablet/Desktop - 72% of screen height, wider range to fill the screen
-      return (screenHeight * 0.72).clamp(500, 900);
+      infoHeight = 140.0;
     }
+
+    // Image at 4:5 → imageHeight = cardWidth * 5/4
+    final idealHeight = cardWidth * 5 / 4 + infoHeight;
+
+    // Never exceed 85% of screen height so the card stays comfortable on screen
+    return idealHeight.clamp(0, screenHeight * 0.85);
   }
 
   /// Get horizontal padding

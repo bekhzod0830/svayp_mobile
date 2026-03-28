@@ -206,9 +206,12 @@ class _VisualSearchResultsScreenState extends State<VisualSearchResultsScreen> {
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 32),
               sliver: SliverGrid(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
-                  childAspectRatio: 0.62,
+                  childAspectRatio: () {
+                    final cardW = (MediaQuery.of(context).size.width - 36) / 2;
+                    return cardW / (cardW * 5 / 4 + 88);
+                  }(),
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
                 ),
@@ -425,7 +428,7 @@ class _VisualSearchProductCard extends StatelessWidget {
           children: [
             // Product image
             AspectRatio(
-              aspectRatio: 1.0,
+              aspectRatio: 4 / 5,
               child: Stack(
                 children: [
                   ClipRRect(
@@ -444,7 +447,7 @@ class _VisualSearchProductCard extends StatelessWidget {
                           return displayImage != null
                               ? CachedNetworkImage(
                                   imageUrl: displayImage,
-                                  fit: BoxFit.contain,
+                                  fit: BoxFit.cover,
                                   width: double.infinity,
                                   height: double.infinity,
                                   cacheManager: ImageCacheManager.instance,
@@ -556,13 +559,14 @@ class _VisualSearchProductCard extends StatelessWidget {
               ),
             ),
             // Product info
-            Expanded(
+            SizedBox(
+              height: 88,
               child: ClipRect(
                 child: Padding(
                   padding: const EdgeInsets.all(10),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.max,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       // Title — 1 line with ellipsis
                       Text(

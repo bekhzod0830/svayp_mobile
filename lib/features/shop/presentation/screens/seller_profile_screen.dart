@@ -388,9 +388,12 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
               sliver: SliverGrid(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
-                  childAspectRatio: 0.68,
+                  childAspectRatio: () {
+                    final cardW = (MediaQuery.of(context).size.width - 36) / 2;
+                    return cardW / (cardW * 5 / 4 + 104);
+                  }(),
                   mainAxisSpacing: 12,
                   crossAxisSpacing: 12,
                 ),
@@ -887,7 +890,7 @@ class _TikTokProductCard extends StatelessWidget {
           children: [
             // Product Image with Seller Avatar
             AspectRatio(
-              aspectRatio: 1.0,
+              aspectRatio: 4 / 5,
               child: Stack(
                 children: [
                   // Product Image
@@ -907,7 +910,7 @@ class _TikTokProductCard extends StatelessWidget {
                             imageUrl: product.images.isNotEmpty
                                 ? product.images.first
                                 : 'https://via.placeholder.com/400',
-                            fit: BoxFit.contain,
+                            fit: BoxFit.cover,
                             cacheManager: ImageCacheManager.instance,
                             memCacheWidth: cacheWidth,
                             placeholder: (context, url) => Container(
@@ -998,106 +1001,107 @@ class _TikTokProductCard extends StatelessWidget {
               ),
             ),
             // Product Info
-            Expanded(
+            SizedBox(
+              height: 104,
               child: ClipRect(
                 child: Padding(
                   padding: const EdgeInsets.all(10),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.max,
-                children: [
-                  // Title
-                  Text(
-                    product.localizedTitle(
-                      Localizations.localeOf(context).languageCode,
-                    ),
-                    style: AppTypography.body2.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: theme.colorScheme.onSurface,
-                      height: 1.2,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 6),
-                  // Price
-                  Row(
                     children: [
-                      Flexible(
-                        child: Text(
-                          product.formattedPrice,
-                          style: AppTypography.body2.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: theme.colorScheme.onSurface,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                      // Title
+                      Text(
+                        product.localizedTitle(
+                          Localizations.localeOf(context).languageCode,
                         ),
+                        style: AppTypography.body2.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: theme.colorScheme.onSurface,
+                          height: 1.2,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      if (product.originalPrice != null &&
-                          product.originalPrice != product.price) ...[
-                        const SizedBox(width: 6),
-                        Flexible(
-                          child: Text(
-                            _formatPrice(
-                              product.originalPrice!,
-                              product.currency,
+                      const SizedBox(height: 6),
+                      // Price
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              product.formattedPrice,
+                              style: AppTypography.body2.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: theme.colorScheme.onSurface,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            style: AppTypography.caption.copyWith(
-                              color: isDark
-                                  ? AppColors.darkSecondaryText
-                                  : AppColors.gray500,
-                              decoration: TextDecoration.lineThrough,
-                              fontSize: 10,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                      ],
+                          if (product.originalPrice != null &&
+                              product.originalPrice != product.price) ...[
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                _formatPrice(
+                                  product.originalPrice!,
+                                  product.currency,
+                                ),
+                                style: AppTypography.caption.copyWith(
+                                  color: isDark
+                                      ? AppColors.darkSecondaryText
+                                      : AppColors.gray500,
+                                  decoration: TextDecoration.lineThrough,
+                                  fontSize: 10,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      // COMMENTED OUT - Product rating (for future use)
+                      const Spacer(),
+                      // Rating & Seller
+                      Row(
+                        children: [
+                          // Icon(Icons.star_rounded, size: 12, color: Colors.amber),
+                          // const SizedBox(width: 2),
+                          // Text(
+                          //   product.rating.toStringAsFixed(1),
+                          //   style: AppTypography.caption.copyWith(
+                          //     fontWeight: FontWeight.w600,
+                          //     color: isDark
+                          //         ? AppColors.darkSecondaryText
+                          //         : AppColors.gray600,
+                          //     fontSize: 11,
+                          //   ),
+                          // ),
+                          if (showSeller) ...[
+                            // const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                '• $sellerName',
+                                style: AppTypography.caption.copyWith(
+                                  color: isDark
+                                      ? AppColors.darkSecondaryText
+                                      : AppColors.gray600,
+                                  fontSize: 11,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 6),
-                  // COMMENTED OUT - Product rating (for future use)
-                  const Spacer(),
-                  // Rating & Seller
-                  Row(
-                    children: [
-                      // Icon(Icons.star_rounded, size: 12, color: Colors.amber),
-                      // const SizedBox(width: 2),
-                      // Text(
-                      //   product.rating.toStringAsFixed(1),
-                      //   style: AppTypography.caption.copyWith(
-                      //     fontWeight: FontWeight.w600,
-                      //     color: isDark
-                      //         ? AppColors.darkSecondaryText
-                      //         : AppColors.gray600,
-                      //     fontSize: 11,
-                      //   ),
-                      // ),
-                      if (showSeller) ...[
-                        // const SizedBox(width: 6),
-                        Flexible(
-                          child: Text(
-                            '• $sellerName',
-                            style: AppTypography.caption.copyWith(
-                              color: isDark
-                                  ? AppColors.darkSecondaryText
-                                  : AppColors.gray600,
-                              fontSize: 11,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ],
+                ),
               ),
             ),
-          ),
-        ),
           ],
         ),
       ),

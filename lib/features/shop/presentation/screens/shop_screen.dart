@@ -1134,11 +1134,21 @@ class _ShopScreenState extends State<ShopScreen>
                                     );
                                   }, childCount: _filteredProducts.length),
                                   gridDelegate:
-                                      const SliverGridDelegateWithFixedCrossAxisCount(
+                                      SliverGridDelegateWithFixedCrossAxisCount(
                                         crossAxisCount: 2,
                                         mainAxisSpacing: 12,
                                         crossAxisSpacing: 12,
-                                        childAspectRatio: 0.68,
+                                        childAspectRatio: () {
+                                          // Grid padding: 12 each side + 12 cross-spacing → 36px total
+                                          final cardW =
+                                              (MediaQuery.of(
+                                                    context,
+                                                  ).size.width -
+                                                  36) /
+                                              2;
+                                          // Image: 4:5 → height = cardW * 5/4; info section: 88px fixed
+                                          return cardW / (cardW * 5 / 4 + 88);
+                                        }(),
                                       ),
                                 ),
                               ),
@@ -1561,7 +1571,7 @@ class _TikTokProductCard extends StatelessWidget {
           children: [
             // Product Image with Seller Avatar
             AspectRatio(
-              aspectRatio: 1.0,
+              aspectRatio: 4 / 5,
               child: Stack(
                 children: [
                   // Product Image
@@ -1582,7 +1592,7 @@ class _TikTokProductCard extends StatelessWidget {
                             imageUrl: product.images.isNotEmpty
                                 ? product.images.first
                                 : 'https://via.placeholder.com/400',
-                            fit: BoxFit.contain,
+                            fit: BoxFit.cover,
                             width: double.infinity,
                             height: double.infinity,
                             cacheManager: ImageCacheManager.instance,
@@ -1678,13 +1688,14 @@ class _TikTokProductCard extends StatelessWidget {
               ),
             ),
             // Product Info
-            Expanded(
+            SizedBox(
+              height: 88,
               child: ClipRect(
                 child: Padding(
                   padding: const EdgeInsets.all(10),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.max,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       // Title — 1 line with ellipsis
                       Text(

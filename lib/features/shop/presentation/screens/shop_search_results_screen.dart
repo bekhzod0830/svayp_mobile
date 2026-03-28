@@ -134,13 +134,16 @@ class _ShopSearchResultsScreenState extends State<ShopSearchResultsScreen> {
                   SliverPadding(
                     padding: const EdgeInsets.fromLTRB(12, 0, 12, 32),
                     sliver: SliverGrid(
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            childAspectRatio: 0.68,
-                            crossAxisSpacing: 12,
-                            mainAxisSpacing: 12,
-                          ),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        childAspectRatio: () {
+                          final cardW =
+                              (MediaQuery.of(context).size.width - 36) / 2;
+                          return cardW / (cardW * 5 / 4 + 88);
+                        }(),
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                      ),
                       delegate: SliverChildBuilderDelegate((context, index) {
                         final product = widget.searchResults[index];
                         return _TikTokProductCard(
@@ -404,7 +407,7 @@ class _TikTokProductCard extends StatelessWidget {
           children: [
             // Product Image with Seller Avatar
             AspectRatio(
-              aspectRatio: 1.0,
+              aspectRatio: 4 / 5,
               child: Stack(
                 children: [
                   // Product Image
@@ -425,7 +428,7 @@ class _TikTokProductCard extends StatelessWidget {
                             imageUrl: product.images.isNotEmpty
                                 ? product.images.first
                                 : 'https://via.placeholder.com/400',
-                            fit: BoxFit.contain,
+                            fit: BoxFit.cover,
                             width: double.infinity,
                             height: double.infinity,
                             cacheManager: ImageCacheManager.instance,
@@ -489,13 +492,14 @@ class _TikTokProductCard extends StatelessWidget {
               ),
             ),
             // Product Info
-            Expanded(
+            SizedBox(
+              height: 88,
               child: ClipRect(
                 child: Padding(
                   padding: const EdgeInsets.all(10),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.max,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       // Title — 1 line with ellipsis
                       Text(

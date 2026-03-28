@@ -639,7 +639,7 @@ class SwipeableProductCardState extends State<SwipeableProductCard>
                   return CachedNetworkImage(
                     key: ValueKey('img_${widget.product.id}_$index'),
                     imageUrl: widget.product.images[index],
-                    fit: BoxFit.contain,
+                    fit: BoxFit.cover,
                     cacheManager: ImageCacheManager.instance,
                     memCacheWidth: cacheWidth,
                     fadeInDuration: Duration.zero,
