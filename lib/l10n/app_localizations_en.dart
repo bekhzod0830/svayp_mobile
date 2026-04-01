@@ -2824,4 +2824,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get profileUpdatedSuccess => 'Profile updated successfully';
+
+  @override
+  String get forceUpdateTitle => 'Update Required';
+
+  @override
+  String get forceUpdateSubtitle =>
+      'A new version of SVAYP is available with exciting new features and improvements. Please update to continue.';
+
+  @override
+  String get forceUpdateButton => 'Update Now';
+
+  @override
+  String forceUpdateVersionLabel(String version) {
+    return 'Version $version available';
+  }
 }

@@ -1165,5 +1165,15 @@
   "tutorialWhiteBlouse": "Oq bluzka",
   "tutorialLongDress": "Uzun ko'ylak",
   "tutorialBeigeShoes": "Krem rangli poyabzal",
-  "profileUpdatedSuccess": "Profil muvaffaqiyatli yangilandi"
+  "profileUpdatedSuccess": "Profil muvaffaqiyatli yangilandi",
+
+  "forceUpdateTitle": "Yangilash talab qilinadi",
+  "forceUpdateSubtitle": "SVAYP ilovasining yangi versiyasi yangi xususiyatlar va yaxshilanishlar bilan chiqdi. Davom etish uchun yangilang.",
+  "forceUpdateButton": "Yangilash",
+  "forceUpdateVersionLabel": "{version} versiyasi mavjud",
+  "@forceUpdateVersionLabel": {
+    "placeholders": {
+      "version": { "type": "String" }
+    }
+  }
 }

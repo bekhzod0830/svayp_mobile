@@ -88,6 +88,9 @@ class ApiConfig {
   static const String sellerDetail = '/sellers/{id}';
   static const String sellerProducts = '/sellers/{id}/detail';
 
+  // ==================== App Version Endpoint ====================
+  static const String appVersion = '/app/version';
+
   // ==================== Upload Endpoints ====================
   static const String uploadImage = '/upload/image';
 

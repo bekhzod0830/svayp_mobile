@@ -1171,5 +1171,15 @@
   "tutorialWhiteBlouse": "Белая блузка",
   "tutorialLongDress": "Длинное платье",
   "tutorialBeigeShoes": "Бежевые туфли",
-  "profileUpdatedSuccess": "Профиль успешно обновлён"
+  "profileUpdatedSuccess": "Профиль успешно обновлён",
+
+  "forceUpdateTitle": "Требуется обновление",
+  "forceUpdateSubtitle": "Доступна новая версия SVAYP с улучшениями и новыми функциями. Пожалуйста, обновите приложение.",
+  "forceUpdateButton": "Обновить",
+  "forceUpdateVersionLabel": "Версия {version} доступна",
+  "@forceUpdateVersionLabel": {
+    "placeholders": {
+      "version": { "type": "String" }
+    }
+  }
 }

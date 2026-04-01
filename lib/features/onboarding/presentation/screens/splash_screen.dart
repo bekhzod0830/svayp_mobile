@@ -4,6 +4,7 @@ import 'package:swipe/core/constants/app_typography.dart';
 import 'package:swipe/core/utils/local_storage_helper.dart';
 import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/core/network/api_client.dart';
+import 'package:swipe/core/services/version_check_service.dart';
 import 'package:swipe/features/auth/data/services/auth_service.dart';
 import 'package:swipe/features/profile/data/services/profile_service.dart';
 
@@ -55,12 +56,29 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   void _navigateToNext() async {
-    await Future.delayed(const Duration(milliseconds: 2500));
+    final apiClient = getIt<ApiClient>();
+    final versionService = VersionCheckService(apiClient);
+
+    // Run the minimum splash delay and the version check concurrently.
+    final results = await Future.wait([
+      Future.delayed(const Duration(milliseconds: 2500)),
+      versionService.check(),
+    ]);
 
     if (!mounted) return;
 
+    // results[1] is the VersionCheckResult (or null on error)
+    final versionResult = results[1] as dynamic;
+    if (versionResult != null && versionResult.needsUpdate == true) {
+      Navigator.of(context).pushReplacementNamed(
+        '/force-update',
+        arguments: versionResult.latestVersion as String,
+      );
+      return;
+    }
+
     final storage = await LocalStorageHelper.getInstance();
-    final apiClient = getIt<ApiClient>();
+    if (!mounted) return;
 
     // Guest mode — no auth needed
     if (storage.isGuestMode()) {

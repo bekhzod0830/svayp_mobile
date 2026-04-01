@@ -5511,6 +5511,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Profile updated successfully'**
   String get profileUpdatedSuccess;
+
+  /// No description provided for @forceUpdateTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Update Required'**
+  String get forceUpdateTitle;
+
+  /// No description provided for @forceUpdateSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'A new version of SVAYP is available with exciting new features and improvements. Please update to continue.'**
+  String get forceUpdateSubtitle;
+
+  /// No description provided for @forceUpdateButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Update Now'**
+  String get forceUpdateButton;
+
+  /// No description provided for @forceUpdateVersionLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Version {version} available'**
+  String forceUpdateVersionLabel(String version);
 }
 
 class _AppLocalizationsDelegate

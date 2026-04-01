@@ -2847,4 +2847,19 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get profileUpdatedSuccess => 'Профиль успешно обновлён';
+
+  @override
+  String get forceUpdateTitle => 'Требуется обновление';
+
+  @override
+  String get forceUpdateSubtitle =>
+      'Доступна новая версия SVAYP с улучшениями и новыми функциями. Пожалуйста, обновите приложение.';
+
+  @override
+  String get forceUpdateButton => 'Обновить';
+
+  @override
+  String forceUpdateVersionLabel(String version) {
+    return 'Версия $version доступна';
+  }
 }

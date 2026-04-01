@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:swipe/features/onboarding/presentation/screens/splash_screen.dart';
+import 'package:swipe/features/onboarding/presentation/screens/force_update_screen.dart';
 import 'package:swipe/features/onboarding/presentation/screens/welcome_screen.dart';
 import 'package:swipe/features/auth/presentation/screens/phone_auth_screen.dart';
 import 'package:swipe/features/auth/presentation/screens/otp_verification_screen.dart';
@@ -76,6 +77,7 @@ class AppRoutes {
   static const String editProfile = '/edit-profile';
   static const String notifications = '/notifications';
   static const String notificationPreferences = '/notification-preferences';
+  static const String forceUpdate = '/force-update';
   static const String partnerLogin = '/partner-login';
   static const String partnerMain = '/partner-main';
   static const String chatList = '/chat-list';
@@ -86,6 +88,12 @@ class AppRoutes {
     switch (settings.name) {
       case splash:
         return MaterialPageRoute(builder: (_) => const SplashScreen());
+
+      case forceUpdate:
+        final version = settings.arguments as String? ?? '';
+        return MaterialPageRoute(
+          builder: (_) => ForceUpdateScreen(latestVersion: version),
+        );
 
       case welcome:
         return MaterialPageRoute(builder: (_) => const WelcomeScreen());

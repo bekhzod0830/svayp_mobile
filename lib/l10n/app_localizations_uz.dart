@@ -2862,4 +2862,19 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get profileUpdatedSuccess => 'Profil muvaffaqiyatli yangilandi';
+
+  @override
+  String get forceUpdateTitle => 'Yangilash talab qilinadi';
+
+  @override
+  String get forceUpdateSubtitle =>
+      'SVAYP ilovasining yangi versiyasi yangi xususiyatlar va yaxshilanishlar bilan chiqdi. Davom etish uchun yangilang.';
+
+  @override
+  String get forceUpdateButton => 'Yangilash';
+
+  @override
+  String forceUpdateVersionLabel(String version) {
+    return '$version versiyasi mavjud';
+  }
 }

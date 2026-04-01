@@ -1166,5 +1166,15 @@
   "tutorialWhiteBlouse": "White Blouse",
   "tutorialLongDress": "Long Dress",
   "tutorialBeigeShoes": "Beige Shoes",
-  "profileUpdatedSuccess": "Profile updated successfully"
+  "profileUpdatedSuccess": "Profile updated successfully",
+
+  "forceUpdateTitle": "Update Required",
+  "forceUpdateSubtitle": "A new version of SVAYP is available with exciting new features and improvements. Please update to continue.",
+  "forceUpdateButton": "Update Now",
+  "forceUpdateVersionLabel": "Version {version} available",
+  "@forceUpdateVersionLabel": {
+    "placeholders": {
+      "version": { "type": "String" }
+    }
+  }
 }
