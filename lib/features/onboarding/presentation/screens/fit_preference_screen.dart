@@ -118,13 +118,10 @@ class _FitPreferenceScreenState extends State<FitPreferenceScreen> {
 
       if (!mounted) return;
 
-      // If user is covered, skip modesty level and go directly to body type
+      // If user is covered, skip modesty level and go directly to size profile
       // For covered users, modesty level is automatically set to "covered"
       if (_hijabPreference == 'covered') {
-        Navigator.of(context).pushNamed(
-          '/body-type',
-          arguments: {'gender': _gender, 'hijabPreference': _hijabPreference},
-        );
+        Navigator.of(context).pushNamed('/size-profile');
       } else {
         // For uncovered users, show the modesty level screen
         Navigator.of(context).pushNamed(
@@ -162,7 +159,7 @@ class _FitPreferenceScreenState extends State<FitPreferenceScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Progress Indicator
-                    const OnboardingProgressBar(currentStep: 3, totalSteps: 10),
+                    const OnboardingProgressBar(currentStep: 3, totalSteps: 6),
                     const SizedBox(height: 32),
 
                     // Title

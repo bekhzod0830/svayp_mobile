@@ -35,8 +35,8 @@ class _AvoidedShoesScreenState extends State<AvoidedShoesScreen> {
 
       if (!mounted) return;
 
-      // Navigate to budget-by-items screen (skipping avoided-colors)
-      Navigator.of(context).pushNamed('/budget-by-items');
+      // Navigate to onboarding completion
+      Navigator.of(context).pushNamed('/onboarding-completion');
     } catch (e) {
       if (!mounted) return;
       SnackBarHelper.showError(context, 'Failed to save. Please try again.');

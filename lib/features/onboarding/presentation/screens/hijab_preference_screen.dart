@@ -105,7 +105,7 @@ class _HijabPreferenceScreenState extends State<HijabPreferenceScreen> {
                           // Progress indicator
                           const OnboardingProgressBar(
                             currentStep: 2,
-                            totalSteps: 10,
+                            totalSteps: 6,
                           ),
                           const SizedBox(height: 20),
                           // Title

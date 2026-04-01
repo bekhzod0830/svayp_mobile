@@ -296,7 +296,7 @@ class _BasicInfoScreenState extends State<BasicInfoScreen> {
                             // Progress Indicator
                             const OnboardingProgressBar(
                               currentStep: 1,
-                              totalSteps: 10,
+                              totalSteps: 6,
                             ),
                             const SizedBox(height: 32),
 

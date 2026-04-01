@@ -11,18 +11,17 @@ import 'package:swipe/features/onboarding/presentation/screens/hijab_preference_
 import 'package:swipe/features/onboarding/presentation/screens/fit_preference_screen.dart';
 import 'package:swipe/features/onboarding/presentation/screens/modesty_level_screen.dart';
 import 'package:swipe/features/onboarding/presentation/screens/size_profile_screen.dart';
-import 'package:swipe/features/onboarding/presentation/screens/body_type_screen.dart';
-import 'package:swipe/features/onboarding/presentation/screens/sizes_screen.dart';
-import 'package:swipe/features/onboarding/presentation/screens/budget_preference_screen.dart';
+// import 'package:swipe/features/onboarding/presentation/screens/body_type_screen.dart'; // REMOVED FROM FLOW
+// import 'package:swipe/features/onboarding/presentation/screens/sizes_screen.dart'; // REMOVED FROM FLOW
+// import 'package:swipe/features/onboarding/presentation/screens/budget_preference_screen.dart'; // REMOVED FROM FLOW
 import 'package:swipe/features/onboarding/presentation/screens/style_quiz_screen.dart';
 import 'package:swipe/features/onboarding/presentation/screens/tutorial_screen.dart';
 import 'package:swipe/features/onboarding/presentation/screens/avoided_items_screen.dart';
 import 'package:swipe/features/onboarding/presentation/screens/avoided_shoes_screen.dart';
 // import 'package:swipe/features/onboarding/presentation/screens/avoided_colors_screen.dart'; // DISABLED
 import 'package:swipe/features/onboarding/presentation/screens/avoided_prints_screen.dart';
-import 'package:swipe/features/onboarding/presentation/screens/budget_by_items_screen.dart';
-import 'package:swipe/features/onboarding/presentation/screens/style_categories_screen.dart';
-// import 'package:swipe/features/onboarding/presentation/screens/occasions_screen.dart'; // DISABLED
+// import 'package:swipe/features/onboarding/presentation/screens/budget_by_items_screen.dart'; // REMOVED FROM FLOW
+// import 'package:swipe/features/onboarding/presentation/screens/style_categories_screen.dart'; // REMOVED FROM FLOW
 // import 'package:swipe/features/onboarding/presentation/screens/brand_preferences_screen.dart'; // DISABLED
 import 'package:swipe/features/onboarding/presentation/screens/onboarding_completion_screen.dart';
 import 'package:swipe/features/main/presentation/screens/main_screen.dart';
@@ -133,22 +132,22 @@ class AppRoutes {
           settings: settings,
         );
 
-      case bodyType:
-        return MaterialPageRoute(
-          builder: (_) => const BodyTypeScreen(),
-          settings: settings,
-        );
+      // case bodyType: // REMOVED FROM FLOW
+      //   return MaterialPageRoute(
+      //     builder: (_) => const BodyTypeScreen(),
+      //     settings: settings,
+      //   );
 
-      case sizes:
-        return MaterialPageRoute(
-          builder: (_) => const SizesScreen(),
-          settings: settings,
-        );
+      // case sizes: // REMOVED FROM FLOW
+      //   return MaterialPageRoute(
+      //     builder: (_) => const SizesScreen(),
+      //     settings: settings,
+      //   );
 
-      case budgetPreference:
-        return MaterialPageRoute(
-          builder: (_) => const BudgetPreferenceScreen(),
-        );
+      // case budgetPreference: // REMOVED FROM FLOW
+      //   return MaterialPageRoute(
+      //     builder: (_) => const BudgetPreferenceScreen(),
+      //   );
 
       case styleQuiz:
         return MaterialPageRoute(
@@ -156,8 +155,8 @@ class AppRoutes {
           settings: settings,
         );
 
-      case styleCategories:
-        return MaterialPageRoute(builder: (_) => const StyleCategoriesScreen());
+      // case styleCategories: // REMOVED FROM FLOW
+      //   return MaterialPageRoute(builder: (_) => const StyleCategoriesScreen());
 
       // case occasions: // DISABLED
       //   return MaterialPageRoute(builder: (_) => const OccasionsScreen());
@@ -190,8 +189,8 @@ class AppRoutes {
       case avoidedPrints:
         return MaterialPageRoute(builder: (_) => const AvoidedPrintsScreen());
 
-      case budgetByItems:
-        return MaterialPageRoute(builder: (_) => const BudgetByItemsScreen());
+      // case budgetByItems: // REMOVED FROM FLOW
+      //   return MaterialPageRoute(builder: (_) => const BudgetByItemsScreen());
 
       case partnerLogin:
         return MaterialPageRoute(builder: (_) => const PartnerLoginScreen());
@@ -217,10 +216,8 @@ class AppRoutes {
         final args = settings.arguments;
         if (args is String) {
           return MaterialPageRoute(
-            builder: (_) => ChatDetailScreen(
-              chatId: args,
-              fromNotification: true,
-            ),
+            builder: (_) =>
+                ChatDetailScreen(chatId: args, fromNotification: true),
           );
         }
         return MaterialPageRoute(builder: (_) => const ChatListScreen());
@@ -233,10 +230,8 @@ class AppRoutes {
         if (args is String) {
           final isPartner = getIt<ApiClient>().isPartnerLogin();
           return MaterialPageRoute(
-            builder: (_) => OrderDetailScreen(
-              orderId: args,
-              isPartner: isPartner,
-            ),
+            builder: (_) =>
+                OrderDetailScreen(orderId: args, isPartner: isPartner),
           );
         }
         return MaterialPageRoute(

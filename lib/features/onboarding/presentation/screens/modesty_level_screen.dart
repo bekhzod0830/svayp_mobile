@@ -19,7 +19,6 @@ class _ModestyLevelScreenState extends State<ModestyLevelScreen> {
   Set<String> _selectedModestyLevels =
       {}; // Changed to Set for multiple selections
   bool _isLoading = false;
-  String _gender = 'female';
   String _hijabPreference = 'covered';
   bool _isInitialized = false;
 
@@ -34,7 +33,6 @@ class _ModestyLevelScreenState extends State<ModestyLevelScreen> {
       final args =
           ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
       if (args != null) {
-        _gender = args['gender'] as String? ?? 'female';
         _hijabPreference = args['hijabPreference'] as String? ?? 'covered';
 
         // If user is covered, skip this screen and set default stylePreference
@@ -76,10 +74,7 @@ class _ModestyLevelScreenState extends State<ModestyLevelScreen> {
   }
 
   void _navigateToNextScreen() {
-    Navigator.of(context).pushNamed(
-      '/body-type',
-      arguments: {'gender': _gender, 'hijabPreference': _hijabPreference},
-    );
+    Navigator.of(context).pushNamed('/size-profile');
   }
 
   Future<void> _continue() async {
@@ -142,7 +137,7 @@ class _ModestyLevelScreenState extends State<ModestyLevelScreen> {
                           // Progress indicator
                           const OnboardingProgressBar(
                             currentStep: 4,
-                            totalSteps: 10,
+                            totalSteps: 6,
                           ),
                           const SizedBox(height: 20),
                           // Title

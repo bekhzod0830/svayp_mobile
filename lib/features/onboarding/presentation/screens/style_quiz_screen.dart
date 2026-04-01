@@ -9,6 +9,7 @@ import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/core/network/api_client.dart';
 import 'package:swipe/shared/widgets/widgets.dart';
 import 'package:swipe/features/onboarding/data/onboarding_data_manager.dart';
+import 'package:swipe/features/profile/data/services/profile_service.dart';
 
 /// Style Quiz Screen - Interactive fashion quiz using swipe mechanics
 /// User swipes on fashion items to learn their style preferences
@@ -22,6 +23,8 @@ class StyleQuizScreen extends StatefulWidget {
 class _StyleQuizScreenState extends State<StyleQuizScreen> {
   final Map<int, bool> _answers = {}; // true = like, false = dislike
   bool _isCompleting = false;
+  bool _hasError = false;
+  String _errorMessage = '';
   List<StyleQuizItem> _quizItems = [];
   String _gender = 'female';
   String _hijabPreference = 'uncovered';
@@ -281,6 +284,8 @@ class _StyleQuizScreenState extends State<StyleQuizScreen> {
 
     setState(() {
       _isCompleting = true;
+      _hasError = false;
+      _errorMessage = '';
     });
 
     try {
@@ -288,11 +293,40 @@ class _StyleQuizScreenState extends State<StyleQuizScreen> {
 
       if (!mounted) return;
 
-      Navigator.of(context).pushNamed('/style-categories');
+      final l10n = AppLocalizations.of(context)!;
+      final manager = context.read<OnboardingDataManager>();
+      final apiClient = getIt<ApiClient>();
+
+      if (!apiClient.isAuthenticated()) {
+        if (!mounted) return;
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil('/phone-auth', (route) => false);
+        return;
+      }
+
+      if (!manager.hasRequiredFields) {
+        if (!mounted) return;
+        setState(() {
+          _hasError = true;
+          _errorMessage = l10n.pleaseCompleteAllFields;
+        });
+        return;
+      }
+
+      final profileRequest = manager.toProfileRequest();
+      await getIt<ProfileService>().createProfile(profileRequest);
+
+      if (!mounted) return;
+
+      Navigator.of(context).pushNamed('/onboarding-completion');
     } catch (e) {
       if (!mounted) return;
       final l10n = AppLocalizations.of(context)!;
-      SnackBarHelper.showError(context, l10n.completionError);
+      setState(() {
+        _hasError = true;
+        _errorMessage = '${l10n.failedToCreateProfile}: ${e.toString()}';
+      });
     } finally {
       if (mounted) {
         setState(() {
@@ -320,7 +354,7 @@ class _StyleQuizScreenState extends State<StyleQuizScreen> {
             // Progress Bar
             const Padding(
               padding: EdgeInsets.fromLTRB(20, 16, 20, 0),
-              child: OnboardingProgressBar(currentStep: 7, totalSteps: 10),
+              child: OnboardingProgressBar(currentStep: 6, totalSteps: 6),
             ),
             const SizedBox(height: 16),
             // Header
@@ -471,50 +505,59 @@ class _StyleQuizScreenState extends State<StyleQuizScreen> {
       );
     }
 
-    // Returned from style-categories via back button — show completed state
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.check_circle_outline,
-            size: 72,
-            color: AppColors.black,
-          ),
-          const SizedBox(height: 24),
-          Text(
-            l10n.analyzingYourStyle,
-            style: AppTypography.heading4.copyWith(color: AppColors.black),
-          ),
-          const SizedBox(height: 32),
-          SizedBox(
-            height: 56,
-            child: ElevatedButton(
-              onPressed: () =>
-                  Navigator.of(context).pushNamed('/style-categories'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.black,
-                foregroundColor: AppColors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(28),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 16,
-                ),
-                elevation: 0,
+    if (_hasError) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.error_outline,
+                size: 72,
+                color: AppColors.gray700,
               ),
-              child: Text(
-                l10n.continueButton,
-                style: AppTypography.button.copyWith(
-                  color: AppColors.white,
-                  fontSize: 16,
+              const SizedBox(height: 24),
+              Text(
+                _errorMessage,
+                textAlign: TextAlign.center,
+                style: AppTypography.body1.copyWith(
+                  color: AppColors.secondaryText,
                 ),
               ),
-            ),
+              const SizedBox(height: 32),
+              SizedBox(
+                height: 56,
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _completeQuiz,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.black,
+                    foregroundColor: AppColors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(28),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: Text(
+                    l10n.retry,
+                    style: AppTypography.button.copyWith(
+                      color: AppColors.white,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      );
+    }
+
+    // This state should be very brief — _completeQuiz() is called automatically
+    // and navigates away on success. Showing a spinner as fallback.
+    return const Center(
+      child: CircularProgressIndicator(color: AppColors.black),
     );
   }
 }

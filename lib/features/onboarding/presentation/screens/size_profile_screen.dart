@@ -20,7 +20,6 @@ class _SizeProfileScreenState extends State<SizeProfileScreen> {
   double _height = 170; // in cm
   double _weight = 65; // in kg
   bool _isLoading = false;
-  String? _bodyType;
   bool _isInitialized = false;
 
   @override
@@ -30,13 +29,6 @@ class _SizeProfileScreenState extends State<SizeProfileScreen> {
     if (!_isInitialized) {
       _isInitialized = true;
 
-      // Get body type from route arguments
-      final args =
-          ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-      if (args != null) {
-        _bodyType = args['bodyType'] as String?;
-      }
-
       // Load saved data from OnboardingDataManager
       final manager = context.read<OnboardingDataManager>();
       if (manager.heightCm != null) {
@@ -44,9 +36,6 @@ class _SizeProfileScreenState extends State<SizeProfileScreen> {
       }
       if (manager.weightKg != null) {
         _weight = manager.weightKg!;
-      }
-      if (manager.bodyType != null) {
-        _bodyType = manager.bodyType;
       }
 
       // Trigger UI update if data was loaded
@@ -59,12 +48,6 @@ class _SizeProfileScreenState extends State<SizeProfileScreen> {
   Future<void> _continue() async {
     final l10n = AppLocalizations.of(context)!;
 
-    // Validate that body type was passed from previous screen
-    if (_bodyType == null) {
-      SnackBarHelper.showError(context, 'Body type is required');
-      return;
-    }
-
     setState(() {
       _isLoading = true;
     });
@@ -72,16 +55,12 @@ class _SizeProfileScreenState extends State<SizeProfileScreen> {
     try {
       // Save body measurements to onboarding manager
       final manager = context.read<OnboardingDataManager>();
-      manager.setBodyMeasurements(
-        heightCm: _height.toInt(),
-        weightKg: _weight,
-        bodyType: _bodyType!,
-      );
+      manager.setBodyMeasurements(heightCm: _height.toInt(), weightKg: _weight);
 
       if (!mounted) return;
 
-      // Navigate to sizes screen
-      Navigator.of(context).pushNamed('/sizes');
+      // Navigate to style quiz screen
+      Navigator.of(context).pushNamed('/style-quiz');
     } catch (e) {
       if (!mounted) return;
       SnackBarHelper.showError(context, l10n.saveInfoError);
@@ -113,7 +92,7 @@ class _SizeProfileScreenState extends State<SizeProfileScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Progress Indicator
-                    const OnboardingProgressBar(currentStep: 5, totalSteps: 10),
+                    const OnboardingProgressBar(currentStep: 5, totalSteps: 6),
                     const SizedBox(height: 32),
 
                     // Title

@@ -7,7 +7,7 @@ class ProfileCreateRequest extends Equatable {
   final String dateOfBirth;
   final int heightCm;
   final double weightKg;
-  final String bodyType;
+  final String? bodyType;
 
   // Optional clothing sizes
   final String? topSize;
@@ -52,7 +52,7 @@ class ProfileCreateRequest extends Equatable {
     this.fullName,
     required this.heightCm,
     required this.weightKg,
-    required this.bodyType,
+    this.bodyType,
     required this.hijabPreference,
     required this.fitPreference,
     required this.stylePreference,
@@ -83,7 +83,7 @@ class ProfileCreateRequest extends Equatable {
       'dateOfBirth': dateOfBirth,
       'heightCm': heightCm,
       'weightKg': weightKg,
-      'bodyType': bodyType,
+      if (bodyType != null) 'bodyType': bodyType,
       // Clothing sizes - camelCase for API
       if (topSize != null) 'topSize': topSize,
       if (bottomSize != null) 'bottomSize': bottomSize,

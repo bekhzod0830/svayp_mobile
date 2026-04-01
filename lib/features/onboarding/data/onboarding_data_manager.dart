@@ -98,11 +98,11 @@ class OnboardingDataManager extends ChangeNotifier {
   void setBodyMeasurements({
     required int heightCm,
     required double weightKg,
-    required String bodyType,
+    String? bodyType,
   }) {
     _heightCm = heightCm;
     _weightKg = weightKg;
-    _bodyType = bodyType;
+    if (bodyType != null) _bodyType = bodyType;
     notifyListeners();
   }
 
@@ -213,7 +213,7 @@ class OnboardingDataManager extends ChangeNotifier {
       dateOfBirth: _dateOfBirth!.toIso8601String().split('T')[0],
       heightCm: _heightCm!,
       weightKg: _weightKg!,
-      bodyType: _bodyType!.toUpperCase(),
+      bodyType: _bodyType?.toUpperCase(),
 
       // Optional personal info
       fullName: _fullName,
@@ -266,8 +266,7 @@ class OnboardingDataManager extends ChangeNotifier {
     return _gender != null &&
         _dateOfBirth != null &&
         _heightCm != null &&
-        _weightKg != null &&
-        _bodyType != null;
+        _weightKg != null;
   }
 
   /// Reset all data

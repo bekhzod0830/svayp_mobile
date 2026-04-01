@@ -38,8 +38,8 @@ class _AvoidedPrintsScreenState extends State<AvoidedPrintsScreen> {
 
       if (!mounted) return;
 
-      // Navigate to budget preferences by items screen
-      Navigator.of(context).pushNamed('/budget-by-items');
+      // Navigate to onboarding completion
+      Navigator.of(context).pushNamed('/onboarding-completion');
     } catch (e) {
       if (!mounted) return;
       SnackBarHelper.showError(context, 'Failed to save. Please try again.');
