@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
@@ -10,18 +11,23 @@ import 'package:swipe/core/cache/image_cache_manager.dart';
 
 // Pre-computed colors to avoid withOpacity() allocations during drag/animation frames
 const _kShadowTop = BoxShadow(
-  color: Color(0x1F000000), // black.withOpacity(0.12)
-  blurRadius: 20,
-  offset: Offset(0, 8),
+  color: Color(0x28000000), // subtle outer shadow
+  blurRadius: 36,
+  offset: Offset(0, 16),
+  spreadRadius: -4, // negative spread = depth illusion (floating)
+);
+const _kShadowAmbient = BoxShadow(
+  color: Color(0x10000000), // wide ambient
+  blurRadius: 64,
+  offset: Offset(0, 24),
   spreadRadius: 0,
 );
 const _kShadowBehind = BoxShadow(
-  color: Color(0x14000000), // black.withOpacity(0.08)
-  blurRadius: 12,
-  offset: Offset(0, 4),
+  color: Color(0x14000000),
+  blurRadius: 18,
+  offset: Offset(0, 6),
   spreadRadius: 0,
 );
-const _kGradientEndColor = Color(0x40000000); // black.withOpacity(0.25)
 
 /// Swipe Direction Enum
 enum SwipeDirection { left, right, up }
@@ -467,9 +473,9 @@ class SwipeableProductCardState extends State<SwipeableProductCard>
   }
 
   List<BoxShadow> _getCardShadow() {
-    // Top card and cards further back use pre-computed const shadows
+    // Top card: dual-layer shadow for floating glass depth
     if (widget.stackIndex == 0) {
-      return const [_kShadowTop];
+      return const [_kShadowAmbient, _kShadowTop];
     }
 
     // For the second card during drag, interpolate (unavoidable allocation)
@@ -555,16 +561,8 @@ class SwipeableProductCardState extends State<SwipeableProductCard>
               child: SizedBox(
                 width: cardWidth,
                 height: cardHeight,
-                child: Stack(
-                  children: [
-                    // Main Card Content
-                    _buildCardContent(cardWidth, cardHeight),
-
-                    // Swipe Direction Overlay
-                    if (widget.isTopCard && _swipeDirection != null)
-                      _buildSwipeOverlay(),
-                  ],
-                ),
+                // Swipe overlay is inside _buildCardContent (clipped to card corners)
+                child: _buildCardContent(cardWidth, cardHeight),
               ),
             ),
           ),
@@ -574,35 +572,133 @@ class SwipeableProductCardState extends State<SwipeableProductCard>
   }
 
   Widget _buildCardContent(double cardWidth, double cardHeight) {
-    final screenHeight = MediaQuery.of(context).size.height;
-    final isTabletOrDesktop = MediaQuery.of(context).size.width >= 600;
-
-    // Calculate info section height based on screen size
-    // Smaller screens get less space for image to ensure info doesn't overflow
-    final infoHeight = screenHeight < 700
-        ? 130.0
-        : isTabletOrDesktop
-        ? 160.0
-        : 140.0;
-
     return Container(
       width: cardWidth,
       height: cardHeight,
       decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(28),
         boxShadow: _getCardShadow(),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        borderRadius: BorderRadius.circular(28),
+        child: Stack(
           children: [
-            // Product Images Section - takes remaining space
-            Expanded(child: _buildImageSection()),
-            // Product Info Section - fixed height to prevent overflow
-            SizedBox(height: infoHeight, child: _buildInfoSection()),
+            // ── Column: image fills top, info panel sits below ──
+            Column(
+              children: [
+                Expanded(
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      // Full-bleed product image
+                      _buildImageSection(),
+
+                      // Page indicators near bottom of image area
+                      if (widget.product.images.length > 1)
+                        Positioned(
+                          bottom: 10,
+                          left: 0,
+                          right: 0,
+                          child: Center(
+                            child: SmoothPageIndicator(
+                              controller: _pageController,
+                              count: widget.product.images.length,
+                              effect: const WormEffect(
+                                dotWidth: 7,
+                                dotHeight: 7,
+                                activeDotColor: Colors.white,
+                                dotColor: Color(0x88FFFFFF),
+                                spacing: 5,
+                              ),
+                            ),
+                          ),
+                        ),
+
+                      // Glass navigation arrows
+                      if (widget.product.images.length > 1 &&
+                          widget.isTopCard) ...[
+                        if (_currentImageIndex > 0)
+                          Positioned(
+                            left: 10,
+                            top: 0,
+                            bottom: 0,
+                            child: Center(child: _buildNavArrow(isLeft: true)),
+                          ),
+                        if (_currentImageIndex <
+                            widget.product.images.length - 1)
+                          Positioned(
+                            right: 10,
+                            top: 0,
+                            bottom: 0,
+                            child: Center(child: _buildNavArrow(isLeft: false)),
+                          ),
+                      ],
+                    ],
+                  ),
+                ),
+
+                // ── Info panel below image — not overlaid ──
+                _buildInfoSection(),
+              ],
+            ),
+
+            // ── Inner highlight rim for glass depth (all 4 corners) ──
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(28),
+                    border: Border.all(
+                      color: const Color(0x33FFFFFF),
+                      width: 1,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            // ── Swipe direction overlay (full card) ──
+            if (widget.isTopCard && _swipeDirection != null)
+              Positioned.fill(child: _buildSwipeOverlay()),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// Glass nav arrow button
+  Widget _buildNavArrow({required bool isLeft}) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        if (isLeft) {
+          _pageController.previousPage(
+            duration: const Duration(milliseconds: 280),
+            curve: Curves.easeInOut,
+          );
+        } else {
+          _pageController.nextPage(
+            duration: const Duration(milliseconds: 280),
+            curve: Curves.easeInOut,
+          );
+        }
+      },
+      child: ClipOval(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Container(
+            width: 36,
+            height: 36,
+            decoration: const BoxDecoration(
+              color: Color(0x33FFFFFF),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              isLeft ? Icons.chevron_left_rounded : Icons.chevron_right_rounded,
+              color: Colors.white,
+              size: 22,
+            ),
+          ),
         ),
       ),
     );
@@ -612,166 +708,59 @@ class SwipeableProductCardState extends State<SwipeableProductCard>
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    return Container(
-      color: isDark ? AppColors.darkCardBackground : AppColors.white,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Solid background to prevent ghosting
-          Container(
-            color: isDark ? AppColors.darkMainBackground : AppColors.gray100,
-          ),
-          // Image PageView
-          PageView.builder(
-            key: ValueKey('pageview_${widget.product.id}'),
-            controller: _pageController,
-            physics: widget.isTopCard && !_isDragging
-                ? const BouncingScrollPhysics()
-                : const NeverScrollableScrollPhysics(),
-            itemCount: widget.product.images.length,
-            onPageChanged: (index) {
-              if (mounted) setState(() => _currentImageIndex = index);
-            },
-            itemBuilder: (context, index) {
-              return LayoutBuilder(
-                builder: (context, constraints) {
-                  final cacheWidth = (constraints.maxWidth * 2).toInt();
-                  return CachedNetworkImage(
-                    key: ValueKey('img_${widget.product.id}_$index'),
-                    imageUrl: widget.product.images[index],
-                    fit: BoxFit.cover,
-                    cacheManager: ImageCacheManager.instance,
-                    memCacheWidth: cacheWidth,
-                    fadeInDuration: Duration.zero,
-                    fadeOutDuration: Duration.zero,
-                    placeholder: (context, url) => Container(
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // Solid background to prevent ghosting
+        Container(
+          color: isDark ? AppColors.darkMainBackground : AppColors.gray100,
+        ),
+        // Image PageView
+        PageView.builder(
+          key: ValueKey('pageview_${widget.product.id}'),
+          controller: _pageController,
+          physics: widget.isTopCard && !_isDragging
+              ? const BouncingScrollPhysics()
+              : const NeverScrollableScrollPhysics(),
+          itemCount: widget.product.images.length,
+          onPageChanged: (index) {
+            if (mounted) setState(() => _currentImageIndex = index);
+          },
+          itemBuilder: (context, index) {
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                final cacheWidth = (constraints.maxWidth * 2).toInt();
+                return CachedNetworkImage(
+                  key: ValueKey('img_${widget.product.id}_$index'),
+                  imageUrl: widget.product.images[index],
+                  fit: BoxFit.cover,
+                  cacheManager: ImageCacheManager.instance,
+                  memCacheWidth: cacheWidth,
+                  fadeInDuration: Duration.zero,
+                  fadeOutDuration: Duration.zero,
+                  placeholder: (context, url) => Container(
+                    color: isDark
+                        ? AppColors.darkMainBackground
+                        : AppColors.gray100,
+                  ),
+                  errorWidget: (context, url, error) => Container(
+                    color: isDark
+                        ? AppColors.darkCardBackground
+                        : AppColors.gray200,
+                    child: Icon(
+                      Icons.image_outlined,
+                      size: 64,
                       color: isDark
-                          ? AppColors.darkMainBackground
-                          : AppColors.gray100,
-                    ),
-                    errorWidget: (context, url, error) => Container(
-                      color: isDark
-                          ? AppColors.darkCardBackground
-                          : AppColors.gray200,
-                      child: Icon(
-                        Icons.image_outlined,
-                        size: 64,
-                        color: isDark
-                            ? AppColors.darkSecondaryText
-                            : AppColors.gray500,
-                      ),
-                    ),
-                  );
-                },
-              );
-            },
-          ),
-
-          // Gradient Overlay (bottom)
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: 80,
-            child: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, _kGradientEndColor],
-                ),
-              ),
-            ),
-          ),
-
-          // Page Indicators
-          if (widget.product.images.length > 1)
-            Positioned(
-              bottom: 12,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: SmoothPageIndicator(
-                  controller: _pageController,
-                  count: widget.product.images.length,
-                  effect: const WormEffect(
-                    dotWidth: 8,
-                    dotHeight: 8,
-                    activeDotColor: AppColors.white,
-                    dotColor: AppColors.gray400,
-                    spacing: 6,
-                  ),
-                ),
-              ),
-            ),
-
-          // Left/Right image navigation arrows
-          if (widget.product.images.length > 1 && widget.isTopCard) ...[
-            // Left arrow
-            if (_currentImageIndex > 0)
-              Positioned(
-                left: 10,
-                top: 0,
-                bottom: 0,
-                child: Center(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () {
-                      _pageController.previousPage(
-                        duration: const Duration(milliseconds: 280),
-                        curve: Curves.easeInOut,
-                      );
-                    },
-                    child: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: const BoxDecoration(
-                        color: Color(0x99000000),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.chevron_left_rounded,
-                        color: Colors.white,
-                        size: 24,
-                      ),
+                          ? AppColors.darkSecondaryText
+                          : AppColors.gray500,
                     ),
                   ),
-                ),
-              ),
-            // Right arrow
-            if (_currentImageIndex < widget.product.images.length - 1)
-              Positioned(
-                right: 10,
-                top: 0,
-                bottom: 0,
-                child: Center(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () {
-                      _pageController.nextPage(
-                        duration: const Duration(milliseconds: 280),
-                        curve: Curves.easeInOut,
-                      );
-                    },
-                    child: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: const BoxDecoration(
-                        color: Color(0x99000000),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.chevron_right_rounded,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ],
-      ),
+                );
+              },
+            );
+          },
+        ),
+      ],
     );
   }
 
@@ -781,22 +770,18 @@ class SwipeableProductCardState extends State<SwipeableProductCard>
     final screenHeight = MediaQuery.of(context).size.height;
     final isTabletOrDesktop = MediaQuery.of(context).size.width >= 600;
 
-    // Reduce padding on smaller screens; increase for tablet
     final verticalPadding = screenHeight < 700
         ? 12.0
         : isTabletOrDesktop
         ? 20.0
-        : 16.0;
+        : 14.0;
     final horizontalPadding = screenHeight < 700
         ? 16.0
         : isTabletOrDesktop
         ? 24.0
         : 20.0;
 
-    // Font scale for tablet/desktop
-    final titleFontSize = isTabletOrDesktop
-        ? 18.0
-        : null; // null = use AppTypography default
+    final titleFontSize = isTabletOrDesktop ? 18.0 : null;
     final sellerFontSize = isTabletOrDesktop ? 14.0 : 12.0;
     final priceFontSize = screenHeight < 700
         ? 16.0
@@ -805,185 +790,164 @@ class SwipeableProductCardState extends State<SwipeableProductCard>
         : 18.0;
     final discountBadgeFontSize = isTabletOrDesktop ? 12.0 : 10.0;
 
-    return Container(
-      color: isDark ? AppColors.darkCardBackground : AppColors.white,
-      padding: EdgeInsets.symmetric(
-        horizontal: horizontalPadding,
-        vertical: verticalPadding,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Title
-          Flexible(
-            child: Text(
-              widget.product.localizedTitle(
-                Localizations.localeOf(context).languageCode,
+    final titleColor = isDark ? Colors.white : Colors.black;
+    final sellerColor = isDark
+        ? const Color(0xAAFFFFFF)
+        : const Color(0x88000000);
+    final priceColor = isDark ? Colors.white : Colors.black;
+    final strikeColor = isDark
+        ? const Color(0x66FFFFFF)
+        : const Color(0x66000000);
+
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: Container(
+          width: double.infinity,
+          padding: EdgeInsets.symmetric(
+            horizontal: horizontalPadding,
+            vertical: verticalPadding,
+          ),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xE8111111) : const Color(0xEEFFFFFF),
+            border: Border(
+              top: BorderSide(
+                color: isDark
+                    ? const Color(0x22FFFFFF)
+                    : const Color(0x22000000),
+                width: 0.5,
               ),
-              style: AppTypography.body1.copyWith(
-                fontWeight: FontWeight.w600,
-                fontSize: titleFontSize,
-                color: isDark ? AppColors.white : AppColors.black,
-                height: 1.2,
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
             ),
           ),
-          SizedBox(height: screenHeight < 700 ? 2 : 4),
-          // Seller Name
-          Text(
-            widget.product.seller ?? 'SVAYP',
-            style: AppTypography.caption.copyWith(
-              color: isDark ? AppColors.gray400 : AppColors.gray600,
-              fontSize: sellerFontSize,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          SizedBox(height: screenHeight < 700 ? 6 : 8),
-          // Price & Rating Row
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              // Price Column with Discount Badge
-              Flexible(
-                // flex: widget.product.reviewCount > 0 ? 3 : 1,
-                flex: 1,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Final price and discount badge row
-                    Row(
+              // Title
+              Text(
+                widget.product.localizedTitle(
+                  Localizations.localeOf(context).languageCode,
+                ),
+                style: AppTypography.body1.copyWith(
+                  fontWeight: FontWeight.w600,
+                  fontSize: titleFontSize,
+                  color: titleColor,
+                  height: 1.2,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              SizedBox(height: screenHeight < 700 ? 2 : 3),
+              // Seller Name
+              Text(
+                widget.product.seller ?? 'SVAYP',
+                style: AppTypography.caption.copyWith(
+                  color: sellerColor,
+                  fontSize: sellerFontSize,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              SizedBox(height: screenHeight < 700 ? 6 : 8),
+              // Price Row
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Flexible(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Flexible(
-                          child: Text(
-                            widget.product.formattedPrice,
-                            style: AppTypography.heading3.copyWith(
-                              fontWeight: FontWeight.w700,
-                              fontSize: priceFontSize,
-                              color: isDark ? AppColors.white : AppColors.black,
-                              height: 1.0,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        // Discount badge next to final price
-                        if (widget.product.hasDiscount &&
-                            widget.product.discountPercentage != null) ...[
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              '-${widget.product.discountPercentage}%',
-                              style: AppTypography.caption.copyWith(
-                                color: AppColors.white,
-                                fontWeight: FontWeight.w600,
-                                fontSize: discountBadgeFontSize,
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                widget.product.formattedPrice,
+                                style: AppTypography.heading3.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: priceFontSize,
+                                  color: priceColor,
+                                  height: 1.0,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
+                            if (widget.product.hasDiscount &&
+                                widget.product.discountPercentage != null) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xAAFF3B30),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  '-${widget.product.discountPercentage}%',
+                                  style: AppTypography.caption.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: discountBadgeFontSize,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        if (widget.product.hasDiscount)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              widget.product.formattedDiscountPrice ?? '',
+                              style: AppTypography.caption.copyWith(
+                                color: strikeColor,
+                                decoration: TextDecoration.lineThrough,
+                                fontSize: 11,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                        ],
                       ],
                     ),
-                    // Original price below (strikethrough)
-                    if (widget.product.hasDiscount)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          widget.product.formattedDiscountPrice ?? '',
-                          style: AppTypography.caption.copyWith(
-                            color: isDark
-                                ? AppColors.gray400
-                                : AppColors.gray500,
-                            decoration: TextDecoration.lineThrough,
-                            fontSize: 11,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              // COMMENTED OUT - Rating display (for future use)
-              // if (widget.product.reviewCount > 0) ...[
-              //   const SizedBox(width: 8),
-              //   Flexible(
-              //     flex: 2,
-              //     child: Row(
-              //       mainAxisSize: MainAxisSize.min,
-              //       crossAxisAlignment: CrossAxisAlignment.center,
-              //       children: [
-              //         const Icon(Icons.star, size: 15, color: Colors.amber),
-              //         const SizedBox(width: 3),
-              //         Flexible(
-              //           child: Text(
-              //             widget.product.formattedRating,
-              //             style: AppTypography.body2.copyWith(
-              //               fontWeight: FontWeight.w600,
-              //               fontSize: 13,
-              //               color: isDark ? AppColors.white : AppColors.black,
-              //             ),
-              //             maxLines: 1,
-              //             overflow: TextOverflow.ellipsis,
-              //           ),
-              //         ),
-              //         const SizedBox(width: 2),
-              //         Flexible(
-              //           child: Text(
-              //             '(${widget.product.reviewCount})',
-              //             style: AppTypography.caption.copyWith(
-              //               fontSize: 11,
-              //               color: isDark
-              //                   ? AppColors.gray400
-              //                   : AppColors.gray600,
-              //             ),
-              //             maxLines: 1,
-              //             overflow: TextOverflow.ellipsis,
-              //           ),
-              //         ),
-              //       ],
-              // //     ),
-              //   ),
-              // ],
             ],
           ),
-        ],
+        ),
       ),
     );
   }
 
+  /// Liquid Glass swipe overlay — colored tint with icon + label
   Widget _buildSwipeOverlay() {
     final overlayOpacity = _getOverlayOpacity();
 
-    Color overlayColor;
+    Color tintColor;
     IconData overlayIcon;
+    String label;
 
     switch (_swipeDirection!) {
       case SwipeDirection.left:
-        overlayColor = Colors.red;
-        overlayIcon = Icons.close;
+        tintColor = const Color(0xAAFF3B30); // iOS red, 67% opacity
+        overlayIcon = Icons.close_rounded;
+        label = 'NOPE';
         break;
       case SwipeDirection.right:
-        overlayColor = Colors.green;
-        overlayIcon = Icons.favorite;
+        tintColor = const Color(0xAA30D158); // iOS green, 67% opacity
+        overlayIcon = Icons.favorite_rounded;
+        label = 'LIKE';
         break;
       case SwipeDirection.up:
-        overlayColor = AppColors.black;
-        overlayIcon = Icons.shopping_bag;
+        tintColor = const Color(0xAA0A84FF); // iOS blue, 67% opacity
+        overlayIcon = Icons.shopping_bag_rounded;
+        label = 'CART';
         break;
     }
 
@@ -992,11 +956,26 @@ class SwipeableProductCardState extends State<SwipeableProductCard>
       opacity: overlayOpacity,
       child: Container(
         decoration: BoxDecoration(
-          color: overlayColor,
-          borderRadius: BorderRadius.circular(24),
+          color: tintColor,
+          borderRadius: BorderRadius.circular(28),
         ),
         child: Center(
-          child: Icon(overlayIcon, size: 80, color: AppColors.white),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(overlayIcon, size: 72, color: Colors.white),
+              const SizedBox(height: 8),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 3,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

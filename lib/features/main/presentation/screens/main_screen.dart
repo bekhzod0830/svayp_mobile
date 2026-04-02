@@ -1,9 +1,9 @@
 import 'dart:async';
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:swipe/l10n/app_localizations.dart';
-import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/utils/responsive_utils.dart';
 import 'package:swipe/features/discover/presentation/screens/discover_screen.dart';
 import 'package:swipe/features/shop/presentation/screens/shop_screen.dart';
@@ -33,7 +33,8 @@ class MainScreen extends StatefulWidget {
   State<MainScreen> createState() => MainScreenState();
 }
 
-class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
+class MainScreenState extends State<MainScreen>
+    with WidgetsBindingObserver, TickerProviderStateMixin {
   late int _currentIndex;
 
   // Global keys for screen access
@@ -191,16 +192,6 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     }
   }
 
-  Widget _buildTab(int index, Widget child) {
-    final isActive = _currentIndex == index;
-    return AnimatedOpacity(
-      opacity: isActive ? 1.0 : 0.0,
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeInOut,
-      child: IgnorePointer(ignoring: !isActive, child: child),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -253,137 +244,317 @@ class MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       child: Builder(
         builder: (context) {
           return Scaffold(
+            extendBody: true,
+            backgroundColor: Colors.transparent,
             body: Stack(
               children: [
-                _buildTab(
-                  0,
-                  Navigator(
-                    key: _discoverKey,
-                    onGenerateRoute: (settings) => MaterialPageRoute(
-                      builder: (context) =>
-                          DiscoverScreen(key: _discoverScreenKey),
+                // Strip bottom padding from MediaQuery before it reaches
+                // inner Scaffolds — WE own the bottom inset via the floating
+                // navbar. Without this every inner Scaffold adds its own
+                // bottom padding and paints scaffoldBackgroundColor there.
+                // Only zero out `padding.bottom` (what Scaffold uses for body
+                // insets). Keep `viewPadding.bottom` intact — the navbar reads
+                // it directly to position itself above the OS gesture zone.
+                MediaQuery(
+                  data: MediaQuery.of(context).copyWith(
+                    padding: MediaQuery.of(context).padding.copyWith(bottom: 0),
+                  ),
+                  child: IndexedStack(
+                  index: _currentIndex,
+                  children: [
+                    Navigator(
+                      key: _discoverKey,
+                      onGenerateRoute: (settings) => MaterialPageRoute(
+                        builder: (context) =>
+                            DiscoverScreen(key: _discoverScreenKey),
+                      ),
                     ),
+                    Navigator(
+                      key: _likedKey,
+                      onGenerateRoute: (settings) => MaterialPageRoute(
+                        builder: (context) => LikedScreen(key: _likedScreenKey),
+                      ),
+                    ),
+                    Navigator(
+                      key: _shopKey,
+                      onGenerateRoute: (settings) => MaterialPageRoute(
+                        builder: (context) => const ShopScreen(),
+                      ),
+                      onUnknownRoute: (settings) => MaterialPageRoute(
+                        builder: (context) => const ShopScreen(),
+                      ),
+                    ),
+                    Navigator(
+                      key: _chatKey,
+                      onGenerateRoute: (settings) => MaterialPageRoute(
+                        builder: (context) =>
+                            ChatListScreen(key: _chatListScreenKey),
+                      ),
+                    ),
+                    Navigator(
+                      key: _profileKey,
+                      onGenerateRoute: (settings) => MaterialPageRoute(
+                        builder: (context) => const ProfileScreen(),
+                      ),
+                    ),
+                  ],
                   ),
                 ),
-                _buildTab(
-                  1,
-                  Navigator(
-                    key: _likedKey,
-                    onGenerateRoute: (settings) => MaterialPageRoute(
-                      builder: (context) => LikedScreen(key: _likedScreenKey),
-                    ),
-                  ),
-                ),
-                _buildTab(
-                  2,
-                  Navigator(
-                    key: _shopKey,
-                    onGenerateRoute: (settings) => MaterialPageRoute(
-                      builder: (context) => const ShopScreen(),
-                    ),
-                    onUnknownRoute: (settings) => MaterialPageRoute(
-                      builder: (context) => const ShopScreen(),
-                    ),
-                  ),
-                ),
-                _buildTab(
-                  3,
-                  Navigator(
-                    key: _chatKey,
-                    onGenerateRoute: (settings) => MaterialPageRoute(
-                      builder: (context) =>
-                          ChatListScreen(key: _chatListScreenKey),
-                    ),
-                  ),
-                ),
-                _buildTab(
-                  4,
-                  Navigator(
-                    key: _profileKey,
-                    onGenerateRoute: (settings) => MaterialPageRoute(
-                      builder: (context) => const ProfileScreen(),
-                    ),
+                // Glass navbar — floating overlay above all screens.
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: ListenableBuilder(
+                    listenable:
+                        getIt<ChatWebSocketService>().unreadCountNotifier,
+                    builder: (context, _) {
+                      final unread = getIt<ChatWebSocketService>()
+                          .unreadCountNotifier
+                          .value;
+                      final mq = MediaQuery.of(context);
+                      // viewPadding.bottom = home indicator / gesture zone height.
+                      // Never less than 16px so we always clear the OS zone.
+                      final bottomInset = mq.viewPadding.bottom.clamp(16.0, 60.0);
+                      // Full-width gradient + blur background that extends
+                      // from the pill all the way to the screen bottom edge.
+                      return Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.transparent,
+                              isDark
+                                  ? const Color(0x88000000)
+                                  : const Color(0x55FFFFFF),
+                            ],
+                          ),
+                        ),
+                        padding: EdgeInsets.only(
+                          left: 28,
+                          right: 28,
+                          bottom: bottomInset,
+                          top: 8,
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(40),
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                            child: Container(
+                              height: 60,
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? const Color(0x28FFFFFF)
+                                    : const Color(0xBBFFFFFF),
+                                borderRadius: BorderRadius.circular(40),
+                                border: Border.all(
+                                  color: isDark
+                                      ? const Color(0x44FFFFFF)
+                                      : const Color(0x55FFFFFF),
+                                  width: 0.8,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: isDark
+                                        ? Colors.black.withValues(alpha: 0.45)
+                                        : Colors.black.withValues(alpha: 0.12),
+                                    blurRadius: 40,
+                                    spreadRadius: 0,
+                                    offset: const Offset(0, 10),
+                                  ),
+                                  BoxShadow(
+                                    color: isDark
+                                        ? Colors.black.withValues(alpha: 0.20)
+                                        : Colors.black.withValues(alpha: 0.05),
+                                    blurRadius: 8,
+                                    spreadRadius: 0,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: LayoutBuilder(
+                                builder: (ctx, bc) {
+                                  final itemW = bc.maxWidth / 5;
+                                  return Stack(
+                                    clipBehavior: Clip.none,
+                                    children: [
+                                      // ── Sliding glass indicator ──────
+                                      AnimatedPositioned(
+                                        duration: const Duration(
+                                          milliseconds: 260,
+                                        ),
+                                        curve: Curves.easeOutCubic,
+                                        left:
+                                            _currentIndex * itemW +
+                                            itemW * 0.08,
+                                        width: itemW * 0.84,
+                                        top: 7,
+                                        bottom: 7,
+                                        child: ClipRRect(
+                                          borderRadius: BorderRadius.circular(
+                                            22,
+                                          ),
+                                          child: BackdropFilter(
+                                            filter: ImageFilter.blur(
+                                              sigmaX: 12,
+                                              sigmaY: 12,
+                                            ),
+                                            child: Container(
+                                              decoration: BoxDecoration(
+                                                color: isDark
+                                                    ? const Color(0x55888888)
+                                                    : const Color(0x33000000),
+                                                borderRadius:
+                                                    BorderRadius.circular(22),
+                                                border: Border.all(
+                                                  color: const Color(
+                                                    0x55FFFFFF,
+                                                  ),
+                                                  width: 0.5,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      // ── Nav item row ─────────────────
+                                      Row(
+                                        children: [
+                                          _buildGlassNavItem(
+                                            context: context,
+                                            index: 0,
+                                            inactiveIcon:
+                                                Icons.explore_outlined,
+                                            activeIcon: Icons.explore,
+                                            label: 'SV\u039bYP',
+                                            isDark: isDark,
+                                            iconScale: iconScale,
+                                            fontScale: fontScale,
+                                          ),
+                                          _buildGlassNavItem(
+                                            context: context,
+                                            index: 1,
+                                            inactiveIcon: Icons.favorite_border,
+                                            activeIcon: Icons.favorite,
+                                            label: l10n.liked,
+                                            isDark: isDark,
+                                            iconScale: iconScale,
+                                            fontScale: fontScale,
+                                          ),
+                                          _buildGlassNavItem(
+                                            context: context,
+                                            index: 2,
+                                            inactiveIcon: Icons.search,
+                                            activeIcon: Icons.search,
+                                            label: l10n.shop,
+                                            isDark: isDark,
+                                            iconScale: iconScale,
+                                            fontScale: fontScale,
+                                          ),
+                                          _buildGlassNavItem(
+                                            context: context,
+                                            index: 3,
+                                            inactiveIcon: Icons.send_outlined,
+                                            activeIcon: Icons.send,
+                                            label: l10n.chat,
+                                            isDark: isDark,
+                                            iconScale: iconScale,
+                                            fontScale: fontScale,
+                                            badge: unread > 0 ? unread : null,
+                                          ),
+                                          _buildGlassNavItem(
+                                            context: context,
+                                            index: 4,
+                                            inactiveIcon: Icons.person_outline,
+                                            activeIcon: Icons.person,
+                                            label: l10n.profile,
+                                            isDark: isDark,
+                                            iconScale: iconScale,
+                                            fontScale: fontScale,
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ],
             ),
-            bottomNavigationBar: ListenableBuilder(
-              listenable: getIt<ChatWebSocketService>().unreadCountNotifier,
-              builder: (context, _) {
-                final unread =
-                    getIt<ChatWebSocketService>().unreadCountNotifier.value;
-                final chatIcon = unread > 0
-                    ? Badge(
-                        backgroundColor: Colors.red,
-                        textColor: Colors.white,
-                        label: Text(unread > 99 ? '99+' : '$unread'),
-                        child: const Icon(Icons.send_outlined),
-                      )
-                    : const Icon(Icons.send_outlined);
-                final chatActiveIcon = unread > 0
-                    ? Badge(
-                        backgroundColor: Colors.red,
-                        textColor: Colors.white,
-                        label: Text(unread > 99 ? '99+' : '$unread'),
-                        child: const Icon(Icons.send),
-                      )
-                    : const Icon(Icons.send);
-                return Theme(
-                  data: Theme.of(context).copyWith(
-                    // Remove the glitchy ink-splash ripple on nav items
-                    splashFactory: NoSplash.splashFactory,
-                    highlightColor: Colors.transparent,
-                  ),
-                  child: BottomNavigationBar(
-                    currentIndex: _currentIndex,
-                    onTap: _onTabTapped,
-                    type: BottomNavigationBarType.fixed,
-                    backgroundColor: isDark
-                        ? AppColors.darkCardBackground
-                        : AppColors.white,
-                    selectedItemColor: isDark
-                        ? AppColors.darkPrimaryText
-                        : AppColors.black,
-                    unselectedItemColor: isDark
-                        ? AppColors.darkSecondaryText
-                        : AppColors.gray600,
-                    selectedFontSize: 12 * fontScale,
-                    unselectedFontSize: 11 * fontScale,
-                    iconSize: 24 * iconScale,
-                    elevation: 8,
-                    items: [
-                      BottomNavigationBarItem(
-                        icon: const Icon(Icons.explore_outlined),
-                        activeIcon: const Icon(Icons.explore),
-                        label: l10n.discover,
-                      ),
-                      BottomNavigationBarItem(
-                        icon: const Icon(Icons.favorite_border),
-                        activeIcon: const Icon(Icons.favorite),
-                        label: l10n.liked,
-                      ),
-                      BottomNavigationBarItem(
-                        icon: const Icon(Icons.search),
-                        activeIcon: const Icon(Icons.search),
-                        label: l10n.shop,
-                      ),
-                      BottomNavigationBarItem(
-                        icon: chatIcon,
-                        activeIcon: chatActiveIcon,
-                        label: l10n.chat,
-                      ),
-                      BottomNavigationBarItem(
-                        icon: const Icon(Icons.person_outline),
-                        activeIcon: const Icon(Icons.person),
-                        label: l10n.profile,
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ), // ListenableBuilder
           );
         },
+      ),
+    );
+  }
+
+  /// Builds a single Liquid Glass nav item.
+  Widget _buildGlassNavItem({
+    required BuildContext context,
+    required int index,
+    required IconData inactiveIcon,
+    required IconData activeIcon,
+    required String label,
+    required bool isDark,
+    required double iconScale,
+    required double fontScale,
+    int? badge,
+  }) {
+    final isActive = _currentIndex == index;
+    final activeColor = isDark ? Colors.white : Colors.black;
+    final inactiveColor = isDark
+        ? const Color(0x88FFFFFF)
+        : const Color(0x99000000);
+    final color = isActive ? activeColor : inactiveColor;
+
+    Widget iconWidget = Icon(
+      isActive ? activeIcon : inactiveIcon,
+      size: 24 * iconScale,
+      color: color,
+    );
+
+    if (badge != null && badge > 0) {
+      iconWidget = Badge(
+        backgroundColor: const Color(0xFFFF3B30),
+        textColor: Colors.white,
+        label: Text(badge > 99 ? '99+' : '$badge'),
+        child: iconWidget,
+      );
+    }
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => _onTabTapped(index),
+        behavior: HitTestBehavior.opaque,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                iconWidget,
+                const SizedBox(height: 3),
+                Text(
+                  label,
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 9.5 * fontScale,
+                    fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

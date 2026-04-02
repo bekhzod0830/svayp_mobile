@@ -22,6 +22,19 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
 
+  // Render behind system bars (status bar + navigation bar) — removes the
+  // white/grey line at the bottom on Android and makes both bars transparent.
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarBrightness: Brightness.dark,
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarDividerColor: Colors.transparent,
+      systemNavigationBarContrastEnforced: false,
+    ),
+  );
+
   // Initialize Firebase (auto-detects GoogleService-Info.plist / google-services.json)
   await Firebase.initializeApp();
 

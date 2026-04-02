@@ -1,5 +1,6 @@
 // ignore_for_file: unused_element
 import 'dart:async';
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:swipe/l10n/app_localizations.dart';
@@ -289,156 +290,225 @@ class _SwipeTutorialOverlayState extends State<SwipeTutorialOverlay>
 
     return FadeTransition(
       opacity: _fadeAnim,
-      child: Container(
-        color: Colors.black87,
-        child: SafeArea(
-          child: Column(
-            children: [
-              // ── Top bar ──────────────────────────────────────────────────
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _StepDots(count: _steps.length, current: _stepIndex),
-                    TextButton(
-                      onPressed: _finish,
-                      child: Text(
-                        l10n.skip,
-                        style: AppTypography.body1.copyWith(
-                          color: Colors.white70,
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
+        child: Container(
+          // Deep dark glass: more opaque than the discover bg, still translucent
+          color: const Color(0xD0060610),
+          child: SafeArea(
+            child: Column(
+              children: [
+                // ── Top bar ────────────────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _StepDots(count: _steps.length, current: _stepIndex),
+                      // Glass skip pill
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(20),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0x1AFFFFFF),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: const Color(0x22FFFFFF),
+                                width: 0.5,
+                              ),
+                            ),
+                            child: GestureDetector(
+                              onTap: _finish,
+                              child: Text(
+                                l10n.skip,
+                                style: AppTypography.body1.copyWith(
+                                  color: Colors.white70,
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
 
-              // ── Animated card ─────────────────────────────────────────────
-              Expanded(
-                child: Center(
-                  child: AnimatedBuilder(
-                    animation: Listenable.merge([
-                      _cardCtrl,
-                      _cardRevealCtrl,
-                      _arrowCtrl,
-                    ]),
-                    builder: (context, _) {
-                      // During the reveal phase, card fades in from 0→1.
-                      // During fly-out, card is fully opaque (1.0).
-                      // During rest, card is fully opaque (1.0).
-                      final cardOpacity = _phase == 2 ? _cardReveal.value : 1.0;
-                      return Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          // Card — visual search step uses its own widget
-                          if (step.gesture == _Gesture.tap)
-                            Opacity(
-                              opacity: cardOpacity,
-                              child: _VisualSearchAnimCard(
-                                imagePath: _kImages[_stepIndex],
+                // ── Animated card ─────────────────────────────────────────────
+                Expanded(
+                  child: Center(
+                    child: AnimatedBuilder(
+                      animation: Listenable.merge([
+                        _cardCtrl,
+                        _cardRevealCtrl,
+                        _arrowCtrl,
+                      ]),
+                      builder: (context, _) {
+                        // During the reveal phase, card fades in from 0→1.
+                        // During fly-out, card is fully opaque (1.0).
+                        // During rest, card is fully opaque (1.0).
+                        final cardOpacity = _phase == 2
+                            ? _cardReveal.value
+                            : 1.0;
+                        return Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            // Card — visual search step uses its own widget
+                            if (step.gesture == _Gesture.tap)
+                              Opacity(
+                                opacity: cardOpacity,
+                                child: _VisualSearchAnimCard(
+                                  imagePath: _kImages[_stepIndex],
+                                ),
+                              )
+                            else
+                              Opacity(
+                                opacity: cardOpacity,
+                                child: FractionalTranslation(
+                                  translation: _cardOffset.value,
+                                  child: Transform.rotate(
+                                    angle: _cardRotation.value,
+                                    child: Stack(
+                                      alignment: Alignment.center,
+                                      children: [
+                                        _MockProductCard(
+                                          imagePath: _kImages[_stepIndex],
+                                          productName: step.productName(l10n),
+                                        ),
+                                        // Stamp
+                                        if (_phase == 1)
+                                          Opacity(
+                                            opacity: _stampOpacity.value,
+                                            child: _StampBadge(
+                                              color: step.stampColor,
+                                              border: step.stampBorder,
+                                              icon: step.stampIcon,
+                                              label: step.stampLabel,
+                                              gesture: step.gesture,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
                               ),
-                            )
-                          else
-                            Opacity(
-                              opacity: cardOpacity,
-                              child: FractionalTranslation(
-                                translation: _cardOffset.value,
-                                child: Transform.rotate(
-                                  angle: _cardRotation.value,
-                                  child: Stack(
-                                    alignment: Alignment.center,
-                                    children: [
-                                      _MockProductCard(
-                                        imagePath: _kImages[_stepIndex],
-                                        productName: step.productName(l10n),
+
+                            // Tap hint for visual-search step only
+                            if (_phase == 0 && step.gesture == _Gesture.tap)
+                              _TapHint(scale: _arrowScale.value),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                ),
+
+                // ── Text + button ─────────────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(28),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                      child: Container(
+                        padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
+                        decoration: BoxDecoration(
+                          color: const Color(0x14FFFFFF),
+                          borderRadius: BorderRadius.circular(28),
+                          border: Border.all(
+                            color: const Color(0x22FFFFFF),
+                            width: 0.5,
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            Text(
+                              step.title(l10n),
+                              textAlign: TextAlign.center,
+                              style: AppTypography.heading2.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              step.description(l10n),
+                              textAlign: TextAlign.center,
+                              style: AppTypography.body1.copyWith(
+                                color: const Color(0xCCFFFFFF),
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            // Glass next/start button
+                            SizedBox(
+                              width: double.infinity,
+                              height: 52,
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(26),
+                                child: BackdropFilter(
+                                  filter: ImageFilter.blur(
+                                    sigmaX: 12,
+                                    sigmaY: 12,
+                                  ),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xCCFFFFFF),
+                                      borderRadius: BorderRadius.circular(26),
+                                      border: Border.all(
+                                        color: const Color(0xFFFFFFFF),
+                                        width: 0.5,
                                       ),
-                                      // Stamp
-                                      if (_phase == 1)
-                                        Opacity(
-                                          opacity: _stampOpacity.value,
-                                          child: _StampBadge(
-                                            color: step.stampColor,
-                                            border: step.stampBorder,
-                                            icon: step.stampIcon,
-                                            label: step.stampLabel,
-                                            gesture: step.gesture,
+                                      boxShadow: const [
+                                        BoxShadow(
+                                          color: Color(0x33FFFFFF),
+                                          blurRadius: 16,
+                                          offset: Offset(0, 4),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Material(
+                                      color: Colors.transparent,
+                                      child: InkWell(
+                                        borderRadius: BorderRadius.circular(26),
+                                        onTap: isLast
+                                            ? _finish
+                                            : () => _goToStep(_stepIndex + 1),
+                                        child: Center(
+                                          child: Text(
+                                            isLast
+                                                ? l10n.startShopping
+                                                : l10n.next,
+                                            style: AppTypography.button
+                                                .copyWith(
+                                                  fontWeight: FontWeight.w700,
+                                                  color: const Color(
+                                                    0xFF060610,
+                                                  ),
+                                                ),
                                           ),
                                         ),
-                                    ],
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-
-                          // Tap hint for visual-search step only
-                          if (_phase == 0 && step.gesture == _Gesture.tap)
-                            _TapHint(scale: _arrowScale.value),
-                        ],
-                      );
-                    },
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-              ),
-
-              // ── Text + button ─────────────────────────────────────────────
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
-                child: Column(
-                  children: [
-                    Text(
-                      step.title(l10n),
-                      textAlign: TextAlign.center,
-                      style: AppTypography.heading2.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      step.description(l10n),
-                      textAlign: TextAlign.center,
-                      style: AppTypography.body1.copyWith(
-                        color: Colors.white70,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: ElevatedButton(
-                        onPressed: isLast
-                            ? _finish
-                            : () => _goToStep(_stepIndex + 1),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                              Theme.of(context).brightness == Brightness.dark
-                              ? AppColors.brandBlack
-                              : AppColors.brandWhite,
-                          foregroundColor:
-                              Theme.of(context).brightness == Brightness.dark
-                              ? AppColors.brandWhite
-                              : AppColors.brandBlack,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          elevation: 0,
-                        ),
-                        child: Text(
-                          isLast ? l10n.startShopping : l10n.next,
-                          style: AppTypography.button.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -463,11 +533,20 @@ class _StepDots extends StatelessWidget {
         return AnimatedContainer(
           duration: const Duration(milliseconds: 300),
           margin: const EdgeInsets.only(right: 6),
-          width: active ? 20 : 8,
+          width: active ? 22 : 8,
           height: 8,
           decoration: BoxDecoration(
-            color: active ? Colors.white : Colors.white38,
+            color: active ? const Color(0xEEFFFFFF) : const Color(0x44FFFFFF),
             borderRadius: BorderRadius.circular(4),
+            boxShadow: active
+                ? const [
+                    BoxShadow(
+                      color: Color(0x44FFFFFF),
+                      blurRadius: 8,
+                      spreadRadius: 1,
+                    ),
+                  ]
+                : null,
           ),
         );
       }),
@@ -494,71 +573,129 @@ class _MockProductCard extends StatelessWidget {
       width: cardWidth,
       height: cardHeight,
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(28),
         boxShadow: const [
           BoxShadow(
-            color: Colors.black26,
-            blurRadius: 24,
-            offset: Offset(0, 8),
+            color: Color(0x28000000),
+            blurRadius: 36,
+            offset: Offset(0, 16),
+            spreadRadius: -4,
+          ),
+          BoxShadow(
+            color: Color(0x10000000),
+            blurRadius: 64,
+            offset: Offset(0, 24),
           ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: Column(
+        borderRadius: BorderRadius.circular(28),
+        child: Stack(
+          fit: StackFit.expand,
           children: [
-            // Image section
-            Expanded(
-              flex: 7,
-              child: Image.asset(
-                imagePath,
-                fit: BoxFit.cover,
-                width: double.infinity,
-                errorBuilder: (_, __, ___) => Container(
-                  color: Colors.grey.shade200,
-                  child: const Icon(
-                    Icons.image_not_supported_outlined,
-                    size: 48,
-                    color: Colors.grey,
+            // Image fills the full card
+            Image.asset(
+              imagePath,
+              fit: BoxFit.cover,
+              width: double.infinity,
+              height: double.infinity,
+              errorBuilder: (_, __, ___) => Container(
+                color: const Color(0xFF1C1C1E),
+                child: const Icon(
+                  Icons.image_not_supported_outlined,
+                  size: 48,
+                  color: Color(0x55FFFFFF),
+                ),
+              ),
+            ),
+            // Gradient scrim for info legibility
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: 160,
+              child: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.transparent, Color(0x66000000)],
                   ),
                 ),
               ),
             ),
-            // Info section
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              color: Colors.white,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        productName,
-                        style: AppTypography.body1.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
+            // Glass info panel at bottom
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: ClipRect(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    decoration: const BoxDecoration(
+                      color: Color(0xBB000000),
+                      border: Border(
+                        top: BorderSide(color: Color(0x22FFFFFF), width: 0.5),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Fashion Brand',
-                        style: AppTypography.caption.copyWith(
-                          color: Colors.black45,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                productName,
+                                style: AppTypography.body1.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Fashion Brand',
+                                style: AppTypography.caption.copyWith(
+                                  color: const Color(0xAAFFFFFF),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  Text(
-                    '\$49.99',
-                    style: AppTypography.body1.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.black,
+                        const SizedBox(width: 8),
+                        Text(
+                          '\$49.99',
+                          style: AppTypography.body1.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
+              ),
+            ),
+            // Inner highlight rim
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(28),
+                    border: Border.all(
+                      color: const Color(0x33FFFFFF),
+                      width: 1,
+                    ),
+                  ),
+                ),
               ),
             ),
           ],
@@ -610,7 +747,7 @@ class _StampBadge extends StatelessWidget {
             decoration: BoxDecoration(
               border: Border.all(color: border, width: 3),
               borderRadius: BorderRadius.circular(8),
-              color: color.withOpacity(0.15),
+              color: color.withValues(alpha: 0.15),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,

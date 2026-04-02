@@ -10,6 +10,10 @@ import FirebaseCore
   ) -> Bool {
     FirebaseApp.configure()
     GeneratedPluginRegistrant.register(with: self)
-    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+    let result = super.application(application, didFinishLaunchingWithOptions: launchOptions)
+    // Make the UIWindow background transparent so the iOS safe area zone
+    // (home indicator area) doesn't paint a white/black strip behind Flutter.
+    window?.backgroundColor = UIColor.clear
+    return result
   }
 }

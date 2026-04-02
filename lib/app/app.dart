@@ -136,9 +136,9 @@ class SwipeAppState extends State<SwipeApp>
                   statusBarIconBrightness: isDark
                       ? Brightness.light
                       : Brightness.dark,
-                  systemNavigationBarColor: isDark
-                      ? const Color(0xFF1C1C1E)
-                      : Colors.white,
+                  systemNavigationBarColor: Colors.transparent,
+                  systemNavigationBarDividerColor: Colors.transparent,
+                  systemNavigationBarContrastEnforced: false,
                   systemNavigationBarIconBrightness: isDark
                       ? Brightness.light
                       : Brightness.dark,

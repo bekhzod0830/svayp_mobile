@@ -1,11 +1,11 @@
 import 'dart:async';
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
-import 'package:swipe/core/utils/responsive_utils.dart';
 import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/core/network/api_client.dart';
 import 'package:swipe/features/discover/domain/entities/product.dart';
@@ -20,6 +20,7 @@ import 'package:swipe/core/models/product.dart' as api_models;
 import 'package:swipe/core/services/recommendation_cache_service.dart';
 import 'package:swipe/core/services/seen_products_service.dart';
 import 'package:swipe/core/cache/image_cache_manager.dart';
+import 'package:swipe/core/utils/responsive_utils.dart';
 import 'package:swipe/core/services/notification_service.dart';
 
 /// Helper function to format size label by removing SIZE_ prefix
@@ -677,7 +678,8 @@ class DiscoverScreenState extends State<DiscoverScreen> {
         content: Text(message),
         duration: const Duration(milliseconds: 1000),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       ),
     );
   }
@@ -688,87 +690,166 @@ class DiscoverScreenState extends State<DiscoverScreen> {
     final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark
-          ? AppColors.darkMainBackground
-          : theme.scaffoldBackgroundColor,
+      // Liquid Glass gradient background
+      backgroundColor: isDark ? const Color(0xFF0A0A0A) : Colors.white,
       body: Stack(
         children: [
+          // ── Gradient background mesh ──
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: isDark
+                      ? const [Color(0xFF0A0A0A), Color(0xFF111111)]
+                      : const [Colors.white, Colors.white],
+                ),
+              ),
+            ),
+          ),
+          // ── Ambient glow blobs for Liquid Glass depth ──
+          Positioned(
+            top: -80,
+            left: -60,
+            child: IgnorePointer(
+              child: Container(
+                width: 280,
+                height: 280,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: isDark
+                        ? const [Color(0x00000000), Color(0x00000000)]
+                        : const [Color(0x00FFFFFF), Color(0x00FFFFFF)],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 60,
+            right: -80,
+            child: IgnorePointer(
+              child: Container(
+                width: 320,
+                height: 320,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: isDark
+                        ? const [Color(0x00000000), Color(0x00000000)]
+                        : const [Color(0x00FFFFFF), Color(0x00FFFFFF)],
+                  ),
+                ),
+              ),
+            ),
+          ),
           SafeArea(
             child: Column(
               children: [
-                // Minimal Header
+                // Glass Header
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'SVΛYP',
-                        style: AppTypography.heading2.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: theme.colorScheme.onSurface,
-                          letterSpacing: -0.5,
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(22),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? const Color(0x22FFFFFF)
+                              : const Color(0xB8FFFFFF),
+                          borderRadius: BorderRadius.circular(22),
+                          border: Border.all(
+                            color: isDark
+                                ? const Color(0x33FFFFFF)
+                                : const Color(0x28000000),
+                            width: 0.5,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'SVΛYP',
+                              style: AppTypography.heading2.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: isDark ? Colors.white : Colors.black,
+                                letterSpacing: -0.5,
+                              ),
+                            ),
+                            // Right side action icons
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // Cart Button
+                                Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    IconButton(
+                                      icon: Icon(
+                                        Icons.shopping_bag_outlined,
+                                        size: 26,
+                                        color: isDark
+                                            ? Colors.white
+                                            : Colors.black,
+                                      ),
+                                      onPressed: () async {
+                                        // Navigate to cart screen
+                                        await Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                const CartScreen(),
+                                          ),
+                                        );
+                                        // Update cart count when returning
+                                        await _updateCartCount();
+                                      },
+                                    ),
+                                    // Badge showing cart item count
+                                    if (_cartCount > 0)
+                                      Positioned(
+                                        right: 8,
+                                        top: 8,
+                                        child: IgnorePointer(
+                                          child: Container(
+                                            padding: const EdgeInsets.all(4),
+                                            decoration: const BoxDecoration(
+                                              color: Color(0xFFFF3B30),
+                                              shape: BoxShape.circle,
+                                            ),
+                                            constraints: const BoxConstraints(
+                                              minWidth: 18,
+                                              minHeight: 18,
+                                            ),
+                                            child: Text(
+                                              _cartCount > 99
+                                                  ? '99+'
+                                                  : _cartCount.toString(),
+                                              style: AppTypography.caption
+                                                  .copyWith(
+                                                    color: Colors.white,
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
-                      // Right side action icons
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Cart Button
-                          Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.shopping_bag_outlined,
-                                  size: 28,
-                                ),
-                                onPressed: () async {
-                                  // Navigate to cart screen
-                                  await Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (context) => const CartScreen(),
-                                    ),
-                                  );
-                                  // Update cart count when returning
-                                  await _updateCartCount();
-                                },
-                              ),
-                              // Badge showing cart item count
-                              if (_cartCount > 0)
-                                Positioned(
-                                  right: 8,
-                                  top: 8,
-                                  child: IgnorePointer(
-                                    child: Container(
-                                      padding: const EdgeInsets.all(4),
-                                      decoration: const BoxDecoration(
-                                        color: Colors.red,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      constraints: const BoxConstraints(
-                                        minWidth: 18,
-                                        minHeight: 18,
-                                      ),
-                                      child: Text(
-                                        _cartCount > 99
-                                            ? '99+'
-                                            : _cartCount.toString(),
-                                        style: AppTypography.caption.copyWith(
-                                          color: AppColors.white,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                        textAlign: TextAlign.center,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -776,10 +857,39 @@ class DiscoverScreenState extends State<DiscoverScreen> {
                 Expanded(
                   child: _isLoading
                       ? Center(
-                          child: CircularProgressIndicator(
-                            color: isDark
-                                ? AppColors.darkPrimaryText
-                                : AppColors.black,
+                          child: Container(
+                            width: 52,
+                            height: 52,
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? const Color(0x18FFFFFF)
+                                  : const Color(0xDDFFFFFF),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: isDark
+                                    ? const Color(0x22FFFFFF)
+                                    : const Color(0x28000000),
+                                width: 0.5,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: isDark
+                                      ? Colors.black26
+                                      : Colors.black12,
+                                  blurRadius: 16,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  isDark ? Colors.white : Colors.black,
+                                ),
+                              ),
+                            ),
                           ),
                         )
                       : _currentCardIndex >= _products.length
@@ -802,7 +912,8 @@ class DiscoverScreenState extends State<DiscoverScreen> {
           children: [
             // Card Stack Area - flexible space
             Expanded(
-              child: Center(
+              child: Align(
+                alignment: Alignment.bottomCenter,
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
@@ -838,8 +949,15 @@ class DiscoverScreenState extends State<DiscoverScreen> {
               ),
             ),
 
-            // Action Buttons - no fixed spacing above
-            _buildActionButtons(),
+            // Gap between card and floating button bar
+            const SizedBox(height: 12),
+            // Action Buttons — floating glass pill, same width as card
+            SizedBox(
+              width: ResponsiveUtils.getCardWidth(context),
+              child: _buildActionButtons(),
+            ),
+            // Spacer so buttons clear the floating navbar
+            SizedBox(height: MediaQuery.of(context).viewPadding.bottom.clamp(16.0, 60.0) + 78),
           ],
         );
       },
@@ -847,157 +965,205 @@ class DiscoverScreenState extends State<DiscoverScreen> {
   }
 
   Widget _buildActionButtons() {
-    // Get responsive sizing
-    final horizontalPadding = ResponsiveUtils.getHorizontalPadding(context);
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
 
-    return Container(
-      padding: EdgeInsets.only(
-        left: horizontalPadding,
-        right: horizontalPadding,
-        top: 12,
-        bottom: bottomPadding > 0 ? bottomPadding + 8 : 12,
-      ),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.darkCardBackground : AppColors.white,
-        boxShadow: [
-          BoxShadow(
-            color: isDark
-                ? const Color(0x0DFFFFFF) // white.withOpacity(0.05)
-                : const Color(0x0D000000), // black.withOpacity(0.05)
-            blurRadius: 10,
-            offset: const Offset(0, -5),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Undo Button (left) - smaller width
-          SizedBox(
-            width: 56,
-            child: _ActionButton(
-              icon: Icons.replay,
-              color: _swipeHistory.isEmpty
-                  ? (isDark ? AppColors.darkSecondaryText : AppColors.gray400)
-                  : (isDark ? AppColors.darkPrimaryText : AppColors.gray700),
-              backgroundColor: isDark
-                  ? AppColors.darkMainBackground
-                  : AppColors.white,
-              borderColor: isDark
-                  ? AppColors.darkStandardBorder
-                  : AppColors.gray300,
-              size: 56,
-              isCompact: true,
-              onPressed: _swipeHistory.isEmpty ? null : _onUndo,
+    // ── Floating glass pill — independent from card ──
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(36),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xCC1A1A1A) : const Color(0xCCFFFFFF),
+            borderRadius: BorderRadius.circular(36),
+            border: Border.all(
+              color: isDark ? const Color(0x44FFFFFF) : const Color(0x28000000),
+              width: 0.5,
             ),
+            boxShadow: [
+              BoxShadow(
+                color: isDark
+                    ? const Color(0x44000000)
+                    : const Color(0x18000000),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+                spreadRadius: -2,
+              ),
+            ],
           ),
-
-          const SizedBox(width: 12),
-
-          // Dislike Button
-          Expanded(
-            child: _ActionButton(
-              icon: Icons.thumb_down_outlined,
-              color: isDark ? AppColors.darkPrimaryText : AppColors.gray700,
-              backgroundColor: isDark
-                  ? AppColors.darkMainBackground
-                  : AppColors.white,
-              borderColor: isDark
-                  ? AppColors.darkStandardBorder
-                  : AppColors.gray300,
-              size: 56,
-              isCompact: true,
-              onPressed: () {
-                if (_currentCardIndex < _products.length) {
-                  final topProduct = _products[_currentCardIndex];
-                  final topCardKey = _cardKeys[topProduct.id];
-                  topCardKey?.currentState?.animateSwipe(SwipeDirection.left);
-                }
-              },
-            ),
+          child: Row(
+            children: [
+              // Undo — fixed 56px, neutral glass circle
+              SizedBox(
+                width: 56,
+                child: _ActionButton(
+                  icon: Icons.replay_rounded,
+                  color: _swipeHistory.isEmpty
+                      ? (isDark
+                            ? const Color(0x44FFFFFF)
+                            : const Color(0x44000000))
+                      : (isDark ? Colors.white : Colors.black),
+                  backgroundColor: isDark
+                      ? const Color(0x33FFFFFF)
+                      : const Color(0x15000000),
+                  borderColor: isDark
+                      ? const Color(0x44FFFFFF)
+                      : const Color(0x28000000),
+                  size: 56,
+                  isCompact: true,
+                  onPressed: _swipeHistory.isEmpty ? null : _onUndo,
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Dislike — dark mode: black bg + white icon | light mode: white bg + black icon
+              Expanded(
+                child: _ActionButton(
+                  icon: Icons.close_rounded,
+                  color: isDark ? Colors.white : Colors.black,
+                  backgroundColor: isDark ? Colors.black : Colors.white,
+                  borderColor: Colors.transparent,
+                  size: 56,
+                  isCompact: true,
+                  onPressed: () {
+                    if (_currentCardIndex < _products.length) {
+                      final topProduct = _products[_currentCardIndex];
+                      final topCardKey = _cardKeys[topProduct.id];
+                      topCardKey?.currentState?.animateSwipe(
+                        SwipeDirection.left,
+                      );
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Like — dark mode: white bg + black icon | light mode: black bg + white icon
+              Expanded(
+                child: _ActionButton(
+                  icon: Icons.favorite_rounded,
+                  color: isDark ? Colors.black : Colors.white,
+                  backgroundColor: isDark ? Colors.white : Colors.black,
+                  borderColor: Colors.transparent,
+                  size: 56,
+                  isCompact: true,
+                  onPressed: () {
+                    if (_currentCardIndex < _products.length) {
+                      final topProduct = _products[_currentCardIndex];
+                      final topCardKey = _cardKeys[topProduct.id];
+                      topCardKey?.currentState?.animateSwipe(
+                        SwipeDirection.right,
+                      );
+                    }
+                  },
+                ),
+              ),
+            ],
           ),
-
-          const SizedBox(width: 12),
-
-          // Like Button (right)
-          Expanded(
-            child: _ActionButton(
-              icon: Icons.favorite,
-              color: isDark ? AppColors.black : AppColors.white,
-              backgroundColor: isDark
-                  ? AppColors.darkPrimaryText
-                  : AppColors.black,
-              borderColor: Colors.transparent,
-              size: 56,
-              isCompact: true,
-              onPressed: () {
-                if (_currentCardIndex < _products.length) {
-                  final topProduct = _products[_currentCardIndex];
-                  final topCardKey = _cardKeys[topProduct.id];
-                  topCardKey?.currentState?.animateSwipe(SwipeDirection.right);
-                }
-              },
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 
   Widget _buildEmptyState() {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = AppLocalizations.of(context)!;
 
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(40),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.check_circle_outline,
-              size: 100,
-              color: isDark ? AppColors.darkSecondaryText : AppColors.gray400,
-            ),
-            const SizedBox(height: 24),
-            Text(
-              l10n.thatsAllForNow,
-              style: AppTypography.display2.copyWith(
-                color: theme.colorScheme.onSurface,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              l10n.findingMoreItems,
-              style: AppTypography.body1.copyWith(
+        padding: const EdgeInsets.all(32),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(28),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: Container(
+              padding: const EdgeInsets.all(36),
+              decoration: BoxDecoration(
                 color: isDark
-                    ? AppColors.darkSecondaryText
-                    : AppColors.secondaryText,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-            ElevatedButton.icon(
-              onPressed: refreshProducts,
-              icon: const Icon(Icons.refresh),
-              label: Text(l10n.refreshFeed),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.black,
-                foregroundColor: AppColors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 16,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
+                    ? const Color(0x14FFFFFF)
+                    : const Color(0x99FFFFFF),
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(
+                  color: isDark
+                      ? const Color(0x22FFFFFF)
+                      : const Color(0xCCFFFFFF),
+                  width: 0.5,
                 ),
               ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.check_circle_outline,
+                    size: 80,
+                    color: isDark
+                        ? const Color(0x44FFFFFF)
+                        : const Color(0x44000000),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    l10n.thatsAllForNow,
+                    style: AppTypography.display2.copyWith(
+                      color: isDark ? Colors.white : Colors.white,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    l10n.findingMoreItems,
+                    style: AppTypography.body1.copyWith(
+                      color: isDark
+                          ? const Color(0xAAFFFFFF)
+                          : const Color(0xCCFFFFFF),
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 28),
+                  GestureDetector(
+                    onTap: refreshProducts,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 28,
+                        vertical: 14,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? const Color(0xDDFFFFFF)
+                            : const Color(0xDD000000),
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: isDark ? Colors.black38 : Colors.black12,
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.refresh_rounded,
+                            color: isDark ? Colors.black : Colors.white,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            l10n.refreshFeed,
+                            style: AppTypography.body1.copyWith(
+                              color: isDark ? Colors.black : Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -1065,7 +1231,6 @@ class _ActionButton extends StatelessWidget {
   final Color borderColor;
   final double size;
   final bool isCompact;
-  final double? width;
   final VoidCallback? onPressed;
 
   const _ActionButton({
@@ -1075,30 +1240,40 @@ class _ActionButton extends StatelessWidget {
     this.borderColor = Colors.transparent,
     required this.size,
     this.isCompact = true,
-    this.width,
     this.onPressed,
   });
 
   @override
   Widget build(BuildContext context) {
-    final buttonWidth = width ?? size;
+    final buttonWidth = size;
     final buttonHeight = size;
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(buttonHeight / 2),
-        child: Container(
-          width: buttonWidth,
-          height: buttonHeight,
-          decoration: BoxDecoration(
-            color: backgroundColor ?? AppColors.white,
-            borderRadius: BorderRadius.circular(buttonHeight / 2),
-            border: isCompact ? Border.all(color: borderColor, width: 1) : null,
-          ),
-          child: Center(
-            child: Icon(icon, color: color, size: size * 0.45),
+    return GestureDetector(
+      onTap: onPressed,
+      child: Container(
+        width: buttonWidth,
+        height: buttonHeight,
+        decoration: BoxDecoration(
+          color: backgroundColor ?? const Color(0x22FFFFFF),
+          borderRadius: BorderRadius.circular(buttonHeight / 2),
+          border: isCompact
+              ? Border.all(color: borderColor, width: 0.75)
+              : null,
+          boxShadow: onPressed != null
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.12),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ]
+              : null,
+        ),
+        child: Center(
+          child: Icon(
+            icon,
+            color: onPressed == null ? color.withValues(alpha: 0.35) : color,
+            size: size * 0.44,
           ),
         ),
       ),

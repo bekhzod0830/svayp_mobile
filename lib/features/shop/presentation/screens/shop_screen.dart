@@ -1168,8 +1168,16 @@ class _ShopScreenState extends State<ShopScreen>
                                     ),
                                   ),
                                 ),
-                              const SliverToBoxAdapter(
-                                child: SizedBox(height: 100),
+                              SliverToBoxAdapter(
+                                // Extra clearance so last card scrolls above
+                                // the search bar (52px) + navbar (60px) + gaps.
+                                child: SizedBox(
+                                  height:
+                                      MediaQuery.of(
+                                        context,
+                                      ).viewPadding.bottom +
+                                      160,
+                                ),
                               ),
                             ],
                           ),
@@ -1178,11 +1186,13 @@ class _ShopScreenState extends State<ShopScreen>
               ],
             ),
 
-            // ChatGPT-style Search Bar
+            // ChatGPT-style Search Bar — sits above the floating glass navbar
+            // Navbar pill = 60px + safe-area padding; SafeArea already absorbs the
+            // system bottom inset, so we only need to clear the pill itself.
             Positioned(
               left: 16,
               right: 16,
-              bottom: 16,
+              bottom: MediaQuery.of(context).viewPadding.bottom + 76,
               child: Container(
                 height: 52,
                 decoration: BoxDecoration(
