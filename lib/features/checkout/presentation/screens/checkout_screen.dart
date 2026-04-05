@@ -1,3 +1,4 @@
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/core/constants/app_colors.dart';
@@ -385,59 +386,106 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
+    final topPadding = MediaQuery.of(context).padding.top;
+    const headerHeight = 56.0;
+    final headerTotal = topPadding + headerHeight + 8.0;
+
     return Scaffold(
       backgroundColor: isDark
           ? AppColors.darkMainBackground
           : AppColors.pageBackground,
-      appBar: AppBar(
-        backgroundColor: isDark
-            ? AppColors.darkMainBackground
-            : AppColors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: theme.colorScheme.onSurface),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: Text(
-          l10n.checkout,
-          style: AppTypography.heading3.copyWith(
-            fontWeight: FontWeight.w700,
-            color: theme.colorScheme.onSurface,
-          ),
-        ),
-        centerTitle: true,
-      ),
-      body: _isLoading
-          ? Center(
-              child: CircularProgressIndicator(
-                color: isDark ? AppColors.white : AppColors.black,
-              ),
-            )
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                // Delivery Address Section - DISABLED FOR NOW
-                // _buildDeliveryAddressSection(l10n),
-                // const SizedBox(height: 16),
-
-                // Delivery Method Section
-                _buildDeliveryMethodSection(l10n),
-                const SizedBox(height: 16),
-
-                // Payment Method Section
-                _buildPaymentMethodSection(l10n),
-                const SizedBox(height: 16),
-
-                // Order Items Section
-                _buildOrderItemsSection(l10n),
-                const SizedBox(height: 16),
-
-                // Order Summary Section
-                _buildOrderSummarySection(l10n),
-                const SizedBox(height: 100), // Space for bottom button
-              ],
-            ),
+      extendBodyBehindAppBar: true,
       bottomNavigationBar: _buildBottomBar(l10n),
+      body: Stack(
+        children: [
+          // ── Content ─────────────────────────────────────────────
+          _isLoading
+              ? Center(
+                  child: CircularProgressIndicator(
+                    color: isDark ? AppColors.white : AppColors.black,
+                  ),
+                )
+              : ListView(
+                  padding: EdgeInsets.fromLTRB(
+                    16,
+                    headerTotal + 8,
+                    16,
+                    MediaQuery.of(context).padding.bottom + 16,
+                  ),
+                  children: [
+                    // Delivery Method Section
+                    _buildDeliveryMethodSection(l10n),
+                    const SizedBox(height: 16),
+
+                    // Payment Method Section
+                    _buildPaymentMethodSection(l10n),
+                    const SizedBox(height: 16),
+
+                    // Order Items Section
+                    _buildOrderItemsSection(l10n),
+                  ],
+                ),
+
+          // ── Floating glass header ───────────────────────────────
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                bottom: Radius.circular(40),
+              ),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                child: Container(
+                  height: headerTotal,
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? const Color(0xD0050508)
+                        : const Color(0xB8FFFFFF),
+                    borderRadius: const BorderRadius.vertical(
+                      bottom: Radius.circular(40),
+                    ),
+                    border: Border.all(
+                      color: isDark
+                          ? const Color(0x22FFFFFF)
+                          : const Color(0x28000000),
+                      width: 0.5,
+                    ),
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.only(top: topPadding),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: Icon(
+                            Icons.arrow_back_ios_new_rounded,
+                            size: 20,
+                            color: isDark
+                                ? AppColors.darkPrimaryText
+                                : AppColors.black,
+                          ),
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                        Expanded(
+                          child: Text(
+                            l10n.checkout,
+                            style: AppTypography.heading3.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: theme.colorScheme.onSurface,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 48),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -933,7 +981,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       );
 
       navigator.pop(); // dismiss loader overlay
-      navigator.push(
+      Navigator.of(context, rootNavigator: true).push(
         MaterialPageRoute(
           builder: (_) => ProductDetailScreen(product: product),
         ),
@@ -967,18 +1015,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               borderRadius: BorderRadius.circular(8),
               child: Container(
                 width: 70,
-                height: 95,
+                height: 78,
                 color: isDark
                     ? AppColors.darkMainBackground
                     : AppColors.gray100,
                 child: CachedNetworkImage(
                   imageUrl: item.imageUrl,
-                  width: 70,
-                  height: 95,
                   fit: BoxFit.cover,
                   cacheManager: ImageCacheManager.instance,
                   memCacheWidth: 140,
-                  memCacheHeight: 190,
+                  memCacheHeight: 156,
                 ),
               ),
             ),
@@ -1212,45 +1258,136 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final isDark = theme.brightness == Brightness.dark;
 
     return Container(
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? AppColors.darkCardBackground : AppColors.white,
+        color: isDark ? const Color(0xF0050508) : const Color(0xF8FFFFFF),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+        border: Border(
+          top: BorderSide(
+            color: isDark ? const Color(0x22FFFFFF) : const Color(0x28000000),
+            width: 0.5,
+          ),
+        ),
         boxShadow: [
           BoxShadow(
-            color: (isDark ? Colors.white : AppColors.black).withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, -2),
+            color: const Color(0x1A000000),
+            blurRadius: 24,
+            offset: const Offset(0, -6),
           ),
         ],
       ),
       child: SafeArea(
-        child: ElevatedButton(
-          onPressed: _isPlacingOrder ? null : _placeOrder,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: isDark ? AppColors.white : AppColors.black,
-            foregroundColor: isDark ? AppColors.black : AppColors.white,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-            disabledBackgroundColor: AppColors.gray400,
-          ),
-          child: _isPlacingOrder
-              ? SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: isDark ? AppColors.black : AppColors.white,
-                  ),
-                )
-              : Text(
-                  l10n.placeOrder,
-                  style: AppTypography.body1.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? AppColors.black : AppColors.white,
-                  ),
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // ── Order summary rows ────────────────────────────
+              if (_hasUsdProducts) ...[         
+                _buildSummaryRow(
+                  _hasUzsProducts ? '${l10n.subtotal} (USD)' : l10n.subtotal,
+                  _usdSubtotal,
+                  'USD',
                 ),
+                const SizedBox(height: 8),
+              ],
+              if (_hasUzsProducts) ...[         
+                _buildSummaryRow(
+                  _hasUsdProducts ? '${l10n.subtotal} (UZS)' : l10n.subtotal,
+                  _uzsSubtotal,
+                  'UZS',
+                ),
+                const SizedBox(height: 8),
+              ],
+              if (_hasUzsProducts) ...[         
+                _buildSummaryRow(
+                  _hasUsdProducts ? '${l10n.deliveryFee} (UZS)' : l10n.deliveryFee,
+                  _deliveryFee,
+                  'UZS',
+                ),
+                const SizedBox(height: 4),
+              ],
+              const Divider(),
+              const SizedBox(height: 8),
+              if (_hasUsdProducts) ...[         
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      _hasUzsProducts ? '${l10n.total} (USD)' : l10n.total,
+                      style: AppTypography.heading4.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                    Text(
+                      _getFormattedPrice(_usdSubtotal, 'USD'),
+                      style: AppTypography.heading4.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                  ],
+                ),
+                if (_hasUzsProducts) const SizedBox(height: 8),
+              ],
+              if (_hasUzsProducts) ...[         
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      _hasUsdProducts ? '${l10n.total} (UZS)' : l10n.total,
+                      style: AppTypography.heading4.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                    Text(
+                      _getFormattedPrice(_uzsSubtotal + _deliveryFee, 'UZS'),
+                      style: AppTypography.heading4.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 16),
+              // ── Place Order button ────────────────────────────
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _isPlacingOrder ? null : _placeOrder,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isDark ? Colors.white : AppColors.black,
+                    foregroundColor: isDark ? AppColors.black : AppColors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    disabledBackgroundColor: AppColors.gray400,
+                    elevation: 0,
+                  ),
+                  child: _isPlacingOrder
+                      ? SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: isDark ? AppColors.black : AppColors.white,
+                          ),
+                        )
+                      : Text(
+                          l10n.placeOrder,
+                          style: AppTypography.body1.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? AppColors.black : AppColors.white,
+                          ),
+                        ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

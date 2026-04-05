@@ -1084,7 +1084,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get visualSearch => 'Visual Search';
 
   @override
-  String get vsPickCategory => 'Select a Category';
+  String get vsPickCategory => 'Crop Image';
 
   @override
   String get vsSearchButton => 'Search';
@@ -1761,6 +1761,25 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get scanQrForCashback =>
       'Show this QR code to partners to receive cashback';
+
+  @override
+  String get svaypCardTitle => 'SVAYP Card';
+
+  @override
+  String get svaypCardCashbackDesc => 'Earn 2% cashback on every purchase';
+
+  @override
+  String get openQrButton => 'Open';
+
+  @override
+  String get qrFullScreenHint =>
+      'Show this code at checkout to receive 2% cashback';
+
+  @override
+  String get qrCashbackPrefix => 'Show this QR code to cashier to receive ';
+
+  @override
+  String get qrCashbackHighlight => '2% cashback';
 
   @override
   String get personalInfo => 'Personal Information';
@@ -2824,6 +2843,21 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get profileUpdatedSuccess => 'Profile updated successfully';
+
+  @override
+  String get mapOpenMap => 'Open map';
+
+  @override
+  String get mapOpenInMaps => 'Open in Maps';
+
+  @override
+  String get loadingSellerProducts => 'Loading seller products...';
+
+  @override
+  String get shops => 'Shops';
+
+  @override
+  String get allShops => 'All Shops';
 
   @override
   String get forceUpdateTitle => 'Update Required';

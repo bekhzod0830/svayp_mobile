@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
@@ -86,7 +87,6 @@ class _VisualSearchLoaderState extends State<VisualSearchLoader>
       l10n.vsAlmostThere,
     ];
 
-    final bgColor = isDark ? AppColors.darkCardBackground : AppColors.white;
     final textColor = isDark
         ? AppColors.darkPrimaryText
         : AppColors.primaryText;
@@ -100,106 +100,137 @@ class _VisualSearchLoaderState extends State<VisualSearchLoader>
         ? AppColors.darkStandardBorder
         : AppColors.gray300;
 
-    return Dialog(
-      backgroundColor: bgColor,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 40),
-      elevation: 24,
+    return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // ── Image + scan animation ─────────────────────────────────────
-            AnimatedBuilder(
-              animation: _pulseAnim,
-              builder: (_, child) =>
-                  Transform.scale(scale: _pulseAnim.value, child: child),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(14),
-                child: AspectRatio(
-                  aspectRatio: 4 / 3,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Image.file(widget.image, fit: BoxFit.cover),
-                      Container(color: Colors.black.withOpacity(0.18)),
-                      AnimatedBuilder(
-                        animation: _beamAnim,
-                        builder: (_, __) => CustomPaint(
-                          painter: _ScanBeamPainter(_beamAnim.value),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(28),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? const Color(0xF2050508)
+                    : const Color(0xF2FFFFFF),
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(
+                  color: isDark
+                      ? const Color(0x22FFFFFF)
+                      : const Color(0x28000000),
+                  width: 0.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: isDark
+                        ? const Color(0x44000000)
+                        : const Color(0x18000000),
+                    blurRadius: 24,
+                    offset: const Offset(0, 8),
+                    spreadRadius: -2,
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Drag handle
+                  Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white24 : Colors.black12,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  // ── Image + scan animation ─────────────────────────────────────
+                  AnimatedBuilder(
+                    animation: _pulseAnim,
+                    builder: (_, child) =>
+                        Transform.scale(scale: _pulseAnim.value, child: child),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: AspectRatio(
+                        aspectRatio: 4 / 3,
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            Image.file(widget.image, fit: BoxFit.contain),
+                            Container(color: Colors.black.withOpacity(0.18)),
+                            AnimatedBuilder(
+                              animation: _beamAnim,
+                              builder: (_, __) => CustomPaint(
+                                painter: _ScanBeamPainter(_beamAnim.value),
+                              ),
+                            ),
+                            CustomPaint(painter: _CornerBracketsPainter()),
+                          ],
                         ),
                       ),
-                      CustomPaint(painter: _CornerBracketsPainter()),
-                    ],
+                    ),
                   ),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // ── Phase text ─────────────────────────────────────────────────
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 350),
-              transitionBuilder: (child, anim) => FadeTransition(
-                opacity: anim,
-                child: SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(0, 0.15),
-                    end: Offset.zero,
-                  ).animate(anim),
-                  child: child,
-                ),
-              ),
-              child: Text(
-                phases[_phaseIndex],
-                key: ValueKey(_phaseIndex),
-                style: AppTypography.body1.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: textColor,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-
-            const SizedBox(height: 10),
-
-            // ── Animated dots ──────────────────────────────────────────────
-            AnimatedBuilder(
-              animation: _dotAnim,
-              builder: (_, __) {
-                final count = _dotAnim.value;
-                return Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(3, (i) {
-                    final active = i < count;
-                    return AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      margin: const EdgeInsets.symmetric(horizontal: 3),
-                      width: active ? 7 : 5,
-                      height: active ? 7 : 5,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: active ? dotActiveColor : dotInactiveColor,
+                  const SizedBox(height: 20),
+                  // ── Phase text ─────────────────────────────────────────────────
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 350),
+                    transitionBuilder: (child, anim) => FadeTransition(
+                      opacity: anim,
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(0, 0.15),
+                          end: Offset.zero,
+                        ).animate(anim),
+                        child: child,
                       ),
-                    );
-                  }),
-                );
-              },
-            ),
-
-            const SizedBox(height: 10),
-
-            // ── "Powered by AI" ────────────────────────────────────────────
-            Text(
-              l10n.vsPoweredByAI,
-              style: AppTypography.caption.copyWith(
-                color: subtleColor,
-                letterSpacing: 0.8,
+                    ),
+                    child: Text(
+                      phases[_phaseIndex],
+                      key: ValueKey(_phaseIndex),
+                      style: AppTypography.body1.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: textColor,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  // ── Animated dots ──────────────────────────────────────────────
+                  AnimatedBuilder(
+                    animation: _dotAnim,
+                    builder: (_, __) {
+                      final count = _dotAnim.value;
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(3, (i) {
+                          final active = i < count;
+                          return AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            margin: const EdgeInsets.symmetric(horizontal: 3),
+                            width: active ? 7 : 5,
+                            height: active ? 7 : 5,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: active ? dotActiveColor : dotInactiveColor,
+                            ),
+                          );
+                        }),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  // ── "Powered by AI" ────────────────────────────────────────────
+                  Text(
+                    l10n.vsPoweredByAI,
+                    style: AppTypography.caption.copyWith(
+                      color: subtleColor,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     );

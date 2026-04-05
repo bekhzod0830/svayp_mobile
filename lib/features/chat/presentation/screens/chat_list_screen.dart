@@ -12,6 +12,8 @@ import 'package:swipe/features/chat/data/services/chat_cache_service.dart';
 import 'package:swipe/features/chat/data/services/chat_websocket_service.dart';
 import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/core/network/api_client.dart';
+import 'dart:ui';
+import 'package:swipe/shared/widgets/main_top_bar.dart';
 
 /// Chat List Screen - Shows conversations with sellers
 class ChatListScreen extends StatefulWidget {
@@ -232,37 +234,8 @@ class ChatListScreenState extends State<ChatListScreen>
         body: SafeArea(
           child: Column(
             children: [
-              // Header
-              Container(
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? AppColors.darkCardBackground
-                      : AppColors.white,
-                  border: Border(
-                    bottom: BorderSide(
-                      color: isDark
-                          ? AppColors.darkStandardBorder
-                          : const Color(0xFFE0E0E0),
-                      width: 0.5,
-                    ),
-                  ),
-                ),
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        l10n.chat,
-                        style: AppTypography.heading2.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: theme.colorScheme.onSurface,
-                          letterSpacing: -0.3,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              // Glass Header
+              MainTopBar(title: l10n.chat),
               // Content
               Expanded(
                 child: _isLoading

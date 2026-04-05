@@ -662,6 +662,18 @@ class ProductApiService {
           itemsList = jsonData;
         }
 
+        // Extract pagination cursor from the response
+        String? nextCursor;
+        if (jsonData is Map<String, dynamic>) {
+          final data = jsonData['data'];
+          if (data is Map<String, dynamic>) {
+            nextCursor =
+                data['cursor'] as String? ??
+                data['next_cursor'] as String? ??
+                data['nextCursor'] as String?;
+          }
+        }
+
         final products = <Product>[];
         if (itemsList != null) {
           for (final item in itemsList) {
@@ -673,7 +685,11 @@ class ProductApiService {
           }
         }
 
-        return ProductListResponse(products: products, total: products.length);
+        return ProductListResponse(
+          products: products,
+          total: products.length,
+          nextCursor: nextCursor,
+        );
       } else if (response.statusCode == 401) {
         throw Exception('Authentication required for feed');
       } else {

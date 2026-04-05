@@ -190,33 +190,114 @@ class VisualSearchCropWidgetState extends State<VisualSearchCropWidget> {
   }
 
   // ── Handle widget ──────────────────────────────────────────────────────────
-  static const double _hR = 14.0; // handle radius
+  /// Invisible touch radius (48 px – Apple/Material minimum tap target).
+  static const double _hTouchR = 24.0;
+
+  /// Visible dot radius.
+  static const double _hVisR = 14.0;
 
   Widget _handle(Offset pos, void Function(Offset) onDrag) {
     return Positioned(
-      left: pos.dx - _hR,
-      top: pos.dy - _hR,
+      left: pos.dx - _hTouchR,
+      top: pos.dy - _hTouchR,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onPanUpdate: (d) => onDrag(d.delta),
-        child: Container(
-          width: _hR * 2,
-          height: _hR * 2,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.white,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.35),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
+        child: SizedBox(
+          width: _hTouchR * 2,
+          height: _hTouchR * 2,
+          child: Center(
+            child: Container(
+              width: _hVisR * 2,
+              height: _hVisR * 2,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.35),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
     );
   }
+
+  /// Thin edge drag handle (wide invisible strip, no visible dot).
+  Widget _edgeHandle({
+    required double left,
+    required double top,
+    required double width,
+    required double height,
+    required void Function(Offset) onDrag,
+  }) {
+    return Positioned(
+      left: left,
+      top: top,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onPanUpdate: (d) => onDrag(d.delta),
+        child: SizedBox(width: width, height: height),
+      ),
+    );
+  }
+
+  void _moveTop(Offset delta) => setState(() {
+    final t = (_selection.top + delta.dy).clamp(
+      _imageRect.top,
+      _selection.bottom - _minSize,
+    );
+    _selection = Rect.fromLTRB(
+      _selection.left,
+      t,
+      _selection.right,
+      _selection.bottom,
+    );
+  });
+
+  void _moveBottom(Offset delta) => setState(() {
+    final b = (_selection.bottom + delta.dy).clamp(
+      _selection.top + _minSize,
+      _imageRect.bottom,
+    );
+    _selection = Rect.fromLTRB(
+      _selection.left,
+      _selection.top,
+      _selection.right,
+      b,
+    );
+  });
+
+  void _moveLeft(Offset delta) => setState(() {
+    final l = (_selection.left + delta.dx).clamp(
+      _imageRect.left,
+      _selection.right - _minSize,
+    );
+    _selection = Rect.fromLTRB(
+      l,
+      _selection.top,
+      _selection.right,
+      _selection.bottom,
+    );
+  });
+
+  void _moveRight(Offset delta) => setState(() {
+    final r = (_selection.right + delta.dx).clamp(
+      _selection.left + _minSize,
+      _imageRect.right,
+    );
+    _selection = Rect.fromLTRB(
+      _selection.left,
+      _selection.top,
+      r,
+      _selection.bottom,
+    );
+  });
 
   // ── build ──────────────────────────────────────────────────────────────────
   @override
@@ -244,6 +325,35 @@ class VisualSearchCropWidgetState extends State<VisualSearchCropWidget> {
               _handle(_selection.topRight, _moveTopRight),
               _handle(_selection.bottomRight, _moveBottomRight),
               _handle(_selection.bottomLeft, _moveBottomLeft),
+              // Edge handles (invisible strips along each side)
+              _edgeHandle(
+                left: _selection.left + _hTouchR,
+                top: _selection.top - _hTouchR,
+                width: _selection.width - _hTouchR * 2,
+                height: _hTouchR * 2,
+                onDrag: _moveTop,
+              ),
+              _edgeHandle(
+                left: _selection.left + _hTouchR,
+                top: _selection.bottom - _hTouchR,
+                width: _selection.width - _hTouchR * 2,
+                height: _hTouchR * 2,
+                onDrag: _moveBottom,
+              ),
+              _edgeHandle(
+                left: _selection.left - _hTouchR,
+                top: _selection.top + _hTouchR,
+                width: _hTouchR * 2,
+                height: _selection.height - _hTouchR * 2,
+                onDrag: _moveLeft,
+              ),
+              _edgeHandle(
+                left: _selection.right - _hTouchR,
+                top: _selection.top + _hTouchR,
+                width: _hTouchR * 2,
+                height: _selection.height - _hTouchR * 2,
+                onDrag: _moveRight,
+              ),
             ],
           ],
         );

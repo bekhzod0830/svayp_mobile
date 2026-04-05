@@ -348,7 +348,7 @@
   "similarProducts": "O'xshash mahsulotlar",
   
   "visualSearch": "Vizual qidiruv",
-  "vsPickCategory": "Kategoriyani tanlang",
+  "vsPickCategory": "Rasmni kesish",
   "vsSearchButton": "Qidirish",
   "vsCatTopwear": "Ustki kiyim",
   "vsCatBottomwear": "Pastki kiyim",
@@ -697,6 +697,12 @@
   "editProfileComingSoon": "Profilni tahrirlash funksiyasi tez orada paydo bo'ladi",
   "myQrCode": "Mening QR kodim",
   "scanQrForCashback": "Keshbek olish uchun bu QR kodni hamkorlarga ko'rsating",
+  "svaypCardTitle": "SVAYP Karta",
+  "svaypCardCashbackDesc": "Har bir xariddan 2% keshbek oling",
+  "openQrButton": "Ochish",
+  "qrFullScreenHint": "To'lov paytida ushbu kodni ko'rsating va 2% keshbek oling",
+  "qrCashbackPrefix": "Kassirga ushbu QR-kodni ko'rsating va ",
+  "qrCashbackHighlight": "2% keshbek oling",
   "personalInfo": "Shaxsiy ma'lumotlar",
   "account": "Hisob",
   "savedItems": "Saqlangan mahsulotlar",
@@ -1166,6 +1172,13 @@
   "tutorialLongDress": "Uzun ko'ylak",
   "tutorialBeigeShoes": "Krem rangli poyabzal",
   "profileUpdatedSuccess": "Profil muvaffaqiyatli yangilandi",
+
+  "mapOpenMap": "Xaritani ochish",
+  "mapOpenInMaps": "Xaritada ochish",
+  "loadingSellerProducts": "Sotuvchi mahsulotlari yuklanmoqda...",
+
+  "shops": "Do'konlar",
+  "allShops": "Barcha do'konlar",
 
   "forceUpdateTitle": "Yangilash talab qilinadi",
   "forceUpdateSubtitle": "SVAYP ilovasining yangi versiyasi yangi xususiyatlar va yaxshilanishlar bilan chiqdi. Davom etish uchun yangilang.",

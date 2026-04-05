@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:swipe/core/network/api_client.dart';
 import 'package:swipe/core/network/api_config.dart';
@@ -27,6 +29,7 @@ class AppVersionInfo {
 class VersionCheckResult {
   /// Whether the user must update (current < latest).
   final bool needsUpdate;
+
   /// Latest version string to display on the screen.
   final String latestVersion;
 
@@ -47,15 +50,19 @@ class VersionCheckService {
   /// by a failing version endpoint.
   Future<VersionCheckResult?> check() async {
     try {
-      final response = await _apiClient.get(ApiConfig.appVersion);
+      final packageInfo = await PackageInfo.fromPlatform();
+      final currentVersion = packageInfo.version;
+      final platform = _getPlatform();
+
+      final response = await _apiClient.get(
+        ApiConfig.appVersion,
+        queryParameters: {'platform': platform, 'version': currentVersion},
+      );
 
       final data = response.data;
       if (data is! Map<String, dynamic>) return null;
 
       final info = AppVersionInfo.fromJson(data);
-      final packageInfo = await PackageInfo.fromPlatform();
-      final currentVersion = packageInfo.version;
-
       final needsUpdate =
           _compareVersions(currentVersion, info.latestVersion) < 0;
 
@@ -69,11 +76,26 @@ class VersionCheckService {
     }
   }
 
+  /// Returns the platform string expected by the backend.
+  static String _getPlatform() {
+    if (Platform.isIOS) return 'ios';
+    if (Platform.isAndroid) return 'android';
+    return 'unknown';
+  }
+
   /// Compares two semver strings (e.g. "1.2.3").
   /// Returns -1 if [v1] < [v2], 0 if equal, 1 if [v1] > [v2].
   static int _compareVersions(String v1, String v2) {
-    final parts1 = v1.trim().split('.').map((s) => int.tryParse(s) ?? 0).toList();
-    final parts2 = v2.trim().split('.').map((s) => int.tryParse(s) ?? 0).toList();
+    final parts1 = v1
+        .trim()
+        .split('.')
+        .map((s) => int.tryParse(s) ?? 0)
+        .toList();
+    final parts2 = v2
+        .trim()
+        .split('.')
+        .map((s) => int.tryParse(s) ?? 0)
+        .toList();
     final len = parts1.length > parts2.length ? parts1.length : parts2.length;
 
     for (int i = 0; i < len; i++) {

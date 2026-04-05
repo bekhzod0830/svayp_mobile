@@ -12,8 +12,10 @@ import 'package:swipe/features/discover/domain/entities/product.dart';
 import 'package:swipe/features/discover/presentation/widgets/swipeable_product_card.dart';
 import 'package:swipe/features/discover/presentation/widgets/swipe_tutorial_overlay.dart';
 import 'package:swipe/features/cart/data/services/cart_service.dart';
+import 'package:swipe/core/services/badge_notifier.dart';
 import 'package:swipe/features/cart/presentation/screens/cart_screen.dart';
 import 'package:swipe/features/liked/data/services/liked_service.dart';
+import 'package:swipe/features/liked/presentation/screens/liked_screen.dart';
 import 'package:swipe/features/product/presentation/screens/product_detail_screen.dart';
 import 'package:swipe/core/services/product_api_service.dart';
 import 'package:swipe/core/models/product.dart' as api_models;
@@ -22,6 +24,8 @@ import 'package:swipe/core/services/seen_products_service.dart';
 import 'package:swipe/core/cache/image_cache_manager.dart';
 import 'package:swipe/core/utils/responsive_utils.dart';
 import 'package:swipe/core/services/notification_service.dart';
+import 'package:swipe/core/services/sound_service.dart';
+import 'package:swipe/shared/widgets/swipe_feedback_banner.dart';
 
 /// Helper function to format size label by removing SIZE_ prefix
 String _formatSizeLabel(String size) {
@@ -51,20 +55,29 @@ class DiscoverScreenState extends State<DiscoverScreen> {
   final Map<String, GlobalKey<SwipeableProductCardState>> _cardKeys = {};
 
   List<Product> _products = [];
-  List<Map<String, dynamic>> _swipeHistory =
+  final List<Map<String, dynamic>> _swipeHistory =
       []; // For undo functionality: stores {product, action}
   // Product IDs to exclude from the feed (already in cart, ordered, or swiped)
   Set<String> _excludedProductIds = {};
   bool _isLoading = true;
+  bool _isFetchingMore = false;
+  bool _hasMoreProducts = true;
+  int _emptyRetryCount = 0;
+  static const int _maxEmptyRetries = 2;
+  String? _nextCursor;
   OverlayEntry? _tutorialOverlayEntry;
   int _currentCardIndex = 0;
-  int _cartCount = 0;
   String? _authToken;
+  // Prevents double sound+banner when the Like button triggers animateSwipe
+  // which in turn calls _onSwipeRight (which would play again).
+  bool _suppressNextFeedback = false;
 
   @override
   void initState() {
     super.initState();
     _initializeScreen();
+    // Warm up the audio player + write temp WAV now so first tap has 0 ms latency.
+    unawaited(SoundService.instance.preload());
     // Request notification permission here — after login/registration.
     // iOS shows the system dialog only once; subsequent calls are instant & silent.
     NotificationService.instance.requestPermissionAndRegisterToken().ignore();
@@ -86,11 +99,8 @@ class DiscoverScreenState extends State<DiscoverScreen> {
     await Future.wait([_cartService.init(), _likedService.init()]);
 
     // ── 3. Show cart count from local Hive immediately (zero-latency) ──
-    if (mounted) {
-      setState(() {
-        _cartCount = _cartService.getTotalQuantity();
-      });
-    }
+    final localCount = _cartService.getTotalQuantity();
+    BadgeNotifier.instance.setCartCount(localCount);
 
     // ── 3b. Build exclusion set: cart IDs (local/free) + previously seen IDs ──
     final cartIds = _cartService
@@ -161,26 +171,19 @@ class DiscoverScreenState extends State<DiscoverScreen> {
         final cartData = await _apiService.getCart(token: _authToken!);
         final summary = cartData['summary'] as Map<String, dynamic>;
         final totalItems = summary['total_items'] as int;
-
         if (!mounted) return;
-        setState(() {
-          _cartCount = totalItems;
-        });
+        BadgeNotifier.instance.setCartCount(totalItems);
       } else {
         // Fallback to local storage if not authenticated
         await _cartService.init();
         if (!mounted) return;
-        setState(() {
-          _cartCount = _cartService.getTotalQuantity();
-        });
+        BadgeNotifier.instance.setCartCount(_cartService.getTotalQuantity());
       }
     } catch (e) {
       // If API call fails, fallback to local storage
       await _cartService.init();
       if (!mounted) return;
-      setState(() {
-        _cartCount = _cartService.getTotalQuantity();
-      });
+      BadgeNotifier.instance.setCartCount(_cartService.getTotalQuantity());
     }
   }
 
@@ -193,6 +196,9 @@ class DiscoverScreenState extends State<DiscoverScreen> {
         _currentCardIndex = 0;
         _swipeHistory.clear();
         _dragProgressNotifier.value = 0.0;
+        _nextCursor = null;
+        _hasMoreProducts = true;
+        _emptyRetryCount = 0;
       }
     });
 
@@ -266,6 +272,9 @@ class DiscoverScreenState extends State<DiscoverScreen> {
           token: _authToken!,
           limit: 10,
         );
+        _nextCursor = response.nextCursor;
+        // Consider more products available unless the server explicitly signals otherwise
+        _hasMoreProducts = true;
 
         // Convert API products to local Product entities
         for (final apiProduct in response.products) {
@@ -305,7 +314,57 @@ class DiscoverScreenState extends State<DiscoverScreen> {
     return loadedProducts;
   }
 
-  /// Preload images for the first N cards so they appear instantly when the
+  /// Load the next page of products and append to the existing list.
+  Future<void> _loadMoreProducts() async {
+    if (_isFetchingMore || !_hasMoreProducts) return;
+    if (_authToken == null || _authToken!.isEmpty) return;
+
+    setState(() => _isFetchingMore = true);
+
+    try {
+      final response = await _apiService.getFeed(
+        token: _authToken!,
+        limit: 10,
+        cursor: _nextCursor, // null = fresh batch; non-null = cursor page
+      );
+
+      final newProducts = <Product>[];
+      for (final apiProduct in response.products) {
+        try {
+          final product = _convertApiProduct(apiProduct);
+          if (!_excludedProductIds.contains(product.id)) {
+            newProducts.add(product);
+          }
+        } catch (_) {}
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _products.addAll(newProducts);
+        _nextCursor = response.nextCursor;
+        // Stop only when server truly returns nothing
+        _hasMoreProducts = response.products.isNotEmpty;
+        if (!_hasMoreProducts)
+          _emptyRetryCount = 0; // reset for next manual retry
+        _isFetchingMore = false;
+      });
+
+      // Preload images for the newly added cards
+      _preloadTopCardImages(newProducts, count: 5);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isFetchingMore = false);
+    }
+  }
+
+  /// Trigger a background fetch when the user is getting close to the end.
+  void _checkAndLoadMore() {
+    final remaining = _products.length - _currentCardIndex;
+    if (remaining <= 5 && !_isFetchingMore && _hasMoreProducts) {
+      unawaited(_loadMoreProducts());
+    }
+  }
+
   /// swipe stack renders. Runs in the background — never blocks the UI.
   void _preloadTopCardImages(List<Product> products, {int count = 5}) {
     final toPreload = products.take(count).toList();
@@ -384,6 +443,9 @@ class DiscoverScreenState extends State<DiscoverScreen> {
 
     // Clean up old card key
     _cardKeys.remove(swipedProduct.id);
+    // Persist seen ID and pre-fetch next batch if running low
+    unawaited(SeenProductsService.addSeenIds([swipedProduct.id]));
+    _checkAndLoadMore();
 
     // Send dislike to backend if user is authenticated
     if (_authToken != null && _authToken!.isNotEmpty) {
@@ -405,7 +467,13 @@ class DiscoverScreenState extends State<DiscoverScreen> {
   Future<void> _onSwipeRight() async {
     if (_currentCardIndex >= _products.length) return;
 
-    HapticFeedback.mediumImpact();
+    // Feedback only for direct gesture swipes (button taps pre-fire it).
+    if (!_suppressNextFeedback) {
+      HapticFeedback.lightImpact();
+      unawaited(SoundService.instance.playTing());
+      if (mounted) SwipeFeedbackBanner.show(context, SwipeFeedbackType.liked);
+    }
+    _suppressNextFeedback = false;
 
     final swipedProduct = _products[_currentCardIndex];
     _swipeHistory.add({'product': swipedProduct, 'action': 'like'});
@@ -420,9 +488,13 @@ class DiscoverScreenState extends State<DiscoverScreen> {
 
     // Clean up old card key
     _cardKeys.remove(swipedProduct.id);
+    // Persist seen ID and pre-fetch next batch if running low
+    unawaited(SeenProductsService.addSeenIds([swipedProduct.id]));
+    _checkAndLoadMore();
 
     // Add to liked items in background (don't block UI)
     _likedService.addLike(swipedProduct);
+    BadgeNotifier.instance.markNewLiked();
 
     // Send like to backend if user is authenticated
     if (_authToken != null && _authToken!.isNotEmpty) {
@@ -444,7 +516,7 @@ class DiscoverScreenState extends State<DiscoverScreen> {
   Future<void> _onSwipeUp() async {
     if (_currentCardIndex >= _products.length) return;
 
-    HapticFeedback.heavyImpact();
+    HapticFeedback.lightImpact();
 
     final swipedProduct = _products[_currentCardIndex];
     final l10n = AppLocalizations.of(context)!;
@@ -472,93 +544,275 @@ class DiscoverScreenState extends State<DiscoverScreen> {
         selectedColor == null && swipedProduct.colors.length > 1;
 
     if (needsSizeChoice || needsColorChoice) {
-      // Show size/color selection dialog
-      final shouldAddToCart = await showDialog<bool>(
+      // Show liquid glass size/color selection bottom sheet
+      final shouldAddToCart = await showModalBottomSheet<bool>(
         context: context,
-        builder: (context) => StatefulBuilder(
-          builder: (context, setDialogState) => AlertDialog(
-            title: Text(l10n.selectSizeAndColor),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Size selection – always shown when sizes exist; pre-selected if only one
-                if (swipedProduct.sizes.isNotEmpty) ...[
-                  Text(
-                    l10n.size,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    children: swipedProduct.sizes.map((size) {
-                      final isSelected = selectedSize == size;
-                      return ChoiceChip(
-                        label: Text(
-                          _formatSizeLabel(size),
-                          style: TextStyle(
-                            color: isSelected ? Colors.white : null,
-                          ),
-                        ),
-                        selected: isSelected,
-                        selectedColor: Colors.black,
-                        onSelected: (selected) {
-                          if (selected) {
-                            setDialogState(() => selectedSize = size);
-                          }
-                        },
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-                // Color selection – always shown when colors exist; pre-selected if only one
-                if (swipedProduct.colors.isNotEmpty) ...[
-                  Text(
-                    l10n.color,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
-                    children: swipedProduct.colors.map((color) {
-                      final isSelected = selectedColor == color;
-                      final isHexColor = color.startsWith('#');
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        useRootNavigator: true,
+        builder: (sheetContext) => StatefulBuilder(
+          builder: (sheetContext, setSheetState) {
+            final isDark = Theme.of(sheetContext).brightness == Brightness.dark;
+            final canConfirm =
+                (swipedProduct.sizes.isEmpty || selectedSize != null) &&
+                (swipedProduct.colors.isEmpty || selectedColor != null);
 
-                      return GestureDetector(
-                        onTap: () {
-                          setDialogState(() => selectedColor = color);
-                        },
-                        child: isHexColor
-                            ? _buildColorCircle(color, isSelected, context)
-                            : Chip(
-                                label: Text(color),
-                                backgroundColor: isSelected
-                                    ? Theme.of(context).primaryColor
-                                    : null,
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(28),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? const Color(0xF2050508)
+                            : const Color(0xF2FFFFFF),
+                        borderRadius: BorderRadius.circular(28),
+                        border: Border.all(
+                          color: isDark
+                              ? const Color(0x22FFFFFF)
+                              : const Color(0x28000000),
+                          width: 0.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: isDark
+                                ? const Color(0x44000000)
+                                : const Color(0x18000000),
+                            blurRadius: 24,
+                            offset: const Offset(0, 8),
+                            spreadRadius: -2,
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Drag handle
+                          Center(
+                            child: Container(
+                              width: 36,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: isDark ? Colors.white24 : Colors.black12,
+                                borderRadius: BorderRadius.circular(2),
                               ),
-                      );
-                    }).toList(),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          // Title
+                          Text(
+                            l10n.selectSizeAndColor,
+                            style: AppTypography.heading3.copyWith(
+                              color: isDark ? Colors.white : Colors.black,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+
+                          // Size selection
+                          if (swipedProduct.sizes.isNotEmpty) ...[
+                            Text(
+                              l10n.size,
+                              style: AppTypography.body2.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: isDark
+                                    ? const Color(0xAAFFFFFF)
+                                    : const Color(0xAA000000),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: swipedProduct.sizes.map((size) {
+                                  final isSelected = selectedSize == size;
+                                  return Padding(
+                                    padding: const EdgeInsets.only(right: 8),
+                                    child: GestureDetector(
+                                      onTap: () => setSheetState(
+                                        () => selectedSize = size,
+                                      ),
+                                      child: Container(
+                                        constraints: const BoxConstraints(
+                                          minWidth: 52,
+                                          minHeight: 52,
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: isSelected
+                                              ? (isDark
+                                                    ? Colors.white
+                                                    : Colors.black)
+                                              : (isDark
+                                                    ? const Color(0x22FFFFFF)
+                                                    : const Color(0x0F000000)),
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                          border: Border.all(
+                                            color: isSelected
+                                                ? Colors.transparent
+                                                : (isDark
+                                                      ? const Color(0x33FFFFFF)
+                                                      : const Color(
+                                                          0x22000000,
+                                                        )),
+                                            width: 0.75,
+                                          ),
+                                        ),
+                                        child: Center(
+                                          child: Text(
+                                            _formatSizeLabel(size),
+                                            style: AppTypography.body2.copyWith(
+                                              color: isSelected
+                                                  ? (isDark
+                                                        ? Colors.black
+                                                        : Colors.white)
+                                                  : (isDark
+                                                        ? Colors.white
+                                                        : Colors.black),
+                                              fontWeight: isSelected
+                                                  ? FontWeight.w600
+                                                  : FontWeight.normal,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                          ],
+
+                          // Color selection
+                          if (swipedProduct.colors.isNotEmpty) ...[
+                            Text(
+                              l10n.color,
+                              style: AppTypography.body2.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: isDark
+                                    ? const Color(0xAAFFFFFF)
+                                    : const Color(0xAA000000),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Wrap(
+                              spacing: 12,
+                              runSpacing: 12,
+                              children: swipedProduct.colors.map((color) {
+                                final isSelected = selectedColor == color;
+                                final isHexColor = color.startsWith('#');
+                                return GestureDetector(
+                                  onTap: () => setSheetState(
+                                    () => selectedColor = color,
+                                  ),
+                                  child: isHexColor
+                                      ? _buildColorCircle(
+                                          color,
+                                          isSelected,
+                                          sheetContext,
+                                        )
+                                      : Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 14,
+                                            vertical: 10,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: isSelected
+                                                ? (isDark
+                                                      ? Colors.white
+                                                      : Colors.black)
+                                                : (isDark
+                                                      ? const Color(0x22FFFFFF)
+                                                      : const Color(
+                                                          0x0F000000,
+                                                        )),
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                            border: Border.all(
+                                              color: isSelected
+                                                  ? Colors.transparent
+                                                  : (isDark
+                                                        ? const Color(
+                                                            0x33FFFFFF,
+                                                          )
+                                                        : const Color(
+                                                            0x22000000,
+                                                          )),
+                                              width: 0.75,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            color,
+                                            style: AppTypography.body2.copyWith(
+                                              color: isSelected
+                                                  ? (isDark
+                                                        ? Colors.black
+                                                        : Colors.white)
+                                                  : (isDark
+                                                        ? Colors.white
+                                                        : Colors.black),
+                                              fontWeight: isSelected
+                                                  ? FontWeight.w600
+                                                  : FontWeight.normal,
+                                            ),
+                                          ),
+                                        ),
+                                );
+                              }).toList(),
+                            ),
+                            const SizedBox(height: 24),
+                          ],
+
+                          // Add to cart button
+                          GestureDetector(
+                            onTap: canConfirm
+                                ? () => Navigator.pop(sheetContext, true)
+                                : null,
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              decoration: BoxDecoration(
+                                color: canConfirm
+                                    ? (isDark ? Colors.white : Colors.black)
+                                    : (isDark
+                                          ? const Color(0x33FFFFFF)
+                                          : const Color(0x1A000000)),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  l10n.addToCart,
+                                  style: AppTypography.body1.copyWith(
+                                    color: canConfirm
+                                        ? (isDark ? Colors.black : Colors.white)
+                                        : (isDark
+                                              ? const Color(0x66FFFFFF)
+                                              : const Color(0x66000000)),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ],
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: Text(l10n.cancel),
+                ),
               ),
-              ElevatedButton(
-                onPressed:
-                    (swipedProduct.sizes.isEmpty || selectedSize != null) &&
-                        (swipedProduct.colors.isEmpty || selectedColor != null)
-                    ? () => Navigator.pop(context, true)
-                    : null,
-                child: Text(l10n.addToCart),
-              ),
-            ],
-          ),
+            );
+          },
         ),
       );
 
@@ -578,7 +832,13 @@ class DiscoverScreenState extends State<DiscoverScreen> {
     });
 
     _cardKeys.remove(swipedProduct.id);
-    _showToast(l10n.addedToCart);
+    // Persist seen ID and pre-fetch next batch if running low
+    unawaited(SeenProductsService.addSeenIds([swipedProduct.id]));
+    _checkAndLoadMore();
+    // Sound + top banner feedback (replaces bottom toast)
+    unawaited(SoundService.instance.playTing());
+    if (mounted)
+      SwipeFeedbackBanner.show(context, SwipeFeedbackType.addedToCart);
 
     await _cartService.addToCart(
       swipedProduct,
@@ -646,24 +906,23 @@ class DiscoverScreenState extends State<DiscoverScreen> {
       _swipeHistory.removeLast();
     });
 
-    final l10n = AppLocalizations.of(context)!;
-    _showToast(l10n.undo);
+    if (mounted) {
+      SwipeFeedbackBanner.show(context, SwipeFeedbackType.undo);
+    }
   }
 
   Future<void> _onCardTap() async {
     if (_currentCardIndex >= _products.length) return;
 
     final product = _products[_currentCardIndex];
-    final result = await Navigator.of(context).push(
+    await Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute(
         builder: (context) => ProductDetailScreen(product: product),
       ),
     );
 
-    // Update cart count if something was added
-    if (result == true) {
-      await _updateCartCount();
-    }
+    // Update cart count whenever we return from the product detail screen
+    await _updateCartCount();
   }
 
   /// Refresh the product list (useful when returning from other screens)
@@ -750,103 +1009,173 @@ class DiscoverScreenState extends State<DiscoverScreen> {
               children: [
                 // Glass Header
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(22),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? const Color(0x22FFFFFF)
-                              : const Color(0xB8FFFFFF),
-                          borderRadius: BorderRadius.circular(22),
-                          border: Border.all(
-                            color: isDark
-                                ? const Color(0x33FFFFFF)
-                                : const Color(0x28000000),
-                            width: 0.5,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'SVΛYP',
-                              style: AppTypography.heading2.copyWith(
-                                fontWeight: FontWeight.w700,
-                                color: isDark ? Colors.white : Colors.black,
-                                letterSpacing: -0.5,
+                  padding: const EdgeInsets.only(top: 8, bottom: 4),
+                  child: Align(
+                    alignment: Alignment.center,
+                    child: SizedBox(
+                      width: ResponsiveUtils.getCardWidth(context),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(22),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? const Color(0xD0050508)
+                                  : const Color(0xB8FFFFFF),
+                              borderRadius: BorderRadius.circular(22),
+                              border: Border.all(
+                                color: isDark
+                                    ? const Color(0x22FFFFFF)
+                                    : const Color(0x28000000),
+                                width: 0.5,
                               ),
                             ),
-                            // Right side action icons
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                // Cart Button
-                                Stack(
-                                  clipBehavior: Clip.none,
+                                Text(
+                                  'SVΛYP',
+                                  style: AppTypography.heading2.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    color: isDark ? Colors.white : Colors.black,
+                                    letterSpacing: -0.5,
+                                  ),
+                                ),
+                                // Right side action icons
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    IconButton(
-                                      icon: Icon(
-                                        Icons.shopping_bag_outlined,
-                                        size: 26,
-                                        color: isDark
-                                            ? Colors.white
-                                            : Colors.black,
-                                      ),
-                                      onPressed: () async {
-                                        // Navigate to cart screen
-                                        await Navigator.of(context).push(
-                                          MaterialPageRoute(
-                                            builder: (context) =>
-                                                const CartScreen(),
+                                    // Cart Button with reactive badge
+                                    ValueListenableBuilder<int>(
+                                      valueListenable:
+                                          BadgeNotifier.instance.cartCount,
+                                      builder: (context, count, _) => Stack(
+                                        clipBehavior: Clip.none,
+                                        children: [
+                                          IconButton(
+                                            icon: Icon(
+                                              Icons.shopping_bag_outlined,
+                                              size: 24,
+                                              color: isDark
+                                                  ? Colors.white
+                                                  : Colors.black,
+                                            ),
+                                            onPressed: () async {
+                                              // Navigate to cart screen
+                                              await Navigator.of(
+                                                context,
+                                                rootNavigator: true,
+                                              ).push(
+                                                MaterialPageRoute(
+                                                  builder: (context) =>
+                                                      const CartScreen(),
+                                                ),
+                                              );
+                                              // Update cart count when returning
+                                              await _updateCartCount();
+                                            },
                                           ),
-                                        );
-                                        // Update cart count when returning
-                                        await _updateCartCount();
-                                      },
-                                    ),
-                                    // Badge showing cart item count
-                                    if (_cartCount > 0)
-                                      Positioned(
-                                        right: 8,
-                                        top: 8,
-                                        child: IgnorePointer(
-                                          child: Container(
-                                            padding: const EdgeInsets.all(4),
-                                            decoration: const BoxDecoration(
-                                              color: Color(0xFFFF3B30),
-                                              shape: BoxShape.circle,
-                                            ),
-                                            constraints: const BoxConstraints(
-                                              minWidth: 18,
-                                              minHeight: 18,
-                                            ),
-                                            child: Text(
-                                              _cartCount > 99
-                                                  ? '99+'
-                                                  : _cartCount.toString(),
-                                              style: AppTypography.caption
-                                                  .copyWith(
-                                                    color: Colors.white,
-                                                    fontSize: 10,
-                                                    fontWeight: FontWeight.bold,
+                                          // Badge showing cart item count
+                                          if (count > 0)
+                                            Positioned(
+                                              right: 6,
+                                              top: 6,
+                                              child: IgnorePointer(
+                                                child: Container(
+                                                  padding: const EdgeInsets.all(
+                                                    3,
                                                   ),
-                                              textAlign: TextAlign.center,
+                                                  decoration:
+                                                      const BoxDecoration(
+                                                        color: Color(
+                                                          0xFFFF3B30,
+                                                        ),
+                                                        shape: BoxShape.circle,
+                                                      ),
+                                                  constraints:
+                                                      const BoxConstraints(
+                                                        minWidth: 16,
+                                                        minHeight: 16,
+                                                      ),
+                                                  child: Text(
+                                                    count > 99
+                                                        ? '99+'
+                                                        : count.toString(),
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 9,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                    textAlign: TextAlign.center,
+                                                  ),
+                                                ),
+                                              ),
                                             ),
-                                          ),
-                                        ),
+                                        ],
                                       ),
+                                    ),
+                                    // Liked icon button with reactive dot
+                                    ValueListenableBuilder<bool>(
+                                      valueListenable:
+                                          BadgeNotifier.instance.hasNewLiked,
+                                      builder: (context, hasNew, _) => Stack(
+                                        clipBehavior: Clip.none,
+                                        children: [
+                                          IconButton(
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(
+                                              minWidth: 44,
+                                              minHeight: 44,
+                                            ),
+                                            icon: Icon(
+                                              Icons.favorite_border,
+                                              size: 24,
+                                              color: isDark
+                                                  ? Colors.white
+                                                  : Colors.black,
+                                            ),
+                                            onPressed: () async {
+                                              BadgeNotifier.instance
+                                                  .clearNewLiked();
+                                              await Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                  builder: (_) => LikedScreen(),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                          if (hasNew)
+                                            Positioned(
+                                              right: 6,
+                                              top: 6,
+                                              child: IgnorePointer(
+                                                child: Container(
+                                                  width: 8,
+                                                  height: 8,
+                                                  decoration:
+                                                      const BoxDecoration(
+                                                        color: Color(
+                                                          0xFFFF3B30,
+                                                        ),
+                                                        shape: BoxShape.circle,
+                                                      ),
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ],
                             ),
-                          ],
+                          ),
                         ),
                       ),
                     ),
@@ -893,7 +1222,7 @@ class DiscoverScreenState extends State<DiscoverScreen> {
                           ),
                         )
                       : _currentCardIndex >= _products.length
-                      ? _buildEmptyState()
+                      ? _buildDeckEnd(isDark)
                       : _buildCardStack(),
                 ),
               ],
@@ -957,7 +1286,11 @@ class DiscoverScreenState extends State<DiscoverScreen> {
               child: _buildActionButtons(),
             ),
             // Spacer so buttons clear the floating navbar
-            SizedBox(height: MediaQuery.of(context).viewPadding.bottom.clamp(16.0, 60.0) + 78),
+            SizedBox(
+              height:
+                  MediaQuery.of(context).viewPadding.bottom.clamp(16.0, 60.0) +
+                  78,
+            ),
           ],
         );
       },
@@ -976,10 +1309,10 @@ class DiscoverScreenState extends State<DiscoverScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xCC1A1A1A) : const Color(0xCCFFFFFF),
+            color: isDark ? const Color(0xF0050508) : const Color(0xCCFFFFFF),
             borderRadius: BorderRadius.circular(36),
             border: Border.all(
-              color: isDark ? const Color(0x44FFFFFF) : const Color(0x28000000),
+              color: isDark ? const Color(0x22FFFFFF) : const Color(0x28000000),
               width: 0.5,
             ),
             boxShadow: [
@@ -1004,10 +1337,12 @@ class DiscoverScreenState extends State<DiscoverScreen> {
                       ? (isDark
                             ? const Color(0x44FFFFFF)
                             : const Color(0x44000000))
-                      : (isDark ? Colors.white : Colors.black),
-                  backgroundColor: isDark
-                      ? const Color(0x33FFFFFF)
-                      : const Color(0x15000000),
+                      : Colors.black,
+                  backgroundColor: _swipeHistory.isEmpty
+                      ? (isDark
+                            ? const Color(0x22FFFFFF)
+                            : const Color(0x0F000000))
+                      : Colors.white,
                   borderColor: isDark
                       ? const Color(0x44FFFFFF)
                       : const Color(0x28000000),
@@ -1017,13 +1352,17 @@ class DiscoverScreenState extends State<DiscoverScreen> {
                 ),
               ),
               const SizedBox(width: 12),
-              // Dislike — dark mode: black bg + white icon | light mode: white bg + black icon
+              // Dislike — dark mode: dark-grey bg + white icon + subtle border | light mode: white bg + black icon
               Expanded(
                 child: _ActionButton(
-                  icon: Icons.close_rounded,
+                  icon: Icons.thumb_down_rounded,
                   color: isDark ? Colors.white : Colors.black,
-                  backgroundColor: isDark ? Colors.black : Colors.white,
-                  borderColor: Colors.transparent,
+                  backgroundColor: isDark
+                      ? const Color(0xFF1C1C1E)
+                      : Colors.white,
+                  borderColor: isDark
+                      ? const Color(0x55FFFFFF)
+                      : const Color(0x33000000),
                   size: 56,
                   isCompact: true,
                   onPressed: () {
@@ -1051,6 +1390,14 @@ class DiscoverScreenState extends State<DiscoverScreen> {
                     if (_currentCardIndex < _products.length) {
                       final topProduct = _products[_currentCardIndex];
                       final topCardKey = _cardKeys[topProduct.id];
+                      // Immediate feedback before animation fires
+                      _suppressNextFeedback = true;
+                      HapticFeedback.lightImpact();
+                      unawaited(SoundService.instance.playTing());
+                      SwipeFeedbackBanner.show(
+                        context,
+                        SwipeFeedbackType.liked,
+                      );
                       topCardKey?.currentState?.animateSwipe(
                         SwipeDirection.right,
                       );
@@ -1063,6 +1410,59 @@ class DiscoverScreenState extends State<DiscoverScreen> {
         ),
       ),
     );
+  }
+
+  /// Shown when the visible deck runs out of cards.
+  /// • If more pages exist → auto-fetches and shows a spinner.
+  /// • If truly exhausted → shows a minimal "all caught up" glass card.
+  Widget _buildDeckEnd(bool isDark) {
+    // Auto-trigger fetch when more content is expected, but cap retries on
+    // empty responses to avoid hammering the API when the server has nothing.
+    if (!_isFetchingMore &&
+        _hasMoreProducts &&
+        _emptyRetryCount < _maxEmptyRetries) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _emptyRetryCount++;
+          unawaited(_loadMoreProducts());
+        }
+      });
+    }
+
+    if (_isFetchingMore) {
+      return Center(
+        child: Container(
+          width: 52,
+          height: 52,
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0x18FFFFFF) : const Color(0xDDFFFFFF),
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: isDark ? const Color(0x22FFFFFF) : const Color(0x28000000),
+              width: 0.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: isDark ? Colors.black26 : Colors.black12,
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: CircularProgressIndicator(
+              strokeWidth: 2.5,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                isDark ? Colors.white : Colors.black,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return _buildEmptyState();
   }
 
   Widget _buildEmptyState() {
@@ -1115,13 +1515,19 @@ class DiscoverScreenState extends State<DiscoverScreen> {
                     style: AppTypography.body1.copyWith(
                       color: isDark
                           ? const Color(0xAAFFFFFF)
-                          : const Color(0xCCFFFFFF),
+                          : const Color(0x88000000),
                     ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 28),
                   GestureDetector(
-                    onTap: refreshProducts,
+                    onTap: () {
+                      _emptyRetryCount = 0;
+                      setState(() {
+                        _hasMoreProducts = true;
+                      });
+                      unawaited(_loadMoreProducts());
+                    },
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 28,
@@ -1224,7 +1630,7 @@ class DiscoverScreenState extends State<DiscoverScreen> {
 }
 
 /// Action Button Widget
-class _ActionButton extends StatelessWidget {
+class _ActionButton extends StatefulWidget {
   final IconData icon;
   final Color color;
   final Color? backgroundColor;
@@ -1244,36 +1650,63 @@ class _ActionButton extends StatelessWidget {
   });
 
   @override
+  State<_ActionButton> createState() => _ActionButtonState();
+}
+
+class _ActionButtonState extends State<_ActionButton> {
+  double _scale = 1.0;
+
+  void _pulse() async {
+    if (!mounted || widget.onPressed == null) return;
+    setState(() => _scale = 1.22);
+    await Future.delayed(const Duration(milliseconds: 90));
+    if (!mounted) return;
+    setState(() => _scale = 1.0);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final buttonWidth = size;
-    final buttonHeight = size;
+    final buttonWidth = widget.size;
+    final buttonHeight = widget.size;
 
     return GestureDetector(
-      onTap: onPressed,
-      child: Container(
-        width: buttonWidth,
-        height: buttonHeight,
-        decoration: BoxDecoration(
-          color: backgroundColor ?? const Color(0x22FFFFFF),
-          borderRadius: BorderRadius.circular(buttonHeight / 2),
-          border: isCompact
-              ? Border.all(color: borderColor, width: 0.75)
-              : null,
-          boxShadow: onPressed != null
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.12),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ]
-              : null,
-        ),
-        child: Center(
-          child: Icon(
-            icon,
-            color: onPressed == null ? color.withValues(alpha: 0.35) : color,
-            size: size * 0.44,
+      onTap: widget.onPressed == null
+          ? null
+          : () {
+              _pulse();
+              widget.onPressed!();
+            },
+      child: AnimatedScale(
+        scale: _scale,
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOutBack,
+        child: Container(
+          width: buttonWidth,
+          height: buttonHeight,
+          decoration: BoxDecoration(
+            color: widget.backgroundColor ?? const Color(0x22FFFFFF),
+            borderRadius: BorderRadius.circular(buttonHeight / 2),
+            border: widget.isCompact
+                ? Border.all(color: widget.borderColor, width: 0.75)
+                : null,
+            boxShadow: widget.onPressed != null
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.12),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Center(
+            child: Icon(
+              widget.icon,
+              color: widget.onPressed == null
+                  ? widget.color.withValues(alpha: 0.35)
+                  : widget.color,
+              size: widget.size * 0.44,
+            ),
           ),
         ),
       ),

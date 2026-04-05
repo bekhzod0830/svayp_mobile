@@ -1,4 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:swipe/core/services/sound_service.dart';
+import 'package:swipe/core/services/badge_notifier.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
@@ -17,7 +22,9 @@ import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/core/network/api_client.dart';
 import 'package:swipe/core/utils/local_storage_helper.dart';
 import 'package:swipe/shared/widgets/widgets.dart';
-import 'dart:io';
+import 'package:swipe/shared/widgets/map_preview_card.dart';
+import 'package:swipe/shared/widgets/swipe_feedback_banner.dart';
+import 'dart:ui';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Product Detail Screen - Full product information
@@ -40,7 +47,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   String? _selectedColor;
   bool _isLiked = false;
   int _quantity = 1;
-  int _cartCount = 0;
   String? _authToken;
   SellerInfo? _sellerInfo;
   bool _isLoadingSellerInfo = false;
@@ -107,33 +113,22 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   Future<void> _updateCartCount() async {
     if (!mounted) return;
-
     try {
-      // If user is authenticated, fetch cart count from API (source of truth)
       if (_authToken != null && _authToken!.isNotEmpty) {
         final cartData = await _apiService.getCart(token: _authToken!);
         final summary = cartData['summary'] as Map<String, dynamic>;
         final totalItems = summary['total_items'] as int;
-
         if (!mounted) return;
-        setState(() {
-          _cartCount = totalItems;
-        });
+        BadgeNotifier.instance.setCartCount(totalItems);
       } else {
-        // Fallback to local storage if not authenticated
         await _cartService.init();
         if (!mounted) return;
-        setState(() {
-          _cartCount = _cartService.getTotalQuantity();
-        });
+        BadgeNotifier.instance.setCartCount(_cartService.getTotalQuantity());
       }
     } catch (e) {
-      // If API call fails, fallback to local storage
       await _cartService.init();
       if (!mounted) return;
-      setState(() {
-        _cartCount = _cartService.getTotalQuantity();
-      });
+      BadgeNotifier.instance.setCartCount(_cartService.getTotalQuantity());
     }
   }
 
@@ -174,6 +169,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       );
       return;
     }
+
+    // Haptic + sound feedback (optimistic — mirrors the like action)
+    HapticFeedback.lightImpact();
+    unawaited(SoundService.instance.playTing());
 
     // Add to local cart first (optimistic update)
     await _cartService.addToCart(
@@ -228,43 +227,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
 
     if (mounted) {
-      final l10n = AppLocalizations.of(context)!;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.check_circle, color: Colors.white, size: 16),
-              const SizedBox(width: 8),
-              Text(l10n.addedToCart),
-              const Spacer(),
-              GestureDetector(
-                onTap: () {
-                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (context) => const CartScreen()),
-                  );
-                },
-                child: Text(
-                  l10n.viewCart,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    decoration: TextDecoration.underline,
-                    fontSize: 13,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: AppColors.black,
-          behavior: SnackBarBehavior.floating,
-          margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-          duration: const Duration(seconds: 2),
-        ),
-      );
+      SwipeFeedbackBanner.show(context, SwipeFeedbackType.addedToCart);
     }
   }
 
@@ -273,6 +236,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     setState(() {
       _isLiked = newLikeState;
     });
+
+    if (newLikeState) {
+      HapticFeedback.lightImpact();
+      unawaited(SoundService.instance.playTing());
+      BadgeNotifier.instance.markNewLiked();
+    }
 
     // Send like/dislike to backend if user is authenticated
     if (_authToken != null && _authToken!.isNotEmpty) {
@@ -289,17 +258,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       }
     }
 
-    if (mounted) {
-      final l10n = AppLocalizations.of(context)!;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _isLiked ? l10n.addedToLikedItems : l10n.removedFromLikedItems,
-          ),
-          backgroundColor: AppColors.black,
-          duration: const Duration(seconds: 1),
-        ),
-      );
+    if (mounted && newLikeState) {
+      SwipeFeedbackBanner.show(context, SwipeFeedbackType.liked);
     }
   }
 
@@ -310,97 +270,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkMainBackground : AppColors.white,
-      appBar: AppBar(
-        backgroundColor: isDark
-            ? AppColors.darkMainBackground
-            : AppColors.white,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back,
-            color: isDark ? AppColors.darkPrimaryText : AppColors.black,
-          ),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(
-              _isLiked ? Icons.favorite : Icons.favorite_border,
-              color: _isLiked
-                  ? Colors.red
-                  : (isDark ? AppColors.darkPrimaryText : AppColors.black),
-            ),
-            onPressed: _toggleLike,
-          ),
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              IconButton(
-                icon: Icon(
-                  Icons.shopping_bag_outlined,
-                  size: 28,
-                  color: isDark ? AppColors.darkPrimaryText : AppColors.black,
-                ),
-                onPressed: () async {
-                  // Gate for guest users
-                  final storage = await LocalStorageHelper.getInstance();
-                  if (storage.isGuestMode()) {
-                    if (mounted) GuestLoginPrompt.show(context);
-                    return;
-                  }
-                  if (!mounted) return;
-                  await Navigator.of(context).push(
-                    MaterialPageRoute(builder: (context) => const CartScreen()),
-                  );
-                  // Update cart count when returning
-                  await _updateCartCount();
-                },
-              ),
-              // Badge showing cart item count
-              if (_cartCount > 0)
-                Positioned(
-                  right: 8,
-                  top: 8,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(
-                      color: Colors.red,
-                      shape: BoxShape.circle,
-                    ),
-                    constraints: const BoxConstraints(
-                      minWidth: 18,
-                      minHeight: 18,
-                    ),
-                    child: Text(
-                      _cartCount > 99 ? '99+' : _cartCount.toString(),
-                      style: AppTypography.caption.copyWith(
-                        color: AppColors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Scrollable content
-          Expanded(
-            child: SingleChildScrollView(
+      bottomNavigationBar: _buildBottomBar(),
+      body: SafeArea(
+        bottom: false,
+        child: Stack(
+          children: [
+            SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Image carousel
                   _buildImageCarousel(),
-
                   const SizedBox(height: 24),
-
-                  // Product info
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Column(
@@ -423,20 +303,135 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         _buildDetails(),
                         const SizedBox(height: 24),
                         _buildLocationsSection(),
-                        // COMMENTED OUT - Reviews section (for future use)
-                        // const SizedBox(height: 24),
-                        // _buildReviews(),
-                        const SizedBox(height: 100), // Space for bottom button
+                        const SizedBox(height: 32),
                       ],
                     ),
                   ),
                 ],
               ),
             ),
-          ),
-        ],
+            // Back button — top left
+            Positioned(
+              top: 12,
+              left: 16,
+              child: _buildNavButton(
+                isDark: isDark,
+                child: IconButton(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 44,
+                    minHeight: 44,
+                  ),
+                  icon: Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    color: isDark ? AppColors.darkPrimaryText : AppColors.black,
+                    size: 20,
+                  ),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ),
+            ),
+            // Like + Cart — top right
+            Positioned(
+              top: 12,
+              right: 16,
+              child: _buildNavButton(
+                isDark: isDark,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 44,
+                        minHeight: 44,
+                      ),
+                      icon: Icon(
+                        _isLiked ? Icons.favorite : Icons.favorite_border,
+                        color: _isLiked
+                            ? Colors.red
+                            : (isDark
+                                  ? AppColors.darkPrimaryText
+                                  : AppColors.black),
+                        size: 22,
+                      ),
+                      onPressed: _toggleLike,
+                    ),
+                    ValueListenableBuilder<int>(
+                      valueListenable: BadgeNotifier.instance.cartCount,
+                      builder: (context, count, _) => Stack(
+                        clipBehavior: Clip.none,
+                        alignment: Alignment.center,
+                        children: [
+                          IconButton(
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(
+                              minWidth: 44,
+                              minHeight: 44,
+                            ),
+                            icon: Icon(
+                              Icons.shopping_bag_outlined,
+                              color: isDark
+                                  ? AppColors.darkPrimaryText
+                                  : AppColors.black,
+                              size: 22,
+                            ),
+                            onPressed: () async {
+                              final storage =
+                                  await LocalStorageHelper.getInstance();
+                              if (storage.isGuestMode()) {
+                                if (mounted) GuestLoginPrompt.show(context);
+                                return;
+                              }
+                              if (!mounted) return;
+                              await Navigator.of(
+                                context,
+                                rootNavigator: true,
+                              ).push(
+                                MaterialPageRoute(
+                                  builder: (context) => const CartScreen(),
+                                ),
+                              );
+                              await _updateCartCount();
+                            },
+                          ),
+                          if (count > 0)
+                            Positioned(
+                              right: 6,
+                              top: 8,
+                              child: IgnorePointer(
+                                child: Container(
+                                  padding: const EdgeInsets.all(3),
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFFFF3B30),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  constraints: const BoxConstraints(
+                                    minWidth: 16,
+                                    minHeight: 16,
+                                  ),
+                                  child: Text(
+                                    count > 99 ? '99+' : count.toString(),
+                                    style: AppTypography.caption.copyWith(
+                                      color: AppColors.white,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
-      bottomNavigationBar: _buildBottomBar(),
     );
   }
 
@@ -1326,30 +1321,34 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       context: context,
       barrierDismissible: false,
       builder: (context) => Center(
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: Theme.of(context).brightness == Brightness.dark
-                ? AppColors.darkCardBackground
-                : Colors.white,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(
-                color: Theme.of(context).brightness == Brightness.dark
-                    ? AppColors.darkPrimaryText
-                    : AppColors.black,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Loading seller products...',
-                style: AppTypography.body2.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? AppColors.darkCardBackground
+                  : Colors.white,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? AppColors.darkPrimaryText
+                      : AppColors.black,
                 ),
-              ),
-            ],
+                const SizedBox(height: 16),
+                Text(
+                  AppLocalizations.of(context)!.loadingSellerProducts,
+                  style: AppTypography.body2.copyWith(
+                    color: Theme.of(context).colorScheme.onSurface,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -1594,26 +1593,37 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   Widget _buildLocationCard(SellerLocation location) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final hasMap =
+        location.hasCoordinates ||
+        (location.address != null && location.address!.isNotEmpty);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: isDark ? AppColors.darkCardBackground : AppColors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isDark ? AppColors.darkStandardBorder : AppColors.gray300,
         ),
       ),
+      clipBehavior: Clip.hardEdge,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Map preview card
+          if (hasMap)
+            MapPreviewCard(
+              latitude: location.latitude,
+              longitude: location.longitude,
+              address: location.address,
+            ),
           // Location details
           Padding(
             padding: const EdgeInsets.all(12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Name + primary badge
+                // Name
                 if (location.name != null && location.name!.isNotEmpty)
                   Text(
                     location.name!,
@@ -1679,85 +1689,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     ),
                   ),
                 ],
-                // Directions button – always shown if any location info exists
-                if (location.hasCoordinates ||
-                    (location.address != null &&
-                        location.address!.isNotEmpty)) ...[
-                  const SizedBox(height: 10),
-                  GestureDetector(
-                    onTap: () => _openInMapsOrAddress(
-                      location.latitude,
-                      location.longitude,
-                      location.address,
-                    ),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? AppColors.darkPrimaryText
-                            : AppColors.black,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.directions_outlined,
-                            size: 16,
-                            color: isDark ? AppColors.black : AppColors.white,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            AppLocalizations.of(context)!.getDirections,
-                            style: AppTypography.caption.copyWith(
-                              color: isDark ? AppColors.black : AppColors.white,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
         ],
       ),
     );
-  }
-
-  Future<void> _openInMapsOrAddress(
-    double? lat,
-    double? lon,
-    String? address,
-  ) async {
-    Uri uri;
-    if (lat != null && lon != null) {
-      // Use coordinates — format so it always drops a visible pin
-      final latStr = lat.toStringAsFixed(6);
-      final lonStr = lon.toStringAsFixed(6);
-      uri = Platform.isIOS
-          ? Uri.parse(
-              'https://maps.apple.com/?ll=$latStr,$lonStr&q=$latStr,$lonStr',
-            )
-          : Uri.parse(
-              'https://www.google.com/maps/search/?api=1&query=$latStr,$lonStr',
-            );
-    } else if (address != null && address.isNotEmpty) {
-      final encoded = Uri.encodeQueryComponent(address);
-      uri = Platform.isIOS
-          ? Uri.parse('https://maps.apple.com/?q=$encoded')
-          : Uri.parse(
-              'https://www.google.com/maps/search/?api=1&query=$encoded',
-            );
-    } else {
-      return;
-    }
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   Future<void> _callPhone(String phone) async {
@@ -1843,115 +1780,185 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   //   );
   // }
 
+  // Shared floating glass button pill — same spec as bottom nav bar
+  Widget _buildNavButton({required bool isDark, required Widget child}) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(22),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xD0050508) : const Color(0xB8FFFFFF),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(
+              color: isDark ? const Color(0x22FFFFFF) : const Color(0x28000000),
+              width: 0.5,
+            ),
+          ),
+          child: child,
+        ),
+      ),
+    );
+  }
+
   Widget _buildBottomBar() {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final l10n = AppLocalizations.of(context)!;
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.darkCardBackground : AppColors.white,
-        boxShadow: [
-          BoxShadow(
-            color: isDark
-                ? const Color(0x0DFFFFFF) // white.withOpacity(0.05)
-                : const Color(0x0D000000), // black.withOpacity(0.05)
-            blurRadius: 10,
-            offset: const Offset(0, -5),
+    final fadeColor = isDark
+        ? const Color(0xFF050508)
+        : const Color(0xFFFFFFFF);
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        // Upward blur-fade above the bar
+        Positioned(
+          top: -20,
+          left: 0,
+          right: 0,
+          height: 20,
+          child: IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [fadeColor.withAlpha(100), fadeColor.withAlpha(0)],
+                ),
+              ),
+            ),
           ),
-        ],
-      ),
-      child: SafeArea(
-        child: Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: () async {
-                  // Gate for guest users
-                  final storage = await LocalStorageHelper.getInstance();
-                  if (storage.isGuestMode()) {
-                    if (mounted) GuestLoginPrompt.show(context);
-                    return;
-                  }
-                  // Navigate to chat compose screen
-                  if (!mounted) return;
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => ChatComposeScreen(
-                        sellerId: widget.product.sellerId ?? 'default-seller',
-                        sellerName: widget.product.seller ?? 'Seller',
-                        sellerLogo: _sellerInfo?.logoImg,
-                        productId: widget.product.id,
-                        productTitle: widget.product.title,
-                        productTitleLocalized:
-                            widget.product.titleLocalized.isNotEmpty
-                            ? widget.product.titleLocalized
-                            : null,
-                        productImage: widget.product.images.isNotEmpty
-                            ? widget.product.images[0]
-                            : null,
-                        productBrand: widget.product.brand,
-                        color: _selectedColor,
-                        size: _selectedSize,
-                        quantity: _quantity,
-                        initialMessage: l10n.interestedInProduct,
-                      ),
-                    ),
-                  );
-                },
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(
-                    color: isDark ? AppColors.darkPrimaryText : AppColors.black,
-                    width: 1.5,
-                  ),
-                  foregroundColor: isDark
-                      ? AppColors.darkPrimaryText
-                      : AppColors.black,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: Text(
-                  l10n.checkAvailability,
-                  style: AppTypography.body1.copyWith(
-                    color: isDark ? AppColors.darkPrimaryText : AppColors.black,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: ElevatedButton(
-                onPressed: _addToCart,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: isDark
-                      ? AppColors.darkPrimaryText
-                      : AppColors.black,
-                  foregroundColor: isDark ? AppColors.black : AppColors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  elevation: 0,
-                ),
-                child: Text(
-                  l10n.addToCart,
-                  style: AppTypography.body1.copyWith(
-                    color: isDark ? AppColors.black : AppColors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-          ],
         ),
-      ),
+        ClipRRect(
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(28),
+            topRight: Radius.circular(28),
+          ),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: Container(
+              decoration: BoxDecoration(
+                color: isDark
+                    ? const Color(0xD0050508)
+                    : const Color(0xC8FFFFFF),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(28),
+                  topRight: Radius.circular(28),
+                ),
+                border: Border.all(
+                  color: isDark
+                      ? const Color(0x33FFFFFF)
+                      : const Color(0x33000000),
+                  width: 0.5,
+                ),
+              ),
+              child: SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () async {
+                            final storage =
+                                await LocalStorageHelper.getInstance();
+                            if (storage.isGuestMode()) {
+                              if (mounted) GuestLoginPrompt.show(context);
+                              return;
+                            }
+                            if (!mounted) return;
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => ChatComposeScreen(
+                                  sellerId:
+                                      widget.product.sellerId ??
+                                      'default-seller',
+                                  sellerName: widget.product.seller ?? 'Seller',
+                                  sellerLogo: _sellerInfo?.logoImg,
+                                  productId: widget.product.id,
+                                  productTitle: widget.product.title,
+                                  productTitleLocalized:
+                                      widget.product.titleLocalized.isNotEmpty
+                                      ? widget.product.titleLocalized
+                                      : null,
+                                  productImage: widget.product.images.isNotEmpty
+                                      ? widget.product.images[0]
+                                      : null,
+                                  productBrand: widget.product.brand,
+                                  color: _selectedColor,
+                                  size: _selectedSize,
+                                  quantity: _quantity,
+                                  initialMessage: l10n.interestedInProduct,
+                                ),
+                              ),
+                            );
+                          },
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(
+                              color: isDark
+                                  ? const Color(0x55FFFFFF)
+                                  : const Color(0x55000000),
+                              width: 1.0,
+                            ),
+                            foregroundColor: isDark
+                                ? AppColors.darkPrimaryText
+                                : AppColors.black,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          child: Text(
+                            l10n.checkAvailability,
+                            style: AppTypography.body1.copyWith(
+                              color: isDark
+                                  ? AppColors.darkPrimaryText
+                                  : AppColors.black,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _addToCart,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: isDark
+                                ? Colors.white
+                                : AppColors.black,
+                            foregroundColor: isDark
+                                ? AppColors.black
+                                : AppColors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: Text(
+                            l10n.addToCart,
+                            style: AppTypography.body1.copyWith(
+                              color: isDark ? AppColors.black : AppColors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

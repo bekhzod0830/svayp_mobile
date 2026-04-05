@@ -396,7 +396,7 @@
   "similarProducts": "Similar Products",
   
   "visualSearch": "Visual Search",
-  "vsPickCategory": "Select a Category",
+  "vsPickCategory": "Crop Image",
   "vsSearchButton": "Search",
   "vsCatTopwear": "Tops",
   "vsCatBottomwear": "Bottoms",
@@ -733,6 +733,12 @@
   "editProfileComingSoon": "Edit profile feature coming soon",
   "myQrCode": "My QR Code",
   "scanQrForCashback": "Show this QR code to partners to receive cashback",
+  "svaypCardTitle": "SVAYP Card",
+  "svaypCardCashbackDesc": "Earn 2% cashback on every purchase",
+  "openQrButton": "Open",
+  "qrFullScreenHint": "Show this code at checkout to receive 2% cashback",
+  "qrCashbackPrefix": "Show this QR code to cashier to receive ",
+  "qrCashbackHighlight": "2% cashback",
   "personalInfo": "Personal Information",
   "account": "Account",
   "savedItems": "Saved Items",
@@ -1167,6 +1173,13 @@
   "tutorialLongDress": "Long Dress",
   "tutorialBeigeShoes": "Beige Shoes",
   "profileUpdatedSuccess": "Profile updated successfully",
+
+  "mapOpenMap": "Open map",
+  "mapOpenInMaps": "Open in Maps",
+  "loadingSellerProducts": "Loading seller products...",
+
+  "shops": "Shops",
+  "allShops": "All Shops",
 
   "forceUpdateTitle": "Update Required",
   "forceUpdateSubtitle": "A new version of SVAYP is available with exciting new features and improvements. Please update to continue.",

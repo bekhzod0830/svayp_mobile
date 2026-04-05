@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:io';
 import 'dart:math' as math;
 import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/core/constants/app_colors.dart';
@@ -10,36 +9,16 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:swipe/core/services/product_api_service.dart';
 import 'package:swipe/core/models/product.dart' as api_models;
 import 'package:swipe/core/cache/image_cache_manager.dart';
-import 'package:swipe/core/services/visual_search_api_service.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:swipe/features/shop/presentation/screens/visual_search_results_screen.dart';
-import 'package:swipe/features/shop/presentation/widgets/visual_search_loader.dart';
-import 'package:swipe/features/shop/presentation/screens/visual_search_crop_screen.dart';
 import 'package:swipe/features/shop/presentation/screens/seller_profile_screen.dart';
-import 'package:swipe/features/shop/presentation/screens/sellers_list_screen.dart';
-import 'package:swipe/features/shop/presentation/screens/shop_search_results_screen.dart';
 import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/core/network/api_client.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:swipe/core/utils/local_storage_helper.dart';
-import 'package:swipe/shared/widgets/widgets.dart';
+import 'package:swipe/shared/widgets/main_top_bar.dart';
+import 'dart:ui';
 
 // Pre-computed colors to avoid withOpacity() allocations during rebuilds
 const _kShadowBlack08 = Color(0x14000000); // black.withOpacity(0.08)
-const _kShadowBlack25 = Color(0x40000000); // black.withOpacity(0.25)
 const _kShadowBlack30 = Color(0x4D000000); // black.withOpacity(0.30)
-const _kWhite12 = Color(0x1FFFFFFF); // white.withOpacity(0.12)
-const _kBlack08 = Color(0x14000000); // black.withOpacity(0.08)
-const _kBlack05 = Color(0x0D000000); // black.withOpacity(0.05)
-const _kBlack10 = Color(0x1A000000); // black.withOpacity(0.1)
-const _kWhite10 = Color(0x1AFFFFFF); // white.withOpacity(0.1)
-const _kWhite15 = Color(0x26FFFFFF); // white.withOpacity(0.15)
-const _kWhite40 = Color(0x66FFFFFF); // white.withOpacity(0.4)
-const _kWhite30 = Color(0x4DFFFFFF); // white.withOpacity(0.3)
-const _kWhite60 = Color(0x99FFFFFF); // white.withOpacity(0.6)
-const _kBlack40 = Color(0x66000000); // black.withOpacity(0.4)
-const _kBlack50 = Color(0x80000000); // black.withOpacity(0.5)
-const _kBlack30 = Color(0x4D000000); // black.withOpacity(0.3)
 
 /// Shop Screen - Browse and search for products (TikTok Shop style)
 /// Features: 2-column grid, seller info, tabs, ChatGPT-style search
@@ -57,7 +36,6 @@ class _ShopScreenState extends State<ShopScreen>
 
   final TextEditingController _searchController = TextEditingController();
   final ProductApiService _apiService = ProductApiService();
-  final VisualSearchApiService _visualSearchService = VisualSearchApiService();
   final ScrollController _scrollController = ScrollController();
 
   List<Product> _products = [];
@@ -68,6 +46,7 @@ class _ShopScreenState extends State<ShopScreen>
   bool _hasMoreProducts = true;
   int _currentPage = 0;
   final int _pageSize = 20;
+  final int _trendingPageSize = 100;
   // Trending-specific pagination
   int _trendingPage = 0;
   bool _hasMoreTrending = true;
@@ -100,6 +79,13 @@ class _ShopScreenState extends State<ShopScreen>
   final Map<String, bool> _categoryHasMoreCache = {};
   // ─────────────────────────────────────────────────────────
 
+  // ── Seller / shop filter ─────────────────────────────────
+  List<SellerInfo> _sellers = [];
+  String? _selectedSellerId; // null = All Shops
+  List<Product> _sellerProducts = [];
+  bool _isLoadingSellers = false;
+  // ─────────────────────────────────────────────────────────
+
   // Ordered list of category API values matching tab indices 2..
   // Order must match the chips built in the ListView below.
   static const List<String> _kCategoryApiValues = [
@@ -124,6 +110,7 @@ class _ShopScreenState extends State<ShopScreen>
     _scrollController.addListener(_onScroll);
     _initAuth();
     _loadTrendingProducts(); // fire independently so it never blocked by _loadProducts
+    _loadSellers();
   }
 
   Future<void> _initAuth() async {
@@ -269,13 +256,13 @@ class _ShopScreenState extends State<ShopScreen>
       final apiClient = getIt<ApiClient>();
       final response = await apiClient.get<dynamic>(
         '/feed/trending',
-        queryParameters: {'limit': '$_pageSize', 'page': '0'},
+        queryParameters: {'limit': '$_trendingPageSize', 'page': '0'},
       );
       final trending = _parseTrendingResponse(response.data);
       if (mounted) {
         setState(() {
           _trendingProducts = trending;
-          _hasMoreTrending = trending.length >= _pageSize;
+          _hasMoreTrending = trending.length >= _trendingPageSize;
           if (trending.isNotEmpty) _trendingPage = 1;
           _trendingLoadedAt = DateTime.now();
         });
@@ -292,7 +279,10 @@ class _ShopScreenState extends State<ShopScreen>
       final apiClient = getIt<ApiClient>();
       final response = await apiClient.get<dynamic>(
         '/feed/trending',
-        queryParameters: {'limit': '$_pageSize', 'page': '$_trendingPage'},
+        queryParameters: {
+          'limit': '$_trendingPageSize',
+          'page': '$_trendingPage',
+        },
       );
       final newItems = _parseTrendingResponse(response.data);
       final existingIds = _trendingProducts.map((p) => p.id).toSet();
@@ -303,7 +293,7 @@ class _ShopScreenState extends State<ShopScreen>
         setState(() {
           _trendingProducts.addAll(unique);
           _isLoadingMoreTrending = false;
-          _hasMoreTrending = newItems.length >= _pageSize;
+          _hasMoreTrending = newItems.length >= _trendingPageSize;
           if (unique.isNotEmpty) _trendingPage++;
         });
         _filterProducts();
@@ -422,13 +412,13 @@ class _ShopScreenState extends State<ShopScreen>
       final apiClient = getIt<ApiClient>();
       final response = await apiClient.get<dynamic>(
         '/feed/trending',
-        queryParameters: {'limit': '$_pageSize', 'page': '0'},
+        queryParameters: {'limit': '$_trendingPageSize', 'page': '0'},
       );
       final fresh = _parseTrendingResponse(response.data);
       if (mounted) {
         setState(() {
           _trendingProducts = fresh;
-          _hasMoreTrending = fresh.length >= _pageSize;
+          _hasMoreTrending = fresh.length >= _trendingPageSize;
           _trendingPage = fresh.isNotEmpty ? 1 : 0;
           _trendingLoadedAt = DateTime.now();
         });
@@ -498,6 +488,10 @@ class _ShopScreenState extends State<ShopScreen>
 
   /// Pull-to-refresh: always force a full reload of the current tab.
   Future<void> _refreshCurrentTab() async {
+    if (_selectedSellerId != null) {
+      await _loadSellerProducts(_selectedSellerId!);
+      return;
+    }
     if (_selectedTab == 0) {
       await _loadTrendingProducts();
     } else if (_selectedTab == 1) {
@@ -505,6 +499,69 @@ class _ShopScreenState extends State<ShopScreen>
     } else {
       final category = _kCategoryApiValues[_selectedTab - 2];
       await _loadCategoryProducts(category);
+    }
+  }
+
+  Future<void> _loadSellers() async {
+    if (_isLoadingSellers) return;
+    setState(() => _isLoadingSellers = true);
+    try {
+      final results = await _apiService.getSellers(
+        skip: 0,
+        limit: 100,
+        token: _authToken,
+      );
+      if (mounted) setState(() => _sellers = results);
+    } catch (_) {
+      // Sellers list is optional – failure is non-fatal
+    } finally {
+      if (mounted) setState(() => _isLoadingSellers = false);
+    }
+  }
+
+  Future<void> _loadSellerProducts(String sellerId) async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    try {
+      final response = await _apiService.getBrandDetail(
+        brandId: sellerId,
+        skip: 0,
+        limit: 60,
+        token: _authToken,
+      );
+      final products = <Product>[];
+      for (final apiProduct in response.products) {
+        try {
+          products.add(_convertApiProduct(apiProduct));
+        } catch (_) {}
+      }
+      if (mounted) {
+        setState(() {
+          _sellerProducts = products;
+          _filteredProducts = products;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  void _onShopSelected(String? sellerId) {
+    if (_selectedSellerId == sellerId) return;
+    setState(() => _selectedSellerId = sellerId);
+    if (_scrollController.hasClients) _scrollController.jumpTo(0);
+    if (sellerId == null) {
+      _refreshCurrentTab();
+    } else {
+      _loadSellerProducts(sellerId);
     }
   }
 
@@ -569,73 +626,20 @@ class _ShopScreenState extends State<ShopScreen>
     );
   }
 
-  Future<void> _performSearch() async {
-    final query = _searchController.text.trim();
-    if (query.isEmpty) return;
-
-    try {
-      // Get auth token if available
-      final apiClient = getIt<ApiClient>();
-      final token = apiClient.getToken();
-
-      // Call the search API
-      final response = await _apiService.searchProductsApi(
-        query: query,
-        size: 20, // Get search results
-        token: token,
-      );
-
-      // Convert API products to local Product entities
-      final searchResults = <Product>[];
-      for (final apiProduct in response.products) {
-        try {
-          final product = _convertApiProduct(apiProduct);
-          searchResults.add(product);
-        } catch (e) {}
-      }
-
-      // Navigate to search results screen
-      if (mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ShopSearchResultsScreen(
-              query: query,
-              searchResults: searchResults,
-              allProducts: _products,
-              searchController: _searchController,
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      // Fallback to local filtering if API fails
-      final searchResults = _products.where((product) {
-        return product.title.toLowerCase().contains(query.toLowerCase()) ||
-            product.brand.toLowerCase().contains(query.toLowerCase()) ||
-            product.category.toLowerCase().contains(query.toLowerCase());
-      }).toList();
-
-      if (mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ShopSearchResultsScreen(
-              query: query,
-              searchResults: searchResults,
-              allProducts: _products,
-              searchController: _searchController,
-            ),
-          ),
-        );
-      }
-    }
-  }
-
   void _filterProducts() {
     final query = _searchController.text.toLowerCase();
 
     setState(() {
+      // Seller mode: filter seller products locally
+      if (_selectedSellerId != null) {
+        _filteredProducts = _sellerProducts.where((product) {
+          return query.isEmpty ||
+              product.title.toLowerCase().contains(query) ||
+              product.brand.toLowerCase().contains(query);
+        }).toList();
+        return;
+      }
+
       // Trending tab: show _trendingProducts directly (different source from _products)
       if (_selectedTab == 0) {
         final source = _trendingProducts.isNotEmpty
@@ -673,7 +677,7 @@ class _ShopScreenState extends State<ShopScreen>
 
   void _onProductTap(Product product) {
     // Navigate to product detail screen
-    Navigator.of(context).push(
+    Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute(
         builder: (context) => ProductDetailScreen(product: product),
       ),
@@ -692,7 +696,7 @@ class _ShopScreenState extends State<ShopScreen>
     final sellerId = sellerProducts.first.sellerId ?? 'unknown';
 
     // Navigate to seller profile
-    Navigator.of(context).push(
+    Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute(
         builder: (context) => SellerProfileScreen(
           sellerId: sellerId,
@@ -700,268 +704,6 @@ class _ShopScreenState extends State<ShopScreen>
           products: sellerProducts,
         ),
       ),
-    );
-  }
-
-  /// Handle visual search button tap
-  Future<void> _handleVisualSearch() async {
-    final l10n = AppLocalizations.of(context)!;
-
-    // Gate for guest users
-    final storage = await LocalStorageHelper.getInstance();
-    if (storage.isGuestMode()) {
-      if (mounted) GuestLoginPrompt.show(context);
-      return;
-    }
-
-    try {
-      // 1. Open photo library for the user to pick an image
-      if (!mounted) return;
-      final image = await ImagePicker().pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1920,
-        maxHeight: 1920,
-        imageQuality: 85,
-      );
-      if (image == null) return;
-
-      // 2. Let the widget tree settle after the picker closes
-      if (!mounted) return;
-      await Future.delayed(const Duration(milliseconds: 300));
-
-      // 3. Let the user crop the image
-      if (!mounted) return;
-      final croppedImage = await _showCategoryPicker(image);
-      if (croppedImage == null) return; // dismissed
-
-      // 4. Show loading dialog AFTER crop is confirmed
-      if (!mounted) return;
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) => PopScope(
-          canPop: false,
-          child: VisualSearchLoader(image: File(croppedImage.path)),
-        ),
-      );
-
-      // 5. Fetch recommendations from the backend
-      final response = await _visualSearchService.fetchRecommendations(
-        image: croppedImage,
-        token: _authToken,
-      );
-
-      // 6. Close loading dialog
-      if (mounted) {
-        Navigator.of(context, rootNavigator: true).pop();
-      }
-
-      // Small delay to ensure dialog is fully closed
-      await Future.delayed(const Duration(milliseconds: 100));
-
-      // 7. Navigate to results screen
-      if (mounted) {
-        await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => VisualSearchResultsScreen(
-              results: response.results,
-              uploadedImage: File(croppedImage.path),
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      // Close the loading dialog if open
-      if (mounted) {
-        final navigator = Navigator.of(context, rootNavigator: true);
-        if (navigator.canPop()) navigator.pop();
-      }
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(l10n.visualSearchError),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
-          ),
-        );
-      }
-    }
-  }
-
-  Future<XFile?> _showCategoryPicker(XFile image) {
-    final l10n = AppLocalizations.of(context)!;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cropKey = GlobalKey<VisualSearchCropWidgetState>();
-
-    // Category selection removed — no category is sent with the request
-    // final categories = <(String, String, IconData)>[
-    //   ('TOPWEAR', l10n.vsCatTopwear, Icons.checkroom_outlined),
-    //   ('BOTTOMWEAR', l10n.vsCatBottomwear, Icons.airline_seat_legroom_extra),
-    //   ('DRESSES', l10n.vsCatDresses, Icons.dry_cleaning_outlined),
-    //   ('OUTERWEAR', l10n.vsCatOuterwear, Icons.layers_outlined),
-    //   ('ONE_PIECE', l10n.vsCatOnePiece, Icons.person_outline),
-    //   ('ACTIVEWEAR', l10n.vsCatActivewear, Icons.sports_outlined),
-    //   ('ACCESSORIES', l10n.vsCatAccessories, Icons.watch_outlined),
-    //   ('FOOTWEAR', l10n.vsCatFootwear, Icons.directions_walk_outlined),
-    //   ('UNDERWEAR', l10n.vsCatUnderwear, Icons.spa_outlined),
-    //   ('ISLAMIC_MODEST_WEAR', l10n.vsCatModestWear, Icons.woman_outlined),
-    //   ('TWO_PIECE_SET', l10n.vsCatTwoPieceSet, Icons.looks_two_outlined),
-    //   ('THREE_PIECE_SET', l10n.vsCatThreePieceSet, Icons.looks_3_outlined),
-    //   ('BODYSUITS_TRIKO', l10n.vsCatBodysuits, Icons.accessibility_new_outlined),
-    //   ('HOMEWEAR', l10n.vsCatHomewear, Icons.home_outlined),
-    // ];
-
-    return showModalBottomSheet<XFile>(
-      context: context,
-      backgroundColor: isDark ? AppColors.darkCardBackground : AppColors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      isScrollControlled: true,
-      isDismissible: true,
-      enableDrag: false,
-      builder: (ctx) {
-        // String? selected; // Category selection removed
-        bool isProcessing = false;
-        return StatefulBuilder(
-          builder: (ctx, setState) => SafeArea(
-            child: Padding(
-              padding: EdgeInsets.only(
-                left: 20,
-                right: 20,
-                top: 12,
-                bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Drag handle
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? AppColors.darkStandardBorder
-                            : AppColors.gray300,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  // Title + Reset row
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          l10n.vsPickCategory,
-                          style: AppTypography.heading3.copyWith(
-                            color: isDark
-                                ? AppColors.darkPrimaryText
-                                : AppColors.primaryText,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () => cropKey.currentState?.resetSelection(),
-                        child: Padding(
-                          padding: const EdgeInsets.only(left: 8),
-                          child: Text(
-                            l10n.resetSelection,
-                            style: AppTypography.caption.copyWith(
-                              color: isDark
-                                  ? AppColors.darkSecondaryText
-                                  : AppColors.secondaryText,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  // Crop-enabled image preview
-                  AspectRatio(
-                    aspectRatio: 4 / 3,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: ColoredBox(
-                        color: isDark
-                            ? AppColors.darkMainBackground
-                            : AppColors.gray100,
-                        child: VisualSearchCropWidget(
-                          key: cropKey,
-                          image: image,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  // Category dropdown removed — no category is sent with the request
-                  // DropdownButtonFormField<String>(
-                  //   value: selected,
-                  //   isExpanded: true,
-                  //   hint: Text(l10n.vsPickCategory, ...),
-                  //   items: [...categories...],
-                  //   onChanged: (v) => setState(() => selected = v),
-                  // ),
-                  const SizedBox(height: 16),
-                  // Search button
-                  ElevatedButton(
-                    onPressed: isProcessing
-                        ? null
-                        : () async {
-                            setState(() => isProcessing = true);
-                            try {
-                              final cropped = await cropKey.currentState!
-                                  .cropImage();
-                              if (ctx.mounted) {
-                                Navigator.of(ctx).pop(cropped);
-                              }
-                            } catch (_) {
-                              if (ctx.mounted) {
-                                setState(() => isProcessing = false);
-                              }
-                            }
-                          },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: isDark
-                          ? AppColors.darkPrimaryText
-                          : AppColors.black,
-                      disabledBackgroundColor: isDark
-                          ? AppColors.darkButtonDisabled
-                          : AppColors.gray300,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: isProcessing
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : Text(
-                            l10n.vsSearchButton,
-                            style: AppTypography.body1.copyWith(
-                              color: isDark ? AppColors.black : AppColors.white,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
     );
   }
 
@@ -983,88 +725,13 @@ class _ShopScreenState extends State<ShopScreen>
             // Main Content
             Column(
               children: [
-                // Header with title and AI scan
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              l10n.shop,
-                              style: AppTypography.heading2.copyWith(
-                                fontWeight: FontWeight.w700,
-                                color: theme.colorScheme.onSurface,
-                                letterSpacing: -0.5,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              _filteredProducts.isEmpty && !_isLoading
-                                  ? l10n.searchForClothes
-                                  : '${_filteredProducts.length} ${l10n.products.toLowerCase()}',
-                              style: AppTypography.body2.copyWith(
-                                color: isDark
-                                    ? AppColors.darkSecondaryText
-                                    : AppColors.gray600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      // Browse Sellers Button
-                      GestureDetector(
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const SellersListScreen(),
-                          ),
-                        ),
-                        child: Container(
-                          width: 40,
-                          height: 40,
-                          margin: const EdgeInsets.only(right: 8),
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? AppColors.darkCardBackground
-                                : Colors.white,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: isDark
-                                  ? AppColors.darkStandardBorder
-                                  : AppColors.gray200,
-                            ),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: _kShadowBlack08,
-                                blurRadius: 8,
-                                offset: Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Icon(
-                            Icons.storefront_outlined,
-                            size: 20,
-                            color: isDark
-                                ? AppColors.darkPrimaryText
-                                : AppColors.black,
-                          ),
-                        ),
-                      ),
-                      // Visual Search Button – animated
-                      _AnimatedVisualSearchButton(
-                        onTap: _handleVisualSearch,
-                        label: l10n.aiScan,
-                      ),
-                    ],
-                  ),
-                ),
+                // Glass Header with title
+                MainTopBar(title: l10n.shop, extraActions: const []),
 
-                // Category dropdown
+                // Filter row: Categories (left) + Shops (right)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: _buildCategoryDropdown(isDark, l10n),
+                  child: _buildFilterRow(isDark, l10n),
                 ),
 
                 const SizedBox(height: 12),
@@ -1112,9 +779,9 @@ class _ShopScreenState extends State<ShopScreen>
                             slivers: [
                               SliverPadding(
                                 padding: const EdgeInsets.fromLTRB(
-                                  12,
+                                  16,
                                   0,
-                                  12,
+                                  16,
                                   12,
                                 ),
                                 sliver: SliverGrid(
@@ -1139,12 +806,12 @@ class _ShopScreenState extends State<ShopScreen>
                                         mainAxisSpacing: 12,
                                         crossAxisSpacing: 12,
                                         childAspectRatio: () {
-                                          // Grid padding: 12 each side + 12 cross-spacing → 36px total
+                                          // Grid padding: 16 each side + 12 cross-spacing → 44px total
                                           final cardW =
                                               (MediaQuery.of(
                                                     context,
                                                   ).size.width -
-                                                  36) /
+                                                  44) /
                                               2;
                                           // Image: 4:5 → height = cardW * 5/4; info section: 88px fixed
                                           return cardW / (cardW * 5 / 4 + 88);
@@ -1186,126 +853,13 @@ class _ShopScreenState extends State<ShopScreen>
               ],
             ),
 
-            // ChatGPT-style Search Bar — sits above the floating glass navbar
-            // Navbar pill = 60px + safe-area padding; SafeArea already absorbs the
-            // system bottom inset, so we only need to clear the pill itself.
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: MediaQuery.of(context).viewPadding.bottom + 76,
-              child: Container(
-                height: 52,
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF2F2F2F) : Colors.white,
-                  borderRadius: BorderRadius.circular(26),
-                  border: Border.all(color: isDark ? _kWhite12 : _kBlack08),
-                  boxShadow: [
-                    BoxShadow(
-                      color: isDark ? _kShadowBlack25 : _kShadowBlack08,
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    const SizedBox(width: 16),
-                    const Icon(
-                      Icons.auto_awesome_rounded,
-                      color: Color(0xFFf093fb),
-                      size: 20,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        controller: _searchController,
-                        onSubmitted: (_) => _performSearch(),
-                        cursorColor: isDark ? Colors.white : Colors.black,
-                        enableSuggestions: false,
-                        autocorrect: false,
-                        enableIMEPersonalizedLearning: false,
-                        scribbleEnabled: false,
-                        style: TextStyle(
-                          color: isDark ? Colors.white : Colors.black,
-                          fontSize: 15,
-                        ),
-                        decoration: InputDecoration(
-                          hintText: l10n.searchForClothes,
-                          hintStyle: TextStyle(
-                            color: isDark ? _kWhite40 : _kBlack40,
-                            fontSize: 15,
-                          ),
-                          border: InputBorder.none,
-                          enabledBorder: InputBorder.none,
-                          focusedBorder: InputBorder.none,
-                          filled: false,
-                          contentPadding: EdgeInsets.zero,
-                          isDense: true,
-                        ),
-                      ),
-                    ),
-                    // Only rebuild these buttons when text changes, not the whole screen
-                    ValueListenableBuilder<TextEditingValue>(
-                      valueListenable: _searchController,
-                      builder: (context, value, _) {
-                        final hasText = value.text.isNotEmpty;
-                        return Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (hasText)
-                              GestureDetector(
-                                onTap: () {
-                                  _searchController.clear();
-                                  _filterProducts();
-                                },
-                                child: Container(
-                                  margin: const EdgeInsets.only(right: 8),
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: BoxDecoration(
-                                    color: isDark ? _kWhite10 : _kBlack05,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    Icons.close_rounded,
-                                    color: isDark ? _kWhite60 : _kBlack50,
-                                    size: 16,
-                                  ),
-                                ),
-                              ),
-                            GestureDetector(
-                              onTap: hasText
-                                  ? () {
-                                      _performSearch();
-                                      FocusScope.of(context).unfocus();
-                                    }
-                                  : null,
-                              child: Container(
-                                margin: const EdgeInsets.only(right: 6),
-                                width: 40,
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  color: hasText
-                                      ? (isDark ? Colors.white : Colors.black)
-                                      : (isDark ? _kWhite15 : _kBlack10),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  Icons.arrow_upward_rounded,
-                                  color: hasText
-                                      ? (isDark ? Colors.black : Colors.white)
-                                      : (isDark ? _kWhite30 : _kBlack30),
-                                  size: 20,
-                                ),
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            // TODO: ChatGPT-style Search Bar (not needed yet)
+            // Positioned(
+            //   left: 16,
+            //   right: 16,
+            //   bottom: MediaQuery.of(context).viewPadding.bottom + 76,
+            //   child: Container( ... ),
+            // ),
           ],
         ),
       ),
@@ -1354,6 +908,88 @@ class _ShopScreenState extends State<ShopScreen>
         _loadCategoryProducts(category);
       }
     }
+  }
+
+  Widget _buildFilterRow(bool isDark, AppLocalizations l10n) {
+    return Row(
+      children: [
+        Expanded(child: _buildCategoryDropdown(isDark, l10n)),
+        const SizedBox(width: 10),
+        Expanded(child: _buildShopsDropdown(isDark, l10n)),
+      ],
+    );
+  }
+
+  Widget _buildShopsDropdown(bool isDark, AppLocalizations l10n) {
+    return Container(
+      height: 44,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkCardBackground : Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: _selectedSellerId != null
+              ? (isDark ? Colors.white54 : Colors.black54)
+              : (isDark ? AppColors.darkStandardBorder : AppColors.gray200),
+        ),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String?>(
+          value: _selectedSellerId,
+          isExpanded: true,
+          dropdownColor: isDark ? AppColors.darkCardBackground : Colors.white,
+          icon: Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: isDark ? AppColors.darkPrimaryText : AppColors.black,
+          ),
+          style: AppTypography.body2.copyWith(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: isDark ? AppColors.darkPrimaryText : AppColors.black,
+          ),
+          hint: Text(
+            l10n.shops,
+            style: AppTypography.body2.copyWith(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: isDark ? AppColors.darkPrimaryText : AppColors.black,
+            ),
+          ),
+          items: [
+            DropdownMenuItem<String?>(
+              value: null,
+              child: Text(
+                l10n.allShops,
+                style: AppTypography.body2.copyWith(
+                  fontSize: 13,
+                  fontWeight: _selectedSellerId == null
+                      ? FontWeight.w700
+                      : FontWeight.w500,
+                  color: isDark ? AppColors.darkPrimaryText : AppColors.black,
+                ),
+              ),
+            ),
+            ..._sellers.map(
+              (seller) => DropdownMenuItem<String?>(
+                value: seller.id,
+                child: Text(
+                  seller.name,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.body2.copyWith(
+                    fontSize: 13,
+                    fontWeight: _selectedSellerId == seller.id
+                        ? FontWeight.w700
+                        : FontWeight.w500,
+                    color: isDark ? AppColors.darkPrimaryText : AppColors.black,
+                  ),
+                ),
+              ),
+            ),
+          ],
+          onChanged: _onShopSelected,
+        ),
+      ),
+    );
   }
 
   Widget _buildCategoryDropdown(bool isDark, AppLocalizations l10n) {

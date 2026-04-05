@@ -1098,7 +1098,7 @@ class AppLocalizationsUz extends AppLocalizations {
   String get visualSearch => 'Vizual qidiruv';
 
   @override
-  String get vsPickCategory => 'Kategoriyani tanlang';
+  String get vsPickCategory => 'Rasmni kesish';
 
   @override
   String get vsSearchButton => 'Qidirish';
@@ -1787,6 +1787,25 @@ class AppLocalizationsUz extends AppLocalizations {
   @override
   String get scanQrForCashback =>
       'Keshbek olish uchun bu QR kodni hamkorlarga ko\'rsating';
+
+  @override
+  String get svaypCardTitle => 'SVAYP Karta';
+
+  @override
+  String get svaypCardCashbackDesc => 'Har bir xariddan 2% keshbek oling';
+
+  @override
+  String get openQrButton => 'Ochish';
+
+  @override
+  String get qrFullScreenHint =>
+      'To\'lov paytida ushbu kodni ko\'rsating va 2% keshbek oling';
+
+  @override
+  String get qrCashbackPrefix => 'Kassirga ushbu QR-kodni ko\'rsating va ';
+
+  @override
+  String get qrCashbackHighlight => '2% keshbek oling';
 
   @override
   String get personalInfo => 'Shaxsiy ma\'lumotlar';
@@ -2862,6 +2881,21 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get profileUpdatedSuccess => 'Profil muvaffaqiyatli yangilandi';
+
+  @override
+  String get mapOpenMap => 'Xaritani ochish';
+
+  @override
+  String get mapOpenInMaps => 'Xaritada ochish';
+
+  @override
+  String get loadingSellerProducts => 'Sotuvchi mahsulotlari yuklanmoqda...';
+
+  @override
+  String get shops => 'Do\'konlar';
+
+  @override
+  String get allShops => 'Barcha do\'konlar';
 
   @override
   String get forceUpdateTitle => 'Yangilash talab qilinadi';

@@ -1096,7 +1096,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get visualSearch => 'Визуальный поиск';
 
   @override
-  String get vsPickCategory => 'Выберите категорию';
+  String get vsPickCategory => 'Обрезать изображение';
 
   @override
   String get vsSearchButton => 'Найти';
@@ -1782,6 +1782,25 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get scanQrForCashback =>
       'Покажите этот QR-код партнерам для получения кэшбэка';
+
+  @override
+  String get svaypCardTitle => 'Карта SVAYP';
+
+  @override
+  String get svaypCardCashbackDesc => '2% кэшбэк с каждой покупки';
+
+  @override
+  String get openQrButton => 'Открыть';
+
+  @override
+  String get qrFullScreenHint =>
+      'Покажите этот код на кассе и получите 2% кэшбэка';
+
+  @override
+  String get qrCashbackPrefix => 'Покажите QR-код кассиру, чтобы получить ';
+
+  @override
+  String get qrCashbackHighlight => '2% кэшбэк';
 
   @override
   String get personalInfo => 'Личная информация';
@@ -2847,6 +2866,21 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get profileUpdatedSuccess => 'Профиль успешно обновлён';
+
+  @override
+  String get mapOpenMap => 'Открыть карту';
+
+  @override
+  String get mapOpenInMaps => 'Открыть в картах';
+
+  @override
+  String get loadingSellerProducts => 'Загрузка товаров продавца...';
+
+  @override
+  String get shops => 'Магазины';
+
+  @override
+  String get allShops => 'Все магазины';
 
   @override
   String get forceUpdateTitle => 'Требуется обновление';

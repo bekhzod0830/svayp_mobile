@@ -1,9 +1,11 @@
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
 import 'package:swipe/features/cart/data/models/cart_item_model.dart';
 import 'package:swipe/features/cart/data/services/cart_service.dart';
+import 'package:swipe/core/services/badge_notifier.dart';
 import 'package:swipe/features/checkout/presentation/screens/checkout_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:swipe/core/cache/image_cache_manager.dart';
@@ -121,7 +123,7 @@ class _CartScreenState extends State<CartScreen> {
       );
 
       navigator.pop(); // dismiss loader overlay
-      navigator.push(
+      Navigator.of(context, rootNavigator: true).push(
         MaterialPageRoute(
           builder: (_) => ProductDetailScreen(product: product),
         ),
@@ -158,6 +160,8 @@ class _CartScreenState extends State<CartScreen> {
       // the network request is in-flight.
       _isLoading = cachedItems.isEmpty && hasToken;
     });
+    // Update badge from Hive immediately so all screens reflect current count.
+    BadgeNotifier.instance.setCartCount(cachedTotalItems);
 
     if (!hasToken) return;
 
@@ -258,6 +262,7 @@ class _CartScreenState extends State<CartScreen> {
         (sum, i) => sum + i.quantity,
       );
 
+      BadgeNotifier.instance.setCartCount(syncedTotal);
       if (mounted) {
         setState(() {
           _cartItemIds = cartItemIds;
@@ -330,29 +335,6 @@ class _CartScreenState extends State<CartScreen> {
     }
 
     await _loadCart();
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Removed ${item.localizedTitle(Localizations.localeOf(context).languageCode)}',
-          ),
-          action: SnackBarAction(
-            label: 'UNDO',
-            onPressed: () async {
-              // TODO: Implement undo functionality
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Undo not yet implemented'),
-                  duration: Duration(seconds: 1),
-                ),
-              );
-            },
-          ),
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    }
   }
 
   Future<void> _clearCart() async {
@@ -423,6 +405,7 @@ class _CartScreenState extends State<CartScreen> {
     // Navigate to checkout screen
     final result = await Navigator.of(
       context,
+      rootNavigator: true,
     ).push(MaterialPageRoute(builder: (context) => const CheckoutScreen()));
 
     // Reload cart if coming back from checkout
@@ -437,74 +420,145 @@ class _CartScreenState extends State<CartScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
+    final topPadding = MediaQuery.of(context).padding.top;
+    const headerHeight = 56.0;
+    final headerTotal = topPadding + headerHeight + 8.0;
+
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: isDark
-            ? AppColors.darkMainBackground
-            : AppColors.white,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        title: Text(
-          l10n.cart,
-          style: AppTypography.heading3.copyWith(
-            fontWeight: FontWeight.w700,
-            color: theme.colorScheme.onSurface,
-          ),
-        ),
-        centerTitle: true,
-        actions: [
-          if (_cartItems.isNotEmpty)
-            TextButton(
-              onPressed: _clearCart,
-              child: Text(
-                l10n.clearCart,
-                style: AppTypography.body2.copyWith(
-                  color: Colors.red,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-        ],
-      ),
-      body: _isLoading
-          ? Center(
-              child: CircularProgressIndicator(
-                color: isDark ? AppColors.darkPrimaryText : AppColors.black,
-              ),
-            )
-          : _cartItems.isEmpty
-          ? _buildEmptyState()
-          : Column(
-              children: [
-                // Cart Items List
-                Expanded(
-                  child: RefreshIndicator(
-                    onRefresh: _loadCart,
-                    color: isDark ? AppColors.white : AppColors.black,
-                    child: ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _cartItems.length,
-                      itemBuilder: (context, index) {
-                        final item = _cartItems[index];
-                        return GestureDetector(
-                          onTap: () => _openProductDetail(item),
-                          child: _CartItemCard(
-                            item: item,
-                            onQuantityChanged: (delta) =>
-                                _updateQuantity(index, delta),
-                            onRemove: () => _removeItem(index),
+      extendBodyBehindAppBar: true,
+      body: Stack(
+        children: [
+          // ── Content ─────────────────────────────────────────────
+          _isLoading
+              ? Center(
+                  child: CircularProgressIndicator(
+                    color: isDark ? AppColors.darkPrimaryText : AppColors.black,
+                  ),
+                )
+              : _cartItems.isEmpty
+              ? _buildEmptyState()
+              : Column(
+                  children: [
+                    // Cart Items List
+                    Expanded(
+                      child: RefreshIndicator(
+                        onRefresh: _loadCart,
+                        color: isDark ? AppColors.white : AppColors.black,
+                        child: ListView.builder(
+                          padding: EdgeInsets.fromLTRB(
+                            16,
+                            headerTotal + 8,
+                            16,
+                            16,
                           ),
-                        );
-                      },
+                          itemCount: _cartItems.length,
+                          itemBuilder: (context, index) {
+                            final item = _cartItems[index];
+                            return GestureDetector(
+                              onTap: () => _openProductDetail(item),
+                              child: _CartItemCard(
+                                item: item,
+                                onQuantityChanged: (delta) =>
+                                    _updateQuantity(index, delta),
+                                onRemove: () => _removeItem(index),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+
+                    // Order Summary
+                    _buildOrderSummary(),
+                  ],
+                ),
+
+          // ── Floating glass header ───────────────────────────────
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                bottom: Radius.circular(40),
+              ),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                child: Container(
+                  height: headerTotal,
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? const Color(0xD0050508)
+                        : const Color(0xB8FFFFFF),
+                    borderRadius: const BorderRadius.vertical(
+                      bottom: Radius.circular(40),
+                    ),
+                    border: Border.all(
+                      color: isDark
+                          ? const Color(0x22FFFFFF)
+                          : const Color(0x28000000),
+                      width: 0.5,
+                    ),
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.only(top: topPadding),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: Icon(
+                            Icons.arrow_back_ios_new_rounded,
+                            size: 20,
+                            color: isDark
+                                ? AppColors.darkPrimaryText
+                                : AppColors.black,
+                          ),
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                        Expanded(
+                          child: Text(
+                            l10n.cart,
+                            style: AppTypography.heading3.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: theme.colorScheme.onSurface,
+                            ),
+                          ),
+                        ),
+                        if (_cartItems.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 20),
+                            child: GestureDetector(
+                              onTap: _clearCart,
+                              child: Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.red.withValues(alpha: 0.5),
+                                    width: 1.2,
+                                  ),
+                                  color: Colors.red.withValues(alpha: 0.08),
+                                ),
+                                child: const Icon(
+                                  Icons.delete_outline_rounded,
+                                  color: Colors.red,
+                                  size: 20,
+                                ),
+                              ),
+                            ),
+                          )
+                        else
+                          const SizedBox(width: 56),
+                      ],
                     ),
                   ),
                 ),
-
-                // Order Summary
-                _buildOrderSummary(),
-              ],
+              ),
             ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -575,18 +629,26 @@ class _CartScreenState extends State<CartScreen> {
 
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? AppColors.darkCardBackground : AppColors.white,
+        color: isDark ? const Color(0xF0050508) : const Color(0xF8FFFFFF),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+        border: Border(
+          top: BorderSide(
+            color: isDark ? const Color(0x22FFFFFF) : const Color(0x28000000),
+            width: 0.5,
+          ),
+        ),
         boxShadow: [
           BoxShadow(
-            color: (isDark ? Colors.white : Colors.black).withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, -5),
+            color: const Color(0x1A000000),
+            blurRadius: 24,
+            offset: const Offset(0, -6),
           ),
         ],
       ),
       child: SafeArea(
+        top: false,
         child: Padding(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
           child: Column(
             children: [
               // USD Total (if present)
@@ -644,14 +706,13 @@ class _CartScreenState extends State<CartScreen> {
                 child: ElevatedButton(
                   onPressed: _proceedToCheckout,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: isDark
-                        ? AppColors.darkPrimaryText
-                        : AppColors.black,
+                    backgroundColor: isDark ? Colors.white : AppColors.black,
                     foregroundColor: isDark ? AppColors.black : AppColors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(14),
                     ),
+                    elevation: 0,
                   ),
                   child: Text(
                     l10n.proceedToCheckout,
@@ -710,18 +771,16 @@ class _CartItemCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
               child: Container(
                 width: 70,
-                height: 95,
+                height: 78,
                 color: isDark
                     ? AppColors.darkMainBackground
                     : AppColors.gray100,
                 child: CachedNetworkImage(
                   imageUrl: item.imageUrl,
-                  width: 70,
-                  height: 95,
                   fit: BoxFit.cover,
                   cacheManager: ImageCacheManager.instance,
                   memCacheWidth: 140,
-                  memCacheHeight: 190,
+                  memCacheHeight: 156,
                   placeholder: (context, url) => Container(
                     color: isDark
                         ? AppColors.darkTertiaryText
@@ -817,35 +876,97 @@ class _CartItemCard extends StatelessWidget {
                       const Spacer(),
                       // Quantity Controls
                       Container(
+                        height: 36,
                         decoration: BoxDecoration(
-                          border: Border.all(
-                            color: isDark
-                                ? AppColors.darkSecondaryText
-                                : AppColors.gray300,
-                          ),
-                          borderRadius: BorderRadius.circular(6),
+                          color: isDark
+                              ? AppColors.darkMainBackground
+                              : AppColors.gray100,
+                          borderRadius: BorderRadius.circular(18),
                         ),
                         child: Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            _QuantityButton(
-                              icon: Icons.remove,
-                              onPressed: () => onQuantityChanged(-1),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
+                            // Minus / trash
+                            GestureDetector(
+                              onTap: () => item.quantity == 1
+                                  ? onRemove()
+                                  : onQuantityChanged(-1),
+                              child: Container(
+                                width: 32,
+                                height: 32,
+                                margin: const EdgeInsets.all(2),
+                                decoration: BoxDecoration(
+                                  color: item.quantity == 1
+                                      ? Colors.red.withValues(alpha: 0.12)
+                                      : (isDark
+                                            ? AppColors.darkCardBackground
+                                            : AppColors.white),
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(
+                                        alpha: isDark ? 0.3 : 0.08,
+                                      ),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 1),
+                                    ),
+                                  ],
+                                ),
+                                child: Icon(
+                                  item.quantity == 1
+                                      ? Icons.delete_outline_rounded
+                                      : Icons.remove_rounded,
+                                  size: 16,
+                                  color: item.quantity == 1
+                                      ? Colors.red
+                                      : (isDark
+                                            ? AppColors.darkPrimaryText
+                                            : AppColors.black),
+                                ),
                               ),
+                            ),
+                            // Count
+                            SizedBox(
+                              width: 32,
                               child: Text(
                                 '${item.quantity}',
+                                textAlign: TextAlign.center,
                                 style: AppTypography.body2.copyWith(
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: FontWeight.w700,
                                   color: theme.colorScheme.onSurface,
                                 ),
                               ),
                             ),
-                            _QuantityButton(
-                              icon: Icons.add,
-                              onPressed: () => onQuantityChanged(1),
+                            // Plus
+                            GestureDetector(
+                              onTap: () => onQuantityChanged(1),
+                              child: Container(
+                                width: 32,
+                                height: 32,
+                                margin: const EdgeInsets.all(2),
+                                decoration: BoxDecoration(
+                                  color: isDark
+                                      ? AppColors.darkCardBackground
+                                      : AppColors.white,
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(
+                                        alpha: isDark ? 0.3 : 0.08,
+                                      ),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 1),
+                                    ),
+                                  ],
+                                ),
+                                child: Icon(
+                                  Icons.add_rounded,
+                                  size: 16,
+                                  color: isDark
+                                      ? AppColors.darkPrimaryText
+                                      : AppColors.black,
+                                ),
+                              ),
                             ),
                           ],
                         ),
@@ -854,18 +975,6 @@ class _CartItemCard extends StatelessWidget {
                   ),
                 ],
               ),
-            ),
-
-            // Remove Button
-            IconButton(
-              icon: Icon(
-                Icons.close,
-                size: 20,
-                color: theme.colorScheme.onSurface,
-              ),
-              onPressed: onRemove,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
             ),
           ],
         ),
@@ -894,54 +1003,6 @@ class _CartItemCard extends StatelessWidget {
         shape: BoxShape.circle,
         color: color,
         border: Border.all(color: Colors.grey.withOpacity(0.3), width: 1),
-      ),
-    );
-  }
-}
-
-/// Quantity Button Widget
-class _QuantityButton extends StatefulWidget {
-  final IconData icon;
-  final VoidCallback onPressed;
-
-  const _QuantityButton({required this.icon, required this.onPressed});
-
-  @override
-  State<_QuantityButton> createState() => _QuantityButtonState();
-}
-
-class _QuantityButtonState extends State<_QuantityButton> {
-  bool _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) {
-        setState(() => _pressed = false);
-        widget.onPressed();
-      },
-      onTapCancel: () => setState(() => _pressed = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 80),
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          color: _pressed
-              ? (isDark ? Colors.white24 : Colors.black12)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Icon(
-          widget.icon,
-          size: 18,
-          color: _pressed
-              ? (isDark ? AppColors.white : AppColors.black)
-              : theme.colorScheme.onSurface,
-        ),
       ),
     );
   }

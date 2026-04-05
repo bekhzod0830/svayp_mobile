@@ -356,8 +356,13 @@ class Product {
 class ProductListResponse {
   final List<Product> products;
   final int total;
+  final String? nextCursor;
 
-  ProductListResponse({required this.products, required this.total});
+  ProductListResponse({
+    required this.products,
+    required this.total,
+    this.nextCursor,
+  });
 
   factory ProductListResponse.fromJson(Map<String, dynamic> json) {
     // Safely parse products list, skipping any that fail

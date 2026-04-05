@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -26,10 +27,13 @@ import 'package:swipe/shared/widgets/widgets.dart';
 import 'package:swipe/core/utils/local_storage_helper.dart';
 import 'package:swipe/features/cart/data/services/cart_service.dart';
 import 'package:swipe/features/liked/data/services/liked_service.dart';
+import 'package:swipe/features/liked/presentation/screens/liked_screen.dart';
 import 'package:swipe/features/chat/data/services/chat_cache_service.dart';
 import 'package:swipe/core/services/recommendation_cache_service.dart';
 import 'package:swipe/core/services/seen_products_service.dart';
 import 'package:swipe/core/cache/image_cache_manager.dart';
+import 'package:swipe/shared/widgets/main_top_bar.dart';
+import 'dart:ui';
 
 /// Profile Screen - User profile and settings
 class ProfileScreen extends StatefulWidget {
@@ -245,548 +249,582 @@ class _ProfileScreenState extends State<ProfileScreen>
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: isDark
-            ? AppColors.darkMainBackground
-            : AppColors.white,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        title: Text(
-          l10n.profile,
-          style: AppTypography.heading2.copyWith(
-            fontWeight: FontWeight.w700,
-            color: theme.colorScheme.onSurface,
-            letterSpacing: -0.5,
-          ),
-        ),
-      ),
-      body: _isLoading
-          ? Center(
-              child: CircularProgressIndicator(
-                color: isDark ? AppColors.darkPrimaryText : AppColors.black,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Glass Header
+            MainTopBar(title: l10n.profile),
+            // Content
+            if (_isLoading)
+              Expanded(
+                child: Center(
+                  child: CircularProgressIndicator(
+                    color: isDark ? AppColors.darkPrimaryText : AppColors.black,
+                  ),
+                ),
               ),
-            )
-          : SafeArea(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  // Ensure constraints are valid
-                  if (!constraints.hasBoundedHeight) {
-                    return const Center(child: Text('Loading...'));
-                  }
+            if (!_isLoading)
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    // Ensure constraints are valid
+                    if (!constraints.hasBoundedHeight) {
+                      return const Center(child: Text('Loading...'));
+                    }
 
-                  return Center(
-                    child: Container(
-                      constraints: BoxConstraints(
-                        maxWidth: ResponsiveUtils.responsive<double>(
-                          context: context,
-                          mobile: double.infinity,
-                          tablet: 700,
-                          desktop: 900,
+                    return Center(
+                      child: Container(
+                        constraints: BoxConstraints(
+                          maxWidth: ResponsiveUtils.responsive<double>(
+                            context: context,
+                            mobile: double.infinity,
+                            tablet: 700,
+                            desktop: 900,
+                          ),
                         ),
-                      ),
-                      child: RefreshIndicator(
-                        onRefresh: _loadUserData,
-                        color: isDark
-                            ? AppColors.darkPrimaryText
-                            : AppColors.black,
-                        child: SingleChildScrollView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              minHeight: constraints.maxHeight,
-                            ),
-                            child: IntrinsicHeight(
-                              child: Column(
-                                children: [
-                                  // Profile Header
-                                  GestureDetector(
-                                    onTap: !_isPartner && _userId.isNotEmpty
-                                        ? () {
-                                            showDialog(
-                                              context: context,
-                                              barrierDismissible: true,
-                                              barrierColor: Colors.black
-                                                  .withOpacity(0.9),
-                                              builder: (_) => _FullPageQrView(
-                                                userId: _userId,
-                                                userName: _userName,
-                                                points: _cashbackBalance,
-                                              ),
-                                            );
-                                          }
-                                        : null,
-                                    child: Container(
-                                      margin: EdgeInsets.symmetric(
+                        child: RefreshIndicator(
+                          onRefresh: _loadUserData,
+                          color: isDark
+                              ? AppColors.darkPrimaryText
+                              : AppColors.black,
+                          child: SingleChildScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                minHeight: constraints.maxHeight,
+                              ),
+                              child: IntrinsicHeight(
+                                child: Column(
+                                  children: [
+                                    // Profile Header
+                                    Padding(
+                                      padding: EdgeInsets.symmetric(
                                         horizontal:
                                             ResponsiveUtils.getHorizontalPadding(
                                               context,
                                             ),
                                         vertical: 16,
                                       ),
-                                      padding: const EdgeInsets.all(20),
-                                      decoration: BoxDecoration(
-                                        color: isDark
-                                            ? AppColors.darkCardBackground
-                                            : AppColors.white,
-                                        borderRadius: BorderRadius.circular(16),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color:
-                                                (isDark
-                                                        ? Colors.white
-                                                        : AppColors.black)
-                                                    .withOpacity(0.05),
-                                            blurRadius: 10,
-                                            offset: const Offset(0, 2),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(20),
+                                        child: BackdropFilter(
+                                          filter: ImageFilter.blur(
+                                            sigmaX: 20,
+                                            sigmaY: 20,
                                           ),
-                                        ],
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          // Avatar
-                                          Container(
-                                            width: 70,
-                                            height: 70,
+                                          child: Container(
+                                            padding: const EdgeInsets.all(20),
                                             decoration: BoxDecoration(
-                                              shape: BoxShape.circle,
-                                              gradient: LinearGradient(
-                                                begin: Alignment.topLeft,
-                                                end: Alignment.bottomRight,
-                                                colors: isDark
-                                                    ? [
-                                                        AppColors.gray700,
-                                                        AppColors.gray600,
-                                                      ]
-                                                    : [
-                                                        AppColors.gray400,
-                                                        AppColors.gray500,
-                                                      ],
+                                              color: isDark
+                                                  ? const Color(0xD0050508)
+                                                  : const Color(0xEAFFFFFF),
+                                              borderRadius:
+                                                  BorderRadius.circular(20),
+                                              border: Border.all(
+                                                color: isDark
+                                                    ? const Color(0x22FFFFFF)
+                                                    : const Color(0x18000000),
+                                                width: 1.0,
                                               ),
-                                            ),
-                                            child: Center(
-                                              child: Text(
-                                                _userName
-                                                    .split(' ')
-                                                    .map(
-                                                      (e) => e.isNotEmpty
-                                                          ? e[0]
-                                                          : '',
-                                                    )
-                                                    .join('')
-                                                    .toUpperCase(),
-                                                style: AppTypography.heading3
-                                                    .copyWith(
-                                                      color: AppColors.white,
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                    ),
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 16),
-
-                                          // Name and Phone/Username+Role
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  _userName,
-                                                  style: AppTypography.heading4
-                                                      .copyWith(
-                                                        fontWeight:
-                                                            FontWeight.w700,
-                                                        color: theme
-                                                            .colorScheme
-                                                            .onSurface,
-                                                      ),
-                                                  maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: isDark
+                                                      ? const Color(0x40000000)
+                                                      : const Color(0x12000000),
+                                                  blurRadius: 24,
+                                                  offset: const Offset(0, 6),
                                                 ),
-                                                const SizedBox(height: 6),
-                                                if (_isPartner) ...[
-                                                  // Show username and role for admins
-                                                  if (_username.isNotEmpty)
-                                                    Row(
-                                                      children: [
-                                                        Icon(
-                                                          Icons.alternate_email,
-                                                          size: 16,
-                                                          color: isDark
-                                                              ? AppColors
-                                                                    .darkSecondaryText
-                                                              : AppColors
-                                                                    .gray600,
-                                                        ),
-                                                        const SizedBox(
-                                                          width: 6,
-                                                        ),
-                                                        Flexible(
-                                                          child: Text(
-                                                            _username,
-                                                            style: AppTypography
-                                                                .body2
-                                                                .copyWith(
+                                              ],
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                // Avatar
+                                                Container(
+                                                  width: 70,
+                                                  height: 70,
+                                                  decoration: BoxDecoration(
+                                                    shape: BoxShape.circle,
+                                                    gradient: LinearGradient(
+                                                      begin: Alignment.topLeft,
+                                                      end:
+                                                          Alignment.bottomRight,
+                                                      colors: isDark
+                                                          ? [
+                                                              AppColors.gray700,
+                                                              AppColors.gray600,
+                                                            ]
+                                                          : [
+                                                              AppColors.gray400,
+                                                              AppColors.gray500,
+                                                            ],
+                                                    ),
+                                                  ),
+                                                  child: Center(
+                                                    child: Text(
+                                                      _userName
+                                                          .split(' ')
+                                                          .map(
+                                                            (e) => e.isNotEmpty
+                                                                ? e[0]
+                                                                : '',
+                                                          )
+                                                          .join('')
+                                                          .toUpperCase(),
+                                                      style: AppTypography
+                                                          .heading3
+                                                          .copyWith(
+                                                            color:
+                                                                AppColors.white,
+                                                            fontWeight:
+                                                                FontWeight.w700,
+                                                          ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 16),
+
+                                                // Name and Phone/Username+Role
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      Text(
+                                                        _userName,
+                                                        style: AppTypography
+                                                            .heading4
+                                                            .copyWith(
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w700,
+                                                              color: theme
+                                                                  .colorScheme
+                                                                  .onSurface,
+                                                            ),
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                      ),
+                                                      const SizedBox(height: 6),
+                                                      if (_isPartner) ...[
+                                                        // Show username and role for admins
+                                                        if (_username
+                                                            .isNotEmpty)
+                                                          Row(
+                                                            children: [
+                                                              Icon(
+                                                                Icons
+                                                                    .alternate_email,
+                                                                size: 16,
+                                                                color: isDark
+                                                                    ? AppColors
+                                                                          .darkSecondaryText
+                                                                    : AppColors
+                                                                          .gray600,
+                                                              ),
+                                                              const SizedBox(
+                                                                width: 6,
+                                                              ),
+                                                              Flexible(
+                                                                child: Text(
+                                                                  _username,
+                                                                  style: AppTypography
+                                                                      .body2
+                                                                      .copyWith(
+                                                                        color:
+                                                                            isDark
+                                                                            ? AppColors.darkSecondaryText
+                                                                            : AppColors.gray600,
+                                                                      ),
+                                                                  overflow:
+                                                                      TextOverflow
+                                                                          .ellipsis,
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        if (_username
+                                                            .isNotEmpty)
+                                                          const SizedBox(
+                                                            height: 4,
+                                                          ),
+                                                        Row(
+                                                          children: [
+                                                            Icon(
+                                                              Icons
+                                                                  .badge_outlined,
+                                                              size: 16,
+                                                              color: isDark
+                                                                  ? AppColors
+                                                                        .darkSecondaryText
+                                                                  : AppColors
+                                                                        .gray600,
+                                                            ),
+                                                            const SizedBox(
+                                                              width: 6,
+                                                            ),
+                                                            Flexible(
+                                                              child: Text(
+                                                                _userRole
+                                                                    .toUpperCase(),
+                                                                style: AppTypography.body2.copyWith(
                                                                   color: isDark
                                                                       ? AppColors
                                                                             .darkSecondaryText
                                                                       : AppColors
                                                                             .gray600,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w600,
                                                                 ),
-                                                            overflow:
-                                                                TextOverflow
-                                                                    .ellipsis,
-                                                          ),
+                                                                overflow:
+                                                                    TextOverflow
+                                                                        .ellipsis,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ] else ...[
+                                                        // Show phone for regular users
+                                                        Row(
+                                                          children: [
+                                                            Icon(
+                                                              Icons
+                                                                  .phone_outlined,
+                                                              size: 16,
+                                                              color: isDark
+                                                                  ? AppColors
+                                                                        .darkSecondaryText
+                                                                  : AppColors
+                                                                        .gray600,
+                                                            ),
+                                                            const SizedBox(
+                                                              width: 6,
+                                                            ),
+                                                            Flexible(
+                                                              child: Text(
+                                                                _userPhone,
+                                                                style: AppTypography
+                                                                    .body2
+                                                                    .copyWith(
+                                                                      color:
+                                                                          isDark
+                                                                          ? AppColors.darkSecondaryText
+                                                                          : AppColors.gray600,
+                                                                    ),
+                                                                overflow:
+                                                                    TextOverflow
+                                                                        .ellipsis,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                        const SizedBox(
+                                                          height: 6,
+                                                        ),
+                                                        // Show cashback balance
+                                                        Row(
+                                                          children: [
+                                                            Icon(
+                                                              Icons
+                                                                  .account_balance_wallet_outlined,
+                                                              size: 16,
+                                                              color: isDark
+                                                                  ? AppColors
+                                                                        .darkPrimaryText
+                                                                  : AppColors
+                                                                        .black,
+                                                            ),
+                                                            const SizedBox(
+                                                              width: 6,
+                                                            ),
+                                                            Flexible(
+                                                              child: Text(
+                                                                '${NumberFormat('#,###').format(_cashbackBalance.toInt())} ${l10n.points}',
+                                                                style: AppTypography.body2.copyWith(
+                                                                  color: isDark
+                                                                      ? AppColors
+                                                                            .darkPrimaryText
+                                                                      : AppColors
+                                                                            .black,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w600,
+                                                                ),
+                                                                overflow:
+                                                                    TextOverflow
+                                                                        .ellipsis,
+                                                              ),
+                                                            ),
+                                                          ],
                                                         ),
                                                       ],
-                                                    ),
-                                                  if (_username.isNotEmpty)
-                                                    const SizedBox(height: 4),
-                                                  Row(
-                                                    children: [
-                                                      Icon(
-                                                        Icons.badge_outlined,
-                                                        size: 16,
-                                                        color: isDark
-                                                            ? AppColors
-                                                                  .darkSecondaryText
-                                                            : AppColors.gray600,
-                                                      ),
-                                                      const SizedBox(width: 6),
-                                                      Flexible(
-                                                        child: Text(
-                                                          _userRole
-                                                              .toUpperCase(),
-                                                          style: AppTypography
-                                                              .body2
-                                                              .copyWith(
-                                                                color: isDark
-                                                                    ? AppColors
-                                                                          .darkSecondaryText
-                                                                    : AppColors
-                                                                          .gray600,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w600,
-                                                              ),
-                                                          overflow: TextOverflow
-                                                              .ellipsis,
-                                                        ),
-                                                      ),
                                                     ],
                                                   ),
-                                                ] else ...[
-                                                  // Show phone for regular users
-                                                  Row(
-                                                    children: [
-                                                      Icon(
-                                                        Icons.phone_outlined,
-                                                        size: 16,
-                                                        color: isDark
-                                                            ? AppColors
-                                                                  .darkSecondaryText
-                                                            : AppColors.gray600,
-                                                      ),
-                                                      const SizedBox(width: 6),
-                                                      Flexible(
-                                                        child: Text(
-                                                          _userPhone,
-                                                          style: AppTypography
-                                                              .body2
-                                                              .copyWith(
-                                                                color: isDark
-                                                                    ? AppColors
-                                                                          .darkSecondaryText
-                                                                    : AppColors
-                                                                          .gray600,
-                                                              ),
-                                                          overflow: TextOverflow
-                                                              .ellipsis,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                  const SizedBox(height: 6),
-                                                  // Show cashback balance
-                                                  Row(
-                                                    children: [
-                                                      Icon(
-                                                        Icons
-                                                            .account_balance_wallet_outlined,
-                                                        size: 16,
-                                                        color: isDark
-                                                            ? AppColors
-                                                                  .darkPrimaryText
-                                                            : AppColors.black,
-                                                      ),
-                                                      const SizedBox(width: 6),
-                                                      Flexible(
-                                                        child: Text(
-                                                          '${NumberFormat('#,###').format(_cashbackBalance.toInt())} ${l10n.points}',
-                                                          style: AppTypography
-                                                              .body2
-                                                              .copyWith(
-                                                                color: isDark
-                                                                    ? AppColors
-                                                                          .darkPrimaryText
-                                                                    : AppColors
-                                                                          .black,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w600,
-                                                              ),
-                                                          overflow: TextOverflow
-                                                              .ellipsis,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ],
+                                                ),
                                               ],
                                             ),
                                           ),
-
-                                          // QR Code preview (for non-partners)
-                                          if (!_isPartner &&
-                                              _userId.isNotEmpty) ...[
-                                            const SizedBox(width: 12),
-                                            Container(
-                                              width: 76,
-                                              height: 76,
-                                              padding: const EdgeInsets.all(8),
-                                              decoration: BoxDecoration(
-                                                color: AppColors.white,
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                                border: Border.all(
-                                                  color: isDark
-                                                      ? AppColors.gray700
-                                                      : AppColors.gray300,
-                                                  width: 1,
-                                                ),
-                                              ),
-                                              child: QrImageView(
-                                                data: _userId,
-                                                version: QrVersions.auto,
-                                                size: 60,
-                                                backgroundColor:
-                                                    AppColors.white,
-                                                eyeStyle: const QrEyeStyle(
-                                                  eyeShape: QrEyeShape.square,
-                                                  color: AppColors.black,
-                                                ),
-                                                dataModuleStyle:
-                                                    const QrDataModuleStyle(
-                                                      dataModuleShape:
-                                                          QrDataModuleShape
-                                                              .square,
-                                                      color: AppColors.black,
-                                                    ),
-                                              ),
-                                            ),
-                                          ],
-                                        ],
+                                        ),
                                       ),
                                     ),
-                                  ),
 
-                                  const SizedBox(height: 16),
+                                    // Liquid Glass QR Card (non-partners only)
+                                    if (!_isPartner && _userId.isNotEmpty)
+                                      _LiquidGlassQrCard(
+                                        userId: _userId,
+                                        userName: _userName,
+                                        balance: _cashbackBalance,
+                                      ),
 
-                                  // Profile Information Section
-                                  if (_userProfile != null) ...[
+                                    const SizedBox(height: 16),
+
+                                    // Profile Information Section
+                                    if (_userProfile != null) ...[
+                                      _buildSection(
+                                        title: '',
+                                        items: [
+                                          _ProfileMenuItem(
+                                            icon: Icons.person_outline,
+                                            title: l10n.profileInformation,
+                                            onTap: () {
+                                              Navigator.of(
+                                                context,
+                                                rootNavigator: true,
+                                              ).push(
+                                                MaterialPageRoute(
+                                                  builder: (context) =>
+                                                      ProfileInformationScreen(
+                                                        profile: _userProfile!,
+                                                      ),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 16),
+                                    ],
+
+                                    // Account Section
+                                    if (!_isPartner) ...[
+                                      _buildSection(
+                                        title: l10n.account,
+                                        items: [
+                                          _ProfileMenuItem(
+                                            icon: Icons.shopping_bag_outlined,
+                                            title: l10n.myOrders,
+                                            onTap: () {
+                                              Navigator.of(
+                                                context,
+                                                rootNavigator: true,
+                                              ).push(
+                                                MaterialPageRoute(
+                                                  builder: (_) =>
+                                                      const OrdersScreen(),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                          _ProfileMenuItem(
+                                            icon: Icons.favorite_border,
+                                            title: l10n.savedItems,
+                                            onTap: () {
+                                              Navigator.of(
+                                                context,
+                                                rootNavigator: true,
+                                              ).push(
+                                                MaterialPageRoute(
+                                                  builder: (_) =>
+                                                      const LikedScreen(),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                          _ProfileMenuItem(
+                                            icon: Icons.location_on_outlined,
+                                            title: l10n.addresses,
+                                            onTap: () {
+                                              Navigator.of(
+                                                context,
+                                                rootNavigator: true,
+                                              ).push(
+                                                MaterialPageRoute(
+                                                  builder: (context) =>
+                                                      const AddressListScreen(),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                        ],
+                                      ),
+
+                                      const SizedBox(height: 16),
+                                    ],
+
+                                    // Preferences Section
+                                    _buildSection(
+                                      title: l10n.preferences,
+                                      items: [
+                                        _ProfileMenuItem(
+                                          icon: Icons.dark_mode_outlined,
+                                          title: l10n.darkMode,
+                                          trailing: Consumer<ThemeService>(
+                                            builder:
+                                                (context, themeService, child) {
+                                                  return Switch(
+                                                    value:
+                                                        themeService.isDarkMode,
+                                                    onChanged: (_) =>
+                                                        themeService
+                                                            .toggleTheme(),
+                                                    activeColor:
+                                                        AppColors.white,
+                                                    activeTrackColor:
+                                                        AppColors.gray700,
+                                                  );
+                                                },
+                                          ),
+                                          onTap: () {
+                                            context
+                                                .read<ThemeService>()
+                                                .toggleTheme();
+                                          },
+                                        ),
+                                        _ProfileMenuItem(
+                                          icon: Icons.language_outlined,
+                                          title: l10n.language,
+                                          trailing: Text(_currentLanguage),
+                                          onTap: () async {
+                                            await Navigator.of(
+                                              context,
+                                              rootNavigator: true,
+                                            ).push(
+                                              MaterialPageRoute(
+                                                builder: (context) =>
+                                                    const LanguageSettingsScreen(),
+                                              ),
+                                            );
+                                            // Reload language after returning
+                                            _loadCurrentLanguage();
+                                          },
+                                        ),
+                                      ],
+                                    ),
+
+                                    const SizedBox(height: 16),
+
+                                    // Spacer to push logout to bottom (for partners/admins)
+                                    if (_isPartner) const Spacer(),
+
+                                    // Logout + Delete Account Section
                                     _buildSection(
                                       title: '',
                                       items: [
                                         _ProfileMenuItem(
-                                          icon: Icons.person_outline,
-                                          title: l10n.profileInformation,
-                                          onTap: () {
-                                            Navigator.of(context).push(
-                                              MaterialPageRoute(
-                                                builder: (context) =>
-                                                    ProfileInformationScreen(
-                                                      profile: _userProfile!,
-                                                    ),
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 16),
-                                  ],
-
-                                  // Account Section
-                                  if (!_isPartner) ...[
-                                    _buildSection(
-                                      title: l10n.account,
-                                      items: [
-                                        _ProfileMenuItem(
-                                          icon: Icons.shopping_bag_outlined,
-                                          title: l10n.myOrders,
-                                          onTap: () {
-                                            Navigator.of(context).push(
-                                              MaterialPageRoute(
-                                                builder: (_) =>
-                                                    const OrdersScreen(),
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                        _ProfileMenuItem(
-                                          icon: Icons.favorite_border,
-                                          title: l10n.savedItems,
-                                          onTap: () {
-                                            // Navigate to Liked tab (index 1)
-                                            final mainScreenState = context
-                                                .findAncestorStateOfType<
-                                                  MainScreenState
-                                                >();
-                                            if (mainScreenState != null) {
-                                              mainScreenState.navigateToTab(1);
-                                            }
-                                          },
-                                        ),
-                                        _ProfileMenuItem(
-                                          icon: Icons.location_on_outlined,
-                                          title: l10n.addresses,
-                                          onTap: () {
-                                            Navigator.of(context).push(
-                                              MaterialPageRoute(
-                                                builder: (context) =>
-                                                    const AddressListScreen(),
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                      ],
-                                    ),
-
-                                    const SizedBox(height: 16),
-                                  ],
-
-                                  // Preferences Section
-                                  _buildSection(
-                                    title: l10n.preferences,
-                                    items: [
-                                      _ProfileMenuItem(
-                                        icon: Icons.dark_mode_outlined,
-                                        title: l10n.darkMode,
-                                        trailing: Consumer<ThemeService>(
-                                          builder:
-                                              (context, themeService, child) {
-                                                return Switch(
-                                                  value:
-                                                      themeService.isDarkMode,
-                                                  onChanged: (_) => themeService
-                                                      .toggleTheme(),
-                                                  activeColor: AppColors.white,
-                                                  activeTrackColor:
-                                                      AppColors.gray700,
-                                                );
-                                              },
-                                        ),
-                                        onTap: () {
-                                          context
-                                              .read<ThemeService>()
-                                              .toggleTheme();
-                                        },
-                                      ),
-                                      _ProfileMenuItem(
-                                        icon: Icons.language_outlined,
-                                        title: l10n.language,
-                                        trailing: Text(_currentLanguage),
-                                        onTap: () async {
-                                          await Navigator.of(context).push(
-                                            MaterialPageRoute(
-                                              builder: (context) =>
-                                                  const LanguageSettingsScreen(),
-                                            ),
-                                          );
-                                          // Reload language after returning
-                                          _loadCurrentLanguage();
-                                        },
-                                      ),
-                                    ],
-                                  ),
-
-                                  const SizedBox(height: 16),
-
-                                  // Spacer to push logout to bottom (for partners/admins)
-                                  if (_isPartner) const Spacer(),
-
-                                  // Logout + Delete Account Section
-                                  _buildSection(
-                                    title: '',
-                                    items: [
-                                      _ProfileMenuItem(
-                                        icon: Icons.logout,
-                                        title: l10n.logout,
-                                        textColor: Colors.red,
-                                        onTap: _onLogout,
-                                      ),
-                                      if (!_isPartner)
-                                        _ProfileMenuItem(
-                                          icon: Icons.delete_forever_outlined,
-                                          title: l10n.deleteAccount,
+                                          icon: Icons.logout,
+                                          title: l10n.logout,
                                           textColor: Colors.red,
-                                          onTap: _onDeleteAccount,
+                                          onTap: _onLogout,
                                         ),
-                                    ],
-                                  ),
-
-                                  const SizedBox(height: 24),
-
-                                  // App Version
-                                  Text(
-                                    l10n.version('1.0.4'),
-                                    style: AppTypography.caption.copyWith(
-                                      color: AppColors.gray500,
+                                        if (!_isPartner)
+                                          _ProfileMenuItem(
+                                            icon: Icons.delete_forever_outlined,
+                                            title: l10n.deleteAccount,
+                                            textColor: Colors.red,
+                                            onTap: _onDeleteAccount,
+                                          ),
+                                      ],
                                     ),
-                                  ),
-                                  const SizedBox(height: 24),
-                                ],
+
+                                    const SizedBox(height: 24),
+
+                                    // App Version
+                                    Text(
+                                      l10n.version('2.0.0'),
+                                      style: AppTypography.caption.copyWith(
+                                        color: AppColors.gray500,
+                                      ),
+                                    ),
+                                    SizedBox(
+                                      height:
+                                          MediaQuery.of(
+                                            context,
+                                          ).viewPadding.bottom +
+                                          96,
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
-            ),
+          ],
+        ),
+      ),
     );
   }
 
   Widget _buildSection({required String title, required List<Widget> items}) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final hPad = ResponsiveUtils.getHorizontalPadding(context);
 
-    return Container(
-      width: double.infinity,
-      color: isDark ? AppColors.darkCardBackground : AppColors.white,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (title.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-              child: Text(
-                title,
-                style: AppTypography.body2.copyWith(
-                  color: isDark
-                      ? AppColors.darkSecondaryText
-                      : AppColors.gray600,
-                  fontWeight: FontWeight.w600,
-                ),
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: hPad),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xD0050508) : const Color(0xEAFFFFFF),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isDark
+                    ? const Color(0x22FFFFFF)
+                    : const Color(0x18000000),
+                width: 1.0,
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: isDark
+                      ? const Color(0x40000000)
+                      : const Color(0x12000000),
+                  blurRadius: 24,
+                  offset: const Offset(0, 6),
+                ),
+              ],
             ),
-          ...items,
-        ],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (title.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
+                    child: Text(
+                      title,
+                      style: AppTypography.body2.copyWith(
+                        color: isDark
+                            ? AppColors.darkSecondaryText
+                            : AppColors.gray600,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ...items,
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -813,45 +851,364 @@ class _ProfileMenuItem extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 56),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          child: Row(
-            children: [
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 52),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color:
+                  textColor ??
+                  (isDark ? AppColors.darkPrimaryText : AppColors.black),
+              size: 22,
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                title,
+                style: AppTypography.body1.copyWith(
+                  color:
+                      textColor ??
+                      (isDark ? AppColors.darkPrimaryText : AppColors.black),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            if (trailing != null)
+              trailing!
+            else
               Icon(
-                icon,
-                color:
-                    textColor ??
-                    (isDark ? AppColors.darkPrimaryText : AppColors.black),
-                size: 24,
+                Icons.chevron_right,
+                color: isDark ? AppColors.darkSecondaryText : AppColors.gray400,
+                size: 20,
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  title,
-                  style: AppTypography.body1.copyWith(
-                    color:
-                        textColor ??
-                        (isDark ? AppColors.darkPrimaryText : AppColors.black),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              if (trailing != null)
-                trailing!
-              else
-                Icon(
-                  Icons.chevron_right,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Liquid Glass QR Card ───────────────────────────────────────────────────
+
+class _LiquidGlassQrCard extends StatefulWidget {
+  final String userId;
+  final String userName;
+  final double balance;
+
+  const _LiquidGlassQrCard({
+    required this.userId,
+    required this.userName,
+    required this.balance,
+  });
+
+  @override
+  State<_LiquidGlassQrCard> createState() => _LiquidGlassQrCardState();
+}
+
+class _LiquidGlassQrCardState extends State<_LiquidGlassQrCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _scaleCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _scaleCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 150),
+      lowerBound: 0.97,
+      upperBound: 1.0,
+      value: 1.0,
+    );
+  }
+
+  @override
+  void dispose() {
+    _scaleCtrl.dispose();
+    super.dispose();
+  }
+
+  void _pressDown() {
+    HapticFeedback.lightImpact();
+    _scaleCtrl.animateTo(0.97, curve: Curves.easeOut);
+  }
+
+  void _pressUp() => _scaleCtrl.animateTo(1.0, curve: Curves.easeOut);
+
+  void _openFullQr(BuildContext context) {
+    Navigator.of(context, rootNavigator: true).push(
+      PageRouteBuilder(
+        opaque: false,
+        barrierDismissible: true,
+        barrierColor: Colors.black.withValues(alpha: 0.85),
+        transitionDuration: const Duration(milliseconds: 380),
+        reverseTransitionDuration: const Duration(milliseconds: 260),
+        pageBuilder: (_, __, ___) => _FullPageQrView(
+          userId: widget.userId,
+          userName: widget.userName,
+          points: widget.balance,
+        ),
+        transitionsBuilder: (_, animation, __, child) {
+          final fade = CurvedAnimation(
+            parent: animation,
+            curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
+            reverseCurve: Curves.easeIn,
+          );
+          final scale = Tween<double>(begin: 0.88, end: 1.0).animate(
+            CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+          );
+          return FadeTransition(
+            opacity: fade,
+            child: ScaleTransition(scale: scale, child: child),
+          );
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final l10n = AppLocalizations.of(context)!;
+    final horizontalPad = ResponsiveUtils.getHorizontalPadding(context);
+
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: horizontalPad, vertical: 4),
+      child: AnimatedBuilder(
+        animation: _scaleCtrl,
+        builder: (_, child) =>
+            Transform.scale(scale: _scaleCtrl.value, child: child!),
+        child: GestureDetector(
+          onTapDown: (_) => _pressDown(),
+          onTapUp: (_) {
+            _pressUp();
+            _openFullQr(context);
+          },
+          onTapCancel: _pressUp,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+              child: Container(
+                decoration: BoxDecoration(
                   color: isDark
-                      ? AppColors.darkSecondaryText
-                      : AppColors.gray500,
-                  size: 24,
+                      ? const Color(0xD0050508)
+                      : const Color(0xEAFFFFFF),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isDark
+                        ? const Color(0x22FFFFFF)
+                        : const Color(0x18000000),
+                    width: 1.0,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: isDark
+                          ? const Color(0x40000000)
+                          : const Color(0x12000000),
+                      blurRadius: 24,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
                 ),
-            ],
+                padding: const EdgeInsets.all(18),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    // ── Left 60% ──────────────────────────────────
+                    Expanded(
+                      flex: 6,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Title
+                          Text(
+                            l10n.svaypCardTitle,
+                            style: AppTypography.heading4.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: isDark
+                                  ? Colors.white
+                                  : const Color(0xFF0D0D12),
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          // Balance
+                          Text(
+                            '${NumberFormat('#,###').format(widget.balance.toInt())} ${l10n.points}',
+                            style: AppTypography.body1.copyWith(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 20,
+                              color: isDark
+                                  ? const Color(0xCCFFFFFF)
+                                  : const Color(0xCC0D0D12),
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          // Glass CTA button
+                          _GlassButton(
+                            isDark: isDark,
+                            label: l10n.openQrButton,
+                            onTap: () => _openFullQr(context),
+                          ),
+                          const SizedBox(height: 10),
+                          // Description
+                          Text.rich(
+                            TextSpan(
+                              children: [
+                                TextSpan(text: l10n.qrCashbackPrefix),
+                                TextSpan(
+                                  text: l10n.qrCashbackHighlight,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            style: AppTypography.caption.copyWith(
+                              color: isDark
+                                  ? const Color(0xB3FFFFFF)
+                                  : const Color(0xB3000000),
+                              height: 1.4,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    // ── Right 40%: QR block ────────────────────────
+                    Expanded(
+                      flex: 4,
+                      child: AspectRatio(
+                        aspectRatio: 1.0,
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xF5FFFFFF),
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0x22000000),
+                                blurRadius: 14,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: QrImageView(
+                            data: widget.userId,
+                            version: QrVersions.auto,
+                            backgroundColor: Colors.white,
+                            eyeStyle: const QrEyeStyle(
+                              eyeShape: QrEyeShape.square,
+                              color: AppColors.black,
+                            ),
+                            dataModuleStyle: const QrDataModuleStyle(
+                              dataModuleShape: QrDataModuleShape.square,
+                              color: AppColors.black,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GlassButton extends StatefulWidget {
+  final bool isDark;
+  final String label;
+  final VoidCallback onTap;
+
+  const _GlassButton({
+    required this.isDark,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  State<_GlassButton> createState() => _GlassButtonState();
+}
+
+class _GlassButtonState extends State<_GlassButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 140),
+      lowerBound: 0.94,
+      upperBound: 1.0,
+      value: 1.0,
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => _ctrl.animateTo(0.94, curve: Curves.easeOut),
+      onTapUp: (_) {
+        _ctrl.animateTo(1.0, curve: Curves.easeOut);
+        widget.onTap();
+      },
+      onTapCancel: () => _ctrl.animateTo(1.0, curve: Curves.easeOut),
+      child: AnimatedBuilder(
+        animation: _ctrl,
+        builder: (_, child) =>
+            Transform.scale(scale: _ctrl.value, child: child!),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: widget.isDark
+                    ? const Color(0x30FFFFFF)
+                    : const Color(0x18000000),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: widget.isDark
+                      ? const Color(0x44FFFFFF)
+                      : const Color(0x28000000),
+                  width: 0.8,
+                ),
+              ),
+              child: Text(
+                widget.label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: widget.isDark ? Colors.white : Colors.black,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.1,
+                  decoration: TextDecoration.none,
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -877,18 +1234,36 @@ class _FullPageQrView extends StatefulWidget {
   State<_FullPageQrView> createState() => _FullPageQrViewState();
 }
 
-class _FullPageQrViewState extends State<_FullPageQrView> {
+class _FullPageQrViewState extends State<_FullPageQrView>
+    with SingleTickerProviderStateMixin {
   double? _originalBrightness;
   bool _brightnessChanged = false;
+  late final AnimationController _enterCtrl;
+  late final Animation<double> _qrScale;
+  late final Animation<double> _contentFade;
 
   @override
   void initState() {
     super.initState();
+    _enterCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 480),
+    );
+    _qrScale = Tween<double>(
+      begin: 0.72,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _enterCtrl, curve: Curves.easeOutBack));
+    _contentFade = CurvedAnimation(
+      parent: _enterCtrl,
+      curve: const Interval(0.25, 1.0, curve: Curves.easeOut),
+    );
+    _enterCtrl.forward();
     _setMaxBrightness();
   }
 
   @override
   void dispose() {
+    _enterCtrl.dispose();
     _restoreBrightness();
     super.dispose();
   }
@@ -927,112 +1302,131 @@ class _FullPageQrViewState extends State<_FullPageQrView> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: EdgeInsets.zero,
-      child: Container(
-        width: double.infinity,
-        height: double.infinity,
-        color: isDark ? AppColors.darkMainBackground : AppColors.white,
-        child: Stack(
-          children: [
-            // Main content
-            Center(
+    return Scaffold(
+      backgroundColor: isDark ? AppColors.darkMainBackground : AppColors.white,
+      body: Stack(
+        children: [
+          // Main content
+          SafeArea(
+            child: Center(
               child: SingleChildScrollView(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const SizedBox(height: 80),
-                    Text(
-                      widget.userName,
-                      style: AppTypography.heading2.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: isDark
-                            ? AppColors.darkPrimaryText
-                            : AppColors.black,
+                child: FadeTransition(
+                  opacity: _contentFade,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const SizedBox(height: 40),
+                      Text(
+                        widget.userName,
+                        style: AppTypography.heading2.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: isDark
+                              ? AppColors.darkPrimaryText
+                              : AppColors.black,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 40),
-                      child: Text(
-                        l10n.scanQrForCashback,
-                        style: AppTypography.body2.copyWith(
+                      const SizedBox(height: 6),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 40),
+                        child: Text.rich(
+                          TextSpan(
+                            children: [
+                              TextSpan(text: l10n.qrCashbackPrefix),
+                              TextSpan(
+                                text: l10n.qrCashbackHighlight,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: isDark
+                                      ? AppColors.darkPrimaryText
+                                      : AppColors.black,
+                                ),
+                              ),
+                            ],
+                          ),
+                          style: AppTypography.body2.copyWith(
+                            color: isDark
+                                ? AppColors.darkSecondaryText
+                                : AppColors.gray600,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      const SizedBox(height: 36),
+                      ScaleTransition(
+                        scale: _qrScale,
+                        child: Container(
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(
+                              color: isDark
+                                  ? AppColors.darkSecondaryText.withValues(
+                                      alpha: 0.3,
+                                    )
+                                  : AppColors.gray300,
+                              width: 2,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.10),
+                                blurRadius: 32,
+                                offset: const Offset(0, 8),
+                              ),
+                            ],
+                          ),
+                          child: QrImageView(
+                            data: widget.userId,
+                            version: QrVersions.auto,
+                            size: 260,
+                            backgroundColor: Colors.white,
+                            eyeStyle: const QrEyeStyle(
+                              eyeShape: QrEyeShape.square,
+                              color: AppColors.black,
+                            ),
+                            dataModuleStyle: const QrDataModuleStyle(
+                              dataModuleShape: QrDataModuleShape.square,
+                              color: AppColors.black,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+                      Text(
+                        NumberFormat('#,###').format(widget.points.toInt()),
+                        style: AppTypography.heading1.copyWith(
+                          fontSize: 48,
+                          fontWeight: FontWeight.w800,
+                          color: isDark
+                              ? AppColors.darkPrimaryText
+                              : AppColors.black,
+                          letterSpacing: -1,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        l10n.points,
+                        style: AppTypography.body1.copyWith(
                           color: isDark
                               ? AppColors.darkSecondaryText
                               : AppColors.gray600,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                    const SizedBox(height: 40),
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: isDark ? Colors.white : AppColors.white,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(
-                          color: isDark
-                              ? AppColors.darkSecondaryText.withOpacity(0.3)
-                              : AppColors.gray300,
-                          width: 2,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: (isDark ? Colors.white : AppColors.black)
-                                .withOpacity(0.1),
-                            blurRadius: 20,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: QrImageView(
-                        data: widget.userId,
-                        version: QrVersions.auto,
-                        size: 280,
-                        backgroundColor: Colors.white,
-                        eyeStyle: const QrEyeStyle(
-                          eyeShape: QrEyeShape.square,
-                          color: AppColors.black,
-                        ),
-                        dataModuleStyle: const QrDataModuleStyle(
-                          dataModuleShape: QrDataModuleShape.square,
-                          color: AppColors.black,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: 1.5,
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 32),
-                    Text(
-                      NumberFormat('#,###').format(widget.points.toInt()),
-                      style: AppTypography.heading1.copyWith(
-                        fontSize: 48,
-                        fontWeight: FontWeight.w800,
-                        color: isDark
-                            ? AppColors.darkPrimaryText
-                            : AppColors.black,
-                        letterSpacing: -1,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      l10n.points,
-                      style: AppTypography.body1.copyWith(
-                        color: isDark
-                            ? AppColors.darkSecondaryText
-                            : AppColors.gray600,
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: 1.5,
-                      ),
-                    ),
-                    const SizedBox(height: 80),
-                  ],
+                      const SizedBox(height: 80),
+                    ],
+                  ),
                 ),
               ),
             ),
-            // Close button at top
-            Positioned(
-              top: 50,
-              right: 20,
+          ),
+          // Close button
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 8,
+            right: 20,
+            child: FadeTransition(
+              opacity: _contentFade,
               child: Container(
                 decoration: BoxDecoration(
                   color: isDark
@@ -1041,8 +1435,7 @@ class _FullPageQrViewState extends State<_FullPageQrView> {
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: (isDark ? Colors.white : AppColors.black)
-                          .withOpacity(0.1),
+                      color: Colors.black.withValues(alpha: 0.10),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
@@ -1052,14 +1445,14 @@ class _FullPageQrViewState extends State<_FullPageQrView> {
                   icon: Icon(
                     Icons.close,
                     color: isDark ? AppColors.darkPrimaryText : AppColors.black,
-                    size: 28,
+                    size: 26,
                   ),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

@@ -2185,7 +2185,7 @@ abstract class AppLocalizations {
   /// No description provided for @vsPickCategory.
   ///
   /// In en, this message translates to:
-  /// **'Select a Category'**
+  /// **'Crop Image'**
   String get vsPickCategory;
 
   /// No description provided for @vsSearchButton.
@@ -3423,6 +3423,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Show this QR code to partners to receive cashback'**
   String get scanQrForCashback;
+
+  /// No description provided for @svaypCardTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'SVAYP Card'**
+  String get svaypCardTitle;
+
+  /// No description provided for @svaypCardCashbackDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Earn 2% cashback on every purchase'**
+  String get svaypCardCashbackDesc;
+
+  /// No description provided for @openQrButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Open'**
+  String get openQrButton;
+
+  /// No description provided for @qrFullScreenHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Show this code at checkout to receive 2% cashback'**
+  String get qrFullScreenHint;
+
+  /// No description provided for @qrCashbackPrefix.
+  ///
+  /// In en, this message translates to:
+  /// **'Show this QR code to cashier to receive '**
+  String get qrCashbackPrefix;
+
+  /// No description provided for @qrCashbackHighlight.
+  ///
+  /// In en, this message translates to:
+  /// **'2% cashback'**
+  String get qrCashbackHighlight;
 
   /// No description provided for @personalInfo.
   ///
@@ -5511,6 +5547,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Profile updated successfully'**
   String get profileUpdatedSuccess;
+
+  /// No description provided for @mapOpenMap.
+  ///
+  /// In en, this message translates to:
+  /// **'Open map'**
+  String get mapOpenMap;
+
+  /// No description provided for @mapOpenInMaps.
+  ///
+  /// In en, this message translates to:
+  /// **'Open in Maps'**
+  String get mapOpenInMaps;
+
+  /// No description provided for @loadingSellerProducts.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading seller products...'**
+  String get loadingSellerProducts;
+
+  /// No description provided for @shops.
+  ///
+  /// In en, this message translates to:
+  /// **'Shops'**
+  String get shops;
+
+  /// No description provided for @allShops.
+  ///
+  /// In en, this message translates to:
+  /// **'All Shops'**
+  String get allShops;
 
   /// No description provided for @forceUpdateTitle.
   ///

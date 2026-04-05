@@ -376,7 +376,7 @@ class _SellersListScreenState extends State<SellersListScreen> {
   }
 
   void _openSeller(SellerInfo seller) {
-    Navigator.of(context).push(
+    Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute(
         builder: (_) => SellerProfileScreen(
           sellerId: seller.id,

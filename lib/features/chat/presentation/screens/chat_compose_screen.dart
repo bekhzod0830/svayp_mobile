@@ -102,8 +102,7 @@ class _ChatComposeScreenState extends State<ChatComposeScreen> {
         Navigator.of(context, rootNavigator: true).pop();
 
         // Navigate to product detail screen
-        Navigator.push(
-          context,
+        Navigator.of(context, rootNavigator: true).push(
           MaterialPageRoute(
             builder: (context) => ProductDetailScreen(product: product),
           ),

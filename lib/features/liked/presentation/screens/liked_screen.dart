@@ -11,6 +11,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:swipe/core/cache/image_cache_manager.dart';
 import 'package:swipe/core/services/product_api_service.dart';
 import 'package:swipe/features/main/presentation/screens/main_screen.dart';
+import 'package:swipe/core/services/badge_notifier.dart';
+import 'dart:ui';
 
 /// Interface for refreshable screens
 abstract class Refreshable {
@@ -40,6 +42,7 @@ class LikedScreenState extends State<LikedScreen>
   bool _isLoadingMore = false;
   bool _hasMore = false;
   int _apiLoadedCount = 0; // tracks items fetched from API across pages
+  bool _hadNewLikes = false; // snapshot of hasNewLiked taken before clearing
   final ScrollController _scrollController = ScrollController();
 
   @override
@@ -49,6 +52,10 @@ class LikedScreenState extends State<LikedScreen>
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    // Snapshot the flag before clearing so _loadLikedProducts can decide
+    // whether to skip the API call when nothing new was liked.
+    _hadNewLikes = BadgeNotifier.instance.hasNewLiked.value;
+    BadgeNotifier.instance.clearNewLiked();
     _initializeScreen();
   }
 
@@ -82,11 +89,11 @@ class LikedScreenState extends State<LikedScreen>
   void refresh() {
     if (mounted) {
       // Force reload to pick up newly liked items from other screens
-      _loadLikedProducts();
+      _loadLikedProducts(forceRefresh: true);
     }
   }
 
-  Future<void> _loadLikedProducts() async {
+  Future<void> _loadLikedProducts({bool forceRefresh = false}) async {
     await _likedService.init();
 
     // Reset pagination
@@ -96,6 +103,18 @@ class LikedScreenState extends State<LikedScreen>
 
     // Show local cache immediately (hides loading spinner as soon as we have anything)
     final localLikedProducts = _likedService.getLikedProducts();
+
+    // Skip the API call when the screen reopens with no new likes —
+    // show the Hive cache directly to avoid an unnecessary network round-trip.
+    if (!forceRefresh && !_hadNewLikes && localLikedProducts.isNotEmpty) {
+      if (mounted) {
+        setState(() {
+          _likedProducts = localLikedProducts;
+          _isLoading = false;
+        });
+      }
+      return;
+    }
 
     // Fetch fresh data from API (keep spinner until API responds to avoid reorder flash)
     if (_authToken != null && _authToken!.isNotEmpty) {
@@ -374,7 +393,7 @@ class LikedScreenState extends State<LikedScreen>
 
     if (fullProduct != null) {
       // We have the full product, navigate directly
-      Navigator.of(context).push(
+      Navigator.of(context, rootNavigator: true).push(
         MaterialPageRoute(
           builder: (context) => ProductDetailScreen(product: fullProduct),
         ),
@@ -407,7 +426,7 @@ class LikedScreenState extends State<LikedScreen>
         sellerId: likedProduct.sellerId,
       );
 
-      Navigator.of(context).push(
+      Navigator.of(context, rootNavigator: true).push(
         MaterialPageRoute(
           builder: (context) => ProductDetailScreen(product: fallbackProduct),
         ),
@@ -422,117 +441,134 @@ class LikedScreenState extends State<LikedScreen>
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
+    final topPadding = MediaQuery.of(context).padding.top;
+    const headerHeight = 56.0;
+    final headerTotal = topPadding + headerHeight + 8.0;
+
     return Scaffold(
+      extendBodyBehindAppBar: true,
       backgroundColor: isDark
           ? AppColors.darkMainBackground
           : const Color(0xFFF7F7F8),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Minimal Header
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          l10n.likedItems,
-                          style: AppTypography.heading2.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: theme.colorScheme.onSurface,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          l10n.itemsCount(
-                            _totalLikedCount ?? _likedProducts.length,
-                          ),
-                          style: AppTypography.body2.copyWith(
+      body: Stack(
+        children: [
+          // Product Grid (TikTok-style 2-column)
+          _isLoading
+              ? Center(
+                  child: CircularProgressIndicator(
+                    color: isDark ? AppColors.darkPrimaryText : AppColors.black,
+                  ),
+                )
+              : _likedProducts.isEmpty
+              ? RefreshIndicator(
+                  onRefresh: _loadLikedProducts,
+                  color: isDark ? AppColors.darkPrimaryText : AppColors.black,
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    child: SizedBox(
+                      height: MediaQuery.of(context).size.height,
+                      child: _buildEmptyState(l10n),
+                    ),
+                  ),
+                )
+              : RefreshIndicator(
+                  onRefresh: _loadLikedProducts,
+                  color: isDark ? AppColors.darkPrimaryText : AppColors.black,
+                  child: GridView.builder(
+                    controller: _scrollController,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: EdgeInsets.fromLTRB(16, headerTotal + 4, 16, 20),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      childAspectRatio: () {
+                        final cardW =
+                            (MediaQuery.of(context).size.width - 44) / 2;
+                        return cardW / (cardW * 5 / 4 + 84);
+                      }(),
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                    ),
+                    itemCount: _likedProducts.length + (_isLoadingMore ? 2 : 0),
+                    itemBuilder: (context, index) {
+                      if (index >= _likedProducts.length) {
+                        return Center(
+                          child: CircularProgressIndicator(
                             color: isDark
-                                ? AppColors.darkSecondaryText
-                                : AppColors.gray600,
+                                ? AppColors.darkPrimaryText
+                                : AppColors.black,
+                            strokeWidth: 2,
+                          ),
+                        );
+                      }
+                      final product = _likedProducts[index];
+                      return _TikTokLikedProductCard(
+                        product: product,
+                        onTap: () => _onProductTap(product),
+                        onRemove: () => _removeLikedProduct(product, index),
+                        isDark: isDark,
+                      );
+                    },
+                  ),
+                ),
+
+          // ── Floating glass header ──────────────────────────────
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                bottom: Radius.circular(40),
+              ),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                child: Container(
+                  height: headerTotal,
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? const Color(0xD0050508)
+                        : const Color(0xB8FFFFFF),
+                    borderRadius: const BorderRadius.vertical(
+                      bottom: Radius.circular(40),
+                    ),
+                    border: Border.all(
+                      color: isDark
+                          ? const Color(0x22FFFFFF)
+                          : const Color(0x28000000),
+                      width: 0.5,
+                    ),
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.only(top: topPadding),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: Icon(
+                            Icons.arrow_back_ios_new_rounded,
+                            size: 20,
+                            color: isDark
+                                ? AppColors.darkPrimaryText
+                                : AppColors.black,
+                          ),
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                        Expanded(
+                          child: Text(
+                            l10n.likedItems,
+                            style: AppTypography.heading3.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: isDark ? Colors.white : Colors.black,
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                ],
+                ),
               ),
             ),
-            const SizedBox(height: 8),
-            // Product Grid (TikTok-style 2-column)
-            Expanded(
-              child: _isLoading
-                  ? Center(
-                      child: CircularProgressIndicator(
-                        color: isDark
-                            ? AppColors.darkPrimaryText
-                            : AppColors.black,
-                      ),
-                    )
-                  : _likedProducts.isEmpty
-                  ? RefreshIndicator(
-                      onRefresh: _loadLikedProducts,
-                      color: isDark
-                          ? AppColors.darkPrimaryText
-                          : AppColors.black,
-                      child: SingleChildScrollView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        child: SizedBox(
-                          height: MediaQuery.of(context).size.height - 200,
-                          child: _buildEmptyState(l10n),
-                        ),
-                      ),
-                    )
-                  : RefreshIndicator(
-                      onRefresh: _loadLikedProducts,
-                      color: isDark
-                          ? AppColors.darkPrimaryText
-                          : AppColors.black,
-                      child: GridView.builder(
-                        controller: _scrollController,
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.fromLTRB(12, 0, 12, 20),
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          childAspectRatio: () {
-                            final cardW =
-                                (MediaQuery.of(context).size.width - 36) / 2;
-                            return cardW / (cardW * 5 / 4 + 84);
-                          }(),
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                        ),
-                        itemCount:
-                            _likedProducts.length + (_isLoadingMore ? 2 : 0),
-                        itemBuilder: (context, index) {
-                          if (index >= _likedProducts.length) {
-                            return Center(
-                              child: CircularProgressIndicator(
-                                color: isDark
-                                    ? AppColors.darkPrimaryText
-                                    : AppColors.black,
-                                strokeWidth: 2,
-                              ),
-                            );
-                          }
-                          final product = _likedProducts[index];
-                          return _TikTokLikedProductCard(
-                            product: product,
-                            onTap: () => _onProductTap(product),
-                            onRemove: () => _removeLikedProduct(product, index),
-                            isDark: isDark,
-                          );
-                        },
-                      ),
-                    ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

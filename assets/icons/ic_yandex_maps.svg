@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <rect width="48" height="48" rx="10" fill="#FC3F1D"/>
+  <!--
+    Single closed polygon for Y (non-self-intersecting):
+    Two arm tops [10,18] and [30,38] at y=9,
+    inner V at (24,24), stem x=21–27 down to y=40.
+  -->
+  <path fill="white" d="M10 9 L18 9 L24 24 L30 9 L38 9 L27 26 L27 40 L21 40 L21 26 Z"/>
+</svg>

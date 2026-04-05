@@ -931,23 +931,19 @@ class SwipeableProductCardState extends State<SwipeableProductCard>
 
     Color tintColor;
     IconData overlayIcon;
-    String label;
 
     switch (_swipeDirection!) {
       case SwipeDirection.left:
         tintColor = const Color(0xAAFF3B30); // iOS red, 67% opacity
-        overlayIcon = Icons.close_rounded;
-        label = 'NOPE';
+        overlayIcon = Icons.thumb_down_rounded;
         break;
       case SwipeDirection.right:
         tintColor = const Color(0xAA30D158); // iOS green, 67% opacity
         overlayIcon = Icons.favorite_rounded;
-        label = 'LIKE';
         break;
       case SwipeDirection.up:
         tintColor = const Color(0xAA0A84FF); // iOS blue, 67% opacity
         overlayIcon = Icons.shopping_bag_rounded;
-        label = 'CART';
         break;
     }
 
@@ -959,24 +955,7 @@ class SwipeableProductCardState extends State<SwipeableProductCard>
           color: tintColor,
           borderRadius: BorderRadius.circular(28),
         ),
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(overlayIcon, size: 72, color: Colors.white),
-              const SizedBox(height: 8),
-              Text(
-                label,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 3,
-                ),
-              ),
-            ],
-          ),
-        ),
+        child: Center(child: Icon(overlayIcon, size: 72, color: Colors.white)),
       ),
     );
   }

@@ -49,10 +49,12 @@ class _ForceUpdateScreenState extends State<ForceUpdateScreen>
   void initState() {
     super.initState();
     _setupAnimations();
-    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
-    ));
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+      ),
+    );
   }
 
   void _setupAnimations() {
@@ -67,13 +69,13 @@ class _ForceUpdateScreenState extends State<ForceUpdateScreen>
       curve: const Interval(0.1, 0.7, curve: Curves.easeOut),
     );
 
-    _cardSlide = Tween<Offset>(
-      begin: const Offset(0, 0.12),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _entryController,
-      curve: const Interval(0.1, 0.8, curve: Curves.easeOutCubic),
-    ));
+    _cardSlide = Tween<Offset>(begin: const Offset(0, 0.12), end: Offset.zero)
+        .animate(
+          CurvedAnimation(
+            parent: _entryController,
+            curve: const Interval(0.1, 0.8, curve: Curves.easeOutCubic),
+          ),
+        );
 
     _iconScale = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
@@ -88,9 +90,10 @@ class _ForceUpdateScreenState extends State<ForceUpdateScreen>
       duration: const Duration(milliseconds: 2000),
     )..repeat(reverse: false);
 
-    _pulseAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeOut),
-    );
+    _pulseAnim = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _pulseController, curve: Curves.easeOut));
 
     // -- floating orbs (loops) --
     _orbController = AnimationController(

@@ -391,7 +391,7 @@
   "similarProducts": "Похожие товары",
   
   "visualSearch": "Визуальный поиск",
-  "vsPickCategory": "Выберите категорию",
+  "vsPickCategory": "Обрезать изображение",
   "vsSearchButton": "Найти",
   "vsCatTopwear": "Верхняя одежда",
   "vsCatBottomwear": "Нижняя одежда",
@@ -742,6 +742,12 @@
   "editProfileComingSoon": "Функция редактирования профиля скоро появится",
   "myQrCode": "Мой QR-код",
   "scanQrForCashback": "Покажите этот QR-код партнерам для получения кэшбэка",
+  "svaypCardTitle": "Карта SVAYP",
+  "svaypCardCashbackDesc": "2% кэшбэк с каждой покупки",
+  "openQrButton": "Открыть",
+  "qrFullScreenHint": "Покажите этот код на кассе и получите 2% кэшбэка",
+  "qrCashbackPrefix": "Покажите QR-код кассиру, чтобы получить ",
+  "qrCashbackHighlight": "2% кэшбэк",
   "personalInfo": "Личная информация",
   "account": "Аккаунт",
   "savedItems": "Сохраненные товары",
@@ -1172,6 +1178,13 @@
   "tutorialLongDress": "Длинное платье",
   "tutorialBeigeShoes": "Бежевые туфли",
   "profileUpdatedSuccess": "Профиль успешно обновлён",
+
+  "mapOpenMap": "Открыть карту",
+  "mapOpenInMaps": "Открыть в картах",
+  "loadingSellerProducts": "Загрузка товаров продавца...",
+
+  "shops": "Магазины",
+  "allShops": "Все магазины",
 
   "forceUpdateTitle": "Требуется обновление",
   "forceUpdateSubtitle": "Доступна новая версия SVAYP с улучшениями и новыми функциями. Пожалуйста, обновите приложение.",

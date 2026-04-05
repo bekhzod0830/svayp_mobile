@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/core/constants/app_colors.dart';
@@ -629,378 +630,463 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    if (_errorMessage == null && (_isLoading || (!_isInitialized && _chat == null))) {
-      return Scaffold(
-        backgroundColor: isDark
-            ? AppColors.darkMainBackground
-            : AppColors.pageBackground,
-        appBar: AppBar(
-          backgroundColor: isDark
-              ? AppColors.darkCardBackground
-              : AppColors.white,
-          elevation: 0,
-          leading: IconButton(
-            icon: Icon(Icons.arrow_back, color: theme.colorScheme.onSurface),
-            onPressed: _onBack,
-          ),
-          title: Text(l10n.loading),
-        ),
-        body: const Center(child: CircularProgressIndicator()),
-      );
-    }
+    final topPadding = MediaQuery.of(context).padding.top;
+    const headerHeight = 56.0;
+    final headerTotal = topPadding + headerHeight + 8.0;
 
-    if (_errorMessage != null || _chat == null) {
-      return Scaffold(
-        backgroundColor: isDark
-            ? AppColors.darkMainBackground
-            : AppColors.pageBackground,
-        appBar: AppBar(
-          backgroundColor: isDark
-              ? AppColors.darkCardBackground
-              : AppColors.white,
-          elevation: 0,
-          leading: IconButton(
-            icon: Icon(Icons.arrow_back, color: theme.colorScheme.onSurface),
-            onPressed: _onBack,
+    // Reusable floating glass header builder
+    Widget glassHeader({required Widget child}) {
+      return Positioned(
+        top: 0,
+        left: 0,
+        right: 0,
+        child: ClipRRect(
+          borderRadius: const BorderRadius.vertical(
+            bottom: Radius.circular(40),
           ),
-        ),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.error_outline, size: 64, color: AppColors.gray400),
-              const SizedBox(height: 16),
-              Text(
-                _errorMessage != null
-                    ? l10n.chatFailedToLoad
-                    : l10n.chatNotFound,
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: Container(
+              height: headerTotal,
+              decoration: BoxDecoration(
+                color: isDark
+                    ? const Color(0xD0050508)
+                    : const Color(0xB8FFFFFF),
+                borderRadius: const BorderRadius.vertical(
+                  bottom: Radius.circular(40),
+                ),
+                border: Border.all(
+                  color: isDark
+                      ? const Color(0x22FFFFFF)
+                      : const Color(0x28000000),
+                  width: 0.5,
+                ),
               ),
-            ],
+              child: Padding(
+                padding: EdgeInsets.only(top: topPadding),
+                child: child,
+              ),
+            ),
           ),
         ),
       );
     }
 
-    return Scaffold(
-      backgroundColor: isDark
-          ? AppColors.darkMainBackground
-          : const Color(0xFFF7F7F7),
-      appBar: AppBar(
+    if (_errorMessage == null &&
+        (_isLoading || (!_isInitialized && _chat == null))) {
+      return Scaffold(
+        extendBodyBehindAppBar: true,
         backgroundColor: isDark
-            ? AppColors.darkCardBackground
-            : AppColors.white,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(0.5),
-          child: Container(
-            height: 0.5,
-            color: isDark ? AppColors.darkStandardBorder : AppColors.gray200,
-          ),
-        ),
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: theme.colorScheme.onSurface),
-          onPressed: _onBack,
-        ),
-        title: Row(
+            ? AppColors.darkMainBackground
+            : AppColors.pageBackground,
+        body: Stack(
           children: [
-            // Avatar
-            Stack(
-              children: [
-                _buildAppBarAvatar(),
-                Positioned(
-                  right: 0,
-                  bottom: 0,
-                  child: Container(
-                    width: 11,
-                    height: 11,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _isOtherOnline
-                          ? const Color(0xFF4CAF50)
-                          : Colors.grey.shade400,
-                      border: Border.all(
-                        color: isDark
-                            ? AppColors.darkCardBackground
-                            : AppColors.white,
-                        width: 2,
+            const Center(child: CircularProgressIndicator()),
+            glassHeader(
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      size: 20,
+                      color: isDark
+                          ? AppColors.darkPrimaryText
+                          : AppColors.black,
+                    ),
+                    onPressed: _onBack,
+                  ),
+                  Expanded(
+                    child: Text(
+                      l10n.loading,
+                      style: AppTypography.body1.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.onSurface,
                       ),
                     ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(width: 10),
-            // Display name + presence
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    _isAdmin
-                        ? (_chat!.userName ?? 'Unknown User')
-                        : _chat!.sellerName,
-                    style: AppTypography.body1.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: theme.colorScheme.onSurface,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  Text(
-                    _isOtherTyping
-                        ? l10n.chatPresenceTyping
-                        : _isOtherOnline
-                        ? l10n.chatPresenceOnline
-                        : _otherLastSeen != null
-                        ? _formatLastSeen(_otherLastSeen!, l10n)
-                        : l10n.chatPresenceOffline,
-                    style: AppTypography.caption.copyWith(
-                      color: _isOtherTyping
-                          ? (_isAdmin
-                                ? AppColors.gray500
-                                : const Color(0xFF4CAF50))
-                          : _isOtherOnline
-                          ? const Color(0xFF4CAF50)
-                          : (isDark
-                                ? AppColors.darkSecondaryText
-                                : AppColors.gray500),
-                      fontSize: 11,
-                    ),
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            icon: Icon(
-              Icons.more_vert,
-              color: isDark ? theme.colorScheme.onSurface : AppColors.black,
-            ),
-            onPressed: _reloadChat,
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Messages List
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: _reloadChat,
-              child: _messages.isEmpty
-                  ? ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      children: [
-                        SizedBox(
-                          height: MediaQuery.of(context).size.height * 0.5,
-                          child: Center(
-                            child: Text(
-                              l10n.noMessagesYet,
-                              style: AppTypography.body1.copyWith(
-                                color: isDark
-                                    ? AppColors.darkSecondaryText
-                                    : AppColors.gray600,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    )
-                  : ListView.builder(
-                      controller: _scrollController,
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      reverse: true,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 16,
-                      ),
-                      itemCount: _messages.length + (_hasMoreMessages ? 1 : 0),
-                      itemBuilder: (context, index) {
-                        // The extra item at the top shows a loading spinner
-                        if (index == _messages.length) {
-                          return const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 12),
-                            child: Center(
-                              child: SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              ),
-                            ),
-                          );
-                        }
+      );
+    }
 
-                        // reverse: true means index 0 = last message (newest)
-                        final reversedIndex = _messages.length - 1 - index;
-                        final message = _messages[reversedIndex];
-                        // Use senderType for reliable bubble alignment:
-                        // - Seller view (_isAdmin): seller/admin messages are mine
-                        // - User view: only user messages are mine
-                        final isMine = _isAdmin
-                            ? message.senderType != SenderType.user
-                            : message.senderType == SenderType.user;
-
-                        // Check if a date separator is needed
-                        bool showDateSeparator = false;
-                        if (reversedIndex == 0) {
-                          showDateSeparator = true;
-                        } else {
-                          final prev = _messages[reversedIndex - 1].createdAt;
-                          final curr = message.createdAt;
-                          showDateSeparator =
-                              prev.year != curr.year ||
-                              prev.month != curr.month ||
-                              prev.day != curr.day;
-                        }
-
-                        Widget msgWidget;
-                        if (message.messageType == MessageType.product) {
-                          msgWidget = _ProductMessageBubble(
-                            message: message,
-                            isDark: isDark,
-                          );
-                        } else {
-                          msgWidget = _MessageBubble(
-                            message: message,
-                            isMine: isMine,
-                            isDark: isDark,
-                            senderName: isMine
-                                ? message.senderName
-                                : (_isAdmin
-                                      ? (_chat!.userName ?? 'User')
-                                      : _chat!.sellerName),
-                            avatarUrl: isMine
-                                ? null
-                                : (_isAdmin
-                                      ? _chat!.userAvatar
-                                      : _chat!.sellerLogo),
-                          );
-                        }
-
-                        if (showDateSeparator) {
-                          return Column(
-                            children: [
-                              _DateSeparator(
-                                date: message.createdAt,
-                                isDark: isDark,
-                              ),
-                              msgWidget,
-                            ],
-                          );
-                        }
-                        return msgWidget;
-                      },
+    if (_errorMessage != null || _chat == null) {
+      return Scaffold(
+        extendBodyBehindAppBar: true,
+        backgroundColor: isDark
+            ? AppColors.darkMainBackground
+            : AppColors.pageBackground,
+        body: Stack(
+          children: [
+            Center(
+              child: Padding(
+                padding: EdgeInsets.only(top: headerTotal),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.error_outline,
+                      size: 64,
+                      color: AppColors.gray400,
                     ),
-            ),
-          ),
-
-          // Message Input
-          Container(
-            padding: EdgeInsets.fromLTRB(
-              12,
-              8,
-              12,
-              MediaQuery.of(context).padding.bottom + 8,
-            ),
-            color: Colors.transparent,
-            child: Container(
-              constraints: const BoxConstraints(maxHeight: 120),
-              clipBehavior: Clip.antiAlias,
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.darkMainBackground : AppColors.white,
-                borderRadius: BorderRadius.circular(28),
-                border: Border.all(
-                  color: isDark
-                      ? AppColors.darkStandardBorder
-                      : AppColors.gray200,
-                  width: 1,
+                    const SizedBox(height: 16),
+                    Text(
+                      _errorMessage != null
+                          ? l10n.chatFailedToLoad
+                          : l10n.chatNotFound,
+                    ),
+                  ],
                 ),
               ),
+            ),
+            glassHeader(
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _messageController,
-                      focusNode: _focusNode,
-                      decoration: InputDecoration(
-                        hintText: l10n.typeMessage,
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        filled: true,
-                        fillColor: Colors.transparent,
-                        contentPadding: const EdgeInsets.fromLTRB(
-                          16,
-                          10,
-                          8,
-                          10,
-                        ),
-                        hintStyle: AppTypography.body2.copyWith(
-                          color: isDark
-                              ? AppColors.darkSecondaryText
-                              : AppColors.gray500,
-                        ),
-                      ),
-                      style: AppTypography.body2.copyWith(
-                        color: theme.colorScheme.onSurface,
-                      ),
-                      maxLines: null,
-                      textCapitalization: TextCapitalization.sentences,
-                      onChanged: _onMessageTextChanged,
-                      onSubmitted: (_) => _sendMessage(),
+                  IconButton(
+                    icon: Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      size: 20,
+                      color: isDark
+                          ? AppColors.darkPrimaryText
+                          : AppColors.black,
                     ),
-                  ),
-                  // Send Button inside pill
-                  Padding(
-                    padding: const EdgeInsets.all(4),
-                    child: GestureDetector(
-                      onTap:
-                          _messageController.text.trim().isNotEmpty &&
-                              !_isSending
-                          ? _sendMessage
-                          : null,
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color:
-                              _messageController.text.trim().isNotEmpty &&
-                                  !_isSending
-                              ? (isDark ? AppColors.white : AppColors.black)
-                              : (isDark
-                                    ? AppColors.darkSecondaryText
-                                    : AppColors.gray300),
-                          shape: BoxShape.circle,
-                        ),
-                        child: _isSending
-                            ? Padding(
-                                padding: const EdgeInsets.all(8),
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    isDark ? AppColors.black : AppColors.white,
-                                  ),
-                                ),
-                              )
-                            : Icon(
-                                Icons.send_rounded,
-                                color: isDark
-                                    ? AppColors.black
-                                    : AppColors.white,
-                                size: 18,
-                              ),
-                      ),
-                    ),
+                    onPressed: _onBack,
                   ),
                 ],
               ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Scaffold(
+      extendBodyBehindAppBar: true,
+      backgroundColor: isDark
+          ? AppColors.darkMainBackground
+          : const Color(0xFFF7F7F7),
+      body: Stack(
+        children: [
+          Column(
+            children: [
+              // Top spacer so messages start below the glass header
+              SizedBox(height: headerTotal),
+              // Messages List
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: _reloadChat,
+                  child: _messages.isEmpty
+                      ? ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          children: [
+                            SizedBox(
+                              height: MediaQuery.of(context).size.height * 0.5,
+                              child: Center(
+                                child: Text(
+                                  l10n.noMessagesYet,
+                                  style: AppTypography.body1.copyWith(
+                                    color: isDark
+                                        ? AppColors.darkSecondaryText
+                                        : AppColors.gray600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
+                      : ListView.builder(
+                          controller: _scrollController,
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          reverse: true,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 16,
+                          ),
+                          itemCount:
+                              _messages.length + (_hasMoreMessages ? 1 : 0),
+                          itemBuilder: (context, index) {
+                            // The extra item at the top shows a loading spinner
+                            if (index == _messages.length) {
+                              return const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 12),
+                                child: Center(
+                                  child: SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }
+
+                            // reverse: true means index 0 = last message (newest)
+                            final reversedIndex = _messages.length - 1 - index;
+                            final message = _messages[reversedIndex];
+                            // Use senderType for reliable bubble alignment:
+                            // - Seller view (_isAdmin): seller/admin messages are mine
+                            // - User view: only user messages are mine
+                            final isMine = _isAdmin
+                                ? message.senderType != SenderType.user
+                                : message.senderType == SenderType.user;
+
+                            // Check if a date separator is needed
+                            bool showDateSeparator = false;
+                            if (reversedIndex == 0) {
+                              showDateSeparator = true;
+                            } else {
+                              final prev =
+                                  _messages[reversedIndex - 1].createdAt;
+                              final curr = message.createdAt;
+                              showDateSeparator =
+                                  prev.year != curr.year ||
+                                  prev.month != curr.month ||
+                                  prev.day != curr.day;
+                            }
+
+                            Widget msgWidget;
+                            if (message.messageType == MessageType.product) {
+                              msgWidget = _ProductMessageBubble(
+                                message: message,
+                                isDark: isDark,
+                              );
+                            } else {
+                              msgWidget = _MessageBubble(
+                                message: message,
+                                isMine: isMine,
+                                isDark: isDark,
+                                senderName: isMine
+                                    ? message.senderName
+                                    : (_isAdmin
+                                          ? (_chat!.userName ?? 'User')
+                                          : _chat!.sellerName),
+                                avatarUrl: isMine
+                                    ? null
+                                    : (_isAdmin
+                                          ? _chat!.userAvatar
+                                          : _chat!.sellerLogo),
+                              );
+                            }
+
+                            if (showDateSeparator) {
+                              return Column(
+                                children: [
+                                  _DateSeparator(
+                                    date: message.createdAt,
+                                    isDark: isDark,
+                                  ),
+                                  msgWidget,
+                                ],
+                              );
+                            }
+                            return msgWidget;
+                          },
+                        ),
+                ),
+              ),
+
+              // Message Input
+              Container(
+                padding: EdgeInsets.fromLTRB(
+                  12,
+                  8,
+                  12,
+                  MediaQuery.of(context).padding.bottom + 8,
+                ),
+                color: Colors.transparent,
+                child: Container(
+                  constraints: const BoxConstraints(maxHeight: 120),
+                  clipBehavior: Clip.antiAlias,
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? AppColors.darkMainBackground
+                        : AppColors.white,
+                    borderRadius: BorderRadius.circular(28),
+                    border: Border.all(
+                      color: isDark
+                          ? AppColors.darkStandardBorder
+                          : AppColors.gray200,
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _messageController,
+                          focusNode: _focusNode,
+                          decoration: InputDecoration(
+                            hintText: l10n.typeMessage,
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            filled: true,
+                            fillColor: Colors.transparent,
+                            contentPadding: const EdgeInsets.fromLTRB(
+                              16,
+                              10,
+                              8,
+                              10,
+                            ),
+                            hintStyle: AppTypography.body2.copyWith(
+                              color: isDark
+                                  ? AppColors.darkSecondaryText
+                                  : AppColors.gray500,
+                            ),
+                          ),
+                          style: AppTypography.body2.copyWith(
+                            color: theme.colorScheme.onSurface,
+                          ),
+                          maxLines: null,
+                          textCapitalization: TextCapitalization.sentences,
+                          onChanged: _onMessageTextChanged,
+                          onSubmitted: (_) => _sendMessage(),
+                        ),
+                      ),
+                      // Send Button inside pill
+                      Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: GestureDetector(
+                          onTap:
+                              _messageController.text.trim().isNotEmpty &&
+                                  !_isSending
+                              ? _sendMessage
+                              : null,
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color:
+                                  _messageController.text.trim().isNotEmpty &&
+                                      !_isSending
+                                  ? (isDark ? AppColors.white : AppColors.black)
+                                  : (isDark
+                                        ? AppColors.darkSecondaryText
+                                        : AppColors.gray300),
+                              shape: BoxShape.circle,
+                            ),
+                            child: _isSending
+                                ? Padding(
+                                    padding: const EdgeInsets.all(8),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        isDark
+                                            ? AppColors.black
+                                            : AppColors.white,
+                                      ),
+                                    ),
+                                  )
+                                : Icon(
+                                    Icons.send_rounded,
+                                    color: isDark
+                                        ? AppColors.black
+                                        : AppColors.white,
+                                    size: 18,
+                                  ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          // ── Floating glass header ─────────────────────────────
+          glassHeader(
+            child: Row(
+              children: [
+                IconButton(
+                  icon: Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    size: 20,
+                    color: isDark ? AppColors.darkPrimaryText : AppColors.black,
+                  ),
+                  onPressed: _onBack,
+                ),
+                // Avatar + online dot
+                Stack(
+                  children: [
+                    _buildAppBarAvatar(),
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        width: 11,
+                        height: 11,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: _isOtherOnline
+                              ? const Color(0xFF4CAF50)
+                              : Colors.grey.shade400,
+                          border: Border.all(
+                            color: isDark
+                                ? const Color(0xD0050508)
+                                : const Color(0xB8FFFFFF),
+                            width: 2,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 10),
+                // Name + presence
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        _isAdmin
+                            ? (_chat!.userName ?? 'Unknown User')
+                            : _chat!.sellerName,
+                        style: AppTypography.body1.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white : Colors.black,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        _isOtherTyping
+                            ? l10n.chatPresenceTyping
+                            : _isOtherOnline
+                            ? l10n.chatPresenceOnline
+                            : _otherLastSeen != null
+                            ? _formatLastSeen(_otherLastSeen!, l10n)
+                            : l10n.chatPresenceOffline,
+                        style: AppTypography.caption.copyWith(
+                          color: _isOtherTyping
+                              ? (_isAdmin
+                                    ? AppColors.gray500
+                                    : const Color(0xFF4CAF50))
+                              : _isOtherOnline
+                              ? const Color(0xFF4CAF50)
+                              : (isDark
+                                    ? AppColors.darkSecondaryText
+                                    : AppColors.gray500),
+                          fontSize: 11,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                // Refresh action
+                IconButton(
+                  icon: Icon(
+                    Icons.more_vert,
+                    color: isDark ? AppColors.darkPrimaryText : AppColors.black,
+                  ),
+                  onPressed: _reloadChat,
+                ),
+              ],
             ),
           ),
         ],
@@ -1394,8 +1480,7 @@ class _ProductMessageBubble extends StatelessWidget {
         Navigator.of(context, rootNavigator: true).pop();
 
         // Navigate to product detail screen
-        Navigator.push(
-          context,
+        Navigator.of(context, rootNavigator: true).push(
           MaterialPageRoute(
             builder: (context) => ProductDetailScreen(product: product),
           ),
