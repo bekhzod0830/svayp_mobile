@@ -91,6 +91,7 @@
   "remove": "O'chirish",
   
   "shop": "Do'kon",
+  "visualSearch": "Vizual qidiruv",
   "categories": "Kategoriyalar",
   "all": "Hammasi",
   "clothing": "Kiyim",
@@ -1181,7 +1182,7 @@
   "allShops": "Barcha do'konlar",
 
   "forceUpdateTitle": "Yangilash talab qilinadi",
-  "forceUpdateSubtitle": "SVAYP ilovasining yangi versiyasi yangi xususiyatlar va yaxshilanishlar bilan chiqdi. Davom etish uchun yangilang.",
+  "forceUpdateSubtitle": "SVAYP ilovasining yangi versiyasi - yangi xususiyatlar va takomillashtirishlar bilan chiqdi. Davom etish uchun ilovasini yangilang.",
   "forceUpdateButton": "Yangilash",
   "forceUpdateVersionLabel": "{version} versiyasi mavjud",
   "@forceUpdateVersionLabel": {

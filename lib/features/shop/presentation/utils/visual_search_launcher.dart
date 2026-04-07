@@ -74,8 +74,7 @@ Future<void> launchVisualSearch(BuildContext context) async {
     await Future.delayed(const Duration(milliseconds: 100));
 
     if (context.mounted) {
-      await Navigator.push(
-        context,
+      await Navigator.of(context, rootNavigator: true).push(
         MaterialPageRoute(
           builder: (_) => VisualSearchResultsScreen(
             results: response.results,

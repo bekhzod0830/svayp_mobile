@@ -1012,19 +1012,49 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         child: Row(
           children: [
             ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                width: 70,
-                height: 78,
-                color: isDark
-                    ? AppColors.darkMainBackground
-                    : AppColors.gray100,
-                child: CachedNetworkImage(
-                  imageUrl: item.imageUrl,
-                  fit: BoxFit.cover,
-                  cacheManager: ImageCacheManager.instance,
-                  memCacheWidth: 140,
-                  memCacheHeight: 156,
+              borderRadius: BorderRadius.circular(10),
+              child: SizedBox(
+                width: 90,
+                child: AspectRatio(
+                  aspectRatio: 3 / 4,
+                  child: Container(
+                    color: isDark
+                        ? AppColors.darkMainBackground
+                        : AppColors.gray100,
+                    child: CachedNetworkImage(
+                      imageUrl: item.imageUrl.isNotEmpty
+                          ? item.imageUrl
+                          : 'https://via.placeholder.com/400',
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      height: double.infinity,
+                      cacheManager: ImageCacheManager.instance,
+                      memCacheWidth: 180,
+                      placeholder: (context, url) => Container(
+                        color: isDark
+                            ? AppColors.darkTertiaryText
+                            : AppColors.gray100,
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            color: isDark ? AppColors.white : AppColors.black,
+                            strokeWidth: 2,
+                          ),
+                        ),
+                      ),
+                      errorWidget: (context, url, error) => Container(
+                        color: isDark
+                            ? AppColors.darkMainBackground
+                            : AppColors.gray100,
+                        child: Icon(
+                          Icons.image_outlined,
+                          size: 28,
+                          color: isDark
+                              ? AppColors.darkSecondaryText
+                              : AppColors.gray400,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),

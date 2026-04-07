@@ -5,37 +5,55 @@ import 'package:swipe/core/network/api_client.dart';
 import 'package:swipe/core/network/api_config.dart';
 
 /// Version info returned by the backend.
+/// Response shape: {"data": {"forceUpdate": bool, "latestVersion": "x.y.z",
+///   "minVersion": "x.y.z", "softUpdate": bool, "storeUrl": "..."},
+///   "message": "OK"}
 class AppVersionInfo {
-  final String minRequiredVersion;
+  final String minVersion;
   final String latestVersion;
   final bool forceUpdate;
+  final bool softUpdate;
+  final String storeUrl;
 
   const AppVersionInfo({
-    required this.minRequiredVersion,
+    required this.minVersion,
     required this.latestVersion,
     required this.forceUpdate,
+    required this.softUpdate,
+    required this.storeUrl,
   });
 
+  /// The backend wraps fields inside a ["data"] key.
   factory AppVersionInfo.fromJson(Map<String, dynamic> json) {
+    // Support both wrapped {"data": {...}} and unwrapped responses.
+    final d = json['data'] is Map<String, dynamic>
+        ? json['data'] as Map<String, dynamic>
+        : json;
     return AppVersionInfo(
-      minRequiredVersion: json['min_required_version'] as String? ?? '0.0.0',
-      latestVersion: json['latest_version'] as String? ?? '0.0.0',
-      forceUpdate: json['force_update'] as bool? ?? false,
+      minVersion: d['minVersion'] as String? ?? '0.0.0',
+      latestVersion: d['latestVersion'] as String? ?? '0.0.0',
+      forceUpdate: d['forceUpdate'] as bool? ?? false,
+      softUpdate: d['softUpdate'] as bool? ?? false,
+      storeUrl: d['storeUrl'] as String? ?? '',
     );
   }
 }
 
 /// Result of a version check.
 class VersionCheckResult {
-  /// Whether the user must update (current < latest).
+  /// Whether the user must update.
   final bool needsUpdate;
 
   /// Latest version string to display on the screen.
   final String latestVersion;
 
+  /// Store URL provided by the backend (platform-specific).
+  final String storeUrl;
+
   const VersionCheckResult({
     required this.needsUpdate,
     required this.latestVersion,
+    required this.storeUrl,
   });
 }
 
@@ -63,12 +81,17 @@ class VersionCheckService {
       if (data is! Map<String, dynamic>) return null;
 
       final info = AppVersionInfo.fromJson(data);
+
+      // Use the backend's forceUpdate flag as the primary signal,
+      // and fall back to a local version comparison as a safety net.
       final needsUpdate =
+          info.forceUpdate ||
           _compareVersions(currentVersion, info.latestVersion) < 0;
 
       return VersionCheckResult(
         needsUpdate: needsUpdate,
         latestVersion: info.latestVersion,
+        storeUrl: info.storeUrl,
       );
     } catch (_) {
       // Never block the user due to a version-check failure.

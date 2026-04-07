@@ -477,8 +477,28 @@ class MainScreenState extends State<MainScreen>
                                             onTap: () =>
                                                 launchVisualSearch(context),
                                             behavior: HitTestBehavior.opaque,
-                                            child: const Center(
-                                              child: _VisualSearchNavButton(),
+                                            child: Center(
+                                              child: Padding(
+                                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                child: Column(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    const _VisualSearchNavButton(),
+                                                    const SizedBox(height: 2),
+                                                    Text(
+                                                      l10n.visualSearch,
+                                                      maxLines: 1,
+                                                      softWrap: false,
+                                                      overflow: TextOverflow.ellipsis,
+                                                      style: TextStyle(
+                                                        fontSize: 9.5 * fontScale,
+                                                        fontWeight: FontWeight.w400,
+                                                        color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.45),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
                                             ),
                                           ),
                                         ),
@@ -646,8 +666,8 @@ class _VisualSearchNavButtonState extends State<_VisualSearchNavButton>
         final pulse =
             (math.sin(_ctrl.value * math.pi * 2 - math.pi / 2) + 1) / 2;
         return Container(
-          width: 44,
-          height: 44,
+          width: 34,
+          height: 34,
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
@@ -666,7 +686,7 @@ class _VisualSearchNavButtonState extends State<_VisualSearchNavButton>
           child: const Icon(
             Icons.camera_alt_rounded,
             color: Colors.white,
-            size: 22,
+            size: 18,
           ),
         );
       },

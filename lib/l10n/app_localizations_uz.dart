@@ -880,6 +880,9 @@ class AppLocalizationsUz extends AppLocalizations {
   String get shop => 'Do\'kon';
 
   @override
+  String get visualSearch => 'Vizual qidiruv';
+
+  @override
   String get categories => 'Kategoriyalar';
 
   @override
@@ -1093,9 +1096,6 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get similarProducts => 'O\'xshash mahsulotlar';
-
-  @override
-  String get visualSearch => 'Vizual qidiruv';
 
   @override
   String get vsPickCategory => 'Rasmni kesish';
@@ -2902,7 +2902,7 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get forceUpdateSubtitle =>
-      'SVAYP ilovasining yangi versiyasi yangi xususiyatlar va yaxshilanishlar bilan chiqdi. Davom etish uchun yangilang.';
+      'SVAYP ilovasining yangi versiyasi - yangi xususiyatlar va takomillashtirishlar bilan chiqdi. Davom etish uchun ilovasini yangilang.';
 
   @override
   String get forceUpdateButton => 'Yangilash';

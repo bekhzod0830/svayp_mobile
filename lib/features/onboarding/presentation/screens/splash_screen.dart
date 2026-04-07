@@ -72,7 +72,10 @@ class _SplashScreenState extends State<SplashScreen>
     if (versionResult != null && versionResult.needsUpdate == true) {
       Navigator.of(context).pushReplacementNamed(
         '/force-update',
-        arguments: versionResult.latestVersion as String,
+        arguments: <String, String>{
+          'version': versionResult.latestVersion as String,
+          'storeUrl': versionResult.storeUrl as String,
+        },
       );
       return;
     }

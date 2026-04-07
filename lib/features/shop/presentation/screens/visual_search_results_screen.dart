@@ -221,8 +221,7 @@ class _VisualSearchResultsScreenState extends State<VisualSearchResultsScreen> {
                     result: result,
                     onTap: () async {
                       // Navigate and await result to trigger rebuild
-                      await Navigator.push(
-                        context,
+                      await Navigator.of(context, rootNavigator: true).push(
                         MaterialPageRoute(
                           builder: (_) => ProductDetailScreen(
                             product: _toEntity(result.product),

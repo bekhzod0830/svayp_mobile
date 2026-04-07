@@ -34,6 +34,7 @@ class _MainTopBarState extends State<MainTopBar> {
   Future<void> _goToCart() async {
     await Navigator.of(
       context,
+      rootNavigator: true,
     ).push(MaterialPageRoute(builder: (_) => const CartScreen()));
   }
 

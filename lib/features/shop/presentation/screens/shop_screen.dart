@@ -10,6 +10,7 @@ import 'package:swipe/core/services/product_api_service.dart';
 import 'package:swipe/core/models/product.dart' as api_models;
 import 'package:swipe/core/cache/image_cache_manager.dart';
 import 'package:swipe/features/shop/presentation/screens/seller_profile_screen.dart';
+import 'package:swipe/features/shop/presentation/screens/sellers_list_screen.dart';
 import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/core/network/api_client.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -913,150 +914,140 @@ class _ShopScreenState extends State<ShopScreen>
   Widget _buildFilterRow(bool isDark, AppLocalizations l10n) {
     return Row(
       children: [
-        Expanded(child: _buildCategoryDropdown(isDark, l10n)),
+        Expanded(child: _buildCategoryButton(isDark, l10n)),
         const SizedBox(width: 10),
-        Expanded(child: _buildShopsDropdown(isDark, l10n)),
+        Expanded(child: _buildShopsButton(isDark, l10n)),
       ],
     );
   }
 
-  Widget _buildShopsDropdown(bool isDark, AppLocalizations l10n) {
-    return Container(
-      height: 44,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.darkCardBackground : Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(
-          color: _selectedSellerId != null
-              ? (isDark ? Colors.white54 : Colors.black54)
-              : (isDark ? AppColors.darkStandardBorder : AppColors.gray200),
+  Widget _buildShopsButton(bool isDark, AppLocalizations l10n) {
+    final isActive = _selectedSellerId != null;
+    final label = isActive
+        ? (_sellers
+                .where((s) => s.id == _selectedSellerId)
+                .firstOrNull
+                ?.name ??
+            l10n.shops)
+        : l10n.shops;
+
+    return GestureDetector(
+      onTap: () async {
+        await Navigator.of(context, rootNavigator: true).push(
+          MaterialPageRoute(builder: (_) => const SellersListScreen()),
+        );
+      },
+      child: Container(
+        height: 44,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkCardBackground : Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(
+            color: isActive
+                ? (isDark ? Colors.white54 : Colors.black54)
+                : (isDark ? AppColors.darkStandardBorder : AppColors.gray200),
+          ),
         ),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String?>(
-          value: _selectedSellerId,
-          isExpanded: true,
-          dropdownColor: isDark ? AppColors.darkCardBackground : Colors.white,
-          icon: Icon(
-            Icons.keyboard_arrow_down_rounded,
-            color: isDark ? AppColors.darkPrimaryText : AppColors.black,
-          ),
-          style: AppTypography.body2.copyWith(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: isDark ? AppColors.darkPrimaryText : AppColors.black,
-          ),
-          hint: Text(
-            l10n.shops,
-            style: AppTypography.body2.copyWith(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
+        child: Row(
+          children: [
+            Icon(
+              Icons.storefront_outlined,
+              size: 16,
               color: isDark ? AppColors.darkPrimaryText : AppColors.black,
             ),
-          ),
-          items: [
-            DropdownMenuItem<String?>(
-              value: null,
+            const SizedBox(width: 6),
+            Expanded(
               child: Text(
-                l10n.allShops,
+                label,
+                overflow: TextOverflow.ellipsis,
                 style: AppTypography.body2.copyWith(
                   fontSize: 13,
-                  fontWeight: _selectedSellerId == null
-                      ? FontWeight.w700
-                      : FontWeight.w500,
+                  fontWeight: isActive ? FontWeight.w700 : FontWeight.w600,
                   color: isDark ? AppColors.darkPrimaryText : AppColors.black,
                 ),
               ),
             ),
-            ..._sellers.map(
-              (seller) => DropdownMenuItem<String?>(
-                value: seller.id,
-                child: Text(
-                  seller.name,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTypography.body2.copyWith(
-                    fontSize: 13,
-                    fontWeight: _selectedSellerId == seller.id
-                        ? FontWeight.w700
-                        : FontWeight.w500,
-                    color: isDark ? AppColors.darkPrimaryText : AppColors.black,
-                  ),
-                ),
-              ),
+            Icon(
+              Icons.chevron_right_rounded,
+              size: 18,
+              color: isDark ? AppColors.darkSecondaryText : AppColors.gray500,
             ),
           ],
-          onChanged: _onShopSelected,
         ),
       ),
     );
   }
 
-  Widget _buildCategoryDropdown(bool isDark, AppLocalizations l10n) {
-    final items = [
-      (0, l10n.trending),
-      (1, l10n.all),
-      (2, l10n.vsCatTopwear),
-      (3, l10n.vsCatBottomwear),
-      (4, l10n.vsCatModestWear),
-      (5, l10n.vsCatDresses),
-      (6, l10n.vsCatOnePiece),
-      (7, l10n.vsCatTwoPieceSet),
-      (8, l10n.vsCatThreePieceSet),
-      (9, l10n.vsCatFootwear),
-      (10, l10n.vsCatOuterwear),
-      (11, l10n.vsCatActivewear),
-      (12, l10n.vsCatHomewear),
-      (13, l10n.vsCatUnderwear),
-      (14, l10n.vsCatAccessories),
+  Widget _buildCategoryButton(bool isDark, AppLocalizations l10n) {
+    final categoryLabels = [
+      l10n.trending,
+      l10n.all,
+      l10n.vsCatTopwear,
+      l10n.vsCatBottomwear,
+      l10n.vsCatModestWear,
+      l10n.vsCatDresses,
+      l10n.vsCatOnePiece,
+      l10n.vsCatTwoPieceSet,
+      l10n.vsCatThreePieceSet,
+      l10n.vsCatFootwear,
+      l10n.vsCatOuterwear,
+      l10n.vsCatActivewear,
+      l10n.vsCatHomewear,
+      l10n.vsCatUnderwear,
+      l10n.vsCatAccessories,
     ];
+    final label = _selectedTab < categoryLabels.length
+        ? categoryLabels[_selectedTab]
+        : l10n.categories;
 
-    return Container(
-      height: 44,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.darkCardBackground : Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(
-          color: isDark ? AppColors.darkStandardBorder : AppColors.gray200,
+    return GestureDetector(
+      onTap: () async {
+        final picked = await Navigator.of(context, rootNavigator: true).push<int>(
+          MaterialPageRoute(
+            builder: (_) => _CategoryPickerScreen(
+              selectedIndex: _selectedTab,
+              categories: categoryLabels,
+            ),
+          ),
+        );
+        if (picked != null && mounted) _onTabSelected(picked);
+      },
+      child: Container(
+        height: 44,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkCardBackground : Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(
+            color: isDark ? AppColors.darkStandardBorder : AppColors.gray200,
+          ),
         ),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<int>(
-          value: _selectedTab,
-          isExpanded: true,
-          dropdownColor: isDark ? AppColors.darkCardBackground : Colors.white,
-          icon: Icon(
-            Icons.keyboard_arrow_down_rounded,
-            color: isDark ? AppColors.darkPrimaryText : AppColors.black,
-          ),
-          style: AppTypography.body2.copyWith(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: isDark ? AppColors.darkPrimaryText : AppColors.black,
-          ),
-          items: items
-              .map(
-                (item) => DropdownMenuItem<int>(
-                  value: item.$1,
-                  child: Text(
-                    item.$2,
-                    style: AppTypography.body2.copyWith(
-                      fontSize: 13,
-                      fontWeight: _selectedTab == item.$1
-                          ? FontWeight.w700
-                          : FontWeight.w500,
-                      color: isDark
-                          ? AppColors.darkPrimaryText
-                          : AppColors.black,
-                    ),
-                  ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.category_outlined,
+              size: 16,
+              color: isDark ? AppColors.darkPrimaryText : AppColors.black,
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                label,
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.body2.copyWith(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? AppColors.darkPrimaryText : AppColors.black,
                 ),
-              )
-              .toList(),
-          onChanged: (index) {
-            if (index != null) _onTabSelected(index);
-          },
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              size: 18,
+              color: isDark ? AppColors.darkSecondaryText : AppColors.gray500,
+            ),
+          ],
         ),
       ),
     );
@@ -1565,6 +1556,109 @@ class _AnimatedVisualSearchButtonState
           ),
         );
       },
+    );
+  }
+}
+
+/// Full-screen category picker — returns the selected tab index on pop.
+class _CategoryPickerScreen extends StatelessWidget {
+  final int selectedIndex;
+  final List<String> categories;
+
+  const _CategoryPickerScreen({
+    required this.selectedIndex,
+    required this.categories,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final l10n = AppLocalizations.of(context)!;
+
+    return Scaffold(
+      backgroundColor:
+          isDark ? AppColors.darkMainBackground : const Color(0xFFF7F7F8),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // App bar
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 12, 16, 0),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      size: 20,
+                      color: isDark ? AppColors.darkPrimaryText : AppColors.black,
+                    ),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                  Text(
+                    l10n.categories,
+                    style: AppTypography.heading2.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? AppColors.darkPrimaryText : AppColors.black,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            // Category list
+            Expanded(
+              child: ListView.separated(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                itemCount: categories.length,
+                separatorBuilder: (_, __) => Divider(
+                  height: 1,
+                  color:
+                      isDark ? AppColors.darkStandardBorder : AppColors.gray200,
+                ),
+                itemBuilder: (context, index) {
+                  final isSelected = index == selectedIndex;
+                  return InkWell(
+                    onTap: () => Navigator.of(context).pop(index),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 16,
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              categories[index],
+                              style: AppTypography.body1.copyWith(
+                                fontWeight: isSelected
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                                color: isDark
+                                    ? AppColors.darkPrimaryText
+                                    : AppColors.black,
+                              ),
+                            ),
+                          ),
+                          if (isSelected)
+                            Icon(
+                              Icons.check_rounded,
+                              size: 20,
+                              color: isDark
+                                  ? AppColors.darkPrimaryText
+                                  : AppColors.black,
+                            ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

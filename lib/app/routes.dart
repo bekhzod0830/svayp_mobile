@@ -90,9 +90,12 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => const SplashScreen());
 
       case forceUpdate:
-        final version = settings.arguments as String? ?? '';
+        final args = settings.arguments as Map<String, String>? ?? {};
         return MaterialPageRoute(
-          builder: (_) => ForceUpdateScreen(latestVersion: version),
+          builder: (_) => ForceUpdateScreen(
+            latestVersion: args['version'] ?? '',
+            storeUrl: args['storeUrl'] ?? '',
+          ),
         );
 
       case welcome:

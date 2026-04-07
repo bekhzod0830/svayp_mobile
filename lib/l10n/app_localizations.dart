@@ -1756,6 +1756,12 @@ abstract class AppLocalizations {
   /// **'Shop'**
   String get shop;
 
+  /// No description provided for @visualSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Visual Search'**
+  String get visualSearch;
+
   /// No description provided for @categories.
   ///
   /// In en, this message translates to:
@@ -2175,12 +2181,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Similar Products'**
   String get similarProducts;
-
-  /// No description provided for @visualSearch.
-  ///
-  /// In en, this message translates to:
-  /// **'Visual Search'**
-  String get visualSearch;
 
   /// No description provided for @vsPickCategory.
   ///

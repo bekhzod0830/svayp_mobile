@@ -302,6 +302,7 @@
   "remove": "Удалить",
   
   "shop": "Магазин",
+  "visualSearch": "Поиск",
   "categories": "Категории",
   "all": "Все",
   "clothing": "Одежда",
@@ -390,7 +391,7 @@
   "removedFromLikedItems": "Удалено из избранного",
   "similarProducts": "Похожие товары",
   
-  "visualSearch": "Визуальный поиск",
+  "visualSearch": "Поиск",
   "vsPickCategory": "Обрезать изображение",
   "vsSearchButton": "Найти",
   "vsCatTopwear": "Верхняя одежда",

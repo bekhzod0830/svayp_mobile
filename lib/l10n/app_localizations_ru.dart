@@ -878,6 +878,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get shop => 'Магазин';
 
   @override
+  String get visualSearch => 'Поиск';
+
+  @override
   String get categories => 'Категории';
 
   @override
@@ -1091,9 +1094,6 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get similarProducts => 'Похожие товары';
-
-  @override
-  String get visualSearch => 'Визуальный поиск';
 
   @override
   String get vsPickCategory => 'Обрезать изображение';

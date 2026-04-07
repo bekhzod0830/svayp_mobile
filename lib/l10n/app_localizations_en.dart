@@ -867,6 +867,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get shop => 'Shop';
 
   @override
+  String get visualSearch => 'Visual Search';
+
+  @override
   String get categories => 'Categories';
 
   @override
@@ -1079,9 +1082,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get similarProducts => 'Similar Products';
-
-  @override
-  String get visualSearch => 'Visual Search';
 
   @override
   String get vsPickCategory => 'Crop Image';
