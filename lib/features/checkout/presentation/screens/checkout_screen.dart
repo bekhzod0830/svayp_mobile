@@ -1313,7 +1313,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               // ── Order summary rows ────────────────────────────
-              if (_hasUsdProducts) ...[         
+              if (_hasUsdProducts) ...[
                 _buildSummaryRow(
                   _hasUzsProducts ? '${l10n.subtotal} (USD)' : l10n.subtotal,
                   _usdSubtotal,
@@ -1321,7 +1321,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ),
                 const SizedBox(height: 8),
               ],
-              if (_hasUzsProducts) ...[         
+              if (_hasUzsProducts) ...[
                 _buildSummaryRow(
                   _hasUsdProducts ? '${l10n.subtotal} (UZS)' : l10n.subtotal,
                   _uzsSubtotal,
@@ -1329,9 +1329,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ),
                 const SizedBox(height: 8),
               ],
-              if (_hasUzsProducts) ...[         
+              if (_hasUzsProducts) ...[
                 _buildSummaryRow(
-                  _hasUsdProducts ? '${l10n.deliveryFee} (UZS)' : l10n.deliveryFee,
+                  _hasUsdProducts
+                      ? '${l10n.deliveryFee} (UZS)'
+                      : l10n.deliveryFee,
                   _deliveryFee,
                   'UZS',
                 ),
@@ -1339,7 +1341,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               ],
               const Divider(),
               const SizedBox(height: 8),
-              if (_hasUsdProducts) ...[         
+              if (_hasUsdProducts) ...[
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -1361,7 +1363,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ),
                 if (_hasUzsProducts) const SizedBox(height: 8),
               ],
-              if (_hasUzsProducts) ...[         
+              if (_hasUzsProducts) ...[
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [

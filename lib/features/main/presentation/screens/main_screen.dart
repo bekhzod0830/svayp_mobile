@@ -479,9 +479,14 @@ class MainScreenState extends State<MainScreen>
                                             behavior: HitTestBehavior.opaque,
                                             child: Center(
                                               child: Padding(
-                                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 4,
+                                                      vertical: 2,
+                                                    ),
                                                 child: Column(
-                                                  mainAxisSize: MainAxisSize.min,
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
                                                   children: [
                                                     const _VisualSearchNavButton(),
                                                     const SizedBox(height: 2),
@@ -489,11 +494,22 @@ class MainScreenState extends State<MainScreen>
                                                       l10n.visualSearch,
                                                       maxLines: 1,
                                                       softWrap: false,
-                                                      overflow: TextOverflow.ellipsis,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
                                                       style: TextStyle(
-                                                        fontSize: 9.5 * fontScale,
-                                                        fontWeight: FontWeight.w400,
-                                                        color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.45),
+                                                        fontSize:
+                                                            9.5 * fontScale,
+                                                        fontWeight:
+                                                            FontWeight.w400,
+                                                        color:
+                                                            (isDark
+                                                                    ? Colors
+                                                                          .white
+                                                                    : Colors
+                                                                          .black)
+                                                                .withValues(
+                                                                  alpha: 0.45,
+                                                                ),
                                                       ),
                                                     ),
                                                   ],

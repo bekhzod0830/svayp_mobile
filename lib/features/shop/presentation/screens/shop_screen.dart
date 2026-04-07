@@ -924,18 +924,16 @@ class _ShopScreenState extends State<ShopScreen>
   Widget _buildShopsButton(bool isDark, AppLocalizations l10n) {
     final isActive = _selectedSellerId != null;
     final label = isActive
-        ? (_sellers
-                .where((s) => s.id == _selectedSellerId)
-                .firstOrNull
-                ?.name ??
-            l10n.shops)
+        ? (_sellers.where((s) => s.id == _selectedSellerId).firstOrNull?.name ??
+              l10n.shops)
         : l10n.shops;
 
     return GestureDetector(
       onTap: () async {
-        await Navigator.of(context, rootNavigator: true).push(
-          MaterialPageRoute(builder: (_) => const SellersListScreen()),
-        );
+        await Navigator.of(
+          context,
+          rootNavigator: true,
+        ).push(MaterialPageRoute(builder: (_) => const SellersListScreen()));
       },
       child: Container(
         height: 44,
@@ -1003,14 +1001,15 @@ class _ShopScreenState extends State<ShopScreen>
 
     return GestureDetector(
       onTap: () async {
-        final picked = await Navigator.of(context, rootNavigator: true).push<int>(
-          MaterialPageRoute(
-            builder: (_) => _CategoryPickerScreen(
-              selectedIndex: _selectedTab,
-              categories: categoryLabels,
-            ),
-          ),
-        );
+        final picked = await Navigator.of(context, rootNavigator: true)
+            .push<int>(
+              MaterialPageRoute(
+                builder: (_) => _CategoryPickerScreen(
+                  selectedIndex: _selectedTab,
+                  categories: categoryLabels,
+                ),
+              ),
+            );
         if (picked != null && mounted) _onTabSelected(picked);
       },
       child: Container(
@@ -1576,8 +1575,9 @@ class _CategoryPickerScreen extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
-      backgroundColor:
-          isDark ? AppColors.darkMainBackground : const Color(0xFFF7F7F8),
+      backgroundColor: isDark
+          ? AppColors.darkMainBackground
+          : const Color(0xFFF7F7F8),
       body: SafeArea(
         child: Column(
           children: [
@@ -1590,7 +1590,9 @@ class _CategoryPickerScreen extends StatelessWidget {
                     icon: Icon(
                       Icons.arrow_back_ios_new_rounded,
                       size: 20,
-                      color: isDark ? AppColors.darkPrimaryText : AppColors.black,
+                      color: isDark
+                          ? AppColors.darkPrimaryText
+                          : AppColors.black,
                     ),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
@@ -1598,7 +1600,9 @@ class _CategoryPickerScreen extends StatelessWidget {
                     l10n.categories,
                     style: AppTypography.heading2.copyWith(
                       fontWeight: FontWeight.w700,
-                      color: isDark ? AppColors.darkPrimaryText : AppColors.black,
+                      color: isDark
+                          ? AppColors.darkPrimaryText
+                          : AppColors.black,
                       letterSpacing: -0.5,
                     ),
                   ),
@@ -1609,12 +1613,16 @@ class _CategoryPickerScreen extends StatelessWidget {
             // Category list
             Expanded(
               child: ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 itemCount: categories.length,
                 separatorBuilder: (_, __) => Divider(
                   height: 1,
-                  color:
-                      isDark ? AppColors.darkStandardBorder : AppColors.gray200,
+                  color: isDark
+                      ? AppColors.darkStandardBorder
+                      : AppColors.gray200,
                 ),
                 itemBuilder: (context, index) {
                   final isSelected = index == selectedIndex;

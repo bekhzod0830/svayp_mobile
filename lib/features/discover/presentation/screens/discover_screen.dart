@@ -369,11 +369,14 @@ class DiscoverScreenState extends State<DiscoverScreen> {
   /// Trigger a background fetch when the user is getting close to the end.
   void _checkAndLoadMore() {
     final remaining = _products.length - _currentCardIndex;
-    if (remaining <= 5 && !_isFetchingMore && _hasMoreProducts &&
+    if (remaining <= 5 &&
+        !_isFetchingMore &&
+        _hasMoreProducts &&
         _nextCursor != null) {
       unawaited(_loadMoreProducts());
     }
   }
+
   /// swipe stack renders. Runs in the background — never blocks the UI.
   void _preloadTopCardImages(List<Product> products, {int count = 5}) {
     final toPreload = products.take(count).toList();
@@ -554,8 +557,7 @@ class DiscoverScreenState extends State<DiscoverScreen> {
         useRootNavigator: true,
         builder: (sheetContext) => StatefulBuilder(
           builder: (sheetContext, setSheetState) {
-            final isDark =
-                Theme.of(sheetContext).brightness == Brightness.dark;
+            final isDark = Theme.of(sheetContext).brightness == Brightness.dark;
             final canConfirm =
                 (swipedProduct.sizes.isEmpty || selectedSize != null) &&
                 (swipedProduct.colors.isEmpty || selectedColor != null);
@@ -601,9 +603,7 @@ class DiscoverScreenState extends State<DiscoverScreen> {
                               width: 36,
                               height: 4,
                               decoration: BoxDecoration(
-                                color: isDark
-                                    ? Colors.white24
-                                    : Colors.black12,
+                                color: isDark ? Colors.white24 : Colors.black12,
                                 borderRadius: BorderRadius.circular(2),
                               ),
                             ),
@@ -666,7 +666,9 @@ class DiscoverScreenState extends State<DiscoverScreen> {
                                                 ? Colors.transparent
                                                 : (isDark
                                                       ? const Color(0x33FFFFFF)
-                                                      : const Color(0x22000000)),
+                                                      : const Color(
+                                                          0x22000000,
+                                                        )),
                                             width: 0.75,
                                           ),
                                         ),
@@ -757,19 +759,18 @@ class DiscoverScreenState extends State<DiscoverScreen> {
                                           ),
                                           child: Text(
                                             color,
-                                            style:
-                                                AppTypography.body2.copyWith(
-                                                  color: isSelected
-                                                      ? (isDark
-                                                            ? Colors.black
-                                                            : Colors.white)
-                                                      : (isDark
-                                                            ? Colors.white
-                                                            : Colors.black),
-                                                  fontWeight: isSelected
-                                                      ? FontWeight.w600
-                                                      : FontWeight.normal,
-                                                ),
+                                            style: AppTypography.body2.copyWith(
+                                              color: isSelected
+                                                  ? (isDark
+                                                        ? Colors.black
+                                                        : Colors.white)
+                                                  : (isDark
+                                                        ? Colors.white
+                                                        : Colors.black),
+                                              fontWeight: isSelected
+                                                  ? FontWeight.w600
+                                                  : FontWeight.normal,
+                                            ),
                                           ),
                                         ),
                                 );
@@ -1017,106 +1018,113 @@ class DiscoverScreenState extends State<DiscoverScreen> {
                     child: SizedBox(
                       width: ResponsiveUtils.getCardWidth(context),
                       child: ClipRRect(
-                    borderRadius: BorderRadius.circular(22),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? const Color(0xD0050508)
-                              : const Color(0xB8FFFFFF),
-                          borderRadius: BorderRadius.circular(22),
-                          border: Border.all(
-                            color: isDark
-                                ? const Color(0x22FFFFFF)
-                                : const Color(0x28000000),
-                            width: 0.5,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'SVΛYP',
-                              style: AppTypography.heading2.copyWith(
-                                fontWeight: FontWeight.w700,
-                                color: isDark ? Colors.white : Colors.black,
-                                letterSpacing: -0.5,
+                        borderRadius: BorderRadius.circular(22),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? const Color(0xD0050508)
+                                  : const Color(0xB8FFFFFF),
+                              borderRadius: BorderRadius.circular(22),
+                              border: Border.all(
+                                color: isDark
+                                    ? const Color(0x22FFFFFF)
+                                    : const Color(0x28000000),
+                                width: 0.5,
                               ),
                             ),
-                            // Right side action icons
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                // Cart Button
-                                Stack(
-                                  clipBehavior: Clip.none,
+                                Text(
+                                  'SVΛYP',
+                                  style: AppTypography.heading2.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    color: isDark ? Colors.white : Colors.black,
+                                    letterSpacing: -0.5,
+                                  ),
+                                ),
+                                // Right side action icons
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    IconButton(
-                                      icon: Icon(
-                                        Icons.shopping_bag_outlined,
-                                        size: 26,
-                                        color: isDark
-                                            ? Colors.white
-                                            : Colors.black,
-                                      ),
-                                      onPressed: () async {
-                                        // Navigate to cart screen
-                                        await Navigator.of(context, rootNavigator: true).push(
-                                          MaterialPageRoute(
-                                            builder: (context) =>
-                                                const CartScreen(),
+                                    // Cart Button
+                                    Stack(
+                                      clipBehavior: Clip.none,
+                                      children: [
+                                        IconButton(
+                                          icon: Icon(
+                                            Icons.shopping_bag_outlined,
+                                            size: 26,
+                                            color: isDark
+                                                ? Colors.white
+                                                : Colors.black,
                                           ),
-                                        );
-                                        // Update cart count when returning
-                                        await _updateCartCount();
-                                      },
-                                    ),
-                                    // Badge showing cart item count
-                                    if (_cartCount > 0)
-                                      Positioned(
-                                        right: 8,
-                                        top: 8,
-                                        child: IgnorePointer(
-                                          child: Container(
-                                            padding: const EdgeInsets.all(4),
-                                            decoration: const BoxDecoration(
-                                              color: Color(0xFFFF3B30),
-                                              shape: BoxShape.circle,
-                                            ),
-                                            constraints: const BoxConstraints(
-                                              minWidth: 18,
-                                              minHeight: 18,
-                                            ),
-                                            child: Text(
-                                              _cartCount > 99
-                                                  ? '99+'
-                                                  : _cartCount.toString(),
-                                              style: AppTypography.caption
-                                                  .copyWith(
-                                                    color: Colors.white,
-                                                    fontSize: 10,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                              textAlign: TextAlign.center,
-                                            ),
-                                          ),
+                                          onPressed: () async {
+                                            // Navigate to cart screen
+                                            await Navigator.of(
+                                              context,
+                                              rootNavigator: true,
+                                            ).push(
+                                              MaterialPageRoute(
+                                                builder: (context) =>
+                                                    const CartScreen(),
+                                              ),
+                                            );
+                                            // Update cart count when returning
+                                            await _updateCartCount();
+                                          },
                                         ),
-                                      ),
+                                        // Badge showing cart item count
+                                        if (_cartCount > 0)
+                                          Positioned(
+                                            right: 8,
+                                            top: 8,
+                                            child: IgnorePointer(
+                                              child: Container(
+                                                padding: const EdgeInsets.all(
+                                                  4,
+                                                ),
+                                                decoration: const BoxDecoration(
+                                                  color: Color(0xFFFF3B30),
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                constraints:
+                                                    const BoxConstraints(
+                                                      minWidth: 18,
+                                                      minHeight: 18,
+                                                    ),
+                                                child: Text(
+                                                  _cartCount > 99
+                                                      ? '99+'
+                                                      : _cartCount.toString(),
+                                                  style: AppTypography.caption
+                                                      .copyWith(
+                                                        color: Colors.white,
+                                                        fontSize: 10,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                      ),
+                                                  textAlign: TextAlign.center,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
                                   ],
                                 ),
                               ],
                             ),
-                          ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -1224,7 +1232,11 @@ class DiscoverScreenState extends State<DiscoverScreen> {
               child: _buildActionButtons(),
             ),
             // Spacer so buttons clear the floating navbar
-            SizedBox(height: MediaQuery.of(context).viewPadding.bottom.clamp(16.0, 60.0) + 78),
+            SizedBox(
+              height:
+                  MediaQuery.of(context).viewPadding.bottom.clamp(16.0, 60.0) +
+                  78,
+            ),
           ],
         );
       },
@@ -1355,14 +1367,10 @@ class DiscoverScreenState extends State<DiscoverScreen> {
           width: 52,
           height: 52,
           decoration: BoxDecoration(
-            color: isDark
-                ? const Color(0x18FFFFFF)
-                : const Color(0xDDFFFFFF),
+            color: isDark ? const Color(0x18FFFFFF) : const Color(0xDDFFFFFF),
             shape: BoxShape.circle,
             border: Border.all(
-              color: isDark
-                  ? const Color(0x22FFFFFF)
-                  : const Color(0x28000000),
+              color: isDark ? const Color(0x22FFFFFF) : const Color(0x28000000),
               width: 0.5,
             ),
             boxShadow: [
