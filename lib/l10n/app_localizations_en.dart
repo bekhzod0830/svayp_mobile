@@ -2873,4 +2873,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String forceUpdateVersionLabel(String version) {
     return 'Version $version available';
   }
+
+  @override
+  String get pressBackAgainToExit => 'Press back again to exit';
+
+  @override
+  String get refresh => 'Refresh';
+
+  @override
+  String get tapRefreshToSeeMore =>
+      'Tap refresh to start over and see new products';
 }

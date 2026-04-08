@@ -84,7 +84,25 @@ class VisualSearchCropWidgetState extends State<VisualSearchCropWidget> {
     }
   }
 
-  static const double _minSize = 48.0;
+  static const double _minSize = 40.0;
+
+  // Move the whole crop box without resizing
+  void _moveBox(Offset delta) => setState(() {
+    final newLeft = (_selection.left + delta.dx).clamp(
+      _imageRect.left,
+      _imageRect.right - _selection.width,
+    );
+    final newTop = (_selection.top + delta.dy).clamp(
+      _imageRect.top,
+      _imageRect.bottom - _selection.height,
+    );
+    _selection = Rect.fromLTWH(
+      newLeft,
+      newTop,
+      _selection.width,
+      _selection.height,
+    );
+  });
 
   void _moveTopLeft(Offset delta) => setState(() {
     final l = (_selection.left + delta.dx).clamp(
@@ -190,13 +208,19 @@ class VisualSearchCropWidgetState extends State<VisualSearchCropWidget> {
   }
 
   // ── Handle widget ──────────────────────────────────────────────────────────
-  /// Invisible touch radius (48 px – Apple/Material minimum tap target).
-  static const double _hTouchR = 24.0;
+  /// Touch target radius — large enough for easy grab.
+  static const double _hTouchR = 40.0;
 
-  /// Visible dot radius.
-  static const double _hVisR = 14.0;
+  /// L-bracket arm length in pixels.
+  static const double _bracketArm = 28.0;
+  static const double _bracketThick = 4.0;
 
-  Widget _handle(Offset pos, void Function(Offset) onDrag) {
+  Widget _handle(
+    Offset pos,
+    void Function(Offset) onDrag, {
+    required bool flipX,
+    required bool flipY,
+  }) {
     return Positioned(
       left: pos.dx - _hTouchR,
       top: pos.dy - _hTouchR,
@@ -206,21 +230,12 @@ class VisualSearchCropWidgetState extends State<VisualSearchCropWidget> {
         child: SizedBox(
           width: _hTouchR * 2,
           height: _hTouchR * 2,
-          child: Center(
-            child: Container(
-              width: _hVisR * 2,
-              height: _hVisR * 2,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.35),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
+          child: CustomPaint(
+            painter: _LBracketPainter(
+              flipX: flipX,
+              flipY: flipY,
+              armLen: _bracketArm,
+              thickness: _bracketThick,
             ),
           ),
         ),
@@ -320,23 +335,67 @@ class VisualSearchCropWidgetState extends State<VisualSearchCropWidget> {
             Image.file(File(widget.image.path), fit: BoxFit.contain),
             if (ready)
               CustomPaint(painter: _CropOverlayPainter(selection: _selection)),
+            // Interior pan — move the whole box by dragging inside it
+            if (ready)
+              Positioned(
+                left: _selection.left + _hTouchR,
+                top: _selection.top + _hTouchR,
+                width: (_selection.width - _hTouchR * 2).clamp(
+                  0,
+                  double.infinity,
+                ),
+                height: (_selection.height - _hTouchR * 2).clamp(
+                  0,
+                  double.infinity,
+                ),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onPanUpdate: (d) => _moveBox(d.delta),
+                ),
+              ),
             if (ready) ...[
-              _handle(_selection.topLeft, _moveTopLeft),
-              _handle(_selection.topRight, _moveTopRight),
-              _handle(_selection.bottomRight, _moveBottomRight),
-              _handle(_selection.bottomLeft, _moveBottomLeft),
+              _handle(
+                _selection.topLeft,
+                _moveTopLeft,
+                flipX: false,
+                flipY: false,
+              ),
+              _handle(
+                _selection.topRight,
+                _moveTopRight,
+                flipX: true,
+                flipY: false,
+              ),
+              _handle(
+                _selection.bottomRight,
+                _moveBottomRight,
+                flipX: true,
+                flipY: true,
+              ),
+              _handle(
+                _selection.bottomLeft,
+                _moveBottomLeft,
+                flipX: false,
+                flipY: true,
+              ),
               // Edge handles (invisible strips along each side)
               _edgeHandle(
                 left: _selection.left + _hTouchR,
                 top: _selection.top - _hTouchR,
-                width: _selection.width - _hTouchR * 2,
+                width: (_selection.width - _hTouchR * 2).clamp(
+                  0,
+                  double.infinity,
+                ),
                 height: _hTouchR * 2,
                 onDrag: _moveTop,
               ),
               _edgeHandle(
                 left: _selection.left + _hTouchR,
                 top: _selection.bottom - _hTouchR,
-                width: _selection.width - _hTouchR * 2,
+                width: (_selection.width - _hTouchR * 2).clamp(
+                  0,
+                  double.infinity,
+                ),
                 height: _hTouchR * 2,
                 onDrag: _moveBottom,
               ),
@@ -344,14 +403,20 @@ class VisualSearchCropWidgetState extends State<VisualSearchCropWidget> {
                 left: _selection.left - _hTouchR,
                 top: _selection.top + _hTouchR,
                 width: _hTouchR * 2,
-                height: _selection.height - _hTouchR * 2,
+                height: (_selection.height - _hTouchR * 2).clamp(
+                  0,
+                  double.infinity,
+                ),
                 onDrag: _moveLeft,
               ),
               _edgeHandle(
                 left: _selection.right - _hTouchR,
                 top: _selection.top + _hTouchR,
                 width: _hTouchR * 2,
-                height: _selection.height - _hTouchR * 2,
+                height: (_selection.height - _hTouchR * 2).clamp(
+                  0,
+                  double.infinity,
+                ),
                 onDrag: _moveRight,
               ),
             ],
@@ -389,39 +454,66 @@ class _CropOverlayPainter extends CustomPainter {
       ..strokeWidth = 1.0
       ..style = PaintingStyle.stroke;
     canvas.drawRect(selection, borderPaint);
-
-    // Rounded corner brackets (same style as results screen)
-    const armLen = 26.0;
-    const cr = 14.0;
-    const strokeW = 3.0;
-
-    final bracketPaint = Paint()
-      ..color = Colors.white.withOpacity(0.95)
-      ..strokeWidth = strokeW
-      ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
-
-    final corners = [
-      (selection.topLeft, 1.0, 1.0),
-      (selection.topRight, -1.0, 1.0),
-      (selection.bottomRight, -1.0, -1.0),
-      (selection.bottomLeft, 1.0, -1.0),
-    ];
-
-    for (final (origin, sx, sy) in corners) {
-      final path = Path()
-        ..moveTo(origin.dx + sx * armLen, origin.dy)
-        ..lineTo(origin.dx + sx * cr, origin.dy)
-        ..arcToPoint(
-          Offset(origin.dx, origin.dy + sy * cr),
-          radius: const Radius.circular(cr),
-          clockwise: sx * sy < 0,
-        )
-        ..lineTo(origin.dx, origin.dy + sy * armLen);
-      canvas.drawPath(path, bracketPaint);
-    }
   }
 
   @override
   bool shouldRepaint(_CropOverlayPainter old) => old.selection != selection;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Paints an L-shaped bracket at a corner handle, directed inward.
+// flipX mirrors horizontally (right corners), flipY mirrors vertically (bottom).
+// ─────────────────────────────────────────────────────────────────────────────
+class _LBracketPainter extends CustomPainter {
+  final bool flipX;
+  final bool flipY;
+  final double armLen;
+  final double thickness;
+
+  const _LBracketPainter({
+    required this.flipX,
+    required this.flipY,
+    required this.armLen,
+    required this.thickness,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+
+    // Compute the corner position and direction inward.
+    final double ox = flipX ? cx + armLen / 2 : cx - armLen / 2;
+    final double oy = flipY ? cy + armLen / 2 : cy - armLen / 2;
+    final double sx = flipX ? -1.0 : 1.0;
+    final double sy = flipY ? -1.0 : 1.0;
+
+    final paint = Paint()
+      ..color = Colors.white
+      ..strokeWidth = thickness
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+
+    // Shadow
+    final shadowPaint = Paint()
+      ..color = Colors.black.withOpacity(0.40)
+      ..strokeWidth = thickness + 2
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+
+    final path = Path()
+      ..moveTo(ox + sx * armLen, oy)
+      ..lineTo(ox, oy)
+      ..lineTo(ox, oy + sy * armLen);
+
+    canvas.drawPath(path, shadowPaint);
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(_LBracketPainter old) =>
+      old.flipX != flipX ||
+      old.flipY != flipY ||
+      old.armLen != armLen ||
+      old.thickness != thickness;
 }

@@ -1195,5 +1195,8 @@
     "placeholders": {
       "version": { "type": "String" }
     }
-  }
+  },
+  "pressBackAgainToExit": "Нажмите ещё раз для выхода",
+  "refresh": "Обновить",
+  "tapRefreshToSeeMore": "Нажмите обновить, чтобы увидеть новые товары"
 }

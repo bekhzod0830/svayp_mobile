@@ -1189,5 +1189,8 @@
     "placeholders": {
       "version": { "type": "String" }
     }
-  }
+  },
+  "pressBackAgainToExit": "Chiqish uchun qayta bosing",
+  "refresh": "Yangilash",
+  "tapRefreshToSeeMore": "Yangi mahsulotlarni ko'rish uchun yangilang"
 }

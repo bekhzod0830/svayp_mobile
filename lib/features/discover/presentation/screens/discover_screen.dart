@@ -8,11 +8,11 @@ import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
 import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/core/network/api_client.dart';
+import 'package:swipe/core/services/badge_notifier.dart';
 import 'package:swipe/features/discover/domain/entities/product.dart';
 import 'package:swipe/features/discover/presentation/widgets/swipeable_product_card.dart';
 import 'package:swipe/features/discover/presentation/widgets/swipe_tutorial_overlay.dart';
 import 'package:swipe/features/cart/data/services/cart_service.dart';
-import 'package:swipe/features/cart/presentation/screens/cart_screen.dart';
 import 'package:swipe/features/liked/data/services/liked_service.dart';
 import 'package:swipe/features/product/presentation/screens/product_detail_screen.dart';
 import 'package:swipe/core/services/product_api_service.dart';
@@ -22,6 +22,9 @@ import 'package:swipe/core/services/seen_products_service.dart';
 import 'package:swipe/core/cache/image_cache_manager.dart';
 import 'package:swipe/core/utils/responsive_utils.dart';
 import 'package:swipe/core/services/notification_service.dart';
+import 'package:swipe/core/services/sound_service.dart';
+import 'package:swipe/shared/widgets/main_top_bar.dart';
+import 'package:swipe/shared/widgets/swipe_feedback_banner.dart';
 
 /// Helper function to format size label by removing SIZE_ prefix
 String _formatSizeLabel(String size) {
@@ -58,16 +61,20 @@ class DiscoverScreenState extends State<DiscoverScreen> {
   bool _isLoading = true;
   bool _isFetchingMore = false;
   bool _hasMoreProducts = true;
+  bool _autoRefreshDone = false;
   String? _nextCursor;
+  int _guestPage = 0;
+  static const int _guestPageSize = 20;
   OverlayEntry? _tutorialOverlayEntry;
   int _currentCardIndex = 0;
-  int _cartCount = 0;
   String? _authToken;
+  DateTime? _lastBackPressTime;
 
   @override
   void initState() {
     super.initState();
     _initializeScreen();
+    SoundService.instance.preload();
     // Request notification permission here — after login/registration.
     // iOS shows the system dialog only once; subsequent calls are instant & silent.
     NotificationService.instance.requestPermissionAndRegisterToken().ignore();
@@ -90,9 +97,7 @@ class DiscoverScreenState extends State<DiscoverScreen> {
 
     // ── 3. Show cart count from local Hive immediately (zero-latency) ──
     if (mounted) {
-      setState(() {
-        _cartCount = _cartService.getTotalQuantity();
-      });
+      BadgeNotifier.instance.setCartCount(_cartService.getTotalQuantity());
     }
 
     // ── 3b. Build exclusion set: cart IDs (local/free) + previously seen IDs ──
@@ -159,31 +164,21 @@ class DiscoverScreenState extends State<DiscoverScreen> {
     if (!mounted) return;
 
     try {
-      // If user is authenticated, fetch cart count from API (source of truth)
       if (_authToken != null && _authToken!.isNotEmpty) {
         final cartData = await _apiService.getCart(token: _authToken!);
         final summary = cartData['summary'] as Map<String, dynamic>;
         final totalItems = summary['total_items'] as int;
-
         if (!mounted) return;
-        setState(() {
-          _cartCount = totalItems;
-        });
+        BadgeNotifier.instance.setCartCount(totalItems);
       } else {
-        // Fallback to local storage if not authenticated
         await _cartService.init();
         if (!mounted) return;
-        setState(() {
-          _cartCount = _cartService.getTotalQuantity();
-        });
+        BadgeNotifier.instance.setCartCount(_cartService.getTotalQuantity());
       }
     } catch (e) {
-      // If API call fails, fallback to local storage
       await _cartService.init();
       if (!mounted) return;
-      setState(() {
-        _cartCount = _cartService.getTotalQuantity();
-      });
+      BadgeNotifier.instance.setCartCount(_cartService.getTotalQuantity());
     }
   }
 
@@ -198,8 +193,21 @@ class DiscoverScreenState extends State<DiscoverScreen> {
         _dragProgressNotifier.value = 0.0;
         _nextCursor = null;
         _hasMoreProducts = true;
+        _guestPage = 0;
+        _autoRefreshDone = false;
+        // Reset exclusion list to only cart items so products can appear again
+        final cartIds = _cartService
+            .getCartItems()
+            .map((item) => item.productId)
+            .toSet();
+        _excludedProductIds = cartIds;
       }
     });
+
+    // Clear persistent seen-products so the backend also sends fresh items
+    if (resetIndex) {
+      await SeenProductsService.clear();
+    }
 
     try {
       List<Product> loadedProducts = [];
@@ -285,21 +293,20 @@ class DiscoverScreenState extends State<DiscoverScreen> {
         }
       }
     } else {
-      // User not authenticated - try fetching products without auth token
+      // Guest user — load public product catalogue (no auth required)
       try {
-        final response = await _apiService.getProducts(page: 0, size: 20);
+        _guestPage = 0;
+        final response = await _apiService.getProducts(
+          page: 0,
+          size: _guestPageSize,
+        );
         for (final apiProduct in response.products) {
           try {
-            final product = _convertApiProduct(apiProduct);
-            loadedProducts.add(product);
-          } catch (e) {
-            // Skip failed conversions
-          }
+            loadedProducts.add(_convertApiProduct(apiProduct));
+          } catch (_) {}
         }
-      } catch (e) {
-        // If API fails for unauthenticated users, return empty list
-        // The outer error handler will show the error message
-      }
+        _hasMoreProducts = response.products.length >= _guestPageSize;
+      } catch (_) {}
     }
 
     // ── Client-side filter: remove products the user already interacted with ──
@@ -318,19 +325,52 @@ class DiscoverScreenState extends State<DiscoverScreen> {
   /// Load the next page of products and append to the existing list.
   Future<void> _loadMoreProducts() async {
     if (_isFetchingMore || !_hasMoreProducts) return;
-    if (_authToken == null || _authToken!.isEmpty) return;
-    if (_nextCursor == null) {
-      setState(() => _hasMoreProducts = false);
+
+    // Guest users paginate public catalogue via page number
+    if (_authToken == null || _authToken!.isEmpty) {
+      setState(() => _isFetchingMore = true);
+      try {
+        final nextPage = _guestPage + 1;
+        final response = await _apiService.getProducts(
+          page: nextPage,
+          size: _guestPageSize,
+        );
+        final existingIds = _products.map((p) => p.id).toSet()
+          ..addAll(_excludedProductIds);
+        final unique = <Product>[];
+        for (final apiProduct in response.products) {
+          try {
+            final p = _convertApiProduct(apiProduct);
+            if (!existingIds.contains(p.id)) {
+              existingIds.add(p.id);
+              unique.add(p);
+            }
+          } catch (_) {}
+        }
+        if (!mounted) return;
+        setState(() {
+          _products.addAll(unique);
+          _guestPage = nextPage;
+          _hasMoreProducts = response.products.length >= _guestPageSize;
+          _isFetchingMore = false;
+        });
+        _preloadTopCardImages(unique, count: 5);
+      } catch (_) {
+        if (!mounted) return;
+        setState(() => _isFetchingMore = false);
+      }
       return;
     }
 
+    // Authenticated users paginate via cursor
+    // If cursor is null, fetch the first feed page (e.g. after serving from cache)
     setState(() => _isFetchingMore = true);
 
     try {
       final response = await _apiService.getFeed(
         token: _authToken!,
         limit: 10,
-        cursor: _nextCursor,
+        cursor: _nextCursor, // null = first page, non-null = next page
       );
 
       // Build a set of IDs already present in the feed (pending + swiped)
@@ -369,10 +409,11 @@ class DiscoverScreenState extends State<DiscoverScreen> {
   /// Trigger a background fetch when the user is getting close to the end.
   void _checkAndLoadMore() {
     final remaining = _products.length - _currentCardIndex;
+    final isGuest = _authToken == null || _authToken!.isEmpty;
     if (remaining <= 5 &&
         !_isFetchingMore &&
         _hasMoreProducts &&
-        _nextCursor != null) {
+        (isGuest || _nextCursor != null)) {
       unawaited(_loadMoreProducts());
     }
   }
@@ -500,6 +541,11 @@ class DiscoverScreenState extends State<DiscoverScreen> {
 
     // Add to liked items in background (don't block UI)
     _likedService.addLike(swipedProduct);
+    BadgeNotifier.instance.markNewLiked();
+
+    // Show toast + play sound
+    SwipeFeedbackBanner.show(context, SwipeFeedbackType.liked);
+    unawaited(SoundService.instance.playTing());
 
     // Send like to backend if user is authenticated
     if (_authToken != null && _authToken!.isNotEmpty) {
@@ -840,7 +886,9 @@ class DiscoverScreenState extends State<DiscoverScreen> {
     // Persist seen ID and pre-fetch next batch if running low
     unawaited(SeenProductsService.addSeenIds([swipedProduct.id]));
     _checkAndLoadMore();
-    _showToast(l10n.addedToCart);
+    if (!mounted) return;
+    SwipeFeedbackBanner.show(context, SwipeFeedbackType.addedToCart);
+    unawaited(SoundService.instance.playTing());
 
     await _cartService.addToCart(
       swipedProduct,
@@ -908,8 +956,7 @@ class DiscoverScreenState extends State<DiscoverScreen> {
       _swipeHistory.removeLast();
     });
 
-    final l10n = AppLocalizations.of(context)!;
-    _showToast(l10n.undo);
+    SwipeFeedbackBanner.show(context, SwipeFeedbackType.undo);
   }
 
   Future<void> _onCardTap() async {
@@ -951,231 +998,131 @@ class DiscoverScreenState extends State<DiscoverScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    return Scaffold(
-      // Liquid Glass gradient background
-      backgroundColor: isDark ? const Color(0xFF0A0A0A) : Colors.white,
-      body: Stack(
-        children: [
-          // ── Gradient background mesh ──
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: isDark
-                      ? const [Color(0xFF0A0A0A), Color(0xFF111111)]
-                      : const [Colors.white, Colors.white],
-                ),
-              ),
-            ),
-          ),
-          // ── Ambient glow blobs for Liquid Glass depth ──
-          Positioned(
-            top: -80,
-            left: -60,
-            child: IgnorePointer(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        final now = DateTime.now();
+        final lastPress = _lastBackPressTime;
+        if (lastPress == null ||
+            now.difference(lastPress) > const Duration(seconds: 2)) {
+          _lastBackPressTime = now;
+          _showToast(AppLocalizations.of(context)!.pressBackAgainToExit);
+          return;
+        }
+        SystemNavigator.pop();
+      },
+      child: Scaffold(
+        // Liquid Glass gradient background
+        backgroundColor: isDark ? const Color(0xFF0A0A0A) : Colors.white,
+        body: Stack(
+          children: [
+            // ── Gradient background mesh ──
+            Positioned.fill(
               child: Container(
-                width: 280,
-                height: 280,
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                     colors: isDark
-                        ? const [Color(0x00000000), Color(0x00000000)]
-                        : const [Color(0x00FFFFFF), Color(0x00FFFFFF)],
+                        ? const [Color(0xFF0A0A0A), Color(0xFF111111)]
+                        : const [Colors.white, Colors.white],
                   ),
                 ),
               ),
             ),
-          ),
-          Positioned(
-            bottom: 60,
-            right: -80,
-            child: IgnorePointer(
-              child: Container(
-                width: 320,
-                height: 320,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: isDark
-                        ? const [Color(0x00000000), Color(0x00000000)]
-                        : const [Color(0x00FFFFFF), Color(0x00FFFFFF)],
-                  ),
-                ),
-              ),
-            ),
-          ),
-          SafeArea(
-            child: Column(
-              children: [
-                // Glass Header
-                Padding(
-                  padding: const EdgeInsets.only(top: 8, bottom: 4),
-                  child: Align(
-                    alignment: Alignment.center,
-                    child: SizedBox(
-                      width: ResponsiveUtils.getCardWidth(context),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(22),
-                        child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 10,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? const Color(0xD0050508)
-                                  : const Color(0xB8FFFFFF),
-                              borderRadius: BorderRadius.circular(22),
-                              border: Border.all(
-                                color: isDark
-                                    ? const Color(0x22FFFFFF)
-                                    : const Color(0x28000000),
-                                width: 0.5,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'SVΛYP',
-                                  style: AppTypography.heading2.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                    color: isDark ? Colors.white : Colors.black,
-                                    letterSpacing: -0.5,
-                                  ),
-                                ),
-                                // Right side action icons
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    // Cart Button
-                                    Stack(
-                                      clipBehavior: Clip.none,
-                                      children: [
-                                        IconButton(
-                                          icon: Icon(
-                                            Icons.shopping_bag_outlined,
-                                            size: 26,
-                                            color: isDark
-                                                ? Colors.white
-                                                : Colors.black,
-                                          ),
-                                          onPressed: () async {
-                                            // Navigate to cart screen
-                                            await Navigator.of(
-                                              context,
-                                              rootNavigator: true,
-                                            ).push(
-                                              MaterialPageRoute(
-                                                builder: (context) =>
-                                                    const CartScreen(),
-                                              ),
-                                            );
-                                            // Update cart count when returning
-                                            await _updateCartCount();
-                                          },
-                                        ),
-                                        // Badge showing cart item count
-                                        if (_cartCount > 0)
-                                          Positioned(
-                                            right: 8,
-                                            top: 8,
-                                            child: IgnorePointer(
-                                              child: Container(
-                                                padding: const EdgeInsets.all(
-                                                  4,
-                                                ),
-                                                decoration: const BoxDecoration(
-                                                  color: Color(0xFFFF3B30),
-                                                  shape: BoxShape.circle,
-                                                ),
-                                                constraints:
-                                                    const BoxConstraints(
-                                                      minWidth: 18,
-                                                      minHeight: 18,
-                                                    ),
-                                                child: Text(
-                                                  _cartCount > 99
-                                                      ? '99+'
-                                                      : _cartCount.toString(),
-                                                  style: AppTypography.caption
-                                                      .copyWith(
-                                                        color: Colors.white,
-                                                        fontSize: 10,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                      ),
-                                                  textAlign: TextAlign.center,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
+            // ── Ambient glow blobs for Liquid Glass depth ──
+            Positioned(
+              top: -80,
+              left: -60,
+              child: IgnorePointer(
+                child: Container(
+                  width: 280,
+                  height: 280,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: isDark
+                          ? const [Color(0x00000000), Color(0x00000000)]
+                          : const [Color(0x00FFFFFF), Color(0x00FFFFFF)],
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
-                // Content
-                Expanded(
-                  child: _isLoading
-                      ? Center(
-                          child: Container(
-                            width: 52,
-                            height: 52,
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? const Color(0x18FFFFFF)
-                                  : const Color(0xDDFFFFFF),
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: isDark
-                                    ? const Color(0x22FFFFFF)
-                                    : const Color(0x28000000),
-                                width: 0.5,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: isDark
-                                      ? Colors.black26
-                                      : Colors.black12,
-                                  blurRadius: 16,
-                                  offset: const Offset(0, 6),
-                                ),
-                              ],
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.5,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  isDark ? Colors.white : Colors.black,
-                                ),
-                              ),
-                            ),
-                          ),
-                        )
-                      : _currentCardIndex >= _products.length
-                      ? _buildDeckEnd(isDark)
-                      : _buildCardStack(),
-                ),
-              ],
+              ),
             ),
-          ),
-          // Swipe tutorial overlay is now shown via root OverlayEntry (covers bottom nav)
-        ],
+            Positioned(
+              bottom: 60,
+              right: -80,
+              child: IgnorePointer(
+                child: Container(
+                  width: 320,
+                  height: 320,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: isDark
+                          ? const [Color(0x00000000), Color(0x00000000)]
+                          : const [Color(0x00FFFFFF), Color(0x00FFFFFF)],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            SafeArea(
+              child: Column(
+                children: [
+                  // Consistent top bar (same as Shop, Profile, Chat)
+                  MainTopBar(title: 'SVΛYP'),
+                  const SizedBox(height: 8),
+                  // Content
+                  Expanded(
+                    child: _isLoading
+                        ? Center(
+                            child: Container(
+                              width: 52,
+                              height: 52,
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? const Color(0x18FFFFFF)
+                                    : const Color(0xDDFFFFFF),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: isDark
+                                      ? const Color(0x22FFFFFF)
+                                      : const Color(0x28000000),
+                                  width: 0.5,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: isDark
+                                        ? Colors.black26
+                                        : Colors.black12,
+                                    blurRadius: 16,
+                                    offset: const Offset(0, 6),
+                                  ),
+                                ],
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    isDark ? Colors.white : Colors.black,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          )
+                        : _currentCardIndex >= _products.length
+                        ? _buildDeckEnd(isDark)
+                        : _buildCardStack(),
+                  ),
+                ],
+              ),
+            ),
+            // Swipe tutorial overlay is now shown via root OverlayEntry (covers bottom nav)
+          ],
+        ),
       ),
     );
   }
@@ -1354,13 +1301,9 @@ class DiscoverScreenState extends State<DiscoverScreen> {
   /// • If more pages exist → auto-fetches and shows a spinner.
   /// • If truly exhausted → shows a minimal "all caught up" glass card.
   Widget _buildDeckEnd(bool isDark) {
-    // Auto-trigger fetch when there is more content
-    if (!_isFetchingMore && _hasMoreProducts && _nextCursor != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) unawaited(_loadMoreProducts());
-      });
-    }
+    final isGuest = _authToken == null || _authToken!.isEmpty;
 
+    // Step 1: still fetching more pages — show spinner
     if (_isFetchingMore) {
       return Center(
         child: Container(
@@ -1394,67 +1337,131 @@ class DiscoverScreenState extends State<DiscoverScreen> {
       );
     }
 
+    // Step 2: more pages exist — auto-fetch next page
+    if (_hasMoreProducts && (isGuest || _nextCursor != null)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_loadMoreProducts());
+      });
+      return const SizedBox.shrink();
+    }
+
+    // Step 3: no more pages — auto-refresh once (clears seen list, fetches fresh feed)
+    if (!_autoRefreshDone) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() => _autoRefreshDone = true);
+          _loadProducts(resetIndex: true);
+        }
+      });
+      // Show spinner while the silent auto-refresh runs
+      return Center(
+        child: Container(
+          width: 52,
+          height: 52,
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0x18FFFFFF) : const Color(0xDDFFFFFF),
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: isDark ? const Color(0x22FFFFFF) : const Color(0x28000000),
+              width: 0.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: isDark ? Colors.black26 : Colors.black12,
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: CircularProgressIndicator(
+              strokeWidth: 2.5,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                isDark ? Colors.white : Colors.black,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Step 4: auto-refresh also returned nothing — show empty state with manual button
     return _buildEmptyState();
   }
 
   Widget _buildEmptyState() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = AppLocalizations.of(context)!;
+    final textColor = isDark ? Colors.white : Colors.black;
 
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(28),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-            child: Container(
-              padding: const EdgeInsets.all(36),
-              decoration: BoxDecoration(
-                color: isDark
-                    ? const Color(0x14FFFFFF)
-                    : const Color(0x99FFFFFF),
-                borderRadius: BorderRadius.circular(28),
-                border: Border.all(
-                  color: isDark
-                      ? const Color(0x22FFFFFF)
-                      : const Color(0xCCFFFFFF),
-                  width: 0.5,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.check_circle_outline,
+              size: 80,
+              color: textColor.withValues(alpha: 0.3),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              l10n.thatsAllForNow,
+              style: AppTypography.display2.copyWith(color: textColor),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              l10n.findingMoreItems,
+              style: AppTypography.body1.copyWith(
+                color: textColor.withValues(alpha: 0.65),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              l10n.tapRefreshToSeeMore,
+              style: AppTypography.body2.copyWith(
+                color: textColor.withValues(alpha: 0.45),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            GestureDetector(
+              onTap: () => _loadProducts(resetIndex: true),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 28,
+                  vertical: 14,
+                ),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white : Colors.black,
+                  borderRadius: BorderRadius.circular(32),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.refresh_rounded,
+                      size: 18,
+                      color: isDark ? Colors.black : Colors.white,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      l10n.refresh,
+                      style: AppTypography.body1.copyWith(
+                        color: isDark ? Colors.black : Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.check_circle_outline,
-                    size: 80,
-                    color: isDark
-                        ? const Color(0x44FFFFFF)
-                        : const Color(0x44000000),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    l10n.thatsAllForNow,
-                    style: AppTypography.display2.copyWith(
-                      color: isDark ? Colors.white : Colors.white,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    l10n.findingMoreItems,
-                    style: AppTypography.body1.copyWith(
-                      color: isDark
-                          ? const Color(0xAAFFFFFF)
-                          : const Color(0xCCFFFFFF),
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
             ),
-          ),
+          ],
         ),
       ),
     );

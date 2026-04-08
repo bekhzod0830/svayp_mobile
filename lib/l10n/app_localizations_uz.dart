@@ -2911,4 +2911,14 @@ class AppLocalizationsUz extends AppLocalizations {
   String forceUpdateVersionLabel(String version) {
     return '$version versiyasi mavjud';
   }
+
+  @override
+  String get pressBackAgainToExit => 'Chiqish uchun qayta bosing';
+
+  @override
+  String get refresh => 'Yangilash';
+
+  @override
+  String get tapRefreshToSeeMore =>
+      'Yangi mahsulotlarni ko\'rish uchun yangilang';
 }

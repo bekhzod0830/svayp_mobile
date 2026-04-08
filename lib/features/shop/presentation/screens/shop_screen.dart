@@ -47,9 +47,9 @@ class _ShopScreenState extends State<ShopScreen>
   bool _hasMoreProducts = true;
   int _currentPage = 0;
   final int _pageSize = 20;
-  final int _trendingPageSize = 100;
+  static const int _trendingLimit = 20;
   // Trending-specific pagination
-  int _trendingPage = 0;
+  int _trendingSkip = 0;
   bool _hasMoreTrending = true;
   bool _isLoadingMoreTrending = false;
   String? _errorMessage;
@@ -246,10 +246,10 @@ class _ShopScreenState extends State<ShopScreen>
     }
   }
 
-  /// Fetch trending products from GET /feed/trending?limit=20&page=0
+  /// Fetch trending products from GET /feed/trending?skip=0&limit=20
   Future<void> _loadTrendingProducts() async {
     setState(() {
-      _trendingPage = 0;
+      _trendingSkip = 0;
       _hasMoreTrending = true;
       _trendingProducts = [];
     });
@@ -257,14 +257,14 @@ class _ShopScreenState extends State<ShopScreen>
       final apiClient = getIt<ApiClient>();
       final response = await apiClient.get<dynamic>(
         '/feed/trending',
-        queryParameters: {'limit': '$_trendingPageSize', 'page': '0'},
+        queryParameters: {'limit': '$_trendingLimit', 'skip': '0'},
       );
       final trending = _parseTrendingResponse(response.data);
       if (mounted) {
         setState(() {
           _trendingProducts = trending;
-          _hasMoreTrending = trending.length >= _trendingPageSize;
-          if (trending.isNotEmpty) _trendingPage = 1;
+          _hasMoreTrending = trending.length >= _trendingLimit;
+          _trendingSkip = trending.length;
           _trendingLoadedAt = DateTime.now();
         });
         _filterProducts();
@@ -280,10 +280,7 @@ class _ShopScreenState extends State<ShopScreen>
       final apiClient = getIt<ApiClient>();
       final response = await apiClient.get<dynamic>(
         '/feed/trending',
-        queryParameters: {
-          'limit': '$_trendingPageSize',
-          'page': '$_trendingPage',
-        },
+        queryParameters: {'limit': '$_trendingLimit', 'skip': '$_trendingSkip'},
       );
       final newItems = _parseTrendingResponse(response.data);
       final existingIds = _trendingProducts.map((p) => p.id).toSet();
@@ -294,8 +291,8 @@ class _ShopScreenState extends State<ShopScreen>
         setState(() {
           _trendingProducts.addAll(unique);
           _isLoadingMoreTrending = false;
-          _hasMoreTrending = newItems.length >= _trendingPageSize;
-          if (unique.isNotEmpty) _trendingPage++;
+          _hasMoreTrending = newItems.length >= _trendingLimit;
+          _trendingSkip += newItems.length;
         });
         _filterProducts();
       }
@@ -413,14 +410,14 @@ class _ShopScreenState extends State<ShopScreen>
       final apiClient = getIt<ApiClient>();
       final response = await apiClient.get<dynamic>(
         '/feed/trending',
-        queryParameters: {'limit': '$_trendingPageSize', 'page': '0'},
+        queryParameters: {'limit': '$_trendingLimit', 'skip': '0'},
       );
       final fresh = _parseTrendingResponse(response.data);
       if (mounted) {
         setState(() {
           _trendingProducts = fresh;
-          _hasMoreTrending = fresh.length >= _trendingPageSize;
-          _trendingPage = fresh.isNotEmpty ? 1 : 0;
+          _hasMoreTrending = fresh.length >= _trendingLimit;
+          _trendingSkip = fresh.length;
           _trendingLoadedAt = DateTime.now();
         });
         if (_selectedTab == 0) _filterProducts();
@@ -995,9 +992,7 @@ class _ShopScreenState extends State<ShopScreen>
       l10n.vsCatUnderwear,
       l10n.vsCatAccessories,
     ];
-    final label = _selectedTab < categoryLabels.length
-        ? categoryLabels[_selectedTab]
-        : l10n.categories;
+    final label = l10n.categories;
 
     return GestureDetector(
       onTap: () async {

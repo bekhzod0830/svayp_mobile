@@ -5601,6 +5601,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Version {version} available'**
   String forceUpdateVersionLabel(String version);
+
+  /// No description provided for @pressBackAgainToExit.
+  ///
+  /// In en, this message translates to:
+  /// **'Press back again to exit'**
+  String get pressBackAgainToExit;
+
+  /// No description provided for @refresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh'**
+  String get refresh;
+
+  /// No description provided for @tapRefreshToSeeMore.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap refresh to start over and see new products'**
+  String get tapRefreshToSeeMore;
 }
 
 class _AppLocalizationsDelegate

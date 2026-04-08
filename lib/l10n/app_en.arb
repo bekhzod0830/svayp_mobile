@@ -1190,5 +1190,8 @@
     "placeholders": {
       "version": { "type": "String" }
     }
-  }
+  },
+  "pressBackAgainToExit": "Press back again to exit",
+  "refresh": "Refresh",
+  "tapRefreshToSeeMore": "Tap refresh to start over and see new products"
 }

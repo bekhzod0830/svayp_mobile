@@ -342,8 +342,14 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                                   : Brightness.light,
                               textAlign: TextAlign.center,
                               textAlignVertical: TextAlignVertical.center,
-                              maxLength:
-                                  6, // All fields accept up to 6 chars for autofill/paste
+                              maxLength: index == 0 ? 6 : 1,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                                // Fields 1-5 hard-cap at 1 digit; field 0 allows
+                                // up to 6 so SMS autofill / paste can land there.
+                                if (index != 0)
+                                  LengthLimitingTextInputFormatter(1),
+                              ],
                               // Only first field gets autofillHint for SMS autofill to work properly
                               autofillHints: index == 0
                                   ? const [AutofillHints.oneTimeCode]

@@ -3,7 +3,7 @@ import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 
-enum SwipeFeedbackType { liked, addedToCart, undo }
+enum SwipeFeedbackType { liked, addedToCart, undo, pressBackToExit }
 
 /// Pinterest-style top-of-screen pill that slides in for like / add-to-cart.
 ///
@@ -41,6 +41,11 @@ class SwipeFeedbackBanner {
         icon = Icons.undo_rounded;
         iconColor = const Color(0xFF0A84FF);
         label = l10n.undo;
+        break;
+      case SwipeFeedbackType.pressBackToExit:
+        icon = Icons.logout_rounded;
+        iconColor = const Color(0xFFFF9500);
+        label = l10n.pressBackAgainToExit;
         break;
     }
 

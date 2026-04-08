@@ -2896,4 +2896,14 @@ class AppLocalizationsRu extends AppLocalizations {
   String forceUpdateVersionLabel(String version) {
     return 'Версия $version доступна';
   }
+
+  @override
+  String get pressBackAgainToExit => 'Нажмите ещё раз для выхода';
+
+  @override
+  String get refresh => 'Обновить';
+
+  @override
+  String get tapRefreshToSeeMore =>
+      'Нажмите обновить, чтобы увидеть новые товары';
 }
