@@ -4,16 +4,23 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Embeddable interactive crop widget.
-// Drop it inside any parent (e.g. a bottom sheet).
-// Use a GlobalKey<VisualSearchCropWidgetState> to call cropImage() / resetSelection().
-// ─────────────────────────────────────────────────────────────────────────────
+// Which part of the crop rectangle is being dragged.
+enum _DragMode {
+  none,
+  moveBox,
+  topLeft,
+  topRight,
+  bottomRight,
+  bottomLeft,
+  top,
+  bottom,
+  left,
+  right,
+}
+
 class VisualSearchCropWidget extends StatefulWidget {
   final XFile image;
-
   const VisualSearchCropWidget({super.key, required this.image});
-
   @override
   State<VisualSearchCropWidget> createState() => VisualSearchCropWidgetState();
 }
@@ -21,15 +28,15 @@ class VisualSearchCropWidget extends StatefulWidget {
 class VisualSearchCropWidgetState extends State<VisualSearchCropWidget> {
   ui.Image? _uiImage;
   Size? _naturalSize;
-
-  // Selection rect in display coordinates (relative to the container widget).
   Rect _selection = Rect.zero;
-
-  // Computed once we have both container size and natural image size.
   Rect _imageRect = Rect.zero;
   Size _containerSize = Size.zero;
+  _DragMode _dragMode = _DragMode.none;
 
-  /// Reset selection to the full image bounds (call via GlobalKey).
+  static const double _cornerHitR = 44.0;
+  static const double _edgeHitW = 24.0;
+  static const double _minSize = 48.0;
+
   void resetSelection() => setState(() => _selection = _imageRect);
 
   @override
@@ -38,8 +45,6 @@ class VisualSearchCropWidgetState extends State<VisualSearchCropWidget> {
     _loadImage();
   }
 
-  // Load the image into a ui.Image so we can decode its natural size and later
-  // crop it pixel-accurately.
   Future<void> _loadImage() async {
     final bytes = await File(widget.image.path).readAsBytes();
     final codec = await ui.instantiateImageCodec(bytes);
@@ -55,7 +60,6 @@ class VisualSearchCropWidgetState extends State<VisualSearchCropWidget> {
     }
   }
 
-  // Replicate Flutter's BoxFit.contain placement of image inside container.
   static Rect _containedRect(Size container, Size natural) {
     final imgAspect = natural.width / natural.height;
     final ctnAspect = container.width / container.height;
@@ -67,96 +71,115 @@ class VisualSearchCropWidgetState extends State<VisualSearchCropWidget> {
       h = container.height;
       w = container.height * imgAspect;
     }
-    final dx = (container.width - w) / 2;
-    final dy = (container.height - h) / 2;
-    return Rect.fromLTWH(dx, dy, w, h);
+    return Rect.fromLTWH(
+      (container.width - w) / 2,
+      (container.height - h) / 2,
+      w,
+      h,
+    );
   }
 
-  // Called by LayoutBuilder whenever the container size is known/changes.
   void _updateLayout(Size containerSize) {
     if (_naturalSize == null) return;
     if (containerSize == _containerSize && _selection != Rect.zero) return;
     _containerSize = containerSize;
     _imageRect = _containedRect(containerSize, _naturalSize!);
-    // Initialize selection to full image bounds on first layout.
-    if (_selection == Rect.zero) {
-      _selection = _imageRect;
-    }
+    if (_selection == Rect.zero) _selection = _imageRect;
   }
 
-  static const double _minSize = 40.0;
+  _DragMode _hitTest(Offset pos) {
+    final sel = _selection;
+    if ((pos - sel.topLeft).distance <= _cornerHitR) return _DragMode.topLeft;
+    if ((pos - sel.topRight).distance <= _cornerHitR) return _DragMode.topRight;
+    if ((pos - sel.bottomRight).distance <= _cornerHitR)
+      return _DragMode.bottomRight;
+    if ((pos - sel.bottomLeft).distance <= _cornerHitR)
+      return _DragMode.bottomLeft;
+    final inH =
+        pos.dx >= sel.left - _edgeHitW && pos.dx <= sel.right + _edgeHitW;
+    final inV =
+        pos.dy >= sel.top - _edgeHitW && pos.dy <= sel.bottom + _edgeHitW;
+    if ((pos.dy - sel.top).abs() <= _edgeHitW && inH) return _DragMode.top;
+    if ((pos.dy - sel.bottom).abs() <= _edgeHitW && inH)
+      return _DragMode.bottom;
+    if ((pos.dx - sel.left).abs() <= _edgeHitW && inV) return _DragMode.left;
+    if ((pos.dx - sel.right).abs() <= _edgeHitW && inV) return _DragMode.right;
+    if (sel.contains(pos)) return _DragMode.moveBox;
+    return _DragMode.none;
+  }
 
-  // Move the whole crop box without resizing
-  void _moveBox(Offset delta) => setState(() {
-    final newLeft = (_selection.left + delta.dx).clamp(
-      _imageRect.left,
-      _imageRect.right - _selection.width,
-    );
-    final newTop = (_selection.top + delta.dy).clamp(
-      _imageRect.top,
-      _imageRect.bottom - _selection.height,
-    );
-    _selection = Rect.fromLTWH(
-      newLeft,
-      newTop,
-      _selection.width,
-      _selection.height,
-    );
-  });
+  void _applyDelta(Offset delta) {
+    if (_dragMode == _DragMode.none) return;
+    final sel = _selection;
+    final img = _imageRect;
+    Rect next;
+    switch (_dragMode) {
+      case _DragMode.moveBox:
+        final nl = (sel.left + delta.dx).clamp(img.left, img.right - sel.width);
+        final nt = (sel.top + delta.dy).clamp(img.top, img.bottom - sel.height);
+        next = Rect.fromLTWH(nl, nt, sel.width, sel.height);
+      case _DragMode.topLeft:
+        next = Rect.fromLTRB(
+          (sel.left + delta.dx).clamp(img.left, sel.right - _minSize),
+          (sel.top + delta.dy).clamp(img.top, sel.bottom - _minSize),
+          sel.right,
+          sel.bottom,
+        );
+      case _DragMode.topRight:
+        next = Rect.fromLTRB(
+          sel.left,
+          (sel.top + delta.dy).clamp(img.top, sel.bottom - _minSize),
+          (sel.right + delta.dx).clamp(sel.left + _minSize, img.right),
+          sel.bottom,
+        );
+      case _DragMode.bottomRight:
+        next = Rect.fromLTRB(
+          sel.left,
+          sel.top,
+          (sel.right + delta.dx).clamp(sel.left + _minSize, img.right),
+          (sel.bottom + delta.dy).clamp(sel.top + _minSize, img.bottom),
+        );
+      case _DragMode.bottomLeft:
+        next = Rect.fromLTRB(
+          (sel.left + delta.dx).clamp(img.left, sel.right - _minSize),
+          sel.top,
+          sel.right,
+          (sel.bottom + delta.dy).clamp(sel.top + _minSize, img.bottom),
+        );
+      case _DragMode.top:
+        next = Rect.fromLTRB(
+          sel.left,
+          (sel.top + delta.dy).clamp(img.top, sel.bottom - _minSize),
+          sel.right,
+          sel.bottom,
+        );
+      case _DragMode.bottom:
+        next = Rect.fromLTRB(
+          sel.left,
+          sel.top,
+          sel.right,
+          (sel.bottom + delta.dy).clamp(sel.top + _minSize, img.bottom),
+        );
+      case _DragMode.left:
+        next = Rect.fromLTRB(
+          (sel.left + delta.dx).clamp(img.left, sel.right - _minSize),
+          sel.top,
+          sel.right,
+          sel.bottom,
+        );
+      case _DragMode.right:
+        next = Rect.fromLTRB(
+          sel.left,
+          sel.top,
+          (sel.right + delta.dx).clamp(sel.left + _minSize, img.right),
+          sel.bottom,
+        );
+      case _DragMode.none:
+        return;
+    }
+    setState(() => _selection = next);
+  }
 
-  void _moveTopLeft(Offset delta) => setState(() {
-    final l = (_selection.left + delta.dx).clamp(
-      _imageRect.left,
-      _selection.right - _minSize,
-    );
-    final t = (_selection.top + delta.dy).clamp(
-      _imageRect.top,
-      _selection.bottom - _minSize,
-    );
-    _selection = Rect.fromLTRB(l, t, _selection.right, _selection.bottom);
-  });
-
-  void _moveTopRight(Offset delta) => setState(() {
-    final r = (_selection.right + delta.dx).clamp(
-      _selection.left + _minSize,
-      _imageRect.right,
-    );
-    final t = (_selection.top + delta.dy).clamp(
-      _imageRect.top,
-      _selection.bottom - _minSize,
-    );
-    _selection = Rect.fromLTRB(_selection.left, t, r, _selection.bottom);
-  });
-
-  void _moveBottomRight(Offset delta) => setState(() {
-    final r = (_selection.right + delta.dx).clamp(
-      _selection.left + _minSize,
-      _imageRect.right,
-    );
-    final b = (_selection.bottom + delta.dy).clamp(
-      _selection.top + _minSize,
-      _imageRect.bottom,
-    );
-    _selection = Rect.fromLTRB(_selection.left, _selection.top, r, b);
-  });
-
-  void _moveBottomLeft(Offset delta) => setState(() {
-    final l = (_selection.left + delta.dx).clamp(
-      _imageRect.left,
-      _selection.right - _minSize,
-    );
-    final b = (_selection.bottom + delta.dy).clamp(
-      _selection.top + _minSize,
-      _imageRect.bottom,
-    );
-    _selection = Rect.fromLTRB(l, _selection.top, _selection.right, b);
-  });
-
-  /// Crop the source image to the current selection and return a new [XFile].
-  ///
-  /// Output is capped at [_maxOutputDim] on the longest side to keep upload
-  /// sizes well within server limits while retaining enough detail for AI
-  /// visual search.
   static const int _maxOutputDim = 1200;
 
   Future<XFile> cropImage() async {
@@ -173,8 +196,6 @@ class VisualSearchCropWidgetState extends State<VisualSearchCropWidget> {
         1.0,
         _naturalSize!.height,
       );
-
-      // Scale down so neither dimension exceeds _maxOutputDim.
       final longestSide = cropW > cropH ? cropW : cropH;
       final outputScale = longestSide > _maxOutputDim
           ? _maxOutputDim / longestSide
@@ -194,131 +215,20 @@ class VisualSearchCropWidgetState extends State<VisualSearchCropWidget> {
       final cropped = await picture.toImage(outW, outH);
       final byteData = await cropped.toByteData(format: ui.ImageByteFormat.png);
       final bytes = byteData!.buffer.asUint8List();
-
       final tempDir = await getTemporaryDirectory();
       final outFile = File(
         '${tempDir.path}/vs_crop_${DateTime.now().millisecondsSinceEpoch}.png',
       );
       await outFile.writeAsBytes(bytes);
-
       return XFile(outFile.path);
-    } catch (e, stack) {
+    } catch (e) {
       return widget.image;
     }
   }
 
-  // ── Handle widget ──────────────────────────────────────────────────────────
-  /// Touch target radius — large enough for easy grab.
-  static const double _hTouchR = 40.0;
-
-  /// L-bracket arm length in pixels.
-  static const double _bracketArm = 28.0;
-  static const double _bracketThick = 4.0;
-
-  Widget _handle(
-    Offset pos,
-    void Function(Offset) onDrag, {
-    required bool flipX,
-    required bool flipY,
-  }) {
-    return Positioned(
-      left: pos.dx - _hTouchR,
-      top: pos.dy - _hTouchR,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onPanUpdate: (d) => onDrag(d.delta),
-        child: SizedBox(
-          width: _hTouchR * 2,
-          height: _hTouchR * 2,
-          child: CustomPaint(
-            painter: _LBracketPainter(
-              flipX: flipX,
-              flipY: flipY,
-              armLen: _bracketArm,
-              thickness: _bracketThick,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Thin edge drag handle (wide invisible strip, no visible dot).
-  Widget _edgeHandle({
-    required double left,
-    required double top,
-    required double width,
-    required double height,
-    required void Function(Offset) onDrag,
-  }) {
-    return Positioned(
-      left: left,
-      top: top,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onPanUpdate: (d) => onDrag(d.delta),
-        child: SizedBox(width: width, height: height),
-      ),
-    );
-  }
-
-  void _moveTop(Offset delta) => setState(() {
-    final t = (_selection.top + delta.dy).clamp(
-      _imageRect.top,
-      _selection.bottom - _minSize,
-    );
-    _selection = Rect.fromLTRB(
-      _selection.left,
-      t,
-      _selection.right,
-      _selection.bottom,
-    );
-  });
-
-  void _moveBottom(Offset delta) => setState(() {
-    final b = (_selection.bottom + delta.dy).clamp(
-      _selection.top + _minSize,
-      _imageRect.bottom,
-    );
-    _selection = Rect.fromLTRB(
-      _selection.left,
-      _selection.top,
-      _selection.right,
-      b,
-    );
-  });
-
-  void _moveLeft(Offset delta) => setState(() {
-    final l = (_selection.left + delta.dx).clamp(
-      _imageRect.left,
-      _selection.right - _minSize,
-    );
-    _selection = Rect.fromLTRB(
-      l,
-      _selection.top,
-      _selection.right,
-      _selection.bottom,
-    );
-  });
-
-  void _moveRight(Offset delta) => setState(() {
-    final r = (_selection.right + delta.dx).clamp(
-      _selection.left + _minSize,
-      _imageRect.right,
-    );
-    _selection = Rect.fromLTRB(
-      _selection.left,
-      _selection.top,
-      r,
-      _selection.bottom,
-    );
-  });
-
-  // ── build ──────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final ready = _selection != Rect.zero;
-
     return LayoutBuilder(
       builder: (context, constraints) {
         final containerSize = Size(constraints.maxWidth, constraints.maxHeight);
@@ -328,99 +238,26 @@ class VisualSearchCropWidgetState extends State<VisualSearchCropWidget> {
             setState(() => _updateLayout(containerSize));
           }
         });
-
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            Image.file(File(widget.image.path), fit: BoxFit.contain),
-            if (ready)
-              CustomPaint(painter: _CropOverlayPainter(selection: _selection)),
-            // Interior pan — move the whole box by dragging inside it
-            if (ready)
-              Positioned(
-                left: _selection.left + _hTouchR,
-                top: _selection.top + _hTouchR,
-                width: (_selection.width - _hTouchR * 2).clamp(
-                  0,
-                  double.infinity,
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onPanStart: ready
+              ? (d) => setState(() => _dragMode = _hitTest(d.localPosition))
+              : null,
+          onPanUpdate: (d) => _applyDelta(d.delta),
+          onPanEnd: (_) => setState(() => _dragMode = _DragMode.none),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Image.file(File(widget.image.path), fit: BoxFit.contain),
+              if (ready)
+                CustomPaint(
+                  painter: _CropOverlayPainter(
+                    selection: _selection,
+                    showGrid: _dragMode != _DragMode.none,
+                  ),
                 ),
-                height: (_selection.height - _hTouchR * 2).clamp(
-                  0,
-                  double.infinity,
-                ),
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onPanUpdate: (d) => _moveBox(d.delta),
-                ),
-              ),
-            if (ready) ...[
-              _handle(
-                _selection.topLeft,
-                _moveTopLeft,
-                flipX: false,
-                flipY: false,
-              ),
-              _handle(
-                _selection.topRight,
-                _moveTopRight,
-                flipX: true,
-                flipY: false,
-              ),
-              _handle(
-                _selection.bottomRight,
-                _moveBottomRight,
-                flipX: true,
-                flipY: true,
-              ),
-              _handle(
-                _selection.bottomLeft,
-                _moveBottomLeft,
-                flipX: false,
-                flipY: true,
-              ),
-              // Edge handles (invisible strips along each side)
-              _edgeHandle(
-                left: _selection.left + _hTouchR,
-                top: _selection.top - _hTouchR,
-                width: (_selection.width - _hTouchR * 2).clamp(
-                  0,
-                  double.infinity,
-                ),
-                height: _hTouchR * 2,
-                onDrag: _moveTop,
-              ),
-              _edgeHandle(
-                left: _selection.left + _hTouchR,
-                top: _selection.bottom - _hTouchR,
-                width: (_selection.width - _hTouchR * 2).clamp(
-                  0,
-                  double.infinity,
-                ),
-                height: _hTouchR * 2,
-                onDrag: _moveBottom,
-              ),
-              _edgeHandle(
-                left: _selection.left - _hTouchR,
-                top: _selection.top + _hTouchR,
-                width: _hTouchR * 2,
-                height: (_selection.height - _hTouchR * 2).clamp(
-                  0,
-                  double.infinity,
-                ),
-                onDrag: _moveLeft,
-              ),
-              _edgeHandle(
-                left: _selection.right - _hTouchR,
-                top: _selection.top + _hTouchR,
-                width: _hTouchR * 2,
-                height: (_selection.height - _hTouchR * 2).clamp(
-                  0,
-                  double.infinity,
-                ),
-                onDrag: _moveRight,
-              ),
             ],
-          ],
+          ),
         );
       },
     );
@@ -428,92 +265,117 @@ class VisualSearchCropWidgetState extends State<VisualSearchCropWidget> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Overlay painter: dims outside, draws the same rounded corner brackets
+// Overlay painter: dim mask + border + rule-of-thirds grid + corner brackets +
+// edge midpoint handles
 // ─────────────────────────────────────────────────────────────────────────────
 class _CropOverlayPainter extends CustomPainter {
   final Rect selection;
+  final bool showGrid;
 
-  const _CropOverlayPainter({required this.selection});
+  const _CropOverlayPainter({required this.selection, this.showGrid = false});
+
+  static const double _bracketLen = 22.0;
+  static const double _bracketThick = 3.5;
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Semi-transparent dim outside selection
-    final dimPaint = Paint()..color = Colors.black.withOpacity(0.52);
-    final fullPath = Path()
-      ..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
-    final selPath = Path()
-      ..addRRect(RRect.fromRectAndRadius(selection, Radius.zero));
+    final sel = selection;
+
+    // Dim outside
+    final dimPaint = Paint()..color = Colors.black.withValues(alpha: 0.55);
     canvas.drawPath(
-      Path.combine(PathOperation.difference, fullPath, selPath),
+      Path.combine(
+        PathOperation.difference,
+        Path()..addRect(Rect.fromLTWH(0, 0, size.width, size.height)),
+        Path()..addRect(sel),
+      ),
       dimPaint,
     );
 
-    // Thin border around the selection
-    final borderPaint = Paint()
-      ..color = Colors.white.withOpacity(0.35)
-      ..strokeWidth = 1.0
-      ..style = PaintingStyle.stroke;
-    canvas.drawRect(selection, borderPaint);
+    // Border
+    canvas.drawRect(
+      sel,
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.6)
+        ..strokeWidth = 1.2
+        ..style = PaintingStyle.stroke,
+    );
+
+    // Rule-of-thirds grid while dragging
+    if (showGrid) {
+      final gridPaint = Paint()
+        ..color = Colors.white.withValues(alpha: 0.30)
+        ..strokeWidth = 0.8
+        ..style = PaintingStyle.stroke;
+      for (int i = 1; i <= 2; i++) {
+        canvas.drawLine(
+          Offset(sel.left + sel.width / 3 * i, sel.top),
+          Offset(sel.left + sel.width / 3 * i, sel.bottom),
+          gridPaint,
+        );
+        canvas.drawLine(
+          Offset(sel.left, sel.top + sel.height / 3 * i),
+          Offset(sel.right, sel.top + sel.height / 3 * i),
+          gridPaint,
+        );
+      }
+    }
+
+    _drawCorners(canvas, sel);
   }
 
-  @override
-  bool shouldRepaint(_CropOverlayPainter old) => old.selection != selection;
-}
+  void _drawCorners(Canvas canvas, Rect sel) {
+    // Radius of the rounded corner bend.
+    const double r = 8.0;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Paints an L-shaped bracket at a corner handle, directed inward.
-// flipX mirrors horizontally (right corners), flipY mirrors vertically (bottom).
-// ─────────────────────────────────────────────────────────────────────────────
-class _LBracketPainter extends CustomPainter {
-  final bool flipX;
-  final bool flipY;
-  final double armLen;
-  final double thickness;
-
-  const _LBracketPainter({
-    required this.flipX,
-    required this.flipY,
-    required this.armLen,
-    required this.thickness,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final cx = size.width / 2;
-    final cy = size.height / 2;
-
-    // Compute the corner position and direction inward.
-    final double ox = flipX ? cx + armLen / 2 : cx - armLen / 2;
-    final double oy = flipY ? cy + armLen / 2 : cy - armLen / 2;
-    final double sx = flipX ? -1.0 : 1.0;
-    final double sy = flipY ? -1.0 : 1.0;
-
+    final shadowPaint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.45)
+      ..strokeWidth = _bracketThick + 2.5
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
     final paint = Paint()
       ..color = Colors.white
-      ..strokeWidth = thickness
+      ..strokeWidth = _bracketThick
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
 
-    // Shadow
-    final shadowPaint = Paint()
-      ..color = Colors.black.withOpacity(0.40)
-      ..strokeWidth = thickness + 2
-      ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
+    // Build a rounded-corner L-bracket.
+    // pt   = the corner point of the selection rect.
+    // dx/dy = inward direction (+1 or -1) along x and y.
+    Path makeCorner(Offset pt, double dx, double dy) {
+      // Horizontal arm end → start of arc tangent point.
+      final hx = pt.dx + dx * _bracketLen;
+      final hy = pt.dy;
+      // Vertical arm start (after the arc).
+      final vx = pt.dx;
+      final vy = pt.dy + dy * _bracketLen;
+      // Arc centre is inset by r from the corner.
+      final cx = pt.dx + dx * r;
+      final cy = pt.dy + dy * r;
 
-    final path = Path()
-      ..moveTo(ox + sx * armLen, oy)
-      ..lineTo(ox, oy)
-      ..lineTo(ox, oy + sy * armLen);
+      return Path()
+        ..moveTo(hx, hy)
+        ..lineTo(cx, hy) // horizontal arm up to arc start
+        ..arcToPoint(
+          Offset(vx, cy), // arc end (start of vertical arm)
+          radius: Radius.circular(r),
+          clockwise: dx * dy < 0, // direction depends on which corner
+        )
+        ..lineTo(vx, vy); // vertical arm
+    }
 
-    canvas.drawPath(path, shadowPaint);
-    canvas.drawPath(path, paint);
+    for (final path in [
+      makeCorner(sel.topLeft, 1, 1),
+      makeCorner(sel.topRight, -1, 1),
+      makeCorner(sel.bottomRight, -1, -1),
+      makeCorner(sel.bottomLeft, 1, -1),
+    ]) {
+      canvas.drawPath(path, shadowPaint);
+      canvas.drawPath(path, paint);
+    }
   }
 
   @override
-  bool shouldRepaint(_LBracketPainter old) =>
-      old.flipX != flipX ||
-      old.flipY != flipY ||
-      old.armLen != armLen ||
-      old.thickness != thickness;
+  bool shouldRepaint(_CropOverlayPainter old) =>
+      old.selection != selection || old.showGrid != showGrid;
 }

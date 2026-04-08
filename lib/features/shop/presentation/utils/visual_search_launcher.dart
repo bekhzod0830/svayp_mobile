@@ -110,136 +110,147 @@ Future<XFile?> _showCategoryPicker(BuildContext context, XFile image) {
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
     isDismissible: true,
-    enableDrag: true,
+    enableDrag: false,
     builder: (ctx) {
       bool isProcessing = false;
-      return StatefulBuilder(
-        builder: (ctx, setState) => SafeArea(
-          child: Padding(
-            padding: EdgeInsets.only(
-              left: 16,
-              right: 16,
-              bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(28),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                child: Container(
-                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? const Color(0xF2050508)
-                        : const Color(0xF2FFFFFF),
-                    borderRadius: BorderRadius.circular(28),
-                    border: Border.all(
-                      color: isDark
-                          ? const Color(0x22FFFFFF)
-                          : const Color(0x28000000),
-                      width: 0.5,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
+      return PopScope(
+        // Allow system back to close the sheet and return null.
+        canPop: true,
+        child: StatefulBuilder(
+          builder: (ctx, setState) {
+            // ~75 % of the screen height — big enough to crop comfortably.
+            final sheetHeight = MediaQuery.of(ctx).size.height * 0.75;
+            return SizedBox(
+              height: sheetHeight,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(28),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+                      decoration: BoxDecoration(
                         color: isDark
-                            ? const Color(0x44000000)
-                            : const Color(0x18000000),
-                        blurRadius: 24,
-                        offset: const Offset(0, 8),
-                        spreadRadius: -2,
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // Drag handle
-                      Center(
-                        child: Container(
-                          width: 36,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: isDark ? Colors.white24 : Colors.black12,
-                            borderRadius: BorderRadius.circular(2),
-                          ),
+                            ? const Color(0xF2050508)
+                            : const Color(0xF2FFFFFF),
+                        borderRadius: BorderRadius.circular(28),
+                        border: Border.all(
+                          color: isDark
+                              ? const Color(0x22FFFFFF)
+                              : const Color(0x28000000),
+                          width: 0.5,
                         ),
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        l10n.vsPickCategory,
-                        style: AppTypography.heading3.copyWith(
-                          color: isDark ? Colors.white : Colors.black,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      AspectRatio(
-                        aspectRatio: 4 / 3,
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
-                          child: ColoredBox(
+                        boxShadow: [
+                          BoxShadow(
                             color: isDark
-                                ? const Color(0xFF0A0A10)
-                                : const Color(0xFFF0F0F5),
-                            child: VisualSearchCropWidget(
-                              key: cropKey,
-                              image: image,
+                                ? const Color(0x44000000)
+                                : const Color(0x18000000),
+                            blurRadius: 24,
+                            offset: const Offset(0, 8),
+                            spreadRadius: -2,
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // Drag handle
+                          Center(
+                            child: Container(
+                              width: 36,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: isDark ? Colors.white24 : Colors.black12,
+                                borderRadius: BorderRadius.circular(2),
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      ElevatedButton(
-                        onPressed: isProcessing
-                            ? null
-                            : () async {
-                                setState(() => isProcessing = true);
-                                try {
-                                  final cropped = await cropKey.currentState!
-                                      .cropImage();
-                                  if (ctx.mounted) {
-                                    Navigator.of(ctx).pop(cropped);
-                                  }
-                                } catch (_) {
-                                  if (ctx.mounted) {
-                                    setState(() => isProcessing = false);
-                                  }
-                                }
-                              },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isDark ? Colors.white : Colors.black,
-                          disabledBackgroundColor: isDark
-                              ? const Color(0x44FFFFFF)
-                              : const Color(0x44000000),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
+                          const SizedBox(height: 20),
+                          Text(
+                            l10n.vsPickCategory,
+                            style: AppTypography.heading3.copyWith(
+                              color: isDark ? Colors.white : Colors.black,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
-                          elevation: 0,
-                        ),
-                        child: isProcessing
-                            ? SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: isDark ? Colors.black : Colors.white,
-                                ),
-                              )
-                            : Text(
-                                l10n.vsSearchButton,
-                                style: AppTypography.body1.copyWith(
-                                  color: isDark ? Colors.black : Colors.white,
-                                  fontWeight: FontWeight.w600,
+                          const SizedBox(height: 16),
+                          // Crop widget expands to fill remaining space.
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.zero,
+                              child: ColoredBox(
+                                color: isDark
+                                    ? const Color(0xFF0A0A10)
+                                    : const Color(0xFFF0F0F5),
+                                child: VisualSearchCropWidget(
+                                  key: cropKey,
+                                  image: image,
                                 ),
                               ),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          ElevatedButton(
+                            onPressed: isProcessing
+                                ? null
+                                : () async {
+                                    setState(() => isProcessing = true);
+                                    try {
+                                      final cropped = await cropKey
+                                          .currentState!
+                                          .cropImage();
+                                      if (ctx.mounted) {
+                                        Navigator.of(ctx).pop(cropped);
+                                      }
+                                    } catch (_) {
+                                      if (ctx.mounted) {
+                                        setState(() => isProcessing = false);
+                                      }
+                                    }
+                                  },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: isDark
+                                  ? Colors.white
+                                  : Colors.black,
+                              disabledBackgroundColor: isDark
+                                  ? const Color(0x44FFFFFF)
+                                  : const Color(0x44000000),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              elevation: 0,
+                            ),
+                            child: isProcessing
+                                ? SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: isDark
+                                          ? Colors.black
+                                          : Colors.white,
+                                    ),
+                                  )
+                                : Text(
+                                    l10n.vsSearchButton,
+                                    style: AppTypography.body1.copyWith(
+                                      color: isDark
+                                          ? Colors.black
+                                          : Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ),
+            );
+          },
         ),
       );
     },

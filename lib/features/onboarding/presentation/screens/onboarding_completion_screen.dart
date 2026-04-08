@@ -142,8 +142,9 @@ class _OnboardingCompletionScreenState extends State<OnboardingCompletionScreen>
         try {
           final apiService = ProductApiService();
 
-          final response = await apiService.getRecommendedProducts(
+          final response = await apiService.getFeed(
             token: authToken,
+            limit: 20,
           );
 
           _updateProgress(0.6, l10n.preparingYourFeed);

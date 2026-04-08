@@ -277,7 +277,7 @@ class DiscoverScreenState extends State<DiscoverScreen> {
         // No cached data, fetch from personalized feed
         final response = await _apiService.getFeed(
           token: _authToken!,
-          limit: 10,
+          limit: 20,
         );
         _nextCursor = response.nextCursor;
         _hasMoreProducts = response.nextCursor != null;

@@ -3514,6 +3514,12 @@ abstract class AppLocalizations {
   /// **'Dark Mode'**
   String get darkMode;
 
+  /// No description provided for @soundEffects.
+  ///
+  /// In en, this message translates to:
+  /// **'Sound Effects'**
+  String get soundEffects;
+
   /// No description provided for @notifications.
   ///
   /// In en, this message translates to:

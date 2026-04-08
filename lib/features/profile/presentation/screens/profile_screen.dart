@@ -10,10 +10,10 @@ import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
 import 'package:swipe/core/utils/responsive_utils.dart';
 import 'package:swipe/core/services/theme_service.dart';
+import 'package:swipe/core/services/sound_service.dart';
 import 'package:swipe/features/address/presentation/screens/address_list_screen.dart';
 import 'package:swipe/features/profile/presentation/screens/language_settings_screen.dart';
 import 'package:swipe/features/profile/presentation/screens/profile_information_screen.dart';
-import 'package:swipe/features/main/presentation/screens/main_screen.dart';
 import 'package:swipe/features/orders/presentation/screens/orders_screen.dart';
 import 'package:swipe/core/localization/services/language_service.dart';
 import 'package:swipe/core/di/service_locator.dart';
@@ -56,6 +56,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   bool _isLoading = true;
   bool _isPartner = false;
   bool _isRedirecting = false; // prevents re-entry after a navigation decision
+  bool _soundEnabled = true;
   UserProfileResponse? _userProfile;
 
   @override
@@ -64,6 +65,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     WidgetsBinding.instance.addObserver(this);
     _loadUserData();
     _loadCurrentLanguage();
+    _loadSoundPref();
   }
 
   @override
@@ -175,6 +177,13 @@ class _ProfileScreenState extends State<ProfileScreen>
         context,
         'Failed to load user data. Please try again.',
       );
+    }
+  }
+
+  Future<void> _loadSoundPref() async {
+    await SoundService.instance.loadPreference();
+    if (mounted) {
+      setState(() => _soundEnabled = SoundService.instance.soundEnabledSync);
     }
   }
 
@@ -679,7 +688,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                                                     onChanged: (_) =>
                                                         themeService
                                                             .toggleTheme(),
-                                                    activeColor:
+                                                    activeThumbColor:
                                                         AppColors.white,
                                                     activeTrackColor:
                                                         AppColors.gray700,
@@ -690,6 +699,30 @@ class _ProfileScreenState extends State<ProfileScreen>
                                             context
                                                 .read<ThemeService>()
                                                 .toggleTheme();
+                                          },
+                                        ),
+                                        _ProfileMenuItem(
+                                          icon: Icons.volume_up_outlined,
+                                          title: l10n.soundEffects,
+                                          trailing: Switch(
+                                            value: _soundEnabled,
+                                            onChanged: (value) async {
+                                              setState(
+                                                () => _soundEnabled = value,
+                                              );
+                                              await SoundService.instance
+                                                  .setSoundEnabled(value);
+                                            },
+                                            activeThumbColor: AppColors.white,
+                                            activeTrackColor: AppColors.gray700,
+                                          ),
+                                          onTap: () async {
+                                            final next = !_soundEnabled;
+                                            setState(
+                                              () => _soundEnabled = next,
+                                            );
+                                            await SoundService.instance
+                                                .setSoundEnabled(next);
                                           },
                                         ),
                                         _ProfileMenuItem(
@@ -1285,7 +1318,9 @@ class _FullPageQrViewState extends State<_FullPageQrView>
       } catch (e) {
         // Continue without brightness control
       }
-    } catch (e) {}
+    } catch (_) {
+      // ignore: brightness not supported on this device
+    }
   }
 
   Future<void> _restoreBrightness() async {
@@ -1293,7 +1328,9 @@ class _FullPageQrViewState extends State<_FullPageQrView>
 
     try {
       await ScreenBrightness().setScreenBrightness(_originalBrightness!);
-    } catch (e) {}
+    } catch (_) {
+      // ignore: brightness not supported on this device
+    }
   }
 
   @override

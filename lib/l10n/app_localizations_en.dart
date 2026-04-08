@@ -1809,6 +1809,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get darkMode => 'Dark Mode';
 
   @override
+  String get soundEffects => 'Sound Effects';
+
+  @override
   String get notifications => 'Notifications';
 
   @override

@@ -1830,6 +1830,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get darkMode => 'Темная тема';
 
   @override
+  String get soundEffects => 'Звуковые эффекты';
+
+  @override
   String get notifications => 'Уведомления';
 
   @override

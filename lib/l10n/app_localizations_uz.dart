@@ -1836,6 +1836,9 @@ class AppLocalizationsUz extends AppLocalizations {
   String get darkMode => 'Qorong\'i rejim';
 
   @override
+  String get soundEffects => 'Ovoz effektlari';
+
+  @override
   String get notifications => 'Bildirishnomalar';
 
   @override

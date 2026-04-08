@@ -1,4 +1,5 @@
 import 'package:audioplayers/audioplayers.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Plays a soft UI confirmation sound on like / add-to-cart actions.
 ///
@@ -12,6 +13,37 @@ class SoundService {
 
   AudioPlayer? _player;
   bool _preloading = false;
+
+  static const String _prefKey = 'sound_effects_enabled';
+
+  // In-memory cache; loaded lazily from SharedPreferences.
+  bool? _soundEnabled;
+
+  /// Whether swipe sound effects are enabled. Defaults to true.
+  Future<bool> get soundEnabled async {
+    _soundEnabled ??= await _loadPref();
+    return _soundEnabled!;
+  }
+
+  /// Returns the cached value synchronously (true until first load completes).
+  bool get soundEnabledSync => _soundEnabled ?? true;
+
+  Future<bool> _loadPref() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_prefKey) ?? true;
+  }
+
+  /// Persist and cache the new value.
+  Future<void> setSoundEnabled(bool value) async {
+    _soundEnabled = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_prefKey, value);
+  }
+
+  /// Load the preference into cache (call once on app start or profile open).
+  Future<void> loadPreference() async {
+    _soundEnabled = await _loadPref();
+  }
 
   /// Call this early (e.g. in initState) to warm up the native player
   /// so the first tap has zero latency.
@@ -51,6 +83,8 @@ class SoundService {
 
   /// Fire-and-forget. Never throws.
   Future<void> playTing() async {
+    // Respect user preference — skip playback if sounds are disabled.
+    if (!soundEnabledSync) return;
     try {
       await _ensureInit();
       final player = _player;
