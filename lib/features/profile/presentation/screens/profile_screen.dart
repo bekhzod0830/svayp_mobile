@@ -28,6 +28,7 @@ import 'package:swipe/core/utils/local_storage_helper.dart';
 import 'package:swipe/features/cart/data/services/cart_service.dart';
 import 'package:swipe/features/liked/data/services/liked_service.dart';
 import 'package:swipe/features/liked/presentation/screens/liked_screen.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:swipe/features/chat/data/services/chat_cache_service.dart';
 import 'package:swipe/core/services/recommendation_cache_service.dart';
 import 'package:swipe/core/services/seen_products_service.dart';
@@ -58,6 +59,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   bool _isRedirecting = false; // prevents re-entry after a navigation decision
   bool _soundEnabled = true;
   UserProfileResponse? _userProfile;
+  String _appVersion = '';
 
   @override
   void initState() {
@@ -66,6 +68,16 @@ class _ProfileScreenState extends State<ProfileScreen>
     _loadUserData();
     _loadCurrentLanguage();
     _loadSoundPref();
+    _loadAppVersion();
+  }
+
+  Future<void> _loadAppVersion() async {
+    final info = await PackageInfo.fromPlatform();
+    if (mounted) {
+      setState(() {
+        _appVersion = '${info.version}+${info.buildNumber}';
+      });
+    }
   }
 
   @override
@@ -775,7 +787,7 @@ class _ProfileScreenState extends State<ProfileScreen>
 
                                     // App Version
                                     Text(
-                                      l10n.version('2.0.0'),
+                                      l10n.version(_appVersion),
                                       style: AppTypography.caption.copyWith(
                                         color: AppColors.gray500,
                                       ),

@@ -12,6 +12,7 @@ import 'package:swipe/core/cache/image_cache_manager.dart';
 import 'package:swipe/core/services/product_api_service.dart';
 import 'package:swipe/features/main/presentation/screens/main_screen.dart';
 import 'package:swipe/core/services/badge_notifier.dart';
+import 'package:swipe/core/models/product.dart' as api_models;
 import 'dart:ui';
 
 /// Interface for refreshable screens
@@ -42,7 +43,6 @@ class LikedScreenState extends State<LikedScreen>
   bool _isLoadingMore = false;
   bool _hasMore = false;
   int _apiLoadedCount = 0; // tracks items fetched from API across pages
-  bool _hadNewLikes = false; // snapshot of hasNewLiked taken before clearing
   final ScrollController _scrollController = ScrollController();
 
   @override
@@ -52,9 +52,6 @@ class LikedScreenState extends State<LikedScreen>
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-    // Snapshot the flag before clearing so _loadLikedProducts can decide
-    // whether to skip the API call when nothing new was liked.
-    _hadNewLikes = BadgeNotifier.instance.hasNewLiked.value;
     BadgeNotifier.instance.clearNewLiked();
     _initializeScreen();
   }
@@ -88,12 +85,11 @@ class LikedScreenState extends State<LikedScreen>
   @override
   void refresh() {
     if (mounted) {
-      // Force reload to pick up newly liked items from other screens
-      _loadLikedProducts(forceRefresh: true);
+      _loadLikedProducts();
     }
   }
 
-  Future<void> _loadLikedProducts({bool forceRefresh = false}) async {
+  Future<void> _loadLikedProducts() async {
     await _likedService.init();
 
     // Reset pagination
@@ -101,106 +97,109 @@ class LikedScreenState extends State<LikedScreen>
     _hasMore = false;
     _apiLoadedCount = 0;
 
-    // Show local cache immediately (hides loading spinner as soon as we have anything)
+    // 1. Show local Hive cache immediately.
     final localLikedProducts = _likedService.getLikedProducts();
+    final hasToken = _authToken != null && _authToken!.isNotEmpty;
 
-    // Skip the API call when the screen reopens with no new likes —
-    // show the Hive cache directly to avoid an unnecessary network round-trip.
-    if (!forceRefresh && !_hadNewLikes && localLikedProducts.isNotEmpty) {
+    if (mounted) {
+      setState(() {
+        _likedProducts = localLikedProducts;
+        // Show spinner only when cache is empty AND we can fetch from API,
+        // so the user sees a loader instead of an empty screen while waiting.
+        _isLoading = localLikedProducts.isEmpty && hasToken;
+      });
+    }
+
+    if (!hasToken) return;
+
+    // 2. Always fetch from API to get the authoritative list.
+    try {
+      final response = await _apiService.getFavoriteProducts(
+        token: _authToken!,
+        page: 0,
+      );
+
+      final apiItems = _buildLikedModels(response.products);
+
+      // Sync Hive synchronously so the cache is correct for the NEXT open.
+      await _syncHiveCache(response.products);
+
       if (mounted) {
+        // Only APPEND items from the API that are not already shown.
+        // Never remove items based on the API response — a freshly liked item
+        // may not yet appear in getFavoriteProducts due to server propagation
+        // delay (race condition), so removing it would cause visible flicker.
+        // Explicit removal only happens when the user taps the delete button.
+        final currentIds = _likedProducts.map((p) => p.productId).toSet();
+        final newItems = apiItems
+            .where((p) => !currentIds.contains(p.productId))
+            .toList();
+
         setState(() {
-          _likedProducts = localLikedProducts;
+          if (newItems.isNotEmpty) {
+            _likedProducts = [..._likedProducts, ...newItems];
+          }
+          _totalLikedCount = response.total;
+          _currentPage = 0;
+          _apiLoadedCount = apiItems.length;
+          _hasMore = response.total > _apiLoadedCount;
           _isLoading = false;
         });
       }
-      return;
-    }
-
-    // Fetch fresh data from API (keep spinner until API responds to avoid reorder flash)
-    if (_authToken != null && _authToken!.isNotEmpty) {
-      try {
-        final response = await _apiService.getFavoriteProducts(
-          token: _authToken!,
-          page: 0,
-        );
-
-        final apiItems = _buildLikedModels(response.products);
-
-        // Cache to Hive in background for next cold start
-        _cacheToHive(response.products);
-
-        if (mounted) {
-          setState(() {
-            _likedProducts = apiItems;
-            _totalLikedCount = response.total;
-            _currentPage = 0;
-            _apiLoadedCount = apiItems.length;
-            _hasMore = response.total > _apiLoadedCount;
-            _isLoading = false;
-          });
-        }
-      } catch (e) {
-        debugPrint('Error loading favorites: $e');
-        // On API failure, fall back to local cache
-        if (mounted) {
-          setState(() {
-            _likedProducts = localLikedProducts;
-            _isLoading = false;
-          });
-        }
-      }
-    } else {
-      // Not authenticated — just show local cache
-      setState(() {
-        _likedProducts = localLikedProducts;
-        _isLoading = false;
-      });
+    } catch (e) {
+      debugPrint('Error loading favorites: $e');
+      // API failed — keep showing the local cache, just dismiss spinner.
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  /// Cache API products to Hive in background (fire-and-forget)
-  void _cacheToHive(List<dynamic> apiProducts) {
-    Future(() async {
-      try {
-        for (final ap in apiProducts) {
-          if (!_likedService.isLiked(ap.id)) {
-            // Build a minimal discover Product just for Hive caching
-            String brand = (ap.brand == 'Unknown' || ap.brand.isEmpty)
-                ? (ap.seller ?? 'SVAYP')
-                : ap.brand;
-            if (brand == 'Unknown' || brand.isEmpty) brand = 'SVAYP';
+  /// Sync Hive cache with the API list — only adds missing items, never removes.
+  /// Removal from Hive happens explicitly in _removeLikedProduct only.
+  /// This avoids the race condition where a freshly liked item exists in Hive
+  /// but hasn't yet propagated to getFavoriteProducts on the server.
+  Future<void> _syncHiveCache(List<dynamic> apiProducts) async {
+    try {
+      final localIds = _likedService
+          .getLikedProducts()
+          .map((p) => p.productId)
+          .toSet();
 
-            final images = (ap.images as List).cast<String>();
-            final product = Product(
-              id: ap.id,
-              brand: brand,
-              title: ap.title,
-              description: ap.description ?? '',
-              price: ap.price,
-              images: images.isNotEmpty ? images : ['placeholder'],
-              category: ap.category.displayName,
-              sizes: List<String>.from((ap.sizes ?? []) as List),
-              colors: List<String>.from((ap.colors ?? []) as List),
-              currency: ap.currency ?? 'UZS',
-              rating: ap.rating ?? 4.5,
-              reviewCount: ap.reviewCount ?? 0,
-              isNew: ap.isNew ?? false,
-              isFeatured: ap.isFeatured ?? false,
-              inStock: ap.inStock,
-              seller: ap.seller ?? brand,
-              sellerId: ap.sellerId,
-              discountPercentage: ap.discountPercentage,
-              originalPrice: ap.originalPrice,
-              titleLocalized: ap.titleLocalized,
-              descriptionLocalized: ap.descriptionLocalized,
-            );
-            await _likedService.addLike(product);
-          }
-        }
-      } catch (e) {
-        debugPrint('Background Hive cache error (non-critical): $e');
+      // Add items that are new since last sync.
+      for (final ap in apiProducts) {
+        if (localIds.contains(ap.id as String)) continue;
+        String brand = (ap.brand == 'Unknown' || ap.brand.isEmpty)
+            ? (ap.seller ?? 'SVAYP')
+            : ap.brand;
+        if (brand == 'Unknown' || brand.isEmpty) brand = 'SVAYP';
+        final images = (ap.images as List).cast<String>();
+        final product = Product(
+          id: ap.id,
+          brand: brand,
+          title: ap.title,
+          description: ap.description ?? '',
+          price: ap.price,
+          images: images.isNotEmpty ? images : ['placeholder'],
+          category: ap.originalCategoryString ?? ap.category.value,
+          sizes: List<String>.from((ap.sizes ?? []) as List),
+          colors: List<String>.from((ap.colors ?? []) as List),
+          currency: ap.currency ?? 'UZS',
+          rating: ap.rating ?? 4.5,
+          reviewCount: ap.reviewCount ?? 0,
+          isNew: ap.isNew ?? false,
+          isFeatured: ap.isFeatured ?? false,
+          inStock: ap.inStock,
+          seller: ap.seller ?? brand,
+          sellerId: ap.sellerId,
+          discountPercentage: ap.discountPercentage,
+          originalPrice: ap.originalPrice,
+          titleLocalized: ap.titleLocalized,
+          descriptionLocalized: ap.descriptionLocalized,
+        );
+        await _likedService.addLike(product);
       }
-    });
+    } catch (e) {
+      debugPrint('Hive sync error (non-critical): $e');
+    }
   }
 
   Future<void> _loadMoreProducts() async {
@@ -253,7 +252,7 @@ class LikedScreenState extends State<LikedScreen>
           description: ap.description ?? '',
           price: ap.price,
           brand: displayBrand,
-          category: ap.category.displayName,
+          category: ap.originalCategoryString ?? ap.category.value,
           subcategory: (ap.subcategory as List?)
               ?.map((sc) => sc.displayName as String)
               .toList(),
@@ -287,7 +286,7 @@ class LikedScreenState extends State<LikedScreen>
             title: ap.title,
             price: ap.price,
             imageUrl: images.isNotEmpty ? images.first : '',
-            category: ap.category.displayName,
+            category: ap.originalCategoryString ?? ap.category.value,
             rating: ap.rating ?? 4.5,
             isNew: ap.isNew ?? false,
             discountPercentage: ap.discountPercentage,
@@ -399,22 +398,98 @@ class LikedScreenState extends State<LikedScreen>
         ),
       );
     } else {
-      // Fallback: create product from liked product model data
+      // Full product not cached — fetch from API so the detail screen
+      // has all data (images, description, sizes, colors, etc.).
+      _openProductDetailWithFetch(likedProduct);
+    }
+  }
 
-      // Use SVAYP if brand is Unknown
+  Future<void> _openProductDetailWithFetch(
+    LikedProductModel likedProduct,
+  ) async {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    final messenger = ScaffoldMessenger.of(context);
+
+    // Show a translucent loading overlay while we fetch.
+    navigator.push(
+      PageRouteBuilder(
+        opaque: false,
+        barrierDismissible: false,
+        pageBuilder: (_, __, ___) => const ColoredBox(
+          color: Color(0x66000000),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      ),
+    );
+
+    try {
+      final api_models.Product apiProduct = await _apiService.getProductById(
+        likedProduct.productId,
+        token: _authToken,
+      );
+
+      String displayBrand =
+          (apiProduct.brand == 'Unknown' || apiProduct.brand.isEmpty)
+          ? (apiProduct.seller ?? apiProduct.brand)
+          : apiProduct.brand;
+      if (displayBrand == 'Unknown' || displayBrand.isEmpty) {
+        displayBrand = 'SVAYP';
+      }
+
+      final images = apiProduct.images;
+      final product = Product(
+        id: apiProduct.id,
+        brand: displayBrand,
+        title: apiProduct.title,
+        description: apiProduct.description ?? '',
+        price: apiProduct.price,
+        images: images.isNotEmpty
+            ? images
+            : (likedProduct.imageUrl.isNotEmpty
+                  ? [likedProduct.imageUrl]
+                  : ['placeholder']),
+        category:
+            apiProduct.originalCategoryString ?? apiProduct.category.value,
+        subcategory: apiProduct.subcategory?.map((s) => s.displayName).toList(),
+        sizes: apiProduct.sizes ?? [],
+        colors: apiProduct.colors ?? [],
+        material: apiProduct.material?.map((m) => m.displayName).toList(),
+        season: apiProduct.season?.map((s) => s.displayName).toList(),
+        currency: apiProduct.currency,
+        rating: apiProduct.rating ?? 4.5,
+        reviewCount: apiProduct.reviewCount ?? 0,
+        inStock: apiProduct.inStock,
+        isNew: apiProduct.isNew ?? false,
+        isFeatured: false,
+        seller: apiProduct.seller,
+        sellerId: apiProduct.sellerId,
+        discountPercentage: apiProduct.discountPercentage,
+        originalPrice: apiProduct.originalPrice,
+        titleLocalized: apiProduct.titleLocalized,
+        descriptionLocalized: apiProduct.descriptionLocalized,
+      );
+
+      navigator.pop(); // dismiss loader overlay
+      navigator.push(
+        MaterialPageRoute(
+          builder: (_) => ProductDetailScreen(product: product),
+        ),
+      );
+    } catch (e) {
+      navigator.pop(); // dismiss loader overlay
+      // API failed — fall back to the limited data we already have.
       final sellerName =
           (likedProduct.brand == 'Unknown' || likedProduct.brand.isEmpty)
           ? 'SVAYP'
           : likedProduct.brand;
-
       final fallbackProduct = Product(
         id: likedProduct.productId,
         brand: sellerName,
         title: likedProduct.title,
         category: likedProduct.category,
         price: likedProduct.price,
-        currency: 'UZS',
-        images: [likedProduct.imageUrl],
+        currency: likedProduct.currency,
+        images: likedProduct.imageUrl.isNotEmpty ? [likedProduct.imageUrl] : [],
         sizes: [],
         colors: [],
         description: '',
@@ -422,13 +497,18 @@ class LikedScreenState extends State<LikedScreen>
         reviewCount: 0,
         isNew: likedProduct.isNew,
         discountPercentage: likedProduct.discountPercentage,
-        seller: sellerName, // Use same name for seller
+        seller: sellerName,
         sellerId: likedProduct.sellerId,
       );
-
-      Navigator.of(context, rootNavigator: true).push(
+      navigator.push(
         MaterialPageRoute(
-          builder: (context) => ProductDetailScreen(product: fallbackProduct),
+          builder: (_) => ProductDetailScreen(product: fallbackProduct),
+        ),
+      );
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Failed to load full product details'),
+          duration: Duration(seconds: 2),
         ),
       );
     }
