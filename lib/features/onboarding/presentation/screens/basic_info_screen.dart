@@ -7,6 +7,8 @@ import 'package:swipe/core/constants/app_typography.dart';
 import 'package:swipe/core/utils/validators.dart';
 import 'package:swipe/core/utils/responsive_utils.dart';
 import 'package:swipe/shared/widgets/widgets.dart';
+import 'package:swipe/core/analytics/analytics_events.dart';
+import 'package:swipe/core/analytics/onboarding_analytics_mixin.dart';
 import 'package:swipe/features/onboarding/data/onboarding_data_manager.dart';
 
 /// Blocks digit input that would make the field value exceed [max].
@@ -47,7 +49,12 @@ class BasicInfoScreen extends StatefulWidget {
   State<BasicInfoScreen> createState() => _BasicInfoScreenState();
 }
 
-class _BasicInfoScreenState extends State<BasicInfoScreen> {
+class _BasicInfoScreenState extends State<BasicInfoScreen>
+    with OnboardingAnalyticsMixin {
+  @override
+  String get viewedEvent => AnalyticsEvents.onboardingBasicInfoViewed;
+  @override
+  String get completedEvent => AnalyticsEvents.onboardingBasicInfoCompleted;
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -76,6 +83,7 @@ class _BasicInfoScreenState extends State<BasicInfoScreen> {
 
     if (!_isInitialized) {
       _isInitialized = true;
+      trackStepViewed();
 
       // Load saved data from OnboardingDataManager
       final manager = context.read<OnboardingDataManager>();
@@ -253,6 +261,8 @@ class _BasicInfoScreenState extends State<BasicInfoScreen> {
       );
 
       if (!mounted) return;
+
+      trackStepCompleted();
 
       // Navigate to hijab preference screen (since gender is always female)
       Navigator.of(

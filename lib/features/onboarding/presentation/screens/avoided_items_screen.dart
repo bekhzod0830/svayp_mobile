@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
+import 'package:swipe/core/analytics/analytics_events.dart';
+import 'package:swipe/core/analytics/onboarding_analytics_mixin.dart';
 import 'package:swipe/shared/widgets/widgets.dart';
 import 'package:swipe/features/onboarding/data/onboarding_data_manager.dart';
 
@@ -13,9 +15,21 @@ class AvoidedItemsScreen extends StatefulWidget {
   State<AvoidedItemsScreen> createState() => _AvoidedItemsScreenState();
 }
 
-class _AvoidedItemsScreenState extends State<AvoidedItemsScreen> {
+class _AvoidedItemsScreenState extends State<AvoidedItemsScreen>
+    with OnboardingAnalyticsMixin {
+  @override
+  String get viewedEvent => AnalyticsEvents.onboardingAvoidedItemsViewed;
+  @override
+  String get completedEvent => AnalyticsEvents.onboardingAvoidedItemsCompleted;
+
   final Set<String> _avoidedItems = {};
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    trackStepViewed();
+  }
 
   final List<Map<String, dynamic>> _items = [
     {'name': 'Dresses', 'icon': Icons.checkroom},
@@ -43,6 +57,8 @@ class _AvoidedItemsScreenState extends State<AvoidedItemsScreen> {
       manager.setAvoidedItems(_avoidedItems.toList());
 
       if (!mounted) return;
+
+      trackStepCompleted();
 
       // Navigate to avoided shoes screen
       Navigator.of(context).pushNamed('/avoided-shoes');

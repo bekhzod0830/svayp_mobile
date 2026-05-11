@@ -1,5 +1,6 @@
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:swipe/core/analytics/analytics_service.dart';
 import 'package:swipe/core/network/api_client.dart';
 import 'package:swipe/core/services/notification_preferences_service.dart';
 import 'package:swipe/features/auth/data/services/auth_service.dart';
@@ -35,4 +36,8 @@ Future<void> initializeDependencies() async {
   getIt.registerLazySingleton<ChatWebSocketService>(
     () => ChatWebSocketService(),
   );
+
+  // Analytics service (Firebase Analytics + Smartlook)
+  getIt.registerSingleton<AnalyticsService>(AnalyticsService.instance);
+  await AnalyticsService.instance.init();
 }

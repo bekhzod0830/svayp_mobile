@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
+import 'package:swipe/core/analytics/analytics_events.dart';
+import 'package:swipe/core/analytics/onboarding_analytics_mixin.dart';
 import 'package:swipe/shared/widgets/widgets.dart';
 
 /// Avoided Shoes Screen - Let users select shoe types they want to avoid
@@ -11,9 +13,21 @@ class AvoidedShoesScreen extends StatefulWidget {
   State<AvoidedShoesScreen> createState() => _AvoidedShoesScreenState();
 }
 
-class _AvoidedShoesScreenState extends State<AvoidedShoesScreen> {
+class _AvoidedShoesScreenState extends State<AvoidedShoesScreen>
+    with OnboardingAnalyticsMixin {
+  @override
+  String get viewedEvent => AnalyticsEvents.onboardingAvoidedShoesViewed;
+  @override
+  String get completedEvent => AnalyticsEvents.onboardingAvoidedShoesCompleted;
+
   final Set<String> _avoidedShoes = {};
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    trackStepViewed();
+  }
 
   final List<Map<String, dynamic>> _shoes = [
     {'name': 'Wedges', 'icon': Icons.stairs},
@@ -34,6 +48,8 @@ class _AvoidedShoesScreenState extends State<AvoidedShoesScreen> {
       await Future.delayed(const Duration(milliseconds: 500));
 
       if (!mounted) return;
+
+      trackStepCompleted();
 
       // Navigate to onboarding completion
       Navigator.of(context).pushNamed('/onboarding-completion');

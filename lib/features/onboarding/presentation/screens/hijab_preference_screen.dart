@@ -4,6 +4,8 @@ import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
 import 'package:swipe/shared/widgets/widgets.dart';
+import 'package:swipe/core/analytics/analytics_events.dart';
+import 'package:swipe/core/analytics/onboarding_analytics_mixin.dart';
 import 'package:swipe/features/onboarding/data/onboarding_data_manager.dart';
 
 /// Hijab Preference Screen - For female users to select their preference
@@ -15,7 +17,12 @@ class HijabPreferenceScreen extends StatefulWidget {
   State<HijabPreferenceScreen> createState() => _HijabPreferenceScreenState();
 }
 
-class _HijabPreferenceScreenState extends State<HijabPreferenceScreen> {
+class _HijabPreferenceScreenState extends State<HijabPreferenceScreen>
+    with OnboardingAnalyticsMixin {
+  @override
+  String get viewedEvent => AnalyticsEvents.onboardingHijabPrefViewed;
+  @override
+  String get completedEvent => AnalyticsEvents.onboardingHijabPrefCompleted;
   String _selectedPreference = '';
   bool _isLoading = false;
   String _gender = 'female';
@@ -27,6 +34,7 @@ class _HijabPreferenceScreenState extends State<HijabPreferenceScreen> {
 
     if (!_isInitialized) {
       _isInitialized = true;
+      trackStepViewed();
 
       // Get user data from route arguments
       final args =
@@ -63,6 +71,8 @@ class _HijabPreferenceScreenState extends State<HijabPreferenceScreen> {
       manager.setHijabPreference(_selectedPreference);
 
       if (!mounted) return;
+
+      trackStepCompleted();
 
       // Navigate to fit preference screen (skipping primary-objective)
       Navigator.of(context).pushNamed(

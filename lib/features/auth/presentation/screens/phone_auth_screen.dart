@@ -10,6 +10,8 @@ import 'package:swipe/core/utils/validators.dart';
 import 'package:swipe/core/utils/responsive_utils.dart';
 import 'package:swipe/core/localization/widgets/language_selector.dart';
 import 'package:swipe/shared/widgets/widgets.dart';
+import 'package:swipe/core/analytics/analytics_events.dart';
+import 'package:swipe/core/analytics/analytics_service.dart';
 import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/core/utils/local_storage_helper.dart';
 import 'package:swipe/features/auth/data/services/auth_service.dart';
@@ -61,6 +63,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
   void initState() {
     super.initState();
     _authService = getIt<AuthService>();
+    AnalyticsService.instance.logEvent(AnalyticsEvents.authScreenOpened);
   }
 
   @override
@@ -92,10 +95,14 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
       // Format phone number with country code
       final phoneNumber = '+998${_phoneController.text}';
 
+      AnalyticsService.instance.logEvent(AnalyticsEvents.otpRequested);
+
       // Send OTP to the phone number
       await _authService.sendOTP(phoneNumber);
 
       if (!mounted) return;
+
+      AnalyticsService.instance.logEvent(AnalyticsEvents.otpSentSuccess);
 
       // Navigate to OTP verification screen
       Navigator.of(
@@ -103,12 +110,20 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
       ).pushNamed('/otp-verification', arguments: phoneNumber);
     } on ApiException catch (e) {
       if (!mounted) return;
+      AnalyticsService.instance.logEvent(
+        AnalyticsEvents.otpSentFailure,
+        parameters: {AnalyticsEvents.paramErrorCode: e.statusCode.toString()},
+      );
       SnackBarHelper.showError(
         context,
         ErrorMessageHelper.getLocalizedMessage(context, e),
       );
     } catch (e) {
       if (!mounted) return;
+      AnalyticsService.instance.logEvent(
+        AnalyticsEvents.otpSentFailure,
+        parameters: {AnalyticsEvents.paramErrorCode: 'unknown'},
+      );
       SnackBarHelper.showError(context, l10n.otpSendError);
     } finally {
       if (mounted) {

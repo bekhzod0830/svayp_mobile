@@ -22,6 +22,8 @@ import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/core/models/product.dart' as api_models;
 import 'package:swipe/features/discover/domain/entities/product.dart';
 import 'package:swipe/features/product/presentation/screens/product_detail_screen.dart';
+import 'package:swipe/core/analytics/analytics_events.dart';
+import 'package:swipe/core/analytics/analytics_service.dart';
 
 /// Helper function to format size label by removing SIZE_ prefix
 String _formatSizeLabel(String size) {
@@ -347,6 +349,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
       // Clear cart after successful order
       await _cartService.clearCart();
+
+      AnalyticsService.instance.logEvent(
+        AnalyticsEvents.orderPlaced,
+        parameters: {
+          AnalyticsEvents.paramCartTotal: _total.toString(),
+          AnalyticsEvents.paramItemCount: itemsCount.toString(),
+          AnalyticsEvents.paramDeliveryMethod: _deliveryMethod,
+        },
+      );
 
       if (mounted) {
         // Navigate to order confirmation

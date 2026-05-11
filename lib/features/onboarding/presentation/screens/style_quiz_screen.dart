@@ -1,15 +1,17 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:convert';
 import 'package:provider/provider.dart';
+import 'package:swipe/features/onboarding/data/onboarding_data_manager.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
-import 'package:swipe/core/di/service_locator.dart';
+import 'package:swipe/core/analytics/analytics_events.dart';
+import 'package:swipe/core/analytics/onboarding_analytics_mixin.dart';
 import 'package:swipe/core/network/api_client.dart';
 import 'package:swipe/shared/widgets/widgets.dart';
-import 'package:swipe/features/onboarding/data/onboarding_data_manager.dart';
 import 'package:swipe/features/profile/data/services/profile_service.dart';
+import 'package:swipe/core/di/service_locator.dart';
 
 /// Style Quiz Screen - Interactive fashion quiz using swipe mechanics
 /// User swipes on fashion items to learn their style preferences
@@ -20,7 +22,12 @@ class StyleQuizScreen extends StatefulWidget {
   State<StyleQuizScreen> createState() => _StyleQuizScreenState();
 }
 
-class _StyleQuizScreenState extends State<StyleQuizScreen> {
+class _StyleQuizScreenState extends State<StyleQuizScreen>
+    with OnboardingAnalyticsMixin {
+  @override
+  String get viewedEvent => AnalyticsEvents.onboardingStyleQuizViewed;
+  @override
+  String get completedEvent => AnalyticsEvents.onboardingStyleQuizCompleted;
   final Map<int, bool> _answers = {}; // true = like, false = dislike
   bool _isCompleting = false;
   bool _hasError = false;
@@ -38,6 +45,7 @@ class _StyleQuizScreenState extends State<StyleQuizScreen> {
     super.didChangeDependencies();
 
     if (_quizItems.isEmpty) {
+      trackStepViewed();
       final args =
           ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
       if (args != null) {
@@ -318,6 +326,8 @@ class _StyleQuizScreenState extends State<StyleQuizScreen> {
       await getIt<ProfileService>().createProfile(profileRequest);
 
       if (!mounted) return;
+
+      trackStepCompleted();
 
       Navigator.of(context).pushNamed('/onboarding-completion');
     } catch (e) {

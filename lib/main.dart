@@ -2,15 +2,17 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:flutter_smartlook/flutter_smartlook.dart';
 import 'package:swipe/app/app.dart';
-import 'package:swipe/core/services/notification_service.dart';
-import 'package:swipe/features/cart/data/models/cart_item_model.dart';
-import 'package:swipe/features/liked/data/models/liked_product_model.dart';
-import 'package:swipe/features/address/data/models/address_model.dart';
-import 'package:swipe/features/payment/data/models/payment_method_model.dart';
-import 'package:swipe/features/chat/data/models/chat_cache_model.dart';
-import 'package:swipe/core/localization/models/language_model.dart';
+import 'package:swipe/core/config/env.dart';
 import 'package:swipe/core/di/service_locator.dart';
+import 'package:swipe/core/localization/models/language_model.dart';
+import 'package:swipe/core/services/notification_service.dart';
+import 'package:swipe/features/address/data/models/address_model.dart';
+import 'package:swipe/features/cart/data/models/cart_item_model.dart';
+import 'package:swipe/features/chat/data/models/chat_cache_model.dart';
+import 'package:swipe/features/liked/data/models/liked_product_model.dart';
+import 'package:swipe/features/payment/data/models/payment_method_model.dart';
 
 void main() async {
   // Ensure Flutter binding is initialized
@@ -51,6 +53,14 @@ void main() async {
 
   // Initialize dependencies (API client, services, etc.)
   await initializeDependencies();
+
+  // Initialize Smartlook session recording (disabled — re-enable when ready).
+  // Set SMARTLOOK_API_KEY in .env and run with: flutter run --dart-define-from-file=.env
+  // if (Env.smartlookApiKey.isNotEmpty) {
+  //   await Smartlook.instance.preferences.setProjectKey(Env.smartlookApiKey);
+  //   await Smartlook.instance.preferences.setRenderingMode(RenderingMode.native);
+  //   await Smartlook.instance.start();
+  // }
 
   // Initialize push notifications asynchronously — must NOT be awaited.
   // On iOS, requestPermission() shows a system dialog; awaiting it here

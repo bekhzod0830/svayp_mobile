@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
 import 'package:swipe/l10n/app_localizations.dart';
+import 'package:swipe/core/analytics/analytics_events.dart';
+import 'package:swipe/core/analytics/analytics_service.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
 import 'package:swipe/shared/widgets/widgets.dart';
@@ -43,6 +45,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     super.initState();
     _authService = getIt<AuthService>();
     _startResendTimer();
+    AnalyticsService.instance.logEvent(AnalyticsEvents.otpScreenOpened);
 
     // Focus the first field as soon as the screen is shown
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -168,6 +171,8 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       _isLoading = true;
     });
 
+    AnalyticsService.instance.logEvent(AnalyticsEvents.otpSubmitted);
+
     try {
       // Verify OTP with backend API
 
@@ -198,19 +203,39 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       // Check if user has completed their profile
       if (tokenResponse.user.hasProfile) {
         // User has profile - go to main app
+        AnalyticsService.instance.logEvent(AnalyticsEvents.loginCompleted);
+        await AnalyticsService.instance.setUser(
+          userId: tokenResponse.user.id.toString(),
+          phone: tokenResponse.user.phoneNumber,
+          username: tokenResponse.user.username,
+        );
         Navigator.of(context).pushReplacementNamed('/main');
       } else {
         // User needs to complete profile - start onboarding
+        AnalyticsService.instance.logEvent(AnalyticsEvents.registrationCompleted);
+        await AnalyticsService.instance.setUser(
+          userId: tokenResponse.user.id.toString(),
+          phone: tokenResponse.user.phoneNumber,
+          username: tokenResponse.user.username,
+        );
         Navigator.of(context).pushReplacementNamed('/basic-info');
       }
     } on ApiException catch (e) {
       if (!mounted) return;
+      AnalyticsService.instance.logEvent(
+        AnalyticsEvents.otpVerificationFailed,
+        parameters: {AnalyticsEvents.paramErrorCode: e.statusCode.toString()},
+      );
       SnackBarHelper.showError(
         context,
         ErrorMessageHelper.getLocalizedMessage(context, e),
       );
     } catch (e) {
       if (!mounted) return;
+      AnalyticsService.instance.logEvent(
+        AnalyticsEvents.otpVerificationFailed,
+        parameters: {AnalyticsEvents.paramErrorCode: 'unknown'},
+      );
       SnackBarHelper.showError(context, l10n.invalidOtpError);
     } finally {
       if (mounted) {
@@ -233,6 +258,8 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       await _authService.sendOTP(widget.phoneNumber);
 
       if (!mounted) return;
+
+      AnalyticsService.instance.logEvent(AnalyticsEvents.otpResendTapped);
 
       final l10n = AppLocalizations.of(context)!;
       SnackBarHelper.showSuccess(context, l10n.otpSentSuccess);

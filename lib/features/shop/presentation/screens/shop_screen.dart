@@ -16,6 +16,8 @@ import 'package:swipe/core/network/api_client.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:swipe/shared/widgets/main_top_bar.dart';
 import 'dart:ui';
+import 'package:swipe/core/analytics/analytics_events.dart';
+import 'package:swipe/core/analytics/analytics_service.dart';
 
 // Pre-computed colors to avoid withOpacity() allocations during rebuilds
 const _kShadowBlack08 = Color(0x14000000); // black.withOpacity(0.08)
@@ -627,6 +629,9 @@ class _ShopScreenState extends State<ShopScreen>
   void _filterProducts() {
     final query = _searchController.text.toLowerCase();
 
+    if (query.isNotEmpty) {
+      AnalyticsService.instance.logEvent(AnalyticsEvents.searchInitiated);
+    }
     setState(() {
       // Seller mode: filter seller products locally
       if (_selectedSellerId != null) {
@@ -869,6 +874,21 @@ class _ShopScreenState extends State<ShopScreen>
     setState(() => _selectedTab = index);
     if (_scrollController.hasClients) _scrollController.jumpTo(0);
 
+    if (index >= 2) {
+      final kCategoryLabels = [
+        'TOPWEAR', 'BOTTOMWEAR', 'ISLAMIC_MODEST_WEAR', 'DRESSES',
+        'ONE_PIECE', 'TWO_PIECE_SET', 'THREE_PIECE_SET', 'FOOTWEAR',
+        'OUTERWEAR', 'ACTIVEWEAR', 'HOMEWEAR', 'UNDERWEAR', 'ACCESSORIES',
+      ];
+      final catIdx = index - 2;
+      if (catIdx < kCategoryLabels.length) {
+        AnalyticsService.instance.logEvent(
+          AnalyticsEvents.categoryFilterSelected,
+          parameters: {AnalyticsEvents.paramCategory: kCategoryLabels[catIdx]},
+        );
+      }
+    }
+
     if (index == 0) {
       // ── Trending ──────────────────────────────────────────
       if (_trendingProducts.isNotEmpty && _isCacheFresh(_trendingLoadedAt)) {
@@ -931,6 +951,7 @@ class _ShopScreenState extends State<ShopScreen>
           context,
           rootNavigator: true,
         ).push(MaterialPageRoute(builder: (_) => const SellersListScreen()));
+        AnalyticsService.instance.logEvent(AnalyticsEvents.sellerFilterApplied);
       },
       child: Container(
         height: 44,

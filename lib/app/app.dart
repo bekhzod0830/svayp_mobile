@@ -4,6 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:swipe/app/routes.dart';
 import 'package:swipe/app/theme.dart';
+import 'package:swipe/core/analytics/analytics_navigator_observer.dart';
 import 'package:swipe/core/constants/app_constants.dart';
 import 'package:swipe/core/globals.dart';
 import 'package:swipe/core/localization/services/language_service.dart';
@@ -125,6 +126,7 @@ class SwipeAppState extends State<SwipeApp>
             ],
 
             navigatorKey: navigatorKey,
+            navigatorObservers: [AnalyticsNavigatorObserver()],
             initialRoute: AppRoutes.splash,
             onGenerateRoute: AppRoutes.onGenerateRoute,
             builder: (context, child) {

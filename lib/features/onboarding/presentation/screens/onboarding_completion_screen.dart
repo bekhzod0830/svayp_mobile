@@ -7,6 +7,9 @@ import 'package:swipe/core/constants/app_typography.dart';
 import 'package:swipe/core/utils/local_storage_helper.dart';
 import 'package:swipe/shared/widgets/widgets.dart';
 import 'package:swipe/features/onboarding/data/onboarding_data_manager.dart';
+import 'package:swipe/core/analytics/analytics_events.dart';
+import 'package:swipe/core/analytics/analytics_service.dart';
+import 'package:swipe/core/analytics/onboarding_analytics_mixin.dart';
 import 'package:swipe/core/services/product_api_service.dart';
 import 'package:swipe/core/services/recommendation_cache_service.dart';
 import 'package:swipe/core/cache/image_cache_manager.dart';
@@ -24,7 +27,11 @@ class OnboardingCompletionScreen extends StatefulWidget {
 }
 
 class _OnboardingCompletionScreenState extends State<OnboardingCompletionScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, OnboardingAnalyticsMixin {
+  @override
+  String get viewedEvent => AnalyticsEvents.onboardingCompletionViewed;
+  @override
+  String get completedEvent => AnalyticsEvents.onboardingCompleted;
   late AnimationController _scaleController;
   late AnimationController _fadeController;
   late AnimationController _pulseController;
@@ -41,6 +48,7 @@ class _OnboardingCompletionScreenState extends State<OnboardingCompletionScreen>
   @override
   void initState() {
     super.initState();
+    trackStepViewed();
     _setupAnimations();
     _confettiController = ConfettiController(
       duration: const Duration(seconds: 3),
@@ -242,6 +250,8 @@ class _OnboardingCompletionScreenState extends State<OnboardingCompletionScreen>
       await storage.setOnboarded(true);
 
       if (!mounted) return;
+
+      AnalyticsService.instance.logEvent(AnalyticsEvents.onboardingCompleted);
 
       // Navigate to main app (discover screen)
       Navigator.of(context).pushNamedAndRemoveUntil(

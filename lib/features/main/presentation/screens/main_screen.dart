@@ -10,6 +10,8 @@ import 'package:swipe/core/utils/responsive_utils.dart';
 import 'package:swipe/features/discover/presentation/screens/discover_screen.dart';
 import 'package:swipe/features/shop/presentation/screens/shop_screen.dart';
 import 'package:swipe/features/shop/presentation/utils/visual_search_launcher.dart';
+import 'package:swipe/core/analytics/analytics_events.dart';
+import 'package:swipe/core/analytics/analytics_service.dart';
 import 'package:swipe/features/chat/presentation/screens/chat_list_screen.dart';
 import 'package:swipe/features/profile/presentation/screens/profile_screen.dart';
 import 'package:swipe/core/utils/local_storage_helper.dart';
@@ -165,6 +167,12 @@ class MainScreenState extends State<MainScreen>
     // Pop all sub-routes in the tab we are leaving so it resets to root.
     final keys = [_discoverKey, _shopKey, _chatKey, _profileKey];
     _popTabToRoot(keys[_currentIndex]);
+
+    const tabNames = ['discover', 'shop', 'chat', 'profile'];
+    AnalyticsService.instance.logEvent(
+      AnalyticsEvents.tabSelected,
+      parameters: {AnalyticsEvents.paramTabName: tabNames[index < tabNames.length ? index : 0]},
+    );
 
     final fromPos = _pillCtrl.value;
     setState(() {
@@ -474,8 +482,10 @@ class MainScreenState extends State<MainScreen>
                                         // Visual Search — center action button (not a tab)
                                         Expanded(
                                           child: GestureDetector(
-                                            onTap: () =>
-                                                launchVisualSearch(context),
+                                            onTap: () {
+                                              AnalyticsService.instance.logEvent(AnalyticsEvents.visualSearchOpened);
+                                              launchVisualSearch(context);
+                                            },
                                             behavior: HitTestBehavior.opaque,
                                             child: Center(
                                               child: Padding(

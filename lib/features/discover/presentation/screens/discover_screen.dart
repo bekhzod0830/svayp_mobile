@@ -25,6 +25,8 @@ import 'package:swipe/core/services/notification_service.dart';
 import 'package:swipe/core/services/sound_service.dart';
 import 'package:swipe/shared/widgets/main_top_bar.dart';
 import 'package:swipe/shared/widgets/swipe_feedback_banner.dart';
+import 'package:swipe/core/analytics/analytics_events.dart';
+import 'package:swipe/core/analytics/analytics_service.dart';
 
 /// Helper function to format size label by removing SIZE_ prefix
 String _formatSizeLabel(String size) {
@@ -410,6 +412,9 @@ class DiscoverScreenState extends State<DiscoverScreen> {
   void _checkAndLoadMore() {
     final remaining = _products.length - _currentCardIndex;
     final isGuest = _authToken == null || _authToken!.isEmpty;
+    if (remaining <= 0 && !_hasMoreProducts) {
+      AnalyticsService.instance.logEvent(AnalyticsEvents.feedExhausted);
+    }
     if (remaining <= 5 &&
         !_isFetchingMore &&
         _hasMoreProducts &&
@@ -500,6 +505,17 @@ class DiscoverScreenState extends State<DiscoverScreen> {
     unawaited(SeenProductsService.addSeenIds([swipedProduct.id]));
     _checkAndLoadMore();
 
+    // Track dislike event
+    AnalyticsService.instance.logEvent(
+      AnalyticsEvents.productDisliked,
+      parameters: {
+        AnalyticsEvents.paramProductId: swipedProduct.id,
+        AnalyticsEvents.paramCategory: swipedProduct.category,
+        AnalyticsEvents.paramBrand: swipedProduct.brand,
+        AnalyticsEvents.paramPrice: swipedProduct.price.toString(),
+      },
+    );
+
     // Send dislike to backend if user is authenticated
     if (_authToken != null && _authToken!.isNotEmpty) {
       _apiService
@@ -546,6 +562,17 @@ class DiscoverScreenState extends State<DiscoverScreen> {
     // Show toast + play sound
     SwipeFeedbackBanner.show(context, SwipeFeedbackType.liked);
     unawaited(SoundService.instance.playTing());
+
+    // Track like event
+    AnalyticsService.instance.logEvent(
+      AnalyticsEvents.productLiked,
+      parameters: {
+        AnalyticsEvents.paramProductId: swipedProduct.id,
+        AnalyticsEvents.paramCategory: swipedProduct.category,
+        AnalyticsEvents.paramBrand: swipedProduct.brand,
+        AnalyticsEvents.paramPrice: swipedProduct.price.toString(),
+      },
+    );
 
     // Send like to backend if user is authenticated
     if (_authToken != null && _authToken!.isNotEmpty) {
@@ -957,12 +984,22 @@ class DiscoverScreenState extends State<DiscoverScreen> {
     });
 
     SwipeFeedbackBanner.show(context, SwipeFeedbackType.undo);
+    AnalyticsService.instance.logEvent(AnalyticsEvents.swipeUndo);
   }
 
   Future<void> _onCardTap() async {
     if (_currentCardIndex >= _products.length) return;
 
     final product = _products[_currentCardIndex];
+    AnalyticsService.instance.logEvent(
+      AnalyticsEvents.productDetailOpened,
+      parameters: {
+        AnalyticsEvents.paramProductId: product.id,
+        AnalyticsEvents.paramCategory: product.category,
+        AnalyticsEvents.paramBrand: product.brand,
+        AnalyticsEvents.paramPrice: product.price.toString(),
+      },
+    );
     final result = await Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute(
         builder: (context) => ProductDetailScreen(product: product),

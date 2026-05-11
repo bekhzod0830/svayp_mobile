@@ -14,6 +14,8 @@ import 'package:swipe/features/main/presentation/screens/main_screen.dart';
 import 'package:swipe/core/services/badge_notifier.dart';
 import 'package:swipe/core/models/product.dart' as api_models;
 import 'dart:ui';
+import 'package:swipe/core/analytics/analytics_events.dart';
+import 'package:swipe/core/analytics/analytics_service.dart';
 
 /// Interface for refreshable screens
 abstract class Refreshable {
@@ -305,6 +307,10 @@ class LikedScreenState extends State<LikedScreen>
   }
 
   Future<void> _removeLikedProduct(LikedProductModel product, int index) async {
+    AnalyticsService.instance.logEvent(
+      AnalyticsEvents.likedItemRemoved,
+      parameters: {AnalyticsEvents.paramProductId: product.productId},
+    );
     // If user is authenticated, send dislike request to API
     if (_authToken != null && _authToken!.isNotEmpty) {
       try {

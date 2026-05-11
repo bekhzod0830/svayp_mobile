@@ -48,3 +48,6 @@ node_modules
 # Firebase config files — contain API keys, must not be committed
 ios/Runner/GoogleService-Info.plist
 android/app/google-services.json
+
+# Environment variables — contains API keys, must not be committed
+.env

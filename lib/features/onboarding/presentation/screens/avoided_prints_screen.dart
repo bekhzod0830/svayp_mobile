@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
+import 'package:swipe/core/analytics/analytics_events.dart';
+import 'package:swipe/core/analytics/onboarding_analytics_mixin.dart';
 import 'package:swipe/shared/widgets/widgets.dart';
 import 'package:swipe/features/onboarding/data/onboarding_data_manager.dart';
 
@@ -13,9 +15,21 @@ class AvoidedPrintsScreen extends StatefulWidget {
   State<AvoidedPrintsScreen> createState() => _AvoidedPrintsScreenState();
 }
 
-class _AvoidedPrintsScreenState extends State<AvoidedPrintsScreen> {
+class _AvoidedPrintsScreenState extends State<AvoidedPrintsScreen>
+    with OnboardingAnalyticsMixin {
+  @override
+  String get viewedEvent => AnalyticsEvents.onboardingAvoidedPrintsViewed;
+  @override
+  String get completedEvent => AnalyticsEvents.onboardingAvoidedPrintsCompleted;
+
   final Set<String> _avoidedPrints = {};
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    trackStepViewed();
+  }
 
   final List<Map<String, dynamic>> _prints = [
     {'name': 'Animals', 'icon': Icons.pets},
@@ -37,6 +51,8 @@ class _AvoidedPrintsScreenState extends State<AvoidedPrintsScreen> {
       manager.setAvoidedPatterns(_avoidedPrints.toList());
 
       if (!mounted) return;
+
+      trackStepCompleted();
 
       // Navigate to onboarding completion
       Navigator.of(context).pushNamed('/onboarding-completion');

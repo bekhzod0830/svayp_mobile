@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
+import 'package:swipe/core/analytics/analytics_events.dart';
+import 'package:swipe/core/analytics/onboarding_analytics_mixin.dart';
 import 'package:swipe/shared/widgets/widgets.dart';
 
 /// Tutorial Screen - Interactive tutorial teaching swipe mechanics
@@ -14,7 +16,11 @@ class TutorialScreen extends StatefulWidget {
 }
 
 class _TutorialScreenState extends State<TutorialScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, OnboardingAnalyticsMixin {
+  @override
+  String get viewedEvent => AnalyticsEvents.onboardingTutorialViewed;
+  @override
+  String get completedEvent => AnalyticsEvents.onboardingTutorialCompleted;
   late AnimationController _animationController;
   late Animation<double> _slideAnimation;
   int _currentStep = 0;
@@ -59,6 +65,7 @@ class _TutorialScreenState extends State<TutorialScreen>
   void initState() {
     super.initState();
     _setupAnimation();
+    trackStepViewed();
   }
 
   void _setupAnimation() {
@@ -102,6 +109,8 @@ class _TutorialScreenState extends State<TutorialScreen>
       await Future.delayed(const Duration(milliseconds: 500));
 
       if (!mounted) return;
+
+      trackStepCompleted();
 
       // Navigate to style quiz with user data
       Navigator.of(context).pushNamed(

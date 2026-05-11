@@ -13,6 +13,8 @@ import 'package:swipe/core/services/theme_service.dart';
 import 'package:swipe/core/services/sound_service.dart';
 import 'package:swipe/features/address/presentation/screens/address_list_screen.dart';
 import 'package:swipe/features/profile/presentation/screens/language_settings_screen.dart';
+import 'package:swipe/core/analytics/analytics_events.dart';
+import 'package:swipe/core/analytics/analytics_service.dart';
 import 'package:swipe/features/profile/presentation/screens/profile_information_screen.dart';
 import 'package:swipe/features/orders/presentation/screens/orders_screen.dart';
 import 'package:swipe/core/localization/services/language_service.dart';
@@ -212,6 +214,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   void _onLogout() async {
+    AnalyticsService.instance.logEvent(AnalyticsEvents.logoutTapped);
     final l10n = AppLocalizations.of(context)!;
     showDialog(
       context: context,
@@ -708,9 +711,15 @@ class _ProfileScreenState extends State<ProfileScreen>
                                                 },
                                           ),
                                           onTap: () {
-                                            context
-                                                .read<ThemeService>()
-                                                .toggleTheme();
+                                            final themeService = context.read<ThemeService>();
+                                            final newMode = !themeService.isDarkMode;
+                                            themeService.toggleTheme();
+                                            AnalyticsService.instance.logEvent(
+                                              AnalyticsEvents.themeChanged,
+                                              parameters: {
+                                                AnalyticsEvents.paramTheme: newMode ? 'dark' : 'light',
+                                              },
+                                            );
                                           },
                                         ),
                                         _ProfileMenuItem(
@@ -752,6 +761,13 @@ class _ProfileScreenState extends State<ProfileScreen>
                                               ),
                                             );
                                             // Reload language after returning
+                                            final langCode = await _languageService.getCurrentLanguageCode();
+                                            AnalyticsService.instance.logEvent(
+                                              AnalyticsEvents.languageChanged,
+                                              parameters: {
+                                                AnalyticsEvents.paramLanguage: langCode,
+                                              },
+                                            );
                                             _loadCurrentLanguage();
                                           },
                                         ),

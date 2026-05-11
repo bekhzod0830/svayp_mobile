@@ -5,6 +5,8 @@ import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
 import 'package:swipe/core/utils/responsive_utils.dart';
 import 'package:swipe/shared/widgets/widgets.dart';
+import 'package:swipe/core/analytics/analytics_events.dart';
+import 'package:swipe/core/analytics/onboarding_analytics_mixin.dart';
 import 'package:swipe/features/onboarding/data/onboarding_data_manager.dart';
 
 /// Size Profile Screen - Second step of profile setup
@@ -16,7 +18,12 @@ class SizeProfileScreen extends StatefulWidget {
   State<SizeProfileScreen> createState() => _SizeProfileScreenState();
 }
 
-class _SizeProfileScreenState extends State<SizeProfileScreen> {
+class _SizeProfileScreenState extends State<SizeProfileScreen>
+    with OnboardingAnalyticsMixin {
+  @override
+  String get viewedEvent => AnalyticsEvents.onboardingSizeProfileViewed;
+  @override
+  String get completedEvent => AnalyticsEvents.onboardingSizeProfileCompleted;
   double _height = 170; // in cm
   double _weight = 65; // in kg
   bool _isLoading = false;
@@ -28,6 +35,7 @@ class _SizeProfileScreenState extends State<SizeProfileScreen> {
 
     if (!_isInitialized) {
       _isInitialized = true;
+      trackStepViewed();
 
       // Load saved data from OnboardingDataManager
       final manager = context.read<OnboardingDataManager>();
@@ -58,6 +66,8 @@ class _SizeProfileScreenState extends State<SizeProfileScreen> {
       manager.setBodyMeasurements(heightCm: _height.toInt(), weightKg: _weight);
 
       if (!mounted) return;
+
+      trackStepCompleted();
 
       // Navigate to style quiz screen
       Navigator.of(context).pushNamed('/style-quiz');

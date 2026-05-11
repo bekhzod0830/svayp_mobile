@@ -39,5 +39,10 @@ end
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
+    target.build_configurations.each do |config|
+      # On Apple Silicon, only build for the active arch in debug mode.
+      # This lets ML Kit pods (which lack full simulator slices) build successfully.
+      config.build_settings['ONLY_ACTIVE_ARCH'] = 'YES' if config.name == 'Debug'
+    end
   end
 end

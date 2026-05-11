@@ -18,6 +18,8 @@ import 'package:swipe/shared/widgets/widgets.dart';
 import 'package:swipe/core/models/product.dart' as api_models;
 import 'package:swipe/features/discover/domain/entities/product.dart';
 import 'package:swipe/features/product/presentation/screens/product_detail_screen.dart';
+import 'package:swipe/core/analytics/analytics_events.dart';
+import 'package:swipe/core/analytics/analytics_service.dart';
 
 /// Helper function to format size label by removing SIZE_ prefix
 String _formatSizeLabel(String size) {
@@ -60,6 +62,7 @@ class _CartScreenState extends State<CartScreen> {
   void initState() {
     super.initState();
     _loadCart();
+    AnalyticsService.instance.logEvent(AnalyticsEvents.cartOpened);
   }
 
   Future<void> _openProductDetail(CartItemModel item) async {
@@ -286,6 +289,13 @@ class _CartScreenState extends State<CartScreen> {
     final item = _cartItems[index];
     final newQuantity = item.quantity + delta;
     if (newQuantity > 0 && newQuantity <= 10) {
+      AnalyticsService.instance.logEvent(
+        AnalyticsEvents.cartQuantityChanged,
+        parameters: {
+          AnalyticsEvents.paramProductId: item.productId,
+          AnalyticsEvents.paramNewQuantity: newQuantity.toString(),
+        },
+      );
       // Always update local Hive cache first so _loadCart shows fresh data
       // immediately regardless of whether the API call succeeds.
       await _cartService.updateQuantity(index, newQuantity);
@@ -316,8 +326,10 @@ class _CartScreenState extends State<CartScreen> {
   Future<void> _removeItem(int index) async {
     final item = _cartItems[index];
     final cartItemId = _cartItemIds[item.productId];
-
-    // Always remove from local cache
+    AnalyticsService.instance.logEvent(
+      AnalyticsEvents.cartItemRemoved,
+      parameters: {AnalyticsEvents.paramProductId: item.productId},
+    );
     await _cartService.removeItem(index);
 
     // Best-effort API delete, looked up by productId
@@ -403,6 +415,13 @@ class _CartScreenState extends State<CartScreen> {
       return;
     }
     // Navigate to checkout screen
+    AnalyticsService.instance.logEvent(
+      AnalyticsEvents.checkoutStarted,
+      parameters: {
+        AnalyticsEvents.paramCartTotal: _subtotal.toString(),
+        AnalyticsEvents.paramItemCount: _totalItems.toString(),
+      },
+    );
     final result = await Navigator.of(
       context,
       rootNavigator: true,

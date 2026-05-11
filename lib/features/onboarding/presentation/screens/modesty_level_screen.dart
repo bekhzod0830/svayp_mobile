@@ -4,6 +4,8 @@ import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
 import 'package:swipe/shared/widgets/widgets.dart';
+import 'package:swipe/core/analytics/analytics_events.dart';
+import 'package:swipe/core/analytics/onboarding_analytics_mixin.dart';
 import 'package:swipe/features/onboarding/data/onboarding_data_manager.dart';
 
 /// Modesty Level Screen
@@ -15,7 +17,12 @@ class ModestyLevelScreen extends StatefulWidget {
   State<ModestyLevelScreen> createState() => _ModestyLevelScreenState();
 }
 
-class _ModestyLevelScreenState extends State<ModestyLevelScreen> {
+class _ModestyLevelScreenState extends State<ModestyLevelScreen>
+    with OnboardingAnalyticsMixin {
+  @override
+  String get viewedEvent => AnalyticsEvents.onboardingModestyViewed;
+  @override
+  String get completedEvent => AnalyticsEvents.onboardingModestyCompleted;
   Set<String> _selectedModestyLevels =
       {}; // Changed to Set for multiple selections
   bool _isLoading = false;
@@ -28,6 +35,7 @@ class _ModestyLevelScreenState extends State<ModestyLevelScreen> {
 
     if (!_isInitialized) {
       _isInitialized = true;
+      trackStepViewed();
 
       // Get user data from route arguments
       final args =
@@ -96,6 +104,8 @@ class _ModestyLevelScreenState extends State<ModestyLevelScreen> {
       manager.setStylePreference(_selectedModestyLevels.toList());
 
       if (!mounted) return;
+
+      trackStepCompleted();
 
       // Navigate to next screen (body type screen)
       _navigateToNextScreen();

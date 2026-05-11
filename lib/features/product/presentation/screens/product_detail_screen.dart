@@ -26,6 +26,8 @@ import 'package:swipe/shared/widgets/map_preview_card.dart';
 import 'package:swipe/shared/widgets/swipe_feedback_banner.dart';
 import 'dart:ui';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:swipe/core/analytics/analytics_events.dart';
+import 'package:swipe/core/analytics/analytics_service.dart';
 
 /// Product Detail Screen - Full product information
 class ProductDetailScreen extends StatefulWidget {
@@ -228,6 +230,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
     if (mounted) {
       SwipeFeedbackBanner.show(context, SwipeFeedbackType.addedToCart);
+      AnalyticsService.instance.logEvent(
+        AnalyticsEvents.productAddedToCart,
+        parameters: {
+          AnalyticsEvents.paramProductId: widget.product.id,
+          AnalyticsEvents.paramCategory: widget.product.category,
+          AnalyticsEvents.paramBrand: widget.product.brand,
+          AnalyticsEvents.paramPrice: widget.product.price.toString(),
+          if (_selectedSize != null) AnalyticsEvents.paramSize: _selectedSize!,
+          if (_selectedColor != null) AnalyticsEvents.paramColor: _selectedColor!,
+          AnalyticsEvents.paramQuantity: _quantity.toString(),
+        },
+      );
     }
   }
 
@@ -666,6 +680,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           return;
         }
         if (sellerId != null) {
+          AnalyticsService.instance.logEvent(
+            AnalyticsEvents.sellerProfileOpened,
+            parameters: {AnalyticsEvents.paramSellerId: sellerId},
+          );
           _navigateToSellerProfile(sellerId, sellerName);
         } else {
           // Show message if no sellerId available
@@ -804,6 +822,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 setState(() {
                   _selectedSize = size;
                 });
+                AnalyticsService.instance.logEvent(
+                  AnalyticsEvents.productSizeSelected,
+                  parameters: {
+                    AnalyticsEvents.paramProductId: widget.product.id,
+                    AnalyticsEvents.paramSize: size,
+                  },
+                );
               },
               child: Container(
                 constraints: const BoxConstraints(
@@ -890,6 +915,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 setState(() {
                   _selectedColor = color;
                 });
+                AnalyticsService.instance.logEvent(
+                  AnalyticsEvents.productColorSelected,
+                  parameters: {
+                    AnalyticsEvents.paramProductId: widget.product.id,
+                    AnalyticsEvents.paramColor: color,
+                  },
+                );
                 // Navigate to the corresponding image index
                 final colorIndex = widget.product.colors.indexOf(color);
                 if (colorIndex >= 0 &&
@@ -1870,6 +1902,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               return;
                             }
                             if (!mounted) return;
+                            AnalyticsService.instance.logEvent(
+                              AnalyticsEvents.chatWithSellerStarted,
+                              parameters: {
+                                AnalyticsEvents.paramProductId: widget.product.id,
+                                if (widget.product.sellerId != null)
+                                  AnalyticsEvents.paramSellerId: widget.product.sellerId!,
+                              },
+                            );
                             Navigator.of(context).push(
                               MaterialPageRoute(
                                 builder: (context) => ChatComposeScreen(

@@ -19,6 +19,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:swipe/core/models/product.dart' as api_models;
 import 'package:swipe/features/discover/domain/entities/product.dart';
 import 'package:swipe/app/routes.dart';
+import 'package:swipe/core/analytics/analytics_events.dart';
+import 'package:swipe/core/analytics/analytics_service.dart';
 
 /// Helper function to format size label by removing SIZE_ prefix
 String _formatSizeLabel(String size) {
@@ -124,6 +126,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
     _focusNode.addListener(() => setState(() {}));
     WidgetsBinding.instance.addObserver(this);
     _scrollController.addListener(_onScroll);
+    AnalyticsService.instance.logEvent(AnalyticsEvents.chatConversationOpened);
     // Apply caches synchronously before first build — no spinner/error flash on re-open
     if (_cachedCurrentUserId != null) {
       _currentUserId = _cachedCurrentUserId!;
@@ -552,6 +555,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
 
     debugPrint('[Chat] ► Sending via WebSocket: "$content"');
     _webSocketService.sendMessage(content);
+    AnalyticsService.instance.logEvent(AnalyticsEvents.messageSent);
     // Message will arrive back through /topic/chat/{id} subscription
     if (mounted) {
       setState(() => _isSending = false);

@@ -4,6 +4,8 @@ import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
 import 'package:swipe/shared/widgets/widgets.dart';
+import 'package:swipe/core/analytics/analytics_events.dart';
+import 'package:swipe/core/analytics/onboarding_analytics_mixin.dart';
 import 'package:swipe/features/onboarding/data/onboarding_data_manager.dart';
 
 /// Fit Preference Screen
@@ -15,7 +17,12 @@ class FitPreferenceScreen extends StatefulWidget {
   State<FitPreferenceScreen> createState() => _FitPreferenceScreenState();
 }
 
-class _FitPreferenceScreenState extends State<FitPreferenceScreen> {
+class _FitPreferenceScreenState extends State<FitPreferenceScreen>
+    with OnboardingAnalyticsMixin {
+  @override
+  String get viewedEvent => AnalyticsEvents.onboardingFitPrefViewed;
+  @override
+  String get completedEvent => AnalyticsEvents.onboardingFitPrefCompleted;
   Set<String> _selectedFits = {}; // Changed to Set for multiple selections
   bool _isLoading = false;
   String _gender = 'female';
@@ -28,6 +35,7 @@ class _FitPreferenceScreenState extends State<FitPreferenceScreen> {
 
     if (!_isInitialized) {
       _isInitialized = true;
+      trackStepViewed();
 
       // Get user data from route arguments
       final args =
@@ -117,6 +125,8 @@ class _FitPreferenceScreenState extends State<FitPreferenceScreen> {
       manager.setFitPreference(_selectedFits.toList());
 
       if (!mounted) return;
+
+      trackStepCompleted();
 
       // If user is covered, skip modesty level and go directly to size profile
       // For covered users, modesty level is automatically set to "covered"
