@@ -15,4 +15,10 @@ abstract class Env {
     'SMARTLOOK_API_KEY',
     defaultValue: '',
   );
+
+  /// Google Maps API key (used for static map tiles and map view)
+  static const String googleMapsApiKey = String.fromEnvironment(
+    'GOOGLE_MAPS_API_KEY',
+    defaultValue: '',
+  );
 }

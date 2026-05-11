@@ -1414,6 +1414,30 @@ class AppLocalizationsEn extends AppLocalizations {
   String get typeMessage => 'Type a message...';
 
   @override
+  String get chatAttachPhoto => 'Photo';
+
+  @override
+  String get chatAttachLocation => 'Location';
+
+  @override
+  String get chatAttachButton => 'Attach';
+
+  @override
+  String get chatOpenInMaps => 'Open in Maps';
+
+  @override
+  String get chatAttachCamera => 'Camera';
+
+  @override
+  String get chatAttachGallery => 'Gallery';
+
+  @override
+  String get chatAttachPickHint => 'Take a photo or choose from your library';
+
+  @override
+  String get chatAttachComingSoon => 'Photo & location sharing coming soon';
+
+  @override
   String get typeAMessage => 'Type your message...';
 
   @override
@@ -1816,6 +1840,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get notificationsComingSoon => 'Notifications feature coming soon';
+
+  @override
+  String get notificationsReadAll => 'Read all';
+
+  @override
+  String get notificationsEmpty => 'No notifications yet';
+
+  @override
+  String get notificationsEmptySubtitle =>
+      'You\'ll see order updates, price drops,\nand messages here.';
+
+  @override
+  String get notificationsLoadError => 'Failed to load notifications';
 
   @override
   String get stylePreferences => 'Style Preferences';

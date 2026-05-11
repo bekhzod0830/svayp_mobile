@@ -21,6 +21,7 @@ import 'package:swipe/core/network/api_client.dart';
 import 'package:swipe/features/chat/data/services/chat_service.dart';
 import 'package:swipe/features/chat/data/services/chat_websocket_service.dart';
 import 'package:swipe/features/chat/data/models/chat_model.dart';
+import 'package:swipe/core/services/badge_notifier.dart';
 
 /// Main Screen - Container with bottom navigation
 /// Houses all main app features: Discover, Liked, Shop, Orders, Profile
@@ -117,6 +118,16 @@ class MainScreenState extends State<MainScreen>
     try {
       final chats = await chatService.getChats();
       wsService.openList(chats.map((c) => c.id).toList());
+    } catch (_) {}
+
+    // Seed the notification bell badge from the API unread count.
+    try {
+      final api = getIt<ApiClient>();
+      final resp = await api.get<dynamic>('/notifications/unread-count');
+      final outer = resp.data as Map<String, dynamic>;
+      final count =
+          (outer['data']?['unread_count'] ?? outer['unread_count'] ?? 0) as int;
+      if (count > 0) BadgeNotifier.instance.markUnreadNotifications();
     } catch (_) {}
   }
 

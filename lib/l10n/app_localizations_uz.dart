@@ -1434,6 +1434,31 @@ class AppLocalizationsUz extends AppLocalizations {
   String get typeMessage => 'Xabar yozing...';
 
   @override
+  String get chatAttachPhoto => 'Rasm';
+
+  @override
+  String get chatAttachLocation => 'Joylashuv';
+
+  @override
+  String get chatAttachButton => 'Biriktirish';
+
+  @override
+  String get chatOpenInMaps => 'Xaritada ochish';
+
+  @override
+  String get chatAttachCamera => 'Kamera';
+
+  @override
+  String get chatAttachGallery => 'Galereya';
+
+  @override
+  String get chatAttachPickHint => 'Rasm oling yoki galereyadan tanlang';
+
+  @override
+  String get chatAttachComingSoon =>
+      'Rasm va joylashuv ulashish tez orada qo\'shiladi';
+
+  @override
   String get typeAMessage => 'Xabaringizni yozing...';
 
   @override
@@ -1839,11 +1864,24 @@ class AppLocalizationsUz extends AppLocalizations {
   String get soundEffects => 'Ovoz effektlari';
 
   @override
-  String get notifications => 'Bildirishnomalar';
+  String get notifications => 'Xabarlar';
 
   @override
   String get notificationsComingSoon =>
       'Bildirishnomalar tez orada paydo bo\'ladi';
+
+  @override
+  String get notificationsReadAll => 'Barchasini o\'qish';
+
+  @override
+  String get notificationsEmpty => 'Hozircha bildirishnomalar yo\'q';
+
+  @override
+  String get notificationsEmptySubtitle =>
+      'Bu yerda buyurtma yangilanishlari, narx tushishlari va xabarlar ko\'rinadi.';
+
+  @override
+  String get notificationsLoadError => 'Bildirishnomalarni yuklab bo\'lmadi';
 
   @override
   String get stylePreferences => 'Stil tanlovlari';

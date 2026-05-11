@@ -149,7 +149,6 @@ class LikedScreenState extends State<LikedScreen>
         });
       }
     } catch (e) {
-      debugPrint('Error loading favorites: $e');
       // API failed — keep showing the local cache, just dismiss spinner.
       if (mounted) setState(() => _isLoading = false);
     }
@@ -200,7 +199,6 @@ class LikedScreenState extends State<LikedScreen>
         await _likedService.addLike(product);
       }
     } catch (e) {
-      debugPrint('Hive sync error (non-critical): $e');
     }
   }
 
@@ -229,7 +227,6 @@ class LikedScreenState extends State<LikedScreen>
         });
       }
     } catch (e) {
-      debugPrint('Error loading more favorites: $e');
       if (mounted) setState(() => _isLoadingMore = false);
     }
   }
@@ -300,7 +297,6 @@ class LikedScreenState extends State<LikedScreen>
           ),
         );
       } catch (e) {
-        debugPrint('Skipping product ${ap.id}: $e');
       }
     }
     return result;

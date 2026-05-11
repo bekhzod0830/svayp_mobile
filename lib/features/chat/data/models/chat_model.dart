@@ -4,7 +4,7 @@ import 'package:equatable/equatable.dart';
 enum ChatStatus { active, archived, resolved }
 
 /// Message Type Enum
-enum MessageType { text, image, file, product }
+enum MessageType { text, image, file, product, location, system }
 
 /// Sender Type Enum
 enum SenderType { user, seller, admin }
@@ -286,6 +286,8 @@ class ChatMessageResponse extends Equatable {
   final SenderType senderType;
   final String content;
   final MessageType messageType;
+  final double? latitude;
+  final double? longitude;
   final String? productId;
   final String? productTitle;
   final Map<String, String>? productTitleLocalized;
@@ -309,6 +311,8 @@ class ChatMessageResponse extends Equatable {
     required this.senderType,
     required this.content,
     required this.messageType,
+    this.latitude,
+    this.longitude,
     this.productId,
     this.productTitle,
     this.productTitleLocalized,
@@ -334,6 +338,8 @@ class ChatMessageResponse extends Equatable {
       senderType: _parseSenderType(json['sender_type'] as String?),
       content: json['content'] as String? ?? '',
       messageType: _parseMessageType(json['message_type'] as String?),
+      latitude: (json['latitude'] as num?)?.toDouble(),
+      longitude: (json['longitude'] as num?)?.toDouble(),
       productId: json['product_id'] as String?,
       productTitle: json['product_title'] as String?,
       productTitleLocalized:
@@ -384,6 +390,10 @@ class ChatMessageResponse extends Equatable {
         return MessageType.file;
       case 'PRODUCT':
         return MessageType.product;
+      case 'LOCATION':
+        return MessageType.location;
+      case 'SYSTEM':
+        return MessageType.system;
       default:
         return MessageType.text;
     }
@@ -398,6 +408,8 @@ class ChatMessageResponse extends Equatable {
       'sender_type': senderType.name.toUpperCase(),
       'content': content,
       'message_type': messageType.name.toUpperCase(),
+      'latitude': latitude,
+      'longitude': longitude,
       'product_id': productId,
       'product_title': productTitle,
       'product_title_localized': productTitleLocalized,
@@ -423,6 +435,8 @@ class ChatMessageResponse extends Equatable {
     SenderType? senderType,
     String? content,
     MessageType? messageType,
+    double? latitude,
+    double? longitude,
     String? productId,
     String? productTitle,
     Map<String, String>? productTitleLocalized,
@@ -446,6 +460,8 @@ class ChatMessageResponse extends Equatable {
       senderType: senderType ?? this.senderType,
       content: content ?? this.content,
       messageType: messageType ?? this.messageType,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
       productId: productId ?? this.productId,
       productTitle: productTitle ?? this.productTitle,
       productTitleLocalized:
@@ -494,6 +510,8 @@ class ChatMessageResponse extends Equatable {
     senderType,
     content,
     messageType,
+    latitude,
+    longitude,
     productId,
     productTitle,
     productTitleLocalized,

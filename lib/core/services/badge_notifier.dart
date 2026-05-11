@@ -20,6 +20,9 @@ class BadgeNotifier {
   /// True when the user has liked something since last opening Liked screen.
   final ValueNotifier<bool> hasNewLiked = ValueNotifier(false);
 
+  /// True when there are unread notifications.
+  final ValueNotifier<bool> hasUnreadNotifications = ValueNotifier(false);
+
   /// Overwrite the cart count (e.g. after an API sync).
   void setCartCount(int count) => cartCount.value = count;
 
@@ -28,4 +31,10 @@ class BadgeNotifier {
 
   /// Remove the liked dot (call when the Liked screen is opened).
   void clearNewLiked() => hasNewLiked.value = false;
+
+  /// Mark that there are unread notifications.
+  void markUnreadNotifications() => hasUnreadNotifications.value = true;
+
+  /// Clear the unread notifications dot (call when Notifications screen is opened).
+  void clearUnreadNotifications() => hasUnreadNotifications.value = false;
 }

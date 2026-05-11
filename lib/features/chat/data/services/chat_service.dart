@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:swipe/core/network/api_client.dart';
 import 'package:swipe/features/chat/data/models/chat_model.dart';
 
@@ -166,6 +168,62 @@ class ChatService {
 
       return ChatMessageResponse.fromJson(data as Map<String, dynamic>);
     } catch (e, stackTrace) {
+      rethrow;
+    }
+  }
+
+  /// Send message with files and/or location (multipart)
+  /// POST /api/v1/chats/{id}/messages/multipart
+  Future<ChatMessageResponse> sendMultipartMessage(
+    String chatId, {
+    List<File>? files,
+    String? content,
+    double? latitude,
+    double? longitude,
+  }) async {
+    final formFields = <String, dynamic>{};
+    if (content != null && content.isNotEmpty) {
+      formFields['content'] = content;
+    }
+    if (latitude != null && longitude != null) {
+      formFields['latitude'] = latitude.toString();
+      formFields['longitude'] = longitude.toString();
+    }
+
+    final multipartFiles = <MapEntry<String, MultipartFile>>[];
+    if (files != null) {
+      for (final file in files) {
+        multipartFiles.add(
+          MapEntry(
+            'files',
+            await MultipartFile.fromFile(
+              file.path,
+              filename: file.path.split('/').last,
+            ),
+          ),
+        );
+      }
+    }
+
+    final formData = FormData()
+      ..fields.addAll(formFields.entries.map((e) => MapEntry(e.key, e.value.toString())))
+      ..files.addAll(multipartFiles);
+
+    try {
+      final response = await _apiClient.post(
+        '/chats/$chatId/messages/multipart',
+        data: formData,
+        options: Options(contentType: 'multipart/form-data'),
+      );
+
+      final map = response.data as Map<String, dynamic>;
+      final data =
+          map['data'] is Map && (map['data'] as Map).containsKey('data')
+          ? (map['data'] as Map)['data']
+          : map['data'] ?? response.data;
+
+      return ChatMessageResponse.fromJson(data as Map<String, dynamic>);
+    } catch (e) {
       rethrow;
     }
   }

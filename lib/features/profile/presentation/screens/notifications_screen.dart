@@ -3,6 +3,8 @@ import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
 import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/core/network/api_client.dart';
+import 'package:swipe/core/services/badge_notifier.dart';
+import 'package:swipe/core/services/notification_service.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 
 // ─── Model ───────────────────────────────────────────────────────────────────
@@ -28,10 +30,12 @@ class NotificationItem {
 
   factory NotificationItem.fromJson(Map<String, dynamic> json) {
     return NotificationItem(
-      id: json['id'] as String,
-      title: json['title'] as String,
-      body: json['body'] as String,
-      createdAt: DateTime.parse(json['created_at'] as String),
+      id: json['id']?.toString() ?? '',
+      title: json['title'] as String? ?? json['message'] as String? ?? '',
+      body: json['body'] as String? ?? json['description'] as String? ?? '',
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'] as String)
+          : DateTime.now(),
       isRead: json['is_read'] as bool? ?? false,
       type: json['type'] as String? ?? 'SYSTEM',
       entityId: json['entity_id'] as String?,
@@ -85,11 +89,35 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       // Response shape: { "data": { "data": [...], "pagination": {...} } }
       final List<dynamic> raw =
           (outer['data']?['data'] ?? outer['data'] ?? outer) as List<dynamic>;
+      final apiItems = raw
+          .map((e) => NotificationItem.fromJson(e as Map<String, dynamic>))
+          .toList();
+
+      // Merge locally stored notifications (from FCM foreground messages
+      // that the backend may not have stored in the DB).
+      final localRaw = await NotificationService.loadLocalNotifications();
+      final localItems = localRaw
+          .map((e) => NotificationItem.fromJson(e))
+          .where((local) {
+            // Skip if there's an API item with the same title + body
+            // received within 5 minutes (dedup backend-stored ones).
+            return !apiItems.any(
+              (api) =>
+                  api.title == local.title &&
+                  api.body == local.body &&
+                  api.createdAt.difference(local.createdAt).abs() <
+                      const Duration(minutes: 5),
+            );
+          })
+          .toList();
+
+      // Merge and sort newest first.
+      final merged = [...apiItems, ...localItems]
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
       if (mounted) {
         setState(() {
-          _items = raw
-              .map((e) => NotificationItem.fromJson(e as Map<String, dynamic>))
-              .toList();
+          _items = merged;
         });
       }
     } catch (e) {
@@ -105,6 +133,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       final count =
           (outer['data']?['unread_count'] ?? outer['unread_count'] ?? 0) as int;
       if (mounted) setState(() => _unreadCount = count);
+      // Sync the bell badge on the top bar.
+      if (count > 0) {
+        BadgeNotifier.instance.markUnreadNotifications();
+      } else {
+        BadgeNotifier.instance.clearUnreadNotifications();
+      }
     } catch (_) {}
   }
 
@@ -122,12 +156,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Future<void> _markAllAsRead() async {
     try {
       await _api.patch<dynamic>('/notifications/read-all');
+      await NotificationService.markLocalNotificationsRead();
       setState(() {
         for (final n in _items) {
           n.isRead = true;
         }
         _unreadCount = 0;
       });
+      BadgeNotifier.instance.clearUnreadNotifications();
     } catch (_) {}
   }
 
@@ -171,12 +207,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
-  String _timeAgo(DateTime dt) {
+  String _timeAgo(BuildContext context, DateTime dt) {
+    final l10n = AppLocalizations.of(context)!;
     final diff = DateTime.now().difference(dt);
-    if (diff.inMinutes < 1) return 'Just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    return '${diff.inDays}d ago';
+    if (diff.inMinutes < 1) return l10n.chatLastSeenJustNow;
+    if (diff.inMinutes < 60) return l10n.minutesAgo(diff.inMinutes);
+    if (diff.inHours < 24) return l10n.hoursAgo(diff.inHours);
+    return l10n.daysAgo(diff.inDays);
   }
 
   // ─── Build ─────────────────────────────────────────────────────────────────
@@ -203,52 +240,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Row(
-          children: [
-            Text(
-              l10n.notifications,
-              style: AppTypography.heading3.copyWith(
-                color: isDark ? AppColors.darkPrimaryText : AppColors.black,
-              ),
-            ),
-            if (_unreadCount > 0) ...[
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.red,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  '$_unreadCount',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ],
+        title: Text(
+          l10n.notifications,
+          style: AppTypography.heading3.copyWith(
+            color: isDark ? AppColors.darkPrimaryText : AppColors.black,
+          ),
         ),
         actions: [
           if (_unreadCount > 0)
             TextButton(
               onPressed: _markAllAsRead,
               child: Text(
-                'Read all',
-                style: TextStyle(
-                  color: isDark ? AppColors.darkPrimaryText : AppColors.black,
-                  fontSize: 14,
-                ),
-              ),
-            )
-          else
-            TextButton(
-              onPressed: () =>
-                  Navigator.of(context).pushNamed('/notification-preferences'),
-              child: Text(
-                'Settings',
+                l10n.notificationsReadAll,
                 style: TextStyle(
                   color: isDark ? AppColors.darkPrimaryText : AppColors.black,
                   fontSize: 14,
@@ -268,6 +271,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Widget _buildError(bool isDark) {
+    final l10n = AppLocalizations.of(context)!;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -281,19 +285,20 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            'Failed to load notifications',
+            l10n.notificationsLoadError,
             style: AppTypography.heading3.copyWith(
               color: isDark ? AppColors.darkPrimaryText : AppColors.black,
             ),
           ),
           const SizedBox(height: 16),
-          TextButton(onPressed: _fetchAll, child: const Text('Retry')),
+          TextButton(onPressed: _fetchAll, child: Text(l10n.retry)),
         ],
       ),
     );
   }
 
   Widget _buildEmptyState(bool isDark) {
+    final l10n = AppLocalizations.of(context)!;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -307,14 +312,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            'No notifications yet',
+            l10n.notificationsEmpty,
             style: AppTypography.heading3.copyWith(
               color: isDark ? AppColors.darkPrimaryText : AppColors.black,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            'You\'ll see order updates, price drops,\nand messages here.',
+            l10n.notificationsEmptySubtitle,
             textAlign: TextAlign.center,
             style: AppTypography.body2.copyWith(
               color: isDark
@@ -351,27 +356,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   : (isDark
                         ? AppColors.darkCardBackground.withValues(alpha: 0.4)
                         : color.withValues(alpha: 0.05)),
-              leading: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  CircleAvatar(
-                    backgroundColor: color.withValues(alpha: 0.12),
-                    child: Icon(icon, color: color, size: 22),
-                  ),
-                  if (!item.isRead)
-                    Positioned(
-                      top: -2,
-                      right: -2,
-                      child: Container(
-                        width: 10,
-                        height: 10,
-                        decoration: const BoxDecoration(
-                          color: Colors.red,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                ],
+              leading: CircleAvatar(
+                backgroundColor: color.withValues(alpha: 0.12),
+                child: Icon(icon, color: color, size: 22),
               ),
               title: Text(
                 item.title,
@@ -396,7 +383,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    _timeAgo(item.createdAt),
+                    _timeAgo(context, item.createdAt),
                     style: AppTypography.caption.copyWith(
                       color: isDark
                           ? AppColors.darkSecondaryText

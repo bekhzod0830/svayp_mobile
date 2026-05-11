@@ -77,7 +77,6 @@ class ChatWebSocketService {
   void connect(String jwtToken) {
     if (_isDisposed || _isConnecting || isConnected) return;
     _isConnecting = true;
-    debugPrint('[STOMP] Connecting to $_wsUrl ...');
 
     final authHeaders = {'Authorization': 'Bearer $jwtToken'};
 
@@ -86,17 +85,14 @@ class ChatWebSocketService {
         url: _wsUrl,
         onConnect: _onConnected,
         onDisconnect: (_) {
-          debugPrint('[STOMP] Disconnected');
           _isConnecting = false;
           _connectionStateController.add(false);
         },
         onStompError: (frame) {
-          debugPrint('[STOMP] STOMP error: ${frame.body}');
           _isConnecting = false;
           _connectionStateController.add(false);
         },
         onWebSocketError: (error) {
-          debugPrint('[STOMP] WebSocket error: $error');
           _isConnecting = false;
           _connectionStateController.add(false);
         },
@@ -118,7 +114,6 @@ class ChatWebSocketService {
     _unsubscribeAll();
     _activeChatId = chatId;
     _otherUserId = otherUserId.isNotEmpty ? otherUserId : null;
-    debugPrint('[STOMP] openChat chatId=$chatId otherUserId="$otherUserId"');
     if (isConnected) {
       _subscribeToChat(chatId);
       if (_otherUserId != null) _subscribeToPresence(_otherUserId!);
@@ -131,7 +126,6 @@ class ChatWebSocketService {
     _isConnecting = false;
     _connectionStateController.add(true);
     final userName = frame.headers['user-name'];
-    debugPrint('[STOMP] Connected as: $userName');
 
     if (_activeChatId != null) _subscribeToChat(_activeChatId!);
     if (_otherUserId != null && _otherUserId!.isNotEmpty)
@@ -141,87 +135,64 @@ class ChatWebSocketService {
   }
 
   void _subscribeToChat(String chatId) {
-    debugPrint('[STOMP] Subscribing to /topic/chat/$chatId');
 
     // 1. New messages
     _messageSub = _stompClient!.subscribe(
       destination: '/topic/chat/$chatId',
       callback: (frame) {
-        debugPrint(
-          '[STOMP] ▼ RAW frame on /topic/chat/$chatId | body: ${frame.body}',
-        );
         if (_isDisposed) {
-          debugPrint('[STOMP] Dropped — service is disposed');
           return;
         }
         if (frame.body == null) {
-          debugPrint('[STOMP] Dropped — frame body is null');
           return;
         }
         try {
           final data = json.decode(frame.body!) as Map<String, dynamic>;
           final msg = ChatMessageResponse.fromJson(data);
-          debugPrint(
-            '[STOMP] ✔ Parsed message id=${msg.id} from=${msg.senderId} content="${msg.content}"',
-          );
           _messageController.add(msg);
-          debugPrint('[STOMP] ✔ Message pushed to messageStream');
         } catch (e, st) {
-          debugPrint('[STOMP] ✘ Failed to parse message: $e\n$st');
         }
       },
     );
 
     // 2. Typing indicator
-    debugPrint('[STOMP] Subscribing to /topic/chat/$chatId/typing');
     _typingSub = _stompClient!.subscribe(
       destination: '/topic/chat/$chatId/typing',
       callback: (frame) {
-        debugPrint('[STOMP] ▼ Typing frame | body: ${frame.body}');
         if (frame.body == null || _isDisposed) return;
         try {
           _typingController.add(
             json.decode(frame.body!) as Map<String, dynamic>,
           );
         } catch (e) {
-          debugPrint('[STOMP] ✘ Failed to parse typing: $e');
         }
       },
     );
 
     // 3. Read receipts
-    debugPrint('[STOMP] Subscribing to /topic/chat/$chatId/read');
     _readSub = _stompClient!.subscribe(
       destination: '/topic/chat/$chatId/read',
       callback: (frame) {
-        debugPrint('[STOMP] ▼ Read-receipt frame | body: ${frame.body}');
         if (frame.body == null || _isDisposed) return;
         try {
           _readController.add(json.decode(frame.body!) as Map<String, dynamic>);
         } catch (e) {
-          debugPrint('[STOMP] ✘ Failed to parse read-receipt: $e');
         }
       },
     );
   }
 
   void _subscribeToPresence(String userId) {
-    debugPrint('[STOMP] Subscribing to /topic/user/$userId/presence');
     _presenceSub = _stompClient!.subscribe(
       destination: '/topic/user/$userId/presence',
       callback: (frame) {
-        debugPrint('[STOMP] ▼ Presence frame | body: ${frame.body}');
         if (frame.body == null || _isDisposed) return;
         try {
           final presence = PresenceResponse.fromJson(
             json.decode(frame.body!) as Map<String, dynamic>,
           );
-          debugPrint(
-            '[STOMP] ✔ Presence update userId=${presence.userId} online=${presence.online}',
-          );
           _presenceController.add(presence);
         } catch (e) {
-          debugPrint('[STOMP] ✘ Failed to parse presence: $e');
         }
       },
     );
@@ -233,7 +204,6 @@ class ChatWebSocketService {
   void openList(List<String> chatIds) {
     _closeListSubs();
     _listChatIds = chatIds.toSet();
-    debugPrint('[STOMP] openList: ${_listChatIds.length} chat(s)');
     if (isConnected) {
       for (final id in _listChatIds) _subscribeToListChat(id);
     }
@@ -246,9 +216,6 @@ class ChatWebSocketService {
   bool addChatToList(String chatId) {
     if (_listChatIds.contains(chatId)) return false;
     _listChatIds.add(chatId);
-    debugPrint(
-      '[STOMP] addChatToList: $chatId (now ${_listChatIds.length} chats)',
-    );
     if (isConnected) _subscribeToListChat(chatId);
     return true;
   }
@@ -270,7 +237,6 @@ class ChatWebSocketService {
 
   void _subscribeToListChat(String chatId) {
     if (_listSubs.containsKey(chatId)) return;
-    debugPrint('[STOMP] List-subscribing /topic/chat/$chatId');
     _listSubs[chatId] = _stompClient!.subscribe(
       destination: '/topic/chat/$chatId',
       callback: (frame) {
@@ -279,10 +245,8 @@ class ChatWebSocketService {
           final msg = ChatMessageResponse.fromJson(
             json.decode(frame.body!) as Map<String, dynamic>,
           );
-          debugPrint('[STOMP] ✔ List msg chatId=$chatId id=${msg.id}');
           _listMessageController.add((chatId: chatId, message: msg));
         } catch (e) {
-          debugPrint('[STOMP] ✘ List msg parse failed chatId=$chatId: $e');
         }
       },
     );

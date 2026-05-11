@@ -115,8 +115,15 @@ dependencies:
 
   # URL Launcher
   url_launcher: ^6.3.1
-  flutter_map: ^8.2.2
-  latlong2: ^0.9.1
+  
+  # Google Maps for chat location sharing
+  google_maps_flutter: ^2.8.0
+
+  # Location (for chat location sharing)
+  geolocator: ^13.0.1
+
+  # Photo gallery access (chat photo picker grid)
+  photo_manager: ^3.6.3
 
 dev_dependencies:
   flutter_test:

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io' show Platform;
 
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -6,6 +7,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:swipe/core/enums/notification_type.dart';
 import 'package:swipe/core/globals.dart';
+import 'package:swipe/core/services/badge_notifier.dart';
 import 'package:swipe/core/services/notification_preferences_service.dart';
 import 'package:swipe/core/localization/services/language_service.dart';
 import 'package:swipe/core/network/api_client.dart';
@@ -159,9 +161,7 @@ class NotificationService {
     await prefs.setBool(_fcmEnabledKey, false);
     try {
       await _fcm.deleteToken();
-      debugPrint('[FCM] 🗑️ device token deleted');
     } catch (e) {
-      debugPrint('[FCM] ⚠️ deleteToken failed: $e');
     }
   }
 
@@ -179,10 +179,8 @@ class NotificationService {
     if (!_registrationEnabled) return;
     final token = await _fcm.getToken();
     if (token == null) {
-      debugPrint('[FCM] ⚠️ getToken() returned null');
       return;
     }
-    debugPrint('[FCM] 🔑 token: $token');
 
     final languageCode = await LanguageService().getCurrentLanguageCode();
 
@@ -196,9 +194,7 @@ class NotificationService {
           'platform': Platform.isIOS ? 'IOS' : 'ANDROID',
         },
       );
-      debugPrint('[FCM] ✅ token registered with backend');
     } catch (e) {
-      debugPrint('[FCM] ❌ failed to register token: $e');
     }
   }
 
@@ -272,19 +268,95 @@ class NotificationService {
     );
   }
 
+  // ─── Local notification persistence ──────────────────────────────────────
+
+  static const String _localNotifKey = 'fcm_local_notifications_v1';
+  static const int _localNotifMaxCount = 100;
+
+  /// Persist a received FCM notification to SharedPreferences so it can be
+  /// shown in the Notifications screen even when the backend didn't store it.
+  static Future<void> saveLocalNotification({
+    required String title,
+    required String body,
+    required String type,
+    String? entityId,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_localNotifKey);
+      final List<dynamic> list = raw != null ? jsonDecode(raw) as List : [];
+      list.insert(0, {
+        'id': 'local_${DateTime.now().millisecondsSinceEpoch}',
+        'title': title,
+        'body': body,
+        'type': type,
+        'entity_id': entityId,
+        'created_at': DateTime.now().toUtc().toIso8601String(),
+        'is_read': false,
+        'is_local': true,
+      });
+      if (list.length > _localNotifMaxCount) {
+        list.removeRange(_localNotifMaxCount, list.length);
+      }
+      await prefs.setString(_localNotifKey, jsonEncode(list));
+    } catch (_) {}
+  }
+
+  /// Load all locally persisted notifications.
+  static Future<List<Map<String, dynamic>>> loadLocalNotifications() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_localNotifKey);
+      if (raw == null) return [];
+      return (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Mark all locally stored notifications as read.
+  static Future<void> markLocalNotificationsRead() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_localNotifKey);
+      if (raw == null) return;
+      final list = (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
+      for (final item in list) {
+        item['is_read'] = true;
+      }
+      await prefs.setString(_localNotifKey, jsonEncode(list));
+    } catch (_) {}
+  }
+
   void _handleForegroundMessages() {
     FirebaseMessaging.onMessage.listen((message) {
-      debugPrint(
-        '[FCM] 📩 onMessage fired — notification: ${message.notification?.title}, data: ${message.data}',
-      );
       _showLocalNotification(message);
+      // Mark the notification bell badge for all incoming messages.
+      BadgeNotifier.instance.markUnreadNotifications();
+
+      // Persist the notification locally so it appears in the Notifications
+      // screen even if the backend did not store it.
+      final title =
+          message.notification?.title ?? message.data['title'] as String? ?? '';
+      final body =
+          message.notification?.body ?? message.data['body'] as String? ?? '';
+      final typeStr = message.data['type'] as String? ?? '';
+      final entityId = message.data['entityId'] as String?;
+      if (title.isNotEmpty || body.isNotEmpty) {
+        saveLocalNotification(
+          title: title,
+          body: body,
+          type: typeStr.isEmpty ? 'SYSTEM' : typeStr,
+          entityId: entityId,
+        );
+      }
+
       // When a message arrives for a chat the WS isn't subscribed to yet
       // (e.g. a buyer started a brand-new conversation with the seller),
       // subscribe to that chatId so future messages arrive via WS, and
       // count this first message in the badge since the WS drop it.
-      final typeStr = message.data['type'] as String? ?? '';
       if (NotificationType.fromString(typeStr) == NotificationType.newMessage) {
-        final chatId = message.data['entityId'] as String?;
+        final chatId = entityId;
         if (chatId != null) {
           final wsService = getIt<ChatWebSocketService>();
           final wasNew = wsService.addChatToList(chatId);

@@ -2758,6 +2758,54 @@ abstract class AppLocalizations {
   /// **'Type a message...'**
   String get typeMessage;
 
+  /// No description provided for @chatAttachPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo'**
+  String get chatAttachPhoto;
+
+  /// No description provided for @chatAttachLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Location'**
+  String get chatAttachLocation;
+
+  /// No description provided for @chatAttachButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Attach'**
+  String get chatAttachButton;
+
+  /// No description provided for @chatOpenInMaps.
+  ///
+  /// In en, this message translates to:
+  /// **'Open in Maps'**
+  String get chatOpenInMaps;
+
+  /// No description provided for @chatAttachCamera.
+  ///
+  /// In en, this message translates to:
+  /// **'Camera'**
+  String get chatAttachCamera;
+
+  /// No description provided for @chatAttachGallery.
+  ///
+  /// In en, this message translates to:
+  /// **'Gallery'**
+  String get chatAttachGallery;
+
+  /// No description provided for @chatAttachPickHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Take a photo or choose from your library'**
+  String get chatAttachPickHint;
+
+  /// No description provided for @chatAttachComingSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo & location sharing coming soon'**
+  String get chatAttachComingSoon;
+
   /// No description provided for @typeAMessage.
   ///
   /// In en, this message translates to:
@@ -3531,6 +3579,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Notifications feature coming soon'**
   String get notificationsComingSoon;
+
+  /// No description provided for @notificationsReadAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Read all'**
+  String get notificationsReadAll;
+
+  /// No description provided for @notificationsEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No notifications yet'**
+  String get notificationsEmpty;
+
+  /// No description provided for @notificationsEmptySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'ll see order updates, price drops,\nand messages here.'**
+  String get notificationsEmptySubtitle;
+
+  /// No description provided for @notificationsLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load notifications'**
+  String get notificationsLoadError;
 
   /// No description provided for @stylePreferences.
   ///

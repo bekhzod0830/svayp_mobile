@@ -5,6 +5,7 @@ import 'package:swipe/core/constants/app_typography.dart';
 import 'package:swipe/core/services/badge_notifier.dart';
 import 'package:swipe/features/cart/presentation/screens/cart_screen.dart';
 import 'package:swipe/features/liked/presentation/screens/liked_screen.dart';
+import 'package:swipe/features/profile/presentation/screens/notifications_screen.dart';
 
 /// Consistent glass top bar used across all main tab screens.
 ///
@@ -36,6 +37,14 @@ class _MainTopBarState extends State<MainTopBar> {
       context,
       rootNavigator: true,
     ).push(MaterialPageRoute(builder: (_) => const CartScreen()));
+  }
+
+  Future<void> _goToNotifications() async {
+    BadgeNotifier.instance.clearUnreadNotifications();
+    await Navigator.of(
+      context,
+      rootNavigator: true,
+    ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen()));
   }
 
   Future<void> _goToLiked() async {
@@ -157,6 +166,45 @@ class _MainTopBarState extends State<MainTopBar> {
                         onPressed: _goToLiked,
                       ),
                       if (hasNew && !widget.isLikedScreen)
+                        Positioned(
+                          right: 6,
+                          top: 6,
+                          child: IgnorePointer(
+                            child: Container(
+                              width: 8,
+                              height: 8,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFFF3B30),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                // Notification bell icon — far right
+                ValueListenableBuilder<bool>(
+                  valueListenable: BadgeNotifier.instance.hasUnreadNotifications,
+                  builder: (context, hasUnread, _) => Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      IconButton(
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(
+                          minWidth: 44,
+                          minHeight: 44,
+                        ),
+                        icon: Icon(
+                          hasUnread
+                              ? Icons.notifications
+                              : Icons.notifications_outlined,
+                          size: 24,
+                          color: iconColor,
+                        ),
+                        onPressed: _goToNotifications,
+                      ),
+                      if (hasUnread)
                         Positioned(
                           right: 6,
                           top: 6,

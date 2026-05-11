@@ -53,11 +53,22 @@
 		<true/>
 	</dict>
 	<key>NSCameraUsageDescription</key>
-	<string>Camera access is required to scan customer QR codes for cashback.</string>
+	<string>Camera access is required to take photos in chat and scan QR codes for cashback.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Photo library access is required to share photos in chat.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Location access is required to share your current location in chat.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>
 		<string>remote-notification</string>
+	</array>
+	<key>GMSApiKey</key>
+	<string>${GOOGLE_MAPS_API_KEY}</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>comgooglemaps</string>
+		<string>geo</string>
 	</array>
 </dict>
 </plist>

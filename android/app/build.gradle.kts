@@ -16,6 +16,13 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
+// Load local properties (API keys, etc.)
+val localPropertiesFile = rootProject.file("local.properties")
+val localProperties = Properties()
+if (localPropertiesFile.exists()) {
+    localProperties.load(FileInputStream(localPropertiesFile))
+}
+
 android {
     namespace = "com.svayp.app"
     compileSdk = flutter.compileSdkVersion
@@ -27,8 +34,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_11
     }
 
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+    kotlin {
+        compilerOptions {
+            jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11
+        }
     }
 
     defaultConfig {
@@ -43,6 +52,10 @@ android {
         
         // Optimize dex options
         multiDexEnabled = true
+
+        // Inject Google Maps API key from local.properties
+        val mapsApiKey = localProperties.getProperty("GOOGLE_MAPS_API_KEY") ?: ""
+        resValue("string", "GOOGLE_MAPS_API_KEY", mapsApiKey)
     }
 
     signingConfigs {
@@ -80,7 +93,7 @@ android {
         buildConfig = false
         aidl = false
         renderScript = false
-        resValues = false
+        resValues = true
         shaders = false
     }
 }

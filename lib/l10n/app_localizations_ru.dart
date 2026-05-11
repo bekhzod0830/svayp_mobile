@@ -1432,6 +1432,31 @@ class AppLocalizationsRu extends AppLocalizations {
   String get typeMessage => 'Введите сообщение...';
 
   @override
+  String get chatAttachPhoto => 'Фото';
+
+  @override
+  String get chatAttachLocation => 'Местоположение';
+
+  @override
+  String get chatAttachButton => 'Прикрепить';
+
+  @override
+  String get chatOpenInMaps => 'Открыть в Картах';
+
+  @override
+  String get chatAttachCamera => 'Камера';
+
+  @override
+  String get chatAttachGallery => 'Галерея';
+
+  @override
+  String get chatAttachPickHint => 'Сделайте фото или выберите из галереи';
+
+  @override
+  String get chatAttachComingSoon =>
+      'Отправка фото и геолокации скоро появится';
+
+  @override
   String get typeAMessage => 'Введите ваше сообщение...';
 
   @override
@@ -1837,6 +1862,19 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get notificationsComingSoon => 'Уведомления скоро появятся';
+
+  @override
+  String get notificationsReadAll => 'Прочитать все';
+
+  @override
+  String get notificationsEmpty => 'Пока нет уведомлений';
+
+  @override
+  String get notificationsEmptySubtitle =>
+      'Здесь будут обновления заказов, снижения цен и сообщения.';
+
+  @override
+  String get notificationsLoadError => 'Не удалось загрузить уведомления';
 
   @override
   String get stylePreferences => 'Предпочтения стиля';

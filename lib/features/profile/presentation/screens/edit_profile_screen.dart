@@ -574,7 +574,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (_selectedBudgetType != null) data['budgetType'] = _selectedBudgetType;
 
       // DEBUG: print exact request body
-      debugPrint('UPDATE PROFILE REQUEST BODY: ${jsonEncode(data)}');
 
       await getIt<ProfileService>().updateProfile(data);
 

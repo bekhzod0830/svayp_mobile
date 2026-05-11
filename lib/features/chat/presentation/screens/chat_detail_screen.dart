@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:swipe/l10n/app_localizations.dart';
@@ -8,6 +9,8 @@ import 'package:swipe/features/chat/data/models/chat_model.dart';
 import 'package:swipe/features/chat/data/services/chat_service.dart';
 import 'package:swipe/features/chat/data/services/chat_cache_service.dart';
 import 'package:swipe/features/chat/data/services/chat_websocket_service.dart';
+import 'package:swipe/features/chat/presentation/widgets/chat_emoji_panel.dart';
+import 'package:swipe/features/chat/presentation/widgets/chat_attachment_sheet.dart';
 import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/core/network/api_client.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -21,6 +24,8 @@ import 'package:swipe/features/discover/domain/entities/product.dart';
 import 'package:swipe/app/routes.dart';
 import 'package:swipe/core/analytics/analytics_events.dart';
 import 'package:swipe/core/analytics/analytics_service.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// Helper function to format size label by removing SIZE_ prefix
 String _formatSizeLabel(String size) {
@@ -98,6 +103,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
   bool _isSending = false;
   bool _isInitialized = false;
   bool _hasRetried = false;
+
+  // Emoji & attachment state
+  bool _showEmojiPanel = false;
+  List<File> _pendingImageFiles = [];
+  dynamic _pendingLocation;
   String? _errorMessage;
 
   // Pagination
@@ -123,7 +133,16 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
     _webSocketService = getIt<ChatWebSocketService>();
     _chatCacheService = ChatCacheService();
     _isAdmin = getIt<ApiClient>().isPartnerLogin();
-    _focusNode.addListener(() => setState(() {}));
+    _focusNode.addListener(() {
+      if (_focusNode.hasFocus && _showEmojiPanel) {
+        setState(() => _showEmojiPanel = false);
+      } else {
+        setState(() {});
+      }
+    });
+    // Rebuild send-button state for ANY controller change — including
+    // emoji insertions that bypass TextField's onChanged callback.
+    _messageController.addListener(_onControllerChanged);
     WidgetsBinding.instance.addObserver(this);
     _scrollController.addListener(_onScroll);
     AnalyticsService.instance.logEvent(AnalyticsEvents.chatConversationOpened);
@@ -198,9 +217,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
                   ? _chat!.userLastSeen
                   : _chat!.sellerLastSeen;
             });
-            debugPrint(
-              '[Chat] Initial presence: online=$_isOtherOnline lastSeen=$_otherLastSeen',
-            );
           }
         }),
         _loadMessages(),
@@ -244,30 +260,32 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
     final otherUserId = _isAdmin
         ? (_chat?.userId ?? '')
         : (_chat?.sellerUserId ?? '');
-    debugPrint(
-      '[Chat] Presence otherUserId="$otherUserId" isAdmin=$_isAdmin '
-      'userId=${_chat?.userId} sellerId=${_chat?.sellerId} '
-      'sellerUserId=${_chat?.sellerUserId}',
-    );
 
     // Incoming messages
     _messageSubscription = _webSocketService.messageStream.listen((message) {
-      debugPrint(
-        '[Chat] ◀ messageStream received id=${message.id} '
-        'sender=${message.senderId} content="${message.content}"',
-      );
       if (!mounted) {
-        debugPrint('[Chat] ✘ Dropped — widget not mounted');
         return;
       }
-      final exists = _messages.any((m) => m.id == message.id);
-      if (exists) {
-        debugPrint('[Chat] ✘ Dropped — duplicate id=${message.id}');
+      final existingIndex = _messages.indexWhere((m) => m.id == message.id);
+      if (existingIndex >= 0) {
+        // Message already in list (added locally after REST send).
+        // Replace it with the WS version which may have richer fields
+        // (e.g. latitude/longitude populated by the server).
+        final existing = _messages[existingIndex];
+        final merged = existing.copyWith(
+          latitude: message.latitude ?? existing.latitude,
+          longitude: message.longitude ?? existing.longitude,
+          messageType: message.messageType != MessageType.text
+              ? message.messageType
+              : existing.messageType,
+          attachments: message.attachments.isNotEmpty
+              ? message.attachments
+              : existing.attachments,
+        );
+        setState(() => _messages[existingIndex] = merged);
+        _messagesCache[widget.chatId] = List.of(_messages);
         return;
       }
-      debugPrint(
-        '[Chat] ✔ Adding to UI list (new total: ${_messages.length + 1})',
-      );
       setState(() {
         // Mark message as read locally so UI reflects it immediately
         final readMessage = message.copyWith(isRead: true);
@@ -294,7 +312,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
     // Read receipts
     _readSubscription = _webSocketService.readStream.listen((data) {
       if (!mounted) return;
-      debugPrint('[Chat] Read by: ${data['readBy']}');
     });
 
     // Presence
@@ -310,7 +327,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
     _connectionStateSubscription = _webSocketService.connectionStateStream.listen((
       connected,
     ) {
-      debugPrint('[Chat] STOMP connected: $connected');
       if (!connected || !mounted) return;
       _webSocketService.markAsRead();
       // Send pending message (from ChatComposeScreen) once on first connect
@@ -325,16 +341,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
             .getPresence(otherUserId)
             .then((p) {
               if (!mounted) return;
-              debugPrint(
-                '[Chat] Presence snapshot: online=${p.online} lastSeen=${p.lastSeen}',
-              );
               setState(() {
                 _isOtherOnline = p.online;
                 _otherLastSeen = p.lastSeen;
               });
             })
             .catchError((e) {
-              debugPrint('[Chat] Presence snapshot failed: $e');
             });
       }
     });
@@ -415,9 +427,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
           final localMsg = localMessageMap[apiMsg.id];
           if (localMsg != null && localMsg.isRead && !apiMsg.isRead) {
             // Preserve local 'isRead: true' if message was modified locally
-            debugPrint(
-              '[Chat] Preserving local isRead=true for message ${apiMsg.id}',
-            );
             return apiMsg.copyWith(isRead: true);
           }
           return apiMsg;
@@ -481,9 +490,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
         final mergedOlder = older.map((apiMsg) {
           final localMsg = localMessageMap[apiMsg.id];
           if (localMsg != null && localMsg.isRead && !apiMsg.isRead) {
-            debugPrint(
-              '[Chat] Preserving local isRead=true for older message ${apiMsg.id}',
-            );
             return apiMsg.copyWith(isRead: true);
           }
           return apiMsg;
@@ -534,10 +540,64 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
 
   Future<void> _sendMessage() async {
     final content = _messageController.text.trim();
+    final hasImage = _pendingImageFiles.isNotEmpty;
+    final hasLocation = _pendingLocation != null;
+
+    // Attachment messages go via multipart REST (WS doesn't support files)
+    if (hasImage || hasLocation) {
+      if (_isSending) return;
+      setState(() {
+        _isSending = true;
+        _messageController.clear();
+      });
+
+      final imageFiles = List<File>.from(_pendingImageFiles);
+      final location = _pendingLocation;
+      setState(() {
+        _pendingImageFiles = [];
+        _pendingLocation = null;
+      });
+
+      try {
+        final msg = await _chatService.sendMultipartMessage(
+          widget.chatId,
+          files: imageFiles.isNotEmpty ? imageFiles : null,
+          content: content.isNotEmpty ? content : null,
+          latitude: location?.latitude,
+          longitude: location?.longitude,
+        );
+        if (mounted) {
+          setState(() {
+            // Avoid duplicate if WS broadcast already added this message
+            if (!_messages.any((m) => m.id == msg.id)) {
+              _messages.add(msg.copyWith(isRead: true));
+            }
+          });
+          _messagesCache[widget.chatId] = List.of(_messages);
+          _scrollToBottom();
+          AnalyticsService.instance.logEvent(AnalyticsEvents.messageSent);
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(AppLocalizations.of(context)!.chatFailedToReload),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _isSending = false);
+      }
+      // Don't also send via WS — REST already broadcasts via backend
+      return;
+    }
+
     if (content.isEmpty || _isSending) return;
 
     if (!_webSocketService.isConnected) {
-      debugPrint('[Chat] ✘ Cannot send — WebSocket not connected');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(AppLocalizations.of(context)!.chatReconnecting),
@@ -553,7 +613,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
       _messageController.clear();
     });
 
-    debugPrint('[Chat] ► Sending via WebSocket: "$content"');
     _webSocketService.sendMessage(content);
     AnalyticsService.instance.logEvent(AnalyticsEvents.messageSent);
     // Message will arrive back through /topic/chat/{id} subscription
@@ -562,8 +621,44 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
     }
   }
 
+  // ── Controller listener (for emoji send-button activation) ──────────────
+
+  void _onControllerChanged() => setState(() {});
+
+  // ── Emoji panel ──────────────────────────────────────────────────────────
+
+  void _toggleEmojiPanel() {
+    if (_showEmojiPanel) {
+      // Hide panel and restore keyboard
+      setState(() => _showEmojiPanel = false);
+      _focusNode.requestFocus();
+    } else {
+      // Dismiss keyboard, then show panel
+      FocusScope.of(context).unfocus();
+      setState(() => _showEmojiPanel = true);
+    }
+  }
+
+  // ── Attachment sheet ─────────────────────────────────────────────────────
+
+  Future<void> _openAttachmentSheet() async {
+    // Dismiss keyboard + emoji panel before opening the sheet
+    FocusScope.of(context).unfocus();
+    if (_showEmojiPanel) setState(() => _showEmojiPanel = false);
+
+    final result = await showChatAttachmentSheet(context);
+    if (result == null || !mounted) return;
+
+    if (result is ImageAttachment) {
+      setState(() => _pendingImageFiles = List.from(result.files));
+    } else if (result is LocationAttachment) {
+      setState(() => _pendingLocation = result.latLng);
+    }
+  }
+
   @override
   void dispose() {
+    _messageController.removeListener(_onControllerChanged);
     WidgetsBinding.instance.removeObserver(this);
     _messageSubscription?.cancel();
     _typingSubscription?.cancel();
@@ -857,6 +952,22 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
                                 message: message,
                                 isDark: isDark,
                               );
+                            } else if (message.messageType == MessageType.image ||
+                                (message.messageType != MessageType.location &&
+                                    message.attachments.isNotEmpty)) {
+                              msgWidget = _ImageMessageBubble(
+                                message: message,
+                                isMine: isMine,
+                                isDark: isDark,
+                              );
+                            } else if (message.messageType == MessageType.location ||
+                                (message.latitude != null &&
+                                    message.longitude != null)) {
+                              msgWidget = _LocationMessageBubble(
+                                message: message,
+                                isMine: isMine,
+                                isDark: isDark,
+                              );
                             } else {
                               msgWidget = _MessageBubble(
                                 message: message,
@@ -892,13 +1003,25 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
                 ),
               ),
 
-              // Message Input
+              // ── Attachment preview bar ─────────────────────────
+              if (_pendingImageFiles.isNotEmpty || _pendingLocation != null)
+                _AttachmentPreviewBar(
+                  isDark: isDark,
+                  imageFiles: _pendingImageFiles,
+                  location: _pendingLocation,
+                  onRemove: () => setState(() {
+                    _pendingImageFiles = [];
+                    _pendingLocation = null;
+                  }),
+                ),
+
+              // ── Message Input ───────────────────────────────────
               Container(
                 padding: EdgeInsets.fromLTRB(
                   12,
                   8,
                   12,
-                  MediaQuery.of(context).padding.bottom + 8,
+                  _showEmojiPanel ? 8 : (MediaQuery.of(context).padding.bottom + 8),
                 ),
                 color: Colors.transparent,
                 child: Container(
@@ -919,6 +1042,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
+                      // ── Emoji button (left) ─────────────────────
+                      EmojiToggleButton(
+                        isActive: _showEmojiPanel,
+                        isDark: isDark,
+                        onTap: _toggleEmojiPanel,
+                      ),
+                      // ── Text field ──────────────────────────────
                       Expanded(
                         child: TextField(
                           controller: _messageController,
@@ -931,7 +1061,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
                             filled: true,
                             fillColor: Colors.transparent,
                             contentPadding: const EdgeInsets.fromLTRB(
-                              16,
+                              4,
                               10,
                               8,
                               10,
@@ -951,12 +1081,45 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
                           onSubmitted: (_) => _sendMessage(),
                         ),
                       ),
-                      // Send Button inside pill
+                      // ── Attachment (clip) button ─────────────────
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(0, 4, 2, 4),
+                        child: GestureDetector(
+                          onTap: _openAttachmentSheet,
+                          child: Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: (_pendingImageFiles.isNotEmpty ||
+                                      _pendingLocation != null)
+                                  ? (isDark
+                                        ? AppColors.white
+                                        : AppColors.black)
+                                  : Colors.transparent,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.attach_file_rounded,
+                              color: (_pendingImageFiles.isNotEmpty ||
+                                      _pendingLocation != null)
+                                  ? (isDark
+                                        ? AppColors.black
+                                        : AppColors.white)
+                                  : (isDark
+                                        ? AppColors.darkSecondaryText
+                                        : AppColors.gray500),
+                              size: 22,
+                            ),
+                          ),
+                        ),
+                      ),
+                      // ── Send button ─────────────────────────────
                       Padding(
                         padding: const EdgeInsets.all(4),
                         child: GestureDetector(
-                          onTap:
-                              _messageController.text.trim().isNotEmpty &&
+                          onTap: (_messageController.text.trim().isNotEmpty ||
+                                      _pendingImageFiles.isNotEmpty ||
+                                      _pendingLocation != null) &&
                                   !_isSending
                               ? _sendMessage
                               : null,
@@ -965,8 +1128,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
                             width: 36,
                             height: 36,
                             decoration: BoxDecoration(
-                              color:
-                                  _messageController.text.trim().isNotEmpty &&
+                              color: (_messageController.text.trim().isNotEmpty ||
+                                          _pendingImageFiles.isNotEmpty ||
+                                          _pendingLocation != null) &&
                                       !_isSending
                                   ? (isDark ? AppColors.white : AppColors.black)
                                   : (isDark
@@ -1000,6 +1164,18 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
                   ),
                 ),
               ),
+
+              // ── Emoji panel (replaces keyboard space) ───────────
+              if (_showEmojiPanel) ...[
+                ChatEmojiPanel(
+                  controller: _messageController,
+                  onClose: () {
+                    setState(() => _showEmojiPanel = false);
+                    _focusNode.requestFocus();
+                  },
+                ),
+                SizedBox(height: MediaQuery.of(context).padding.bottom),
+              ],
             ],
           ),
           // ── Floating glass header ─────────────────────────────
@@ -1165,6 +1341,127 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
   }
 }
 
+// ──────────────────────────────────────────────────────────────────────────────
+// Attachment Preview Bar
+// ──────────────────────────────────────────────────────────────────────────────
+
+/// Thin bar above the input that shows a selected image thumbnail or location.
+class _AttachmentPreviewBar extends StatelessWidget {
+  final bool isDark;
+  final List<File> imageFiles;
+  final dynamic location;
+  final VoidCallback onRemove;
+
+  const _AttachmentPreviewBar({
+    required this.isDark,
+    required this.imageFiles,
+    required this.location,
+    required this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final hasImages = imageFiles.isNotEmpty;
+    return Container(
+      height: 56,
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: isDark
+            ? AppColors.darkCardBackground
+            : AppColors.gray100,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        border: Border(
+          top: BorderSide(
+            color: isDark ? AppColors.darkStandardBorder : AppColors.gray200,
+            width: 0.5,
+          ),
+          left: BorderSide(
+            color: isDark ? AppColors.darkStandardBorder : AppColors.gray200,
+            width: 0.5,
+          ),
+          right: BorderSide(
+            color: isDark ? AppColors.darkStandardBorder : AppColors.gray200,
+            width: 0.5,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          // Thumbnail or location icon
+          if (hasImages) ...[
+            // Show up to 3 overlapping thumbnails
+            SizedBox(
+              width: imageFiles.length > 1 ? 40 + (imageFiles.length.clamp(1, 3) - 1) * 16.0 : 40,
+              height: 40,
+              child: Stack(
+                children: [
+                  for (int i = imageFiles.length.clamp(1, 3) - 1; i >= 0; i--)
+                    Positioned(
+                      left: i * 16.0,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.file(
+                          imageFiles[i],
+                          width: 40,
+                          height: 40,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              imageFiles.length > 1
+                  ? '${l10n.chatAttachPhoto} (${imageFiles.length})'
+                  : l10n.chatAttachPhoto,
+              style: AppTypography.body2.copyWith(
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white : Colors.black,
+              ),
+            ),
+          ] else if (location != null) ...[
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.06),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.location_on_rounded,
+                size: 22,
+                color: isDark ? Colors.white : Colors.black,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              l10n.chatAttachLocation,
+              style: AppTypography.body2.copyWith(
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white : Colors.black,
+              ),
+            ),
+          ],
+          const Spacer(),
+          // Remove button
+          GestureDetector(
+            onTap: onRemove,
+            child: Icon(
+              Icons.close_rounded,
+              size: 20,
+              color: isDark ? Colors.white54 : Colors.black45,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Message Bubble Widget
 class _MessageBubble extends StatelessWidget {
   final ChatMessageResponse message;
@@ -1261,7 +1558,7 @@ class _MessageBubble extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
                 decoration: BoxDecoration(
                   color: isMine
-                      ? (isDark ? AppColors.white : AppColors.black)
+                      ? (isDark ? const Color(0xFFF2F2F2) : const Color(0xFF1C1C1C))
                       : (isDark ? AppColors.darkCardBackground : Colors.white),
                   borderRadius: BorderRadius.only(
                     topLeft: const Radius.circular(18),
@@ -1410,6 +1707,715 @@ class _DateSeparator extends StatelessWidget {
               fontWeight: FontWeight.w500,
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Image Message Bubble
+// ──────────────────────────────────────────────────────────────────────────────
+
+class _ImageMessageBubble extends StatelessWidget {
+  final ChatMessageResponse message;
+  final bool isMine;
+  final bool isDark;
+
+  const _ImageMessageBubble({
+    required this.message,
+    required this.isMine,
+    required this.isDark,
+  });
+
+  String _formatTime(DateTime time) {
+    final h = time.hour.toString().padLeft(2, '0');
+    final m = time.minute.toString().padLeft(2, '0');
+    return '$h:$m';
+  }
+
+  void _openViewer(BuildContext context, int index) {
+    final urls = message.attachments.map((a) => a.fileUrl).toList();
+    Navigator.of(context).push(PageRouteBuilder(
+      opaque: false,
+      barrierColor: Colors.black,
+      pageBuilder: (_, __, ___) => _FullScreenImageViewer(
+        imageUrls: urls,
+        initialIndex: index,
+      ),
+    ));
+  }
+
+  Widget _imageTile(
+    BuildContext context,
+    int index, {
+    bool showExtraCount = false,
+    int extraCount = 0,
+  }) {
+    final url = message.attachments[index].fileUrl;
+    return GestureDetector(
+      onTap: () => _openViewer(context, index),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          CachedNetworkImage(
+            imageUrl: url,
+            cacheManager: ImageCacheManager.instance,
+            fit: BoxFit.cover,
+            placeholder: (_, __) => Container(
+              color: isDark ? AppColors.darkCardBackground : AppColors.gray200,
+              child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            ),
+            errorWidget: (_, __, ___) => Container(
+              color: isDark ? AppColors.darkCardBackground : AppColors.gray200,
+              child: Icon(Icons.broken_image_rounded,
+                  color: isDark ? Colors.white38 : Colors.black26),
+            ),
+          ),
+          if (showExtraCount)
+            Container(
+              color: Colors.black54,
+              child: Center(
+                child: Text(
+                  '+$extraCount',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGrid(BuildContext context) {
+    final count = message.attachments.length;
+    const gap = 2.0;
+
+    Widget timestampChip() => Positioned(
+          right: 8,
+          bottom: 8,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.4),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              _formatTime(message.createdAt),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        );
+
+    // 1 image: full-width, natural aspect ratio
+    if (count == 1) {
+      return Stack(
+        children: [
+          GestureDetector(
+            onTap: () => _openViewer(context, 0),
+            child: CachedNetworkImage(
+              imageUrl: message.attachments[0].fileUrl,
+              cacheManager: ImageCacheManager.instance,
+              fit: BoxFit.fitWidth,
+              width: double.infinity,
+              placeholder: (_, __) => Container(
+                height: 220,
+                color: isDark ? AppColors.darkCardBackground : AppColors.gray200,
+                child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+              ),
+              errorWidget: (_, __, ___) => Container(
+                height: 220,
+                color: isDark ? AppColors.darkCardBackground : AppColors.gray200,
+                child: Icon(Icons.broken_image_rounded,
+                    color: isDark ? Colors.white38 : Colors.black26),
+              ),
+            ),
+          ),
+          if (message.content.isEmpty) timestampChip(),
+        ],
+      );
+    }
+
+    // 2 images: side by side
+    if (count == 2) {
+      return Stack(
+        children: [
+          SizedBox(
+            height: 180,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: _imageTile(context, 0)),
+                Container(width: gap, color: Colors.black12),
+                Expanded(child: _imageTile(context, 1)),
+              ],
+            ),
+          ),
+          if (message.content.isEmpty) timestampChip(),
+        ],
+      );
+    }
+
+    // 3 images: left tall + right two stacked
+    if (count == 3) {
+      return Stack(
+        children: [
+          SizedBox(
+            height: 220,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: _imageTile(context, 0)),
+                Container(width: gap, color: Colors.black12),
+                Expanded(
+                  child: Column(
+                    children: [
+                      Expanded(child: _imageTile(context, 1)),
+                      Container(height: gap, color: Colors.black12),
+                      Expanded(child: _imageTile(context, 2)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (message.content.isEmpty) timestampChip(),
+        ],
+      );
+    }
+
+    // 4+ images: 2×2 grid, "+N" overlay on tile [3] if more than 4
+    const maxVisible = 4;
+    final extra = count - maxVisible;
+    return Stack(
+      children: [
+        SizedBox(
+          height: 222,
+          child: Column(
+            children: [
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(child: _imageTile(context, 0)),
+                    Container(width: gap, color: Colors.black12),
+                    Expanded(child: _imageTile(context, 1)),
+                  ],
+                ),
+              ),
+              Container(height: gap, color: Colors.black12),
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(child: _imageTile(context, 2)),
+                    Container(width: gap, color: Colors.black12),
+                    Expanded(
+                      child: _imageTile(
+                        context,
+                        3,
+                        showExtraCount: extra > 0,
+                        extraCount: extra,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (message.content.isEmpty) timestampChip(),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        mainAxisAlignment:
+            isMine ? MainAxisAlignment.end : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.72,
+            ),
+            child: Container(
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                color: isMine
+                    ? (isDark ? const Color(0xFFF2F2F2) : const Color(0xFF1C1C1C))
+                    : (isDark ? AppColors.darkCardBackground : AppColors.gray100),
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(18),
+                  topRight: const Radius.circular(18),
+                  bottomLeft: Radius.circular(isMine ? 18 : 4),
+                  bottomRight: Radius.circular(isMine ? 4 : 18),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.08),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // ── Images grid ────────────────────────────────
+                  _buildGrid(context),
+                  // ── Caption + timestamp (only when text is present) ────
+                  if (message.content.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                      child: Stack(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 2),
+                            child: Text.rich(
+                              TextSpan(
+                                children: [
+                                  TextSpan(
+                                    text: message.content,
+                                    style: TextStyle(
+                                      color: isMine
+                                          ? (isDark ? AppColors.black : AppColors.white)
+                                          : (isDark ? AppColors.darkPrimaryText : AppColors.black),
+                                      fontSize: 15,
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                  const TextSpan(
+                                    text:
+                                        '\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0',
+                                    style: TextStyle(fontSize: 10),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            right: 0,
+                            bottom: 0,
+                            child: Text(
+                              _formatTime(message.createdAt),
+                              style: TextStyle(
+                                color: isMine
+                                    ? (isDark
+                                        ? AppColors.black.withValues(alpha: 0.5)
+                                        : AppColors.white.withValues(alpha: 0.6))
+                                    : (isDark ? AppColors.darkSecondaryText : AppColors.gray500),
+                                fontSize: 10,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Location Message Bubble
+// ──────────────────────────────────────────────────────────────────────────────
+
+class _LocationMessageBubble extends StatelessWidget {
+  final ChatMessageResponse message;
+  final bool isMine;
+  final bool isDark;
+
+  const _LocationMessageBubble({
+    required this.message,
+    required this.isMine,
+    required this.isDark,
+  });
+
+  String _formatTime(DateTime time) {
+    final h = time.hour.toString().padLeft(2, '0');
+    final m = time.minute.toString().padLeft(2, '0');
+    return '$h:$m';
+  }
+
+  Future<void> _openInMaps() async {
+    final lat = message.latitude;
+    final lon = message.longitude;
+    if (lat == null || lon == null) return;
+    final latStr = lat.toStringAsFixed(6);
+    final lonStr = lon.toStringAsFixed(6);
+    // geo: URI triggers the system app picker on both iOS and Android
+    final geoUri = Uri.parse('geo:$latStr,$lonStr?q=$latStr,$lonStr');
+    final googleMapsBrowser = Uri.parse(
+        'https://www.google.com/maps/search/?api=1&query=$latStr,$lonStr');
+    if (await canLaunchUrl(geoUri)) {
+      await launchUrl(geoUri);
+    } else {
+      await launchUrl(googleMapsBrowser,
+          mode: LaunchMode.externalApplication);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final lat = message.latitude;
+    final lon = message.longitude;
+    final hasCoords = lat != null && lon != null;
+    final hasContent = message.content.isNotEmpty;
+    final borderRadius = BorderRadius.only(
+      topLeft: const Radius.circular(18),
+      topRight: const Radius.circular(18),
+      bottomLeft: Radius.circular(isMine ? 18 : 4),
+      bottomRight: Radius.circular(isMine ? 4 : 18),
+    );
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        mainAxisAlignment:
+            isMine ? MainAxisAlignment.end : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.72,
+            ),
+            child: GestureDetector(
+              onTap: _openInMaps,
+              child: Container(
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(
+                  color: isMine
+                      ? (isDark ? const Color(0xFFF2F2F2) : const Color(0xFF1C1C1C))
+                      : (isDark ? AppColors.darkCardBackground : AppColors.gray100),
+                  borderRadius: borderRadius,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(isDark ? 0.2 : 0.08),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // ── Map ─────────────────────────────────────────────
+                    SizedBox(
+                      height: 160,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          if (hasCoords)
+                            AbsorbPointer(
+                              child: GoogleMap(
+                                liteModeEnabled: true,
+                                initialCameraPosition: CameraPosition(
+                                  target: LatLng(lat, lon),
+                                  zoom: 15,
+                                ),
+                                markers: {
+                                  Marker(
+                                    markerId: const MarkerId('location'),
+                                    position: LatLng(lat, lon),
+                                  ),
+                                },
+                                zoomControlsEnabled: false,
+                                myLocationButtonEnabled: false,
+                                mapToolbarEnabled: false,
+                                compassEnabled: false,
+                                rotateGesturesEnabled: false,
+                                scrollGesturesEnabled: false,
+                                zoomGesturesEnabled: false,
+                                tiltGesturesEnabled: false,
+                              ),
+                            )
+                          else
+                            Container(
+                              color: isDark
+                                  ? AppColors.darkCardBackground
+                                  : AppColors.gray200,
+                              child: Center(
+                                child: Icon(
+                                  Icons.location_off_rounded,
+                                  size: 40,
+                                  color: isDark
+                                      ? Colors.white38
+                                      : Colors.black26,
+                                ),
+                              ),
+                            ),
+                          // Timestamp chip when no caption below
+                          if (!hasContent)
+                            Positioned(
+                              right: 8,
+                              bottom: 8,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.4),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  _formatTime(message.createdAt),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    // ── Caption + timestamp (only when text is present) ──
+                    if (hasContent)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                        child: Stack(
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 2),
+                              child: Text.rich(
+                                TextSpan(
+                                  children: [
+                                    TextSpan(
+                                      text: message.content,
+                                      style: TextStyle(
+                                        color: isMine
+                                            ? (isDark ? AppColors.black : AppColors.white)
+                                            : (isDark ? AppColors.darkPrimaryText : AppColors.black),
+                                        fontSize: 15,
+                                        height: 1.4,
+                                      ),
+                                    ),
+                                    // invisible spacer
+                                    const TextSpan(
+                                      text:
+                                          '\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0',
+                                      style: TextStyle(fontSize: 10),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              right: 0,
+                              bottom: 0,
+                              child: Text(
+                                _formatTime(message.createdAt),
+                                style: TextStyle(
+                                  color: isMine
+                                      ? (isDark
+                                          ? AppColors.black.withValues(alpha: 0.5)
+                                          : AppColors.white.withValues(alpha: 0.6))
+                                      : (isDark ? AppColors.darkSecondaryText : AppColors.gray500),
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Full-screen image viewer (supports swipe between multiple images)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _FullScreenImageViewer extends StatefulWidget {
+  final List<String> imageUrls;
+  final int initialIndex;
+
+  const _FullScreenImageViewer({
+    required this.imageUrls,
+    this.initialIndex = 0,
+  });
+
+  @override
+  State<_FullScreenImageViewer> createState() => _FullScreenImageViewerState();
+}
+
+class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
+  late final PageController _pageController;
+  late int _currentIndex;
+  double _dragOffset = 0;
+  double _backgroundOpacity = 1;
+  bool _isDragging = false;
+
+  static const double _dismissThreshold = 120;
+  static const double _velocityThreshold = 800;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+    _pageController = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _onDragStart(DragStartDetails _) => setState(() => _isDragging = true);
+
+  void _onDragUpdate(DragUpdateDetails details) {
+    setState(() {
+      _dragOffset += details.delta.dy;
+      final progress =
+          (_dragOffset.abs() / _dismissThreshold).clamp(0.0, 1.0);
+      _backgroundOpacity = 1 - progress * 0.8;
+    });
+  }
+
+  void _onDragEnd(DragEndDetails details) {
+    final velocity = details.primaryVelocity ?? 0;
+    if (_dragOffset > _dismissThreshold ||
+        (_dragOffset > 30 && velocity > _velocityThreshold)) {
+      Navigator.of(context).pop();
+    } else {
+      setState(() {
+        _dragOffset = 0;
+        _backgroundOpacity = 1;
+        _isDragging = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasMultiple = widget.imageUrls.length > 1;
+    return Scaffold(
+      backgroundColor: Colors.black.withValues(alpha: _backgroundOpacity),
+      body: GestureDetector(
+        onVerticalDragStart: _onDragStart,
+        onVerticalDragUpdate: _onDragUpdate,
+        onVerticalDragEnd: _onDragEnd,
+        child: Stack(
+          children: [
+            // ── PageView — swipe horizontally between images ───
+            PageView.builder(
+              controller: _pageController,
+              itemCount: widget.imageUrls.length,
+              onPageChanged: (i) => setState(() => _currentIndex = i),
+              itemBuilder: (_, index) => Center(
+                child: Transform.translate(
+                  offset: Offset(0, _dragOffset),
+                  child: InteractiveViewer(
+                    minScale: 0.5,
+                    maxScale: 5,
+                    panEnabled: !_isDragging,
+                    child: CachedNetworkImage(
+                      imageUrl: widget.imageUrls[index],
+                      cacheManager: ImageCacheManager.instance,
+                      fit: BoxFit.contain,
+                      placeholder: (_, __) => const Center(
+                        child: CircularProgressIndicator(
+                          color: Colors.white54,
+                          strokeWidth: 2,
+                        ),
+                      ),
+                      errorWidget: (_, __, ___) => const Icon(
+                        Icons.broken_image_rounded,
+                        color: Colors.white38,
+                        size: 64,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            // ── Top bar: close + "N / total" counter ──────────
+            SafeArea(
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: Row(
+                  children: [
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close_rounded,
+                          color: Colors.white),
+                      style: IconButton.styleFrom(
+                          backgroundColor: Colors.black45),
+                    ),
+                    const Spacer(),
+                    if (hasMultiple)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.black45,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '${_currentIndex + 1} / ${widget.imageUrls.length}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    const SizedBox(width: 8),
+                  ],
+                ),
+              ),
+            ),
+            // ── Dot indicators at bottom ───────────────────────
+            if (hasMultiple)
+              Positioned(
+                bottom: 32,
+                left: 0,
+                right: 0,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(widget.imageUrls.length, (i) {
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      margin: const EdgeInsets.symmetric(horizontal: 3),
+                      width: i == _currentIndex ? 20 : 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: i == _currentIndex
+                            ? Colors.white
+                            : Colors.white38,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    );
+                  }),
+                ),
+              ),
+          ],
         ),
       ),
     );
