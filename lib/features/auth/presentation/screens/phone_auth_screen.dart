@@ -195,15 +195,21 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                               },
                               child: Padding(
                                 padding: const EdgeInsets.all(16),
-                                child: Text(
-                                  'SVΛYP',
-                                  style: AppTypography.heading2.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 48,
-                                    color: isDark
-                                        ? AppColors.darkPrimaryText
-                                        : AppColors.black,
-                                    letterSpacing: -1,
+                                child: RichText(
+                                  text: TextSpan(
+                                    style: AppTypography.heading2.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 48,
+                                      color: isDark
+                                          ? AppColors.darkPrimaryText
+                                          : AppColors.black,
+                                      letterSpacing: -1,
+                                    ),
+                                    children: const [
+                                      TextSpan(text: 'LIB'),
+                                      TextSpan(text: 'Λ', style: TextStyle(color: Color(0xFFF370A7))),
+                                      TextSpan(text: 'S'),
+                                    ],
                                   ),
                                 ),
                               ),

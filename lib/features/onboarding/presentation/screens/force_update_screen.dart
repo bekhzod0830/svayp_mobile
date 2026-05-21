@@ -103,16 +103,22 @@ class _ForceUpdateScreenState extends State<ForceUpdateScreen>
                   children: [
                     const Spacer(flex: 3),
 
-                    // ── SVΛYP logo ────────────────────────────────────
-                    Text(
-                      'SVΛYP',
-                      style: AppTypography.heading2.copyWith(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 48,
-                        color: isDark
-                            ? AppColors.darkPrimaryText
-                            : AppColors.black,
-                        letterSpacing: -1,
+                    // ── LIBΛS logo ────────────────────────────────────────
+                    RichText(
+                      text: TextSpan(
+                        style: AppTypography.heading2.copyWith(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 48,
+                          color: isDark
+                              ? AppColors.darkPrimaryText
+                              : AppColors.black,
+                          letterSpacing: -1,
+                        ),
+                        children: const [
+                          TextSpan(text: 'LIB'),
+                          TextSpan(text: 'Λ', style: TextStyle(color: Color(0xFFF370A7))),
+                          TextSpan(text: 'S'),
+                        ],
                       ),
                     ),
 

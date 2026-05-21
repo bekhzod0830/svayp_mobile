@@ -1,7 +1,7 @@
 {
   "@@locale": "ru",
   
-  "appName": "SVAYP",
+  "appName": "LIBAS",
   "ok": "ОК",
   "cancel": "Отмена",
   "save": "Сохранить",
@@ -254,7 +254,7 @@
   "close": "Закрыть",
   "dismiss": "Закрыть",
   
-  "welcomeToSwipe": "Добро пожаловать в SVAYP",
+  "welcomeToSwipe": "Добро пожаловать в LIBAS",
   "discoverYourStyle": "Откройте свой идеальный стиль с модными рекомендациями на основе ИИ",
   "phoneNumber": "Номер телефона",
   "enterPhoneNumber": "Введите номер телефона",
@@ -745,13 +745,15 @@
   "cvv": "CVV",
   "saveCard": "Сохранить карту",
   
+  "closet": "Гардероб",
+
   "profile": "Профиль",
   "myProfile": "Мой профиль",
   "editProfile": "Редактировать профиль",
   "editProfileComingSoon": "Функция редактирования профиля скоро появится",
   "myQrCode": "Мой QR-код",
   "scanQrForCashback": "Покажите этот QR-код партнерам для получения кэшбэка",
-  "svaypCardTitle": "Карта SVAYP",
+  "svaypCardTitle": "Карта LIBAS",
   "svaypCardCashbackDesc": "2% кэшбэк с каждой покупки",
   "openQrButton": "Открыть",
   "qrFullScreenHint": "Покажите этот код на кассе и получите 2% кэшбэка",
@@ -1201,7 +1203,7 @@
   "allShops": "Все магазины",
 
   "forceUpdateTitle": "Требуется обновление",
-  "forceUpdateSubtitle": "Доступна новая версия SVAYP с улучшениями и новыми функциями. Пожалуйста, обновите приложение.",
+  "forceUpdateSubtitle": "Доступна новая версия LIBAS с улучшениями и новыми функциями. Пожалуйста, обновите приложение.",
   "forceUpdateButton": "Обновить",
   "forceUpdateVersionLabel": "Версия {version} доступна",
   "@forceUpdateVersionLabel": {
@@ -1211,5 +1213,32 @@
   },
   "pressBackAgainToExit": "Нажмите ещё раз для выхода",
   "refresh": "Обновить",
-  "tapRefreshToSeeMore": "Нажмите обновить, чтобы увидеть новые товары"
+  "tapRefreshToSeeMore": "Нажмите обновить, чтобы увидеть новые товары",
+
+  "addToCloset": "Добавить в гардероб",
+  "saveToCloset": "Сохранить",
+  "closetEmpty": "Ваш гардероб пуст",
+  "closetEmptySubtitle": "Добавьте первый предмет, чтобы начать собирать гардероб",
+  "itemDeleted": "Предмет удалён",
+  "selectCategory": "Категория",
+  "brandOptional": "Бренд (необязательно)",
+  "notesOptional": "Заметки (необязательно)",
+  "newItem": "Новый предмет",
+  "deleteItemConfirm": "Убрать этот предмет из гардероба?",
+  "categoryTshirts": "Футболки",
+  "categoryJackets": "Куртки",
+  "categoryBlouses": "Блузки",
+  "categoryJumpsuits": "Комбинезоны",
+  "categorySkirts": "Юбки",
+  "categoryJeans": "Джинсы",
+  "categoryPants": "Брюки",
+  "categoryShorts": "Шорты",
+  "categoryBags": "Сумки",
+  "categoryShawl": "Платок",
+  "categoryJewelry": "Украшения",
+  "categoryUnderwear": "Нижнее бельё",
+  "sectionMyOutfits": "Мои образы",
+  "sectionUpperBody": "Верхняя часть",
+  "sectionLowerBody": "Нижняя часть",
+  "outfitsNeedMoreItems": "Добавьте минимум 5 вещей, чтобы создать образы"
 }

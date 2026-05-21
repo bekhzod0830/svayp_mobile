@@ -103,7 +103,7 @@ abstract class AppLocalizations {
   /// No description provided for @appName.
   ///
   /// In en, this message translates to:
-  /// **'SVAYP'**
+  /// **'LIBAS'**
   String get appName;
 
   /// No description provided for @ok.
@@ -1561,7 +1561,7 @@ abstract class AppLocalizations {
   /// No description provided for @welcomeToSwipe.
   ///
   /// In en, this message translates to:
-  /// **'Welcome to SVAYP'**
+  /// **'Welcome to LIBAS'**
   String get welcomeToSwipe;
 
   /// No description provided for @discoverYourStyle.
@@ -3436,6 +3436,12 @@ abstract class AppLocalizations {
   /// **'Save Card'**
   String get saveCard;
 
+  /// No description provided for @closet.
+  ///
+  /// In en, this message translates to:
+  /// **'Closet'**
+  String get closet;
+
   /// No description provided for @profile.
   ///
   /// In en, this message translates to:
@@ -3475,7 +3481,7 @@ abstract class AppLocalizations {
   /// No description provided for @svaypCardTitle.
   ///
   /// In en, this message translates to:
-  /// **'SVAYP Card'**
+  /// **'LIBAS Card'**
   String get svaypCardTitle;
 
   /// No description provided for @svaypCardCashbackDesc.
@@ -5665,7 +5671,7 @@ abstract class AppLocalizations {
   /// No description provided for @forceUpdateSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'A new version of SVAYP is available with exciting new features and improvements. Please update to continue.'**
+  /// **'A new version of LIBAS is available with exciting new features and improvements. Please update to continue.'**
   String get forceUpdateSubtitle;
 
   /// No description provided for @forceUpdateButton.
@@ -5697,6 +5703,126 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Tap refresh to start over and see new products'**
   String get tapRefreshToSeeMore;
+
+  /// No description provided for @addToCloset.
+  ///
+  /// In en, this message translates to:
+  /// **'Add to Closet'**
+  String get addToCloset;
+
+  /// No description provided for @saveToCloset.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get saveToCloset;
+
+  /// No description provided for @closetEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Your closet is empty'**
+  String get closetEmpty;
+
+  /// No description provided for @closetEmptySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Add your first item to start building your wardrobe'**
+  String get closetEmptySubtitle;
+
+  /// No description provided for @itemDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Item removed'**
+  String get itemDeleted;
+
+  /// No description provided for @selectCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'Category'**
+  String get selectCategory;
+
+  /// No description provided for @brandOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Brand (optional)'**
+  String get brandOptional;
+
+  /// No description provided for @notesOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Notes (optional)'**
+  String get notesOptional;
+
+  /// No description provided for @newItem.
+  ///
+  /// In en, this message translates to:
+  /// **'New Item'**
+  String get newItem;
+
+  /// No description provided for @deleteItemConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove this item from your closet?'**
+  String get deleteItemConfirm;
+
+  /// No description provided for @categoryTshirts.
+  ///
+  /// In en, this message translates to:
+  /// **'T-Shirts'**
+  String get categoryTshirts;
+
+  /// No description provided for @categoryJackets.
+  ///
+  /// In en, this message translates to:
+  /// **'Jackets'**
+  String get categoryJackets;
+
+  /// No description provided for @categoryBlouses.
+  ///
+  /// In en, this message translates to:
+  /// **'Blouses'**
+  String get categoryBlouses;
+
+  /// No description provided for @categoryJumpsuits.
+  ///
+  /// In en, this message translates to:
+  /// **'Jumpsuits'**
+  String get categoryJumpsuits;
+
+  /// No description provided for @categorySkirts.
+  ///
+  /// In en, this message translates to:
+  /// **'Skirts'**
+  String get categorySkirts;
+
+  /// No description provided for @categoryShorts.
+  ///
+  /// In en, this message translates to:
+  /// **'Shorts'**
+  String get categoryShorts;
+
+  /// No description provided for @sectionMyOutfits.
+  ///
+  /// In en, this message translates to:
+  /// **'My Outfits'**
+  String get sectionMyOutfits;
+
+  /// No description provided for @sectionUpperBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Upper Body'**
+  String get sectionUpperBody;
+
+  /// No description provided for @sectionLowerBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Lower Body'**
+  String get sectionLowerBody;
+
+  /// No description provided for @outfitsNeedMoreItems.
+  ///
+  /// In en, this message translates to:
+  /// **'Add at least 5 items to unlock outfit creation'**
+  String get outfitsNeedMoreItems;
 }
 
 class _AppLocalizationsDelegate

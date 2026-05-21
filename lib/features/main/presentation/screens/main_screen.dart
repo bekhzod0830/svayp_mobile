@@ -1,19 +1,17 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui' show ImageFilter;
 import 'package:flutter/physics.dart';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/core/utils/responsive_utils.dart';
-import 'package:swipe/features/discover/presentation/screens/discover_screen.dart';
-import 'package:swipe/features/shop/presentation/screens/shop_screen.dart';
+import 'package:swipe/core/constants/web_urls.dart';
 import 'package:swipe/features/shop/presentation/utils/visual_search_launcher.dart';
+import 'package:swipe/shared/widgets/web_view_screen.dart';
 import 'package:swipe/core/analytics/analytics_events.dart';
 import 'package:swipe/core/analytics/analytics_service.dart';
-import 'package:swipe/features/chat/presentation/screens/chat_list_screen.dart';
-import 'package:swipe/features/profile/presentation/screens/profile_screen.dart';
+
 import 'package:swipe/core/utils/local_storage_helper.dart';
 import 'package:swipe/shared/widgets/widgets.dart';
 import 'package:swipe/core/di/service_locator.dart';
@@ -22,6 +20,9 @@ import 'package:swipe/features/chat/data/services/chat_service.dart';
 import 'package:swipe/features/chat/data/services/chat_websocket_service.dart';
 import 'package:swipe/features/chat/data/models/chat_model.dart';
 import 'package:swipe/core/services/badge_notifier.dart';
+import 'package:swipe/features/discover/presentation/screens/discover_screen.dart';
+import 'package:swipe/features/shop/presentation/screens/shop_screen.dart';
+import 'package:swipe/features/chat/presentation/screens/chat_list_screen.dart';
 
 /// Main Screen - Container with bottom navigation
 /// Houses all main app features: Discover, Liked, Shop, Orders, Profile
@@ -46,18 +47,13 @@ class MainScreenState extends State<MainScreen>
   late final AnimationController _pillCtrl;
 
   // Global keys for screen access
-  final GlobalKey<NavigatorState> _discoverKey = GlobalKey<NavigatorState>();
+  final GlobalKey<NavigatorState> _closetKey = GlobalKey<NavigatorState>();
   final GlobalKey<NavigatorState> _shopKey = GlobalKey<NavigatorState>();
   final GlobalKey<NavigatorState> _chatKey = GlobalKey<NavigatorState>();
-  final GlobalKey<NavigatorState> _profileKey = GlobalKey<NavigatorState>();
+  final GlobalKey<NavigatorState> _discoverKey = GlobalKey<NavigatorState>();
   late final List<_TabNavObserver> _tabObservers;
 
   // Keys for screens to enable refresh
-  final GlobalKey<DiscoverScreenState> _discoverScreenKey =
-      GlobalKey<DiscoverScreenState>();
-  final GlobalKey<ChatListScreenState> _chatListScreenKey =
-      GlobalKey<ChatListScreenState>();
-
   // Immediate-increment listener so the badge updates even before
   // ChatListScreen has finished loading its chats and set up _syncBadge.
   StreamSubscription<({String chatId, ChatMessageResponse message})>?
@@ -87,7 +83,7 @@ class MainScreenState extends State<MainScreen>
     // and corrects the value to the accurate sum — preventing double-counting.
     final wsService = getIt<ChatWebSocketService>();
     _badgeListSub = wsService.listMessageStream.listen((event) {
-      if (_currentIndex != 3) {
+      if (_currentIndex != 2) {
         wsService.unreadCountNotifier.value += 1;
       }
     });
@@ -159,8 +155,8 @@ class MainScreenState extends State<MainScreen>
   }
 
   void _onTabTapped(int index) async {
-    // Gate certain tabs for guest users
-    if (index == 2 || index == 3) {
+    // Gate certain tabs for guest users (chat = 2)
+    if (index == 2) {
       final storage = await LocalStorageHelper.getInstance();
       if (storage.isGuestMode()) {
         if (mounted) GuestLoginPrompt.show(context);
@@ -170,16 +166,16 @@ class MainScreenState extends State<MainScreen>
 
     // If tapping the already-active tab, pop its navigator to root (toggle behaviour).
     if (index == _currentIndex) {
-      final keys = [_discoverKey, _shopKey, _chatKey, _profileKey];
+      final keys = [_closetKey, _shopKey, _chatKey, _discoverKey];
       _popTabToRoot(keys[index]);
       return;
     }
 
     // Pop all sub-routes in the tab we are leaving so it resets to root.
-    final keys = [_discoverKey, _shopKey, _chatKey, _profileKey];
+    final keys = [_closetKey, _shopKey, _chatKey, _discoverKey];
     _popTabToRoot(keys[_currentIndex]);
 
-    const tabNames = ['discover', 'shop', 'chat', 'profile'];
+    const tabNames = ['closet', 'shop', 'chat', 'discover'];
     AnalyticsService.instance.logEvent(
       AnalyticsEvents.tabSelected,
       parameters: {AnalyticsEvents.paramTabName: tabNames[index < tabNames.length ? index : 0]},
@@ -198,18 +194,12 @@ class MainScreenState extends State<MainScreen>
       ),
     );
 
-    // Refresh chat list when entering chat tab so new conversations appear
-    if (index == 2) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _chatListScreenKey.currentState?.refresh();
-      });
-    }
   }
 
   /// Method to navigate to a specific tab from child screens
   void navigateToTab(int index) {
     // Pop all routes in the current tab before switching
-    final keys = [_discoverKey, _shopKey, _chatKey, _profileKey];
+    final keys = [_closetKey, _shopKey, _chatKey, _discoverKey];
     _popTabToRoot(keys[_currentIndex]);
 
     final fromPos = _pillCtrl.value;
@@ -225,12 +215,6 @@ class MainScreenState extends State<MainScreen>
       ),
     );
 
-    // Refresh chat list when navigating to it so new conversations appear
-    if (index == 2) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _chatListScreenKey.currentState?.refresh();
-      });
-    }
   }
 
   /// Maps tab index (0-3) to visual nav-bar slot (0,1,3,4 — slot 2 is VS).
@@ -240,26 +224,23 @@ class MainScreenState extends State<MainScreen>
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    // Get responsive sizing
     final iconScale = ResponsiveUtils.getIconSizeScale(context);
     final fontScale = ResponsiveUtils.getFontSizeScale(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Get the current navigator key based on selected tab
     GlobalKey<NavigatorState> getCurrentNavigatorKey() {
       switch (_currentIndex) {
         case 0:
-          return _discoverKey;
+          return _closetKey;
         case 1:
           return _shopKey;
         case 2:
           return _chatKey;
         case 3:
-          return _profileKey;
-        default:
           return _discoverKey;
+        default:
+          return _closetKey;
       }
     }
 
@@ -275,7 +256,7 @@ class MainScreenState extends State<MainScreen>
         if (navigatorState != null && navigatorState.canPop()) {
           navigatorState.pop();
         } else if (_currentIndex != 0) {
-          // If can't pop and not on first tab, go to first tab (Discover)
+          // If can't pop and not on first tab, go to first tab
           final fromPos = _pillCtrl.value;
           setState(() {
             _currentIndex = 0;
@@ -297,291 +278,260 @@ class MainScreenState extends State<MainScreen>
           Navigator.of(context).pop();
         }
       },
-      child: Builder(
-        builder: (context) {
-          return Scaffold(
-            extendBody: true,
-            backgroundColor: Colors.transparent,
-            body: Stack(
+      child: Scaffold(
+        extendBody: true,
+        backgroundColor: Colors.white,
+        body: Stack(
+          children: [
+            IndexedStack(
+              index: _currentIndex,
               children: [
-                // Strip bottom padding from MediaQuery before it reaches
-                // inner Scaffolds — WE own the bottom inset via the floating
-                // navbar. Without this every inner Scaffold adds its own
-                // bottom padding and paints scaffoldBackgroundColor there.
-                // Only zero out `padding.bottom` (what Scaffold uses for body
-                // insets). Keep `viewPadding.bottom` intact — the navbar reads
-                // it directly to position itself above the OS gesture zone.
-                MediaQuery(
-                  data: MediaQuery.of(context).copyWith(
-                    padding: MediaQuery.of(context).padding.copyWith(bottom: 0),
-                  ),
-                  child: IndexedStack(
-                    index: _currentIndex,
-                    children: [
-                      Navigator(
-                        key: _discoverKey,
-                        observers: [_tabObservers[0]],
-                        onGenerateRoute: (settings) => MaterialPageRoute(
-                          builder: (context) =>
-                              DiscoverScreen(key: _discoverScreenKey),
-                        ),
-                      ),
-                      Navigator(
-                        key: _shopKey,
-                        observers: [_tabObservers[1]],
-                        onGenerateRoute: (settings) => MaterialPageRoute(
-                          builder: (context) => const ShopScreen(),
-                        ),
-                        onUnknownRoute: (settings) => MaterialPageRoute(
-                          builder: (context) => const ShopScreen(),
-                        ),
-                      ),
-                      Navigator(
-                        key: _chatKey,
-                        observers: [_tabObservers[2]],
-                        onGenerateRoute: (settings) => MaterialPageRoute(
-                          builder: (context) =>
-                              ChatListScreen(key: _chatListScreenKey),
-                        ),
-                      ),
-                      Navigator(
-                        key: _profileKey,
-                        observers: [_tabObservers[3]],
-                        onGenerateRoute: (settings) => MaterialPageRoute(
-                          builder: (context) => const ProfileScreen(),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // Glass navbar — floating overlay above all screens.
-                // Hidden (opacity 0, non-interactive) when a sub-route is
-                // active so buttons on sub-screens are never blocked.
-                Positioned(
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  child: ListenableBuilder(
-                    listenable:
-                        getIt<ChatWebSocketService>().unreadCountNotifier,
-                    builder: (context, _) {
-                      final unread = getIt<ChatWebSocketService>()
-                          .unreadCountNotifier
-                          .value;
+                // Tab 0: Closet (WebView)
+                Navigator(
+                  key: _closetKey,
+                  observers: [_tabObservers[0]],
+                  onGenerateRoute: (settings) => MaterialPageRoute(
+                    builder: (context) {
                       final mq = MediaQuery.of(context);
-                      // viewPadding.bottom = home indicator / gesture zone height.
-                      // Never less than 16px so we always clear the OS zone.
-                      final bottomInset = mq.viewPadding.bottom.clamp(
-                        16.0,
-                        60.0,
-                      );
-                      // Full-width gradient + blur background that extends
-                      // from the pill all the way to the screen bottom edge.
-                      return Padding(
-                        padding: EdgeInsets.only(
-                          left: 28,
-                          right: 28,
-                          bottom: bottomInset,
-                          top: 8,
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(40),
-                          child: Container(
-                            height: 60,
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? const Color(0xD0050508)
-                                  : const Color(0xBBFFFFFF),
-                              borderRadius: BorderRadius.circular(40),
-                              border: Border.all(
-                                color: isDark
-                                    ? const Color(0x22FFFFFF)
-                                    : const Color(0x55FFFFFF),
-                                width: 0.8,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: isDark
-                                      ? Colors.black.withValues(alpha: 0.65)
-                                      : Colors.black.withValues(alpha: 0.12),
-                                  blurRadius: 40,
-                                  spreadRadius: 0,
-                                  offset: const Offset(0, 10),
-                                ),
-                                BoxShadow(
-                                  color: isDark
-                                      ? Colors.black.withValues(alpha: 0.35)
-                                      : Colors.black.withValues(alpha: 0.05),
-                                  blurRadius: 8,
-                                  spreadRadius: 0,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: LayoutBuilder(
-                              builder: (ctx, bc) {
-                                final itemW = bc.maxWidth / 5;
-                                return Stack(
-                                  clipBehavior: Clip.none,
-                                  children: [
-                                    // ── Sliding glass indicator ──────
-                                    AnimatedBuilder(
-                                      animation: _pillCtrl,
-                                      builder: (ctx, child) {
-                                        return Positioned(
-                                          left: _pillCtrl.value * itemW + 4.0,
-                                          width: itemW - 8.0,
-                                          top: 7,
-                                          bottom: 7,
-                                          child: child!,
-                                        );
-                                      },
-                                      // No nested BackdropFilter here — the outer
-                                      // nav bar already provides sigma=10 blur.
-                                      // A nested blur forces the GPU to re-sample
-                                      // the full backdrop every animation frame,
-                                      // which drops frames when the discover screen
-                                      // (3× sigma=20 BackdropFilters) is active.
-                                      child: Container(
-                                        decoration: BoxDecoration(
-                                          gradient: LinearGradient(
-                                            begin: Alignment.topLeft,
-                                            end: Alignment.bottomRight,
-                                            colors: isDark
-                                                ? [
-                                                    const Color(0x44FFFFFF),
-                                                    const Color(0x1AFFFFFF),
-                                                  ]
-                                                : [
-                                                    const Color(0x3D000000),
-                                                    const Color(0x22000000),
-                                                  ],
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            22,
-                                          ),
-                                          border: Border.all(
-                                            color: const Color(0x66FFFFFF),
-                                            width: 0.8,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    // ── Nav item row ─────────────────
-                                    Row(
-                                      children: [
-                                        _buildGlassNavItem(
-                                          context: context,
-                                          index: 0,
-                                          inactiveIcon: Icons.explore_outlined,
-                                          activeIcon: Icons.explore,
-                                          label: 'SV\u039bYP',
-                                          isDark: isDark,
-                                          iconScale: iconScale,
-                                          fontScale: fontScale,
-                                        ),
-                                        _buildGlassNavItem(
-                                          context: context,
-                                          index: 1,
-                                          inactiveIcon: Icons.search,
-                                          activeIcon: Icons.search,
-                                          label: l10n.shop,
-                                          isDark: isDark,
-                                          iconScale: iconScale,
-                                          fontScale: fontScale,
-                                        ),
-                                        // Visual Search — center action button (not a tab)
-                                        Expanded(
-                                          child: GestureDetector(
-                                            onTap: () {
-                                              AnalyticsService.instance.logEvent(AnalyticsEvents.visualSearchOpened);
-                                              launchVisualSearch(context);
-                                            },
-                                            behavior: HitTestBehavior.opaque,
-                                            child: Center(
-                                              child: Padding(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 4,
-                                                      vertical: 2,
-                                                    ),
-                                                child: Column(
-                                                  mainAxisSize:
-                                                      MainAxisSize.min,
-                                                  children: [
-                                                    const _VisualSearchNavButton(),
-                                                    const SizedBox(height: 2),
-                                                    Text(
-                                                      l10n.visualSearch,
-                                                      maxLines: 1,
-                                                      softWrap: false,
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                      style: TextStyle(
-                                                        fontSize:
-                                                            9.5 * fontScale,
-                                                        fontWeight:
-                                                            FontWeight.w400,
-                                                        color:
-                                                            (isDark
-                                                                    ? Colors
-                                                                          .white
-                                                                    : Colors
-                                                                          .black)
-                                                                .withValues(
-                                                                  alpha: 0.45,
-                                                                ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        _buildGlassNavItem(
-                                          context: context,
-                                          index: 2,
-                                          inactiveIcon: Icons.send_outlined,
-                                          activeIcon: Icons.send,
-                                          label: l10n.chat,
-                                          isDark: isDark,
-                                          iconScale: iconScale,
-                                          fontScale: fontScale,
-                                          badge: unread > 0 ? unread : null,
-                                        ),
-                                        _buildGlassNavItem(
-                                          context: context,
-                                          index: 3,
-                                          inactiveIcon: Icons.person_outline,
-                                          activeIcon: Icons.person,
-                                          label: l10n.profile,
-                                          isDark: isDark,
-                                          iconScale: iconScale,
-                                          fontScale: fontScale,
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                );
-                              },
-                            ),
-                          ),
-                        ),
+                      final bottomInset =
+                          mq.viewPadding.bottom.clamp(16.0, 60.0);
+                      return WebViewScreen(
+                        url: WebUrls.closet,
+                        bottomPadding: 60.0 + bottomInset,
                       );
                     },
                   ),
                 ),
+                // Tab 1: Shop (native)
+                Navigator(
+                  key: _shopKey,
+                  observers: [_tabObservers[1]],
+                  onGenerateRoute: (settings) => MaterialPageRoute(
+                    builder: (context) => const ShopScreen(),
+                  ),
+                ),
+                // Tab 2: Chat (native)
+                Navigator(
+                  key: _chatKey,
+                  observers: [_tabObservers[2]],
+                  onGenerateRoute: (settings) => MaterialPageRoute(
+                    builder: (context) => const ChatListScreen(),
+                  ),
+                ),
+                // Tab 3: Discover (native)
+                Navigator(
+                  key: _discoverKey,
+                  observers: [_tabObservers[3]],
+                  onGenerateRoute: (settings) => MaterialPageRoute(
+                    builder: (context) => const DiscoverScreen(),
+                  ),
+                ),
               ],
             ),
-          );
-        },
+            // ── Floating bottom navbar ──────────────────────────────────
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: ListenableBuilder(
+                listenable:
+                    getIt<ChatWebSocketService>().unreadCountNotifier,
+                builder: (context, _) {
+                  final unread = getIt<ChatWebSocketService>()
+                      .unreadCountNotifier
+                      .value;
+                  final mq = MediaQuery.of(context);
+                  final bottomInset =
+                      mq.viewPadding.bottom.clamp(16.0, 60.0);
+
+                  return Padding(
+                    padding: EdgeInsets.only(
+                      left: 24,
+                      right: 24,
+                      bottom: bottomInset,
+                    ),
+                    child: Container(
+                      height: 60,
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? const Color(0xF0101014)
+                            : const Color(0xF5FFFFFF),
+                        borderRadius: BorderRadius.circular(40),
+                        border: Border.all(
+                          color: isDark
+                              ? const Color(0x18FFFFFF)
+                              : const Color(0x12000000),
+                          width: 0.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.08),
+                            blurRadius: 24,
+                            offset: const Offset(0, 8),
+                          ),
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.04),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: LayoutBuilder(
+                        builder: (ctx, bc) {
+                          final itemW = bc.maxWidth / 5;
+                          return Stack(
+                            children: [
+                              // ── Sliding indicator pill ──────
+                              AnimatedBuilder(
+                                animation: _pillCtrl,
+                                builder: (ctx, child) {
+                                  return Positioned(
+                                    left:
+                                        _pillCtrl.value * itemW + 4.0,
+                                    width: itemW - 8.0,
+                                    top: 7,
+                                    bottom: 7,
+                                    child: child!,
+                                  );
+                                },
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: isDark
+                                        ? const Color(0x28FFFFFF)
+                                        : const Color(0x0F000000),
+                                    borderRadius:
+                                        BorderRadius.circular(22),
+                                  ),
+                                ),
+                              ),
+                              // ── Nav item row ─────────────────
+                              Row(
+                                children: [
+                                  _buildNavItem(
+                                    context: context,
+                                    index: 0,
+                                    inactiveIcon:
+                                        Icons.checkroom_outlined,
+                                    activeIcon: Icons.checkroom,
+                                    label: l10n.closet,
+                                    isDark: isDark,
+                                    iconScale: iconScale,
+                                    fontScale: fontScale,
+                                  ),
+                                  _buildNavItem(
+                                    context: context,
+                                    index: 1,
+                                    inactiveIcon: Icons.search,
+                                    activeIcon: Icons.search,
+                                    label: l10n.shop,
+                                    isDark: isDark,
+                                    iconScale: iconScale,
+                                    fontScale: fontScale,
+                                  ),
+                                  // Visual Search — center button
+                                  Expanded(
+                                    child: GestureDetector(
+                                      onTap: () {
+                                        AnalyticsService.instance.logEvent(
+                                            AnalyticsEvents
+                                                .visualSearchOpened);
+                                        launchVisualSearch(context);
+                                      },
+                                      behavior: HitTestBehavior.opaque,
+                                      child: Center(
+                                        child: Column(
+                                          mainAxisSize:
+                                              MainAxisSize.min,
+                                          children: [
+                                            const _VisualSearchNavButton(),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              l10n.visualSearch,
+                                              maxLines: 1,
+                                              softWrap: false,
+                                              overflow: TextOverflow
+                                                  .ellipsis,
+                                              style: TextStyle(
+                                                fontSize:
+                                                    9.5 * fontScale,
+                                                fontWeight:
+                                                    FontWeight.w400,
+                                                color: (isDark
+                                                        ? Colors.white
+                                                        : Colors.black)
+                                                    .withValues(
+                                                        alpha: 0.45),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  _buildNavItem(
+                                    context: context,
+                                    index: 2,
+                                    inactiveIcon: Icons.send_outlined,
+                                    activeIcon: Icons.send,
+                                    label: l10n.chat,
+                                    isDark: isDark,
+                                    iconScale: iconScale,
+                                    fontScale: fontScale,
+                                    badge: unread > 0 ? unread : null,
+                                  ),
+                                  _buildNavItem(
+                                    context: context,
+                                    index: 3,
+                                    inactiveIcon:
+                                        Icons.explore_outlined,
+                                    activeIcon: Icons.explore,
+                                    label: 'LIB\u039bS',
+                                    isDark: isDark,
+                                    iconScale: iconScale,
+                                    fontScale: fontScale,                                    labelWidget: RichText(
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      text: TextSpan(
+                                        style: TextStyle(
+                                          fontSize: 9.5 * fontScale,
+                                          fontWeight: _currentIndex == 3
+                                              ? FontWeight.w600
+                                              : FontWeight.w400,
+                                          color: isDark
+                                              ? Colors.white
+                                              : Colors.black,
+                                        ),
+                                        children: const [
+                                          TextSpan(text: 'LIB'),
+                                          TextSpan(
+                                            text: 'Λ',
+                                            style: TextStyle(
+                                              color: Color(0xFFF370A7),
+                                            ),
+                                          ),
+                                          TextSpan(text: 'S'),
+                                        ],
+                                      ),
+                                    ),                                  ),
+                                ],
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  /// Builds a single Liquid Glass nav item.
-  Widget _buildGlassNavItem({
+  /// Builds a single nav item (no glass/blur effect).
+  Widget _buildNavItem({
     required BuildContext context,
     required int index,
     required IconData inactiveIcon,
@@ -591,11 +541,11 @@ class MainScreenState extends State<MainScreen>
     required double iconScale,
     required double fontScale,
     int? badge,
+    Widget? labelWidget,
   }) {
     final isActive = _currentIndex == index;
     final activeColor = isDark ? Colors.white : Colors.black;
 
-    // Scale up slightly when active for a tactile "press" feel
     Widget scaledIcon = AnimatedScale(
       scale: isActive ? 1.1 : 1.0,
       duration: const Duration(milliseconds: 300),
@@ -619,7 +569,6 @@ class MainScreenState extends State<MainScreen>
       iconWidget = scaledIcon;
     }
 
-    // Fade the whole icon (+ optional badge) between active and inactive
     iconWidget = AnimatedOpacity(
       opacity: isActive ? 1.0 : 0.45,
       duration: const Duration(milliseconds: 220),
@@ -639,21 +588,29 @@ class MainScreenState extends State<MainScreen>
               children: [
                 iconWidget,
                 const SizedBox(height: 3),
-                AnimatedDefaultTextStyle(
-                  duration: const Duration(milliseconds: 220),
-                  curve: Curves.easeOut,
-                  style: TextStyle(
-                    fontSize: 9.5 * fontScale,
-                    fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-                    color: activeColor.withValues(alpha: isActive ? 1.0 : 0.45),
+                if (labelWidget != null)
+                  AnimatedOpacity(
+                    opacity: isActive ? 1.0 : 0.45,
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOut,
+                    child: labelWidget,
+                  )
+                else
+                  AnimatedDefaultTextStyle(
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOut,
+                    style: TextStyle(
+                      fontSize: 9.5 * fontScale,
+                      fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                      color: activeColor.withValues(alpha: isActive ? 1.0 : 0.45),
+                    ),
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      softWrap: false,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    softWrap: false,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
               ],
             ),
           ),

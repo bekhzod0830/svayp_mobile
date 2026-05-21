@@ -5,6 +5,7 @@ import 'package:swipe/core/network/api_client.dart';
 import 'package:swipe/core/services/notification_preferences_service.dart';
 import 'package:swipe/features/auth/data/services/auth_service.dart';
 import 'package:swipe/features/chat/data/services/chat_websocket_service.dart';
+import 'package:swipe/features/closet/data/services/closet_service.dart';
 import 'package:swipe/features/profile/data/services/profile_service.dart';
 
 final getIt = GetIt.instance;
@@ -36,6 +37,9 @@ Future<void> initializeDependencies() async {
   getIt.registerLazySingleton<ChatWebSocketService>(
     () => ChatWebSocketService(),
   );
+
+  // Closet service (local Hive-backed wardrobe)
+  getIt.registerLazySingleton<ClosetService>(() => ClosetService());
 
   // Analytics service (Firebase Analytics + Smartlook)
   getIt.registerSingleton<AnalyticsService>(AnalyticsService.instance);

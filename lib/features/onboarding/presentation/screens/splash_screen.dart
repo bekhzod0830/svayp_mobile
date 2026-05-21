@@ -146,21 +146,27 @@ class _SplashScreenState extends State<SplashScreen>
             return Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Brand Name - SVΛYP
+                // Brand Name - LIBΛS
                 FadeTransition(
                   opacity: _fadeInAnimation,
                   child: Transform.scale(
                     scale: _scaleAnimation.value,
-                    child: Text(
-                      'SVΛYP',
-                      style: AppTypography.display1.copyWith(
-                        fontSize: 56,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 12,
-                        color: isDark
-                            ? AppColors.darkPrimaryText
-                            : AppColors.black,
-                        height: 1.0,
+                    child: RichText(
+                      text: TextSpan(
+                        style: AppTypography.display1.copyWith(
+                          fontSize: 56,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 12,
+                          color: isDark
+                              ? AppColors.darkPrimaryText
+                              : AppColors.black,
+                          height: 1.0,
+                        ),
+                        children: const [
+                          TextSpan(text: 'LIB'),
+                          TextSpan(text: 'Λ', style: TextStyle(color: Color(0xFFF370A7))),
+                          TextSpan(text: 'S'),
+                        ],
                       ),
                     ),
                   ),

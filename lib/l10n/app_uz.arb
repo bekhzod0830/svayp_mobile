@@ -1,7 +1,7 @@
 {
   "@@locale": "uz",
   
-  "appName": "SVAYP",
+  "appName": "LIBAS",
   "ok": "OK",
   "cancel": "Bekor qilish",
   "save": "Saqlash",
@@ -38,7 +38,7 @@
   "close": "Yopish",
   "dismiss": "Yopish",
   
-  "welcomeToSwipe": "SVAYP ga xush kelibsiz",
+  "welcomeToSwipe": "LIBAS ga xush kelibsiz",
   "discoverYourStyle": "AI asosidagi moda tavsiflari bilan o'z stilingizni kashf eting",
   "phoneNumber": "Telefon raqami",
   "enterPhoneNumber": "Telefon raqamingizni kiriting",
@@ -700,13 +700,15 @@
   "cvv": "CVV",
   "saveCard": "Kartani saqlash",
   
+  "closet": "Garderob",
+
   "profile": "Profil",
   "myProfile": "Mening profilim",
   "editProfile": "Profilni tahrirlash",
   "editProfileComingSoon": "Profilni tahrirlash funksiyasi tez orada paydo bo'ladi",
   "myQrCode": "Mening QR kodim",
   "scanQrForCashback": "Keshbek olish uchun bu QR kodni hamkorlarga ko'rsating",
-  "svaypCardTitle": "SVAYP Karta",
+  "svaypCardTitle": "LIBAS Karta",
   "svaypCardCashbackDesc": "Har bir xariddan 2% keshbek oling",
   "openQrButton": "Ochish",
   "qrFullScreenHint": "To'lov paytida ushbu kodni ko'rsating va 2% keshbek oling",
@@ -1195,7 +1197,7 @@
   "allShops": "Barcha do'konlar",
 
   "forceUpdateTitle": "Yangilash talab qilinadi",
-  "forceUpdateSubtitle": "SVAYP ilovasining yangi versiyasi - yangi xususiyatlar va takomillashtirishlar bilan chiqdi. Davom etish uchun ilovasini yangilang.",
+  "forceUpdateSubtitle": "LIBAS ilovasining yangi versiyasi - yangi xususiyatlar va takomillashtirishlar bilan chiqdi. Davom etish uchun ilovasini yangilang.",
   "forceUpdateButton": "Yangilash",
   "forceUpdateVersionLabel": "{version} versiyasi mavjud",
   "@forceUpdateVersionLabel": {
@@ -1205,5 +1207,32 @@
   },
   "pressBackAgainToExit": "Chiqish uchun qayta bosing",
   "refresh": "Yangilash",
-  "tapRefreshToSeeMore": "Yangi mahsulotlarni ko'rish uchun yangilang"
+  "tapRefreshToSeeMore": "Yangi mahsulotlarni ko'rish uchun yangilang",
+
+  "addToCloset": "Shkafga qo'shish",
+  "saveToCloset": "Saqlash",
+  "closetEmpty": "Shkafingiz bo'sh",
+  "closetEmptySubtitle": "Birinchi narsangizni qo'shib shkafingizni to'ldiring",
+  "itemDeleted": "Element o'chirildi",
+  "selectCategory": "Kategoriya",
+  "brandOptional": "Brend (ixtiyoriy)",
+  "notesOptional": "Izoh (ixtiyoriy)",
+  "newItem": "Yangi element",
+  "deleteItemConfirm": "Bu elementni shkafingizdan olib tashlaysizmi?",
+  "categoryTshirts": "Futbolkalar",
+  "categoryJackets": "Kurtaklar",
+  "categoryBlouses": "Bluzalar",
+  "categoryJumpsuits": "Kombinezonlar",
+  "categorySkirts": "Yubkalar",
+  "categoryJeans": "Jinsilar",
+  "categoryPants": "Shim",
+  "categoryShorts": "Shortlar",
+  "categoryBags": "Sumkalar",
+  "categoryShawl": "Ro'mol",
+  "categoryJewelry": "Zargarlik",
+  "categoryUnderwear": "Ichki kiyim",
+  "sectionMyOutfits": "Mening kiyimlarim",
+  "sectionUpperBody": "Yuqori qism",
+  "sectionLowerBody": "Quyi qism",
+  "outfitsNeedMoreItems": "Kiyim yaratish uchun kamida 5 narsa qo'shing"
 }

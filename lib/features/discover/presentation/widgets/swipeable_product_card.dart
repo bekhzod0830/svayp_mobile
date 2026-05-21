@@ -840,7 +840,7 @@ class SwipeableProductCardState extends State<SwipeableProductCard>
               SizedBox(height: screenHeight < 700 ? 2 : 3),
               // Seller Name
               Text(
-                widget.product.seller ?? 'SVAYP',
+                widget.product.seller ?? 'LIBAS',
                 style: AppTypography.caption.copyWith(
                   color: sellerColor,
                   fontSize: sellerFontSize,

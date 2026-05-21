@@ -39,14 +39,20 @@ class WelcomeScreen extends StatelessWidget {
               const SizedBox(height: 48),
 
               // Welcome Title
-              Text(
-                'Welcome to\nSVΛYP',
-                style: AppTypography.display2.copyWith(
-                  color: AppColors.white,
-                  height: 1.2,
-                  fontWeight: FontWeight.w700,
-                ),
+              RichText(
                 textAlign: TextAlign.center,
+                text: TextSpan(
+                  style: AppTypography.display2.copyWith(
+                    color: AppColors.white,
+                    height: 1.2,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  children: const [
+                    TextSpan(text: 'Welcome to\nLIB'),
+                    TextSpan(text: 'Λ', style: TextStyle(color: Color(0xFFF370A7))),
+                    TextSpan(text: 'S'),
+                  ],
+                ),
               ),
               const SizedBox(height: 24),
 

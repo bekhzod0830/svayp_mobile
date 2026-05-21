@@ -61,9 +61,9 @@ class LikedService {
         ? (product.seller ?? product.brand)
         : product.brand;
 
-    // If still "Unknown" or empty, use SVAYP as default
+    // If still "Unknown" or empty, use LIBAS as default
     if (displayBrand == 'Unknown' || displayBrand.isEmpty) {
-      displayBrand = 'SVAYP';
+      displayBrand = 'LIBAS';
     }
 
     final likedProduct = LikedProductModel(

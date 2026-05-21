@@ -36,6 +36,8 @@ import 'package:swipe/core/services/recommendation_cache_service.dart';
 import 'package:swipe/core/services/seen_products_service.dart';
 import 'package:swipe/core/cache/image_cache_manager.dart';
 import 'package:swipe/shared/widgets/main_top_bar.dart';
+import 'package:swipe/core/services/badge_notifier.dart';
+import 'package:swipe/features/profile/presentation/screens/notifications_screen.dart';
 import 'dart:ui';
 
 /// Profile Screen - User profile and settings
@@ -650,6 +652,35 @@ class _ProfileScreenState extends State<ProfileScreen>
                                                 ),
                                               );
                                             },
+                                          ),
+                                          ValueListenableBuilder<bool>(
+                                            valueListenable: BadgeNotifier.instance.hasUnreadNotifications,
+                                            builder: (context, hasUnread, _) =>
+                                              _ProfileMenuItem(
+                                                icon: Icons.notifications_outlined,
+                                                title: l10n.notifications,
+                                                trailing: hasUnread
+                                                    ? Container(
+                                                        width: 8,
+                                                        height: 8,
+                                                        decoration: const BoxDecoration(
+                                                          color: Color(0xFFFF3B30),
+                                                          shape: BoxShape.circle,
+                                                        ),
+                                                      )
+                                                    : null,
+                                                onTap: () {
+                                                  BadgeNotifier.instance.clearUnreadNotifications();
+                                                  Navigator.of(
+                                                    context,
+                                                    rootNavigator: true,
+                                                  ).push(
+                                                    MaterialPageRoute(
+                                                      builder: (_) => const NotificationsScreen(),
+                                                    ),
+                                                  );
+                                                },
+                                              ),
                                           ),
                                           _ProfileMenuItem(
                                             icon: Icons.favorite_border,

@@ -9,7 +9,7 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
-  String get appName => 'SVAYP';
+  String get appName => 'LIBAS';
 
   @override
   String get ok => 'OK';
@@ -764,7 +764,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dismiss => 'Dismiss';
 
   @override
-  String get welcomeToSwipe => 'Welcome to SVAYP';
+  String get welcomeToSwipe => 'Welcome to LIBAS';
 
   @override
   String get discoverYourStyle =>
@@ -1768,6 +1768,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get saveCard => 'Save Card';
 
   @override
+  String get closet => 'Closet';
+
+  @override
   String get profile => 'Profile';
 
   @override
@@ -1787,7 +1790,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Show this QR code to partners to receive cashback';
 
   @override
-  String get svaypCardTitle => 'SVAYP Card';
+  String get svaypCardTitle => 'LIBAS Card';
 
   @override
   String get svaypCardCashbackDesc => 'Earn 2% cashback on every purchase';
@@ -2904,7 +2907,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get forceUpdateSubtitle =>
-      'A new version of SVAYP is available with exciting new features and improvements. Please update to continue.';
+      'A new version of LIBAS is available with exciting new features and improvements. Please update to continue.';
 
   @override
   String get forceUpdateButton => 'Update Now';
@@ -2923,4 +2926,66 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get tapRefreshToSeeMore =>
       'Tap refresh to start over and see new products';
+
+  @override
+  String get addToCloset => 'Add to Closet';
+
+  @override
+  String get saveToCloset => 'Save';
+
+  @override
+  String get closetEmpty => 'Your closet is empty';
+
+  @override
+  String get closetEmptySubtitle =>
+      'Add your first item to start building your wardrobe';
+
+  @override
+  String get itemDeleted => 'Item removed';
+
+  @override
+  String get selectCategory => 'Category';
+
+  @override
+  String get brandOptional => 'Brand (optional)';
+
+  @override
+  String get notesOptional => 'Notes (optional)';
+
+  @override
+  String get newItem => 'New Item';
+
+  @override
+  String get deleteItemConfirm => 'Remove this item from your closet?';
+
+  @override
+  String get categoryTshirts => 'T-Shirts';
+
+  @override
+  String get categoryJackets => 'Jackets';
+
+  @override
+  String get categoryBlouses => 'Blouses';
+
+  @override
+  String get categoryJumpsuits => 'Jumpsuits';
+
+  @override
+  String get categorySkirts => 'Skirts';
+
+  @override
+  String get categoryShorts => 'Shorts';
+
+  @override
+  String get sectionMyOutfits => 'My Outfits';
+
+  @override
+  String get sectionUpperBody => 'Upper Body';
+
+  @override
+  String get sectionLowerBody => 'Lower Body';
+
+  @override
+  String get outfitsNeedMoreItems =>
+      'Add at least 5 items to unlock outfit creation';
 }

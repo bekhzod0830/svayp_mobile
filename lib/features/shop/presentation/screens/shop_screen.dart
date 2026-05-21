@@ -690,7 +690,7 @@ class _ShopScreenState extends State<ShopScreen>
   void _onSellerTap(String sellerName) {
     // Filter products by seller
     final sellerProducts = _products
-        .where((p) => (p.seller ?? 'SVAYP') == sellerName)
+        .where((p) => (p.seller ?? 'LIBAS') == sellerName)
         .toList();
 
     if (sellerProducts.isEmpty) return;
@@ -798,7 +798,7 @@ class _ShopScreenState extends State<ShopScreen>
                                         product: product,
                                         onTap: () => _onProductTap(product),
                                         onSellerTap: () => _onSellerTap(
-                                          product.seller ?? 'SVAYP',
+                                          product.seller ?? 'LIBAS',
                                         ),
                                       ),
                                     );
@@ -1202,7 +1202,7 @@ class _TikTokProductCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final sellerName = product.seller ?? 'SVAYP';
+    final sellerName = product.seller ?? 'LIBAS';
 
     return GestureDetector(
       onTap: onTap,

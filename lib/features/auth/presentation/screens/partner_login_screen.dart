@@ -112,15 +112,21 @@ class _PartnerLoginScreenState extends State<PartnerLoginScreen> {
                   Center(
                     child: Column(
                       children: [
-                        Text(
-                          'SVΛYP',
-                          style: AppTypography.heading2.copyWith(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 48,
-                            color: isDark
-                                ? AppColors.darkPrimaryText
-                                : AppColors.black,
-                            letterSpacing: -1,
+                        RichText(
+                          text: TextSpan(
+                            style: AppTypography.heading2.copyWith(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 48,
+                              color: isDark
+                                  ? AppColors.darkPrimaryText
+                                  : AppColors.black,
+                              letterSpacing: -1,
+                            ),
+                            children: const [
+                              TextSpan(text: 'LIB'),
+                              TextSpan(text: 'Λ', style: TextStyle(color: Color(0xFFF370A7))),
+                              TextSpan(text: 'S'),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 10),

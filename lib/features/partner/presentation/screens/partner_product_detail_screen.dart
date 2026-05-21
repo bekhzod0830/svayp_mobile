@@ -603,7 +603,7 @@ class _PartnerProductDetailScreenState
     final l10n = AppLocalizations.of(context)!;
 
     String sellerName = widget.product.seller ?? widget.product.brand;
-    if (sellerName == 'Unknown' || sellerName.isEmpty) sellerName = 'SVAYP';
+    if (sellerName == 'Unknown' || sellerName.isEmpty) sellerName = 'LIBAS';
 
     return GestureDetector(
       onTap: () {

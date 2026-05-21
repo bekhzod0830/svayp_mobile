@@ -176,7 +176,7 @@ class _ShopSearchResultsScreenState extends State<ShopSearchResultsScreen> {
     final sellerMap = <String, List<Product>>{};
 
     for (final product in widget.allProducts) {
-      final seller = product.seller ?? 'SVAYP';
+      final seller = product.seller ?? 'LIBAS';
       sellerMap.putIfAbsent(seller, () => []).add(product);
     }
 
@@ -384,7 +384,7 @@ class _TikTokProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final sellerName = product.seller ?? 'SVAYP';
+    final sellerName = product.seller ?? 'LIBAS';
 
     return GestureDetector(
       onTap: onTap,

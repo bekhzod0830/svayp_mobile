@@ -958,7 +958,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ? (apiProduct.seller ?? apiProduct.brand)
           : apiProduct.brand;
       if (displayBrand == 'Unknown' || displayBrand.isEmpty) {
-        displayBrand = 'SVAYP';
+        displayBrand = 'LIBAS';
       }
 
       final product = Product(

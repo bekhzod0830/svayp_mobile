@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -39,6 +40,14 @@ void main() async {
 
   // Initialize Firebase (auto-detects GoogleService-Info.plist / google-services.json)
   await Firebase.initializeApp();
+
+  // TODO: Remove after getting Firebase Installation ID for in-app messaging test
+  try {
+    const channel = MethodChannel('firebase_installation_id');
+    final id = await channel.invokeMethod<String>('getId');
+    // ignore: avoid_print
+    print('Firebase Installation ID: $id');
+  } catch (_) {}
 
   // Initialize Hive
   await Hive.initFlutter();

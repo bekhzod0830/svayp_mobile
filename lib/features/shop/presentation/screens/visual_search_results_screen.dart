@@ -403,7 +403,7 @@ class _VisualSearchProductCard extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final product = result.product;
-    final sellerName = product.seller ?? 'SVAYP';
+    final sellerName = product.seller ?? 'LIBAS';
     final displayImage =
         result.matchedImageUrl ??
         (product.images.isNotEmpty ? product.images.first : null);

@@ -1,7 +1,7 @@
 {
   "@@locale": "en",
   
-  "appName": "SVAYP",
+  "appName": "LIBAS",
   "ok": "OK",
   "cancel": "Cancel",
   "save": "Save",
@@ -259,7 +259,7 @@
   "close": "Close",
   "dismiss": "Dismiss",
   
-  "welcomeToSwipe": "Welcome to SVAYP",
+  "welcomeToSwipe": "Welcome to LIBAS",
   "discoverYourStyle": "Discover your perfect style with AI-powered fashion recommendations",
   "phoneNumber": "Phone Number",
   "enterPhoneNumber": "Enter your phone number",
@@ -736,13 +736,15 @@
   "cvv": "CVV",
   "saveCard": "Save Card",
   
+  "closet": "Closet",
+
   "profile": "Profile",
   "myProfile": "My Profile",
   "editProfile": "Edit Profile",
   "editProfileComingSoon": "Edit profile feature coming soon",
   "myQrCode": "My QR Code",
   "scanQrForCashback": "Show this QR code to partners to receive cashback",
-  "svaypCardTitle": "SVAYP Card",
+  "svaypCardTitle": "LIBAS Card",
   "svaypCardCashbackDesc": "Earn 2% cashback on every purchase",
   "openQrButton": "Open",
   "qrFullScreenHint": "Show this code at checkout to receive 2% cashback",
@@ -1196,7 +1198,7 @@
   "allShops": "All Shops",
 
   "forceUpdateTitle": "Update Required",
-  "forceUpdateSubtitle": "A new version of SVAYP is available with exciting new features and improvements. Please update to continue.",
+  "forceUpdateSubtitle": "A new version of LIBAS is available with exciting new features and improvements. Please update to continue.",
   "forceUpdateButton": "Update Now",
   "forceUpdateVersionLabel": "Version {version} available",
   "@forceUpdateVersionLabel": {
@@ -1206,5 +1208,32 @@
   },
   "pressBackAgainToExit": "Press back again to exit",
   "refresh": "Refresh",
-  "tapRefreshToSeeMore": "Tap refresh to start over and see new products"
+  "tapRefreshToSeeMore": "Tap refresh to start over and see new products",
+
+  "addToCloset": "Add to Closet",
+  "saveToCloset": "Save",
+  "closetEmpty": "Your closet is empty",
+  "closetEmptySubtitle": "Add your first item to start building your wardrobe",
+  "itemDeleted": "Item removed",
+  "selectCategory": "Category",
+  "brandOptional": "Brand (optional)",
+  "notesOptional": "Notes (optional)",
+  "newItem": "New Item",
+  "deleteItemConfirm": "Remove this item from your closet?",
+  "categoryTshirts": "T-Shirts",
+  "categoryJackets": "Jackets",
+  "categoryBlouses": "Blouses",
+  "categoryJumpsuits": "Jumpsuits",
+  "categorySkirts": "Skirts",
+  "categoryJeans": "Jeans",
+  "categoryPants": "Pants",
+  "categoryShorts": "Shorts",
+  "categoryBags": "Bags",
+  "categoryShawl": "Shawl",
+  "categoryJewelry": "Jewelry",
+  "categoryUnderwear": "Underwear",
+  "sectionMyOutfits": "My Outfits",
+  "sectionUpperBody": "Upper Body",
+  "sectionLowerBody": "Lower Body",
+  "outfitsNeedMoreItems": "Add at least 5 items to unlock outfit creation"
 }

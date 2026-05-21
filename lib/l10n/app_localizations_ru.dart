@@ -9,7 +9,7 @@ class AppLocalizationsRu extends AppLocalizations {
   AppLocalizationsRu([String locale = 'ru']) : super(locale);
 
   @override
-  String get appName => 'SVAYP';
+  String get appName => 'LIBAS';
 
   @override
   String get ok => 'ОК';
@@ -773,7 +773,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get dismiss => 'Закрыть';
 
   @override
-  String get welcomeToSwipe => 'Добро пожаловать в SVAYP';
+  String get welcomeToSwipe => 'Добро пожаловать в LIBAS';
 
   @override
   String get discoverYourStyle =>
@@ -1789,6 +1789,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get saveCard => 'Сохранить карту';
 
   @override
+  String get closet => 'Гардероб';
+
+  @override
   String get profile => 'Профиль';
 
   @override
@@ -1809,7 +1812,7 @@ class AppLocalizationsRu extends AppLocalizations {
       'Покажите этот QR-код партнерам для получения кэшбэка';
 
   @override
-  String get svaypCardTitle => 'Карта SVAYP';
+  String get svaypCardTitle => 'Карта LIBAS';
 
   @override
   String get svaypCardCashbackDesc => '2% кэшбэк с каждой покупки';
@@ -2286,13 +2289,13 @@ class AppLocalizationsRu extends AppLocalizations {
   String get categoryScarf => 'Шарф';
 
   @override
-  String get categoryShawl => 'Шаль';
+  String get categoryShawl => 'Платок';
 
   @override
   String get categoryBags => 'Сумки';
 
   @override
-  String get categoryUnderwear => 'Нижнее белье';
+  String get categoryUnderwear => 'Нижнее бельё';
 
   @override
   String get categoryOuterwear => 'Верхняя одежда';
@@ -2928,7 +2931,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get forceUpdateSubtitle =>
-      'Доступна новая версия SVAYP с улучшениями и новыми функциями. Пожалуйста, обновите приложение.';
+      'Доступна новая версия LIBAS с улучшениями и новыми функциями. Пожалуйста, обновите приложение.';
 
   @override
   String get forceUpdateButton => 'Обновить';
@@ -2947,4 +2950,66 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get tapRefreshToSeeMore =>
       'Нажмите обновить, чтобы увидеть новые товары';
+
+  @override
+  String get addToCloset => 'Добавить в гардероб';
+
+  @override
+  String get saveToCloset => 'Сохранить';
+
+  @override
+  String get closetEmpty => 'Ваш гардероб пуст';
+
+  @override
+  String get closetEmptySubtitle =>
+      'Добавьте первый предмет, чтобы начать собирать гардероб';
+
+  @override
+  String get itemDeleted => 'Предмет удалён';
+
+  @override
+  String get selectCategory => 'Категория';
+
+  @override
+  String get brandOptional => 'Бренд (необязательно)';
+
+  @override
+  String get notesOptional => 'Заметки (необязательно)';
+
+  @override
+  String get newItem => 'Новый предмет';
+
+  @override
+  String get deleteItemConfirm => 'Убрать этот предмет из гардероба?';
+
+  @override
+  String get categoryTshirts => 'Футболки';
+
+  @override
+  String get categoryJackets => 'Куртки';
+
+  @override
+  String get categoryBlouses => 'Блузки';
+
+  @override
+  String get categoryJumpsuits => 'Комбинезоны';
+
+  @override
+  String get categorySkirts => 'Юбки';
+
+  @override
+  String get categoryShorts => 'Шорты';
+
+  @override
+  String get sectionMyOutfits => 'Мои образы';
+
+  @override
+  String get sectionUpperBody => 'Верхняя часть';
+
+  @override
+  String get sectionLowerBody => 'Нижняя часть';
+
+  @override
+  String get outfitsNeedMoreItems =>
+      'Добавьте минимум 5 вещей, чтобы создать образы';
 }

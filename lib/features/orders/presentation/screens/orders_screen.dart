@@ -880,7 +880,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               ? (apiProduct.seller ?? apiProduct.brand)
               : apiProduct.brand;
       if (displayBrand == 'Unknown' || displayBrand.isEmpty) {
-        displayBrand = 'SVAYP';
+        displayBrand = 'LIBAS';
       }
 
       final product = Product(

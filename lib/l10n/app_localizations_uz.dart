@@ -9,7 +9,7 @@ class AppLocalizationsUz extends AppLocalizations {
   AppLocalizationsUz([String locale = 'uz']) : super(locale);
 
   @override
-  String get appName => 'SVAYP';
+  String get appName => 'LIBAS';
 
   @override
   String get ok => 'OK';
@@ -555,7 +555,7 @@ class AppLocalizationsUz extends AppLocalizations {
   String get categoryAccessories => 'Aksessuarlar';
 
   @override
-  String get categoryJewelry => 'Zargarlik buyumlari';
+  String get categoryJewelry => 'Zargarlik';
 
   @override
   String get completeSetup => 'Sozlashni yakunlash';
@@ -775,7 +775,7 @@ class AppLocalizationsUz extends AppLocalizations {
   String get dismiss => 'Yopish';
 
   @override
-  String get welcomeToSwipe => 'SVAYP ga xush kelibsiz';
+  String get welcomeToSwipe => 'LIBAS ga xush kelibsiz';
 
   @override
   String get discoverYourStyle =>
@@ -1794,6 +1794,9 @@ class AppLocalizationsUz extends AppLocalizations {
   String get saveCard => 'Kartani saqlash';
 
   @override
+  String get closet => 'Garderob';
+
+  @override
   String get profile => 'Profil';
 
   @override
@@ -1814,7 +1817,7 @@ class AppLocalizationsUz extends AppLocalizations {
       'Keshbek olish uchun bu QR kodni hamkorlarga ko\'rsating';
 
   @override
-  String get svaypCardTitle => 'SVAYP Karta';
+  String get svaypCardTitle => 'LIBAS Karta';
 
   @override
   String get svaypCardCashbackDesc => 'Har bir xariddan 2% keshbek oling';
@@ -2267,7 +2270,7 @@ class AppLocalizationsUz extends AppLocalizations {
   String get categoryPants => 'Shim';
 
   @override
-  String get categoryJeans => 'Jinsi shim';
+  String get categoryJeans => 'Jinsilar';
 
   @override
   String get categorySkirt => 'Yubka';
@@ -2294,7 +2297,7 @@ class AppLocalizationsUz extends AppLocalizations {
   String get categoryScarf => 'Ro\'mol';
 
   @override
-  String get categoryShawl => 'Shol';
+  String get categoryShawl => 'Ro\'mol';
 
   @override
   String get categoryBags => 'Sumkalar';
@@ -2943,7 +2946,7 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get forceUpdateSubtitle =>
-      'SVAYP ilovasining yangi versiyasi - yangi xususiyatlar va takomillashtirishlar bilan chiqdi. Davom etish uchun ilovasini yangilang.';
+      'LIBAS ilovasining yangi versiyasi - yangi xususiyatlar va takomillashtirishlar bilan chiqdi. Davom etish uchun ilovasini yangilang.';
 
   @override
   String get forceUpdateButton => 'Yangilash';
@@ -2962,4 +2965,67 @@ class AppLocalizationsUz extends AppLocalizations {
   @override
   String get tapRefreshToSeeMore =>
       'Yangi mahsulotlarni ko\'rish uchun yangilang';
+
+  @override
+  String get addToCloset => 'Shkafga qo\'shish';
+
+  @override
+  String get saveToCloset => 'Saqlash';
+
+  @override
+  String get closetEmpty => 'Shkafingiz bo\'sh';
+
+  @override
+  String get closetEmptySubtitle =>
+      'Birinchi narsangizni qo\'shib shkafingizni to\'ldiring';
+
+  @override
+  String get itemDeleted => 'Element o\'chirildi';
+
+  @override
+  String get selectCategory => 'Kategoriya';
+
+  @override
+  String get brandOptional => 'Brend (ixtiyoriy)';
+
+  @override
+  String get notesOptional => 'Izoh (ixtiyoriy)';
+
+  @override
+  String get newItem => 'Yangi element';
+
+  @override
+  String get deleteItemConfirm =>
+      'Bu elementni shkafingizdan olib tashlaysizmi?';
+
+  @override
+  String get categoryTshirts => 'Futbolkalar';
+
+  @override
+  String get categoryJackets => 'Kurtaklar';
+
+  @override
+  String get categoryBlouses => 'Bluzalar';
+
+  @override
+  String get categoryJumpsuits => 'Kombinezonlar';
+
+  @override
+  String get categorySkirts => 'Yubkalar';
+
+  @override
+  String get categoryShorts => 'Shortlar';
+
+  @override
+  String get sectionMyOutfits => 'Mening kiyimlarim';
+
+  @override
+  String get sectionUpperBody => 'Yuqori qism';
+
+  @override
+  String get sectionLowerBody => 'Quyi qism';
+
+  @override
+  String get outfitsNeedMoreItems =>
+      'Kiyim yaratish uchun kamida 5 narsa qo\'shing';
 }

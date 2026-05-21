@@ -5,7 +5,7 @@ import 'package:swipe/core/constants/app_typography.dart';
 import 'package:swipe/core/services/badge_notifier.dart';
 import 'package:swipe/features/cart/presentation/screens/cart_screen.dart';
 import 'package:swipe/features/liked/presentation/screens/liked_screen.dart';
-import 'package:swipe/features/profile/presentation/screens/notifications_screen.dart';
+import 'package:swipe/features/profile/presentation/screens/profile_screen.dart';
 
 /// Consistent glass top bar used across all main tab screens.
 ///
@@ -19,12 +19,14 @@ class MainTopBar extends StatefulWidget {
   final String title;
   final bool isLikedScreen;
   final List<Widget> extraActions;
+  final Widget? titleChild;
 
   const MainTopBar({
     super.key,
     required this.title,
     this.isLikedScreen = false,
     this.extraActions = const [],
+    this.titleChild,
   });
 
   @override
@@ -39,12 +41,10 @@ class _MainTopBarState extends State<MainTopBar> {
     ).push(MaterialPageRoute(builder: (_) => const CartScreen()));
   }
 
-  Future<void> _goToNotifications() async {
-    BadgeNotifier.instance.clearUnreadNotifications();
-    await Navigator.of(
-      context,
-      rootNavigator: true,
-    ).push(MaterialPageRoute(builder: (_) => const NotificationsScreen()));
+  Future<void> _goToProfile() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const ProfileScreen()),
+    );
   }
 
   Future<void> _goToLiked() async {
@@ -61,6 +61,7 @@ class _MainTopBarState extends State<MainTopBar> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final iconColor = isDark ? Colors.white : Colors.black;
+    final canPop = Navigator.canPop(context);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
@@ -82,8 +83,23 @@ class _MainTopBarState extends State<MainTopBar> {
             ),
             child: Row(
               children: [
+                // Back button — shown when this bar is inside a pushed route
+                if (canPop)
+                  IconButton(
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 36,
+                      minHeight: 44,
+                    ),
+                    icon: Icon(
+                      Icons.arrow_back_ios_new,
+                      size: 20,
+                      color: iconColor,
+                    ),
+                    onPressed: () => Navigator.pop(context),
+                  ),
                 Expanded(
-                  child: Text(
+                  child: widget.titleChild ?? Text(
                     widget.title,
                     style: AppTypography.heading2.copyWith(
                       fontWeight: FontWeight.w700,
@@ -183,45 +199,44 @@ class _MainTopBarState extends State<MainTopBar> {
                     ],
                   ),
                 ),
-                // Notification bell icon — far right
-                ValueListenableBuilder<bool>(
-                  valueListenable: BadgeNotifier.instance.hasUnreadNotifications,
-                  builder: (context, hasUnread, _) => Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      IconButton(
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(
-                          minWidth: 44,
-                          minHeight: 44,
+                // Profile icon — far right (hidden on sub-routes to avoid re-pushing)
+                if (!canPop)
+                  ValueListenableBuilder<bool>(
+                    valueListenable: BadgeNotifier.instance.hasUnreadNotifications,
+                    builder: (context, hasUnread, _) => Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                            minWidth: 44,
+                            minHeight: 44,
+                          ),
+                          icon: Icon(
+                            Icons.person_outline,
+                            size: 24,
+                            color: iconColor,
+                          ),
+                          onPressed: _goToProfile,
                         ),
-                        icon: Icon(
-                          hasUnread
-                              ? Icons.notifications
-                              : Icons.notifications_outlined,
-                          size: 24,
-                          color: iconColor,
-                        ),
-                        onPressed: _goToNotifications,
-                      ),
-                      if (hasUnread)
-                        Positioned(
-                          right: 6,
-                          top: 6,
-                          child: IgnorePointer(
-                            child: Container(
-                              width: 8,
-                              height: 8,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFFFF3B30),
-                                shape: BoxShape.circle,
+                        if (hasUnread)
+                          Positioned(
+                            right: 6,
+                            top: 6,
+                            child: IgnorePointer(
+                              child: Container(
+                                width: 8,
+                                height: 8,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFFF3B30),
+                                  shape: BoxShape.circle,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
               ],
             ),
           ),

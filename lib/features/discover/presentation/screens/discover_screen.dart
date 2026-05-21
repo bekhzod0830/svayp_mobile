@@ -447,9 +447,9 @@ class DiscoverScreenState extends State<DiscoverScreen> {
         ? (apiProduct.seller ?? apiProduct.brand)
         : apiProduct.brand;
 
-    // If still "Unknown" or empty, use SVAYP as default
+    // If still "Unknown" or empty, use LIBAS as default
     if (displayBrand == 'Unknown' || displayBrand.isEmpty) {
-      displayBrand = 'SVAYP';
+      displayBrand = 'LIBAS';
     }
 
     return Product(
@@ -1109,7 +1109,23 @@ class DiscoverScreenState extends State<DiscoverScreen> {
               child: Column(
                 children: [
                   // Consistent top bar (same as Shop, Profile, Chat)
-                  MainTopBar(title: 'SVΛYP'),
+                  MainTopBar(
+                    title: 'LIBΛS',
+                    titleChild: RichText(
+                      text: TextSpan(
+                        style: AppTypography.heading2.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: isDark ? Colors.white : Colors.black,
+                          letterSpacing: -0.5,
+                        ),
+                        children: const [
+                          TextSpan(text: 'LIB'),
+                          TextSpan(text: 'Λ', style: TextStyle(color: Color(0xFFF370A7))),
+                          TextSpan(text: 'S'),
+                        ],
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 8),
                   // Content
                   Expanded(

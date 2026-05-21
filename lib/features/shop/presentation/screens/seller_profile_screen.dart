@@ -772,7 +772,7 @@ class _TikTokProductCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final sellerName = product.seller ?? 'SVAYP';
+    final sellerName = product.seller ?? 'LIBAS';
 
     return GestureDetector(
       onTap: onTap,
