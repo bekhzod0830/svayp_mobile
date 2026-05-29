@@ -1450,6 +1450,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String get chatAttachGallery => 'Галерея';
 
   @override
+  String get chatAttachGallerySubtitle => 'Выбрать из галереи';
+
+  @override
+  String get chatAttachCameraSubtitle => 'Сделать фото';
+
+  @override
   String get chatAttachPickHint => 'Сделайте фото или выберите из галереи';
 
   @override

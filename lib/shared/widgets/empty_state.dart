@@ -264,7 +264,8 @@ class SnackBarHelper {
     Duration duration = const Duration(seconds: 4),
   }) {
     final l10n = AppLocalizations.of(context)!;
-    ScaffoldMessenger.of(context).showSnackBar(
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
       SnackBar(
         content: Row(
           children: [
@@ -285,9 +286,7 @@ class SnackBarHelper {
         action: SnackBarAction(
           label: l10n.dismiss,
           textColor: AppColors.white,
-          onPressed: () {
-            ScaffoldMessenger.of(context).hideCurrentSnackBar();
-          },
+          onPressed: () => messenger.hideCurrentSnackBar(),
         ),
       ),
     );

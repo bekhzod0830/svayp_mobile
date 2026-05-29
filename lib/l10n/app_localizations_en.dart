@@ -1432,6 +1432,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatAttachGallery => 'Gallery';
 
   @override
+  String get chatAttachGallerySubtitle => 'Choose from your photos';
+
+  @override
+  String get chatAttachCameraSubtitle => 'Take a new photo';
+
+  @override
   String get chatAttachPickHint => 'Take a photo or choose from your library';
 
   @override

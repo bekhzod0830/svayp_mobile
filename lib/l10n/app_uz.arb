@@ -540,6 +540,8 @@
   "chatOpenInMaps": "Xaritada ochish",
   "chatAttachCamera": "Kamera",
   "chatAttachGallery": "Galereya",
+  "chatAttachGallerySubtitle": "Rasmlaringizdan tanlang",
+  "chatAttachCameraSubtitle": "Yangi rasm olish",
   "chatAttachPickHint": "Rasm oling yoki galereyadan tanlang",
   "chatAttachComingSoon": "Rasm va joylashuv ulashish tez orada qo'shiladi",
   "typeAMessage": "Xabaringizni yozing...",

@@ -1,9 +1,12 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 
 /// Generic full-screen WebView widget used by all web-backed screens.
@@ -52,6 +55,29 @@ class _WebViewScreenState extends State<WebViewScreen> {
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(
         NavigationDelegate(
+          onNavigationRequest: (NavigationRequest request) async {
+            final uri = Uri.tryParse(request.url);
+            if (uri == null) return NavigationDecision.prevent;
+
+            // Non-http(s) schemes must always be handed to the OS
+            // (tg://, mailto:, tel:, intent:, etc.)
+            if (uri.scheme != 'http' && uri.scheme != 'https') {
+              if (await canLaunchUrl(uri)) {
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+              }
+              return NavigationDecision.prevent;
+            }
+
+            // t.me links (Telegram web redirect) must open externally
+            if (uri.host == 't.me' || uri.host.endsWith('.t.me')) {
+              if (await canLaunchUrl(uri)) {
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+              }
+              return NavigationDecision.prevent;
+            }
+
+            return NavigationDecision.navigate;
+          },
           onPageStarted: (_) {
             if (mounted) {
               setState(() {
@@ -80,9 +106,46 @@ class _WebViewScreenState extends State<WebViewScreen> {
 
     // Request native permissions upfront so the WebView can access them.
     _requestNativePermissions();
+
+    // Android: bridge <input type="file"> to native ImagePicker so the web
+    // page's library/camera buttons trigger the OS photo picker or camera.
+    if (Platform.isAndroid) {
+      final androidController = _controller.platform
+          as AndroidWebViewController;
+      androidController.setOnShowFileSelector(_handleFileSelector);
+    }
+
     // Load the URL with auth tokens embedded as query params so the web app
     // can store them before its auth guard runs.
     _loadWithToken();
+  }
+
+  /// Called by Android WebView when the web page uses <input type="file">.
+  /// Routes to the camera or gallery via `image_picker`.
+  Future<List<String>> _handleFileSelector(
+    FileSelectorParams params,
+  ) async {
+    final picker = ImagePicker();
+    XFile? picked;
+
+    if (params.isCaptureEnabled) {
+      picked = await picker.pickImage(
+        source: ImageSource.camera,
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 85,
+      );
+    } else {
+      picked = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 85,
+      );
+    }
+
+    if (picked == null) return [];
+    return [Uri.file(picked.path).toString()];
   }
 
   Future<void> _requestNativePermissions() async {

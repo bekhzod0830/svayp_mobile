@@ -1452,6 +1452,12 @@ class AppLocalizationsUz extends AppLocalizations {
   String get chatAttachGallery => 'Galereya';
 
   @override
+  String get chatAttachGallerySubtitle => 'Rasmlaringizdan tanlang';
+
+  @override
+  String get chatAttachCameraSubtitle => 'Yangi rasm olish';
+
+  @override
   String get chatAttachPickHint => 'Rasm oling yoki galereyadan tanlang';
 
   @override

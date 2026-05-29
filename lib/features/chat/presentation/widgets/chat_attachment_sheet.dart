@@ -1,13 +1,10 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:photo_manager/photo_manager.dart' hide LatLng;
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
 import 'package:swipe/l10n/app_localizations.dart';
@@ -64,7 +61,6 @@ class _AttachmentSheetContent extends StatefulWidget {
 class _AttachmentSheetContentState extends State<_AttachmentSheetContent> {
   _Tab _activeTab = _Tab.gallery;
   final List<File> _selectedImages = [];
-  File? _cameraCapture;
   LatLng? _selectedLocation;
   bool _loadingLocation = false;
   bool _mapEverOpened = false;
@@ -142,7 +138,7 @@ class _AttachmentSheetContentState extends State<_AttachmentSheetContent> {
           ),
         ),
       );
-    } catch (e, st) {
+    } catch (_) {
       if (mounted) setState(() => _loadingLocation = false);
     }
   }
@@ -159,7 +155,6 @@ class _AttachmentSheetContentState extends State<_AttachmentSheetContent> {
     if (img != null && mounted) {
       final file = File(img.path);
       setState(() {
-        _cameraCapture = file;
         if (!_selectedImages.any((f) => f.path == file.path)) {
           _selectedImages.add(file);
         }
@@ -167,18 +162,28 @@ class _AttachmentSheetContentState extends State<_AttachmentSheetContent> {
     }
   }
 
-  void _toggleGalleryFile(File file) {
-    setState(() {
-      final idx = _selectedImages.indexWhere((f) => f.path == file.path);
-      if (idx >= 0) {
-        _selectedImages.removeAt(idx);
-      } else {
-        _selectedImages.add(file);
-      }
-    });
+  Future<void> _openGallery() async {
+    final picked = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1920,
+      maxHeight: 1920,
+      imageQuality: 85,
+    );
+    if (picked != null && mounted) {
+      final file = File(picked.path);
+      setState(() {
+        if (!_selectedImages.any((f) => f.path == file.path)) {
+          _selectedImages.add(file);
+        }
+      });
+    }
   }
 
-  // ── Tab switching ─────────────────────────────────────────────────────────
+  void _removeSelectedImage(File file) {
+    setState(() => _selectedImages.removeWhere((f) => f.path == file.path));
+  }
+
+  // ── Tab switching
 
   void _switchTab(_Tab tab) {
     if (_activeTab == tab) return;
@@ -199,7 +204,7 @@ class _AttachmentSheetContentState extends State<_AttachmentSheetContent> {
     final l10n = AppLocalizations.of(context)!;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
-    final sheetHeight = MediaQuery.of(context).size.height * 0.72;
+    final maxHeight = MediaQuery.of(context).size.height * 0.72;
 
     return SafeArea(
       bottom: false,
@@ -207,128 +212,202 @@ class _AttachmentSheetContentState extends State<_AttachmentSheetContent> {
         padding: EdgeInsets.fromLTRB(12, 0, 12, bottomPadding + 12),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(28),
-          child: Container(
-            height: sheetHeight,
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1C1C1E) : AppColors.white,
-              borderRadius: BorderRadius.circular(28),
-            ),
-            child: Column(
-              children: [
-                // ── Drag handle ───────────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.only(top: 10, bottom: 2),
-                  child: Container(
-                    width: 36,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.2)
-                          : Colors.black.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(2),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: maxHeight),
+            child: Container(
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1C1C1E) : AppColors.white,
+                borderRadius: BorderRadius.circular(28),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // ── Drag handle ─────────────────────────────────
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10, bottom: 2),
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.2)
+                            : Colors.black.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
                   ),
-                ),
 
-                // ── Header row ────────────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 6, 8, 6),
-                  child: Row(
-                    children: [
-                      Text(
-                        _activeTab == _Tab.gallery
-                            ? l10n.chatAttachPhoto
-                            : l10n.chatAttachLocation,
-                        style: AppTypography.heading4.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: isDark ? Colors.white : Colors.black,
+                  // ── Header row ──────────────────────────────────
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 6, 8, 6),
+                    child: Row(
+                      children: [
+                        Text(
+                          _activeTab == _Tab.gallery
+                              ? l10n.chatAttachPhoto
+                              : l10n.chatAttachLocation,
+                          style: AppTypography.heading4.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: isDark ? Colors.white : Colors.black,
+                          ),
                         ),
-                      ),
-                      const Spacer(),
-                      // ── Close button ──────────────────────────────
-                      IconButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        icon: Icon(
-                          Icons.close_rounded,
-                          color: isDark
-                              ? Colors.white60
-                              : Colors.black45,
+                        const Spacer(),
+                        IconButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          icon: Icon(
+                            Icons.close_rounded,
+                            color: isDark ? Colors.white60 : Colors.black45,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
 
-                // ── Main content area ─────────────────────────────
-                Expanded(
-                  child: _activeTab == _Tab.gallery
-                      ? _GalleryGrid(
-                          isDark: isDark,
-                          selectedImages: _selectedImages,
-                          cameraCapture: _cameraCapture,
-                          onCapture: _captureFromCamera,
-                          onToggle: _toggleGalleryFile,
-                        )
-                      : _LocationContent(
-                          isDark: isDark,
-                          mapCenter: _mapCenter,
-                          loadingLocation: _loadingLocation,
-                          selectedLocation: _selectedLocation,
-                          onCenterChanged: (latLng) =>
-                              setState(() => _selectedLocation = latLng),
-                          onMyLocation: _fetchCurrentLocation,
-                          onMapCreated: (controller) =>
-                              _mapController = controller,
+                  // ── Location map (fills available space) ────────
+                  if (_activeTab == _Tab.location)
+                    Flexible(
+                      child: _LocationContent(
+                        isDark: isDark,
+                        mapCenter: _mapCenter,
+                        loadingLocation: _loadingLocation,
+                        selectedLocation: _selectedLocation,
+                        onCenterChanged: (latLng) =>
+                            setState(() => _selectedLocation = latLng),
+                        onMyLocation: _fetchCurrentLocation,
+                        onMapCreated: (controller) =>
+                            _mapController = controller,
+                      ),
+                    ),
+
+                  // ── Selected images grid ─────────────────────────
+                  if (_activeTab == _Tab.gallery && _selectedImages.isNotEmpty)
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: maxHeight * 0.45,
+                      ),
+                      child: GridView.builder(
+                        shrinkWrap: true,
+                        padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          mainAxisSpacing: 2,
+                          crossAxisSpacing: 2,
+                          childAspectRatio: 1,
                         ),
-                ),
+                        itemCount: _selectedImages.length,
+                        itemBuilder: (context, i) {
+                          final file = _selectedImages[i];
+                          return GestureDetector(
+                            onTap: () => _removeSelectedImage(file),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  Image.file(file, fit: BoxFit.cover),
+                                  Positioned(
+                                    top: 4,
+                                    right: 4,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(2),
+                                      decoration: const BoxDecoration(
+                                        color: Colors.black54,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(Icons.close,
+                                          size: 14, color: Colors.white),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
 
-                // ── Send button (full-width, above tab bar) ───────
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 150),
-                  child: _canSend
-                      ? Padding(
-                          key: const ValueKey('send-btn'),
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                          child: SizedBox(
-                            width: double.infinity,
+                  // ── Send button ──────────────────────────────────
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 150),
+                    child: _canSend
+                        ? Padding(
+                            key: const ValueKey('send-btn'),
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
                             child: GestureDetector(
                               onTap: _onSend,
                               child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    vertical: 14),
+                                width: double.infinity,
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 14),
                                 decoration: BoxDecoration(
-                                  color: isDark
-                                      ? Colors.white
-                                      : Colors.black,
+                                  color:
+                                      isDark ? Colors.white : Colors.black,
                                   borderRadius: BorderRadius.circular(24),
                                 ),
                                 child: Text(
-                                  _activeTab == _Tab.gallery && _selectedImages.length > 1
+                                  _activeTab == _Tab.gallery &&
+                                          _selectedImages.length > 1
                                       ? '${l10n.chatAttachButton} (${_selectedImages.length})'
                                       : l10n.chatAttachButton,
                                   textAlign: TextAlign.center,
                                   style: AppTypography.body2.copyWith(
                                     fontWeight: FontWeight.w700,
-                                    color: isDark
-                                        ? Colors.black
-                                        : Colors.white,
+                                    color:
+                                        isDark ? Colors.black : Colors.white,
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                        )
-                      : const SizedBox.shrink(key: ValueKey('no-send-btn')),
-                ),
+                          )
+                        : const SizedBox.shrink(key: ValueKey('no-send-btn')),
+                  ),
 
-                // ── Bottom tab bar ────────────────────────────────
-                _BottomTabBar(
-                  isDark: isDark,
-                  activeTab: _activeTab,
-                  onTabSelected: _switchTab,
-                  l10n: l10n,
-                ),
-              ],
+                  // ── Camera + Gallery buttons (gallery tab only) ──
+                  if (_activeTab == _Tab.gallery)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                      child: Column(
+                        children: [
+                          _PickerActionButton(
+                            isDark: isDark,
+                            icon: Icons.image_rounded,
+                            iconBackground: const LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Color(0xFFF093FB),
+                                Color(0xFFF5576C),
+                              ],
+                            ),
+                            label: l10n.chatAttachGallery,
+                            subtitle: l10n.chatAttachGallerySubtitle,
+                            onTap: _openGallery,
+                          ),
+                          const SizedBox(height: 10),
+                          _PickerActionButton(
+                            isDark: isDark,
+                            icon: Icons.camera_alt_rounded,
+                            iconBackground: const LinearGradient(
+                              colors: [Color(0xFFFF9800), Color(0xFFFF9800)],
+                            ),
+                            label: l10n.chatAttachCamera,
+                            subtitle: l10n.chatAttachCameraSubtitle,
+                            onTap: _captureFromCamera,
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  // ── Bottom tab bar ───────────────────────────────
+                  _BottomTabBar(
+                    isDark: isDark,
+                    activeTab: _activeTab,
+                    onTabSelected: _switchTab,
+                    l10n: l10n,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -352,228 +431,23 @@ class _AttachmentSheetContentState extends State<_AttachmentSheetContent> {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Gallery grid with live thumbnails + camera first cell
+// Picker action button
 // ──────────────────────────────────────────────────────────────────────────────
 
-class _GalleryGrid extends StatefulWidget {
+class _PickerActionButton extends StatelessWidget {
   final bool isDark;
-  final List<File> selectedImages;
-  final File? cameraCapture;
-  final VoidCallback onCapture;
-  final ValueChanged<File> onToggle;
-
-  const _GalleryGrid({
-    required this.isDark,
-    required this.selectedImages,
-    required this.cameraCapture,
-    required this.onCapture,
-    required this.onToggle,
-  });
-
-  @override
-  State<_GalleryGrid> createState() => _GalleryGridState();
-}
-
-class _GalleryGridState extends State<_GalleryGrid> with WidgetsBindingObserver {
-  List<AssetEntity> _assets = [];
-  bool _loading = true;
-  bool _permissionDenied = false;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    _loadGallery();
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Re-check permission when user returns from Settings
-    if (state == AppLifecycleState.resumed && _permissionDenied) {
-      setState(() {
-        _loading = true;
-        _permissionDenied = false;
-      });
-      _loadGallery();
-    }
-  }
-
-  Future<void> _loadGallery() async {
-    try {
-      // Use permission_handler for reliable cross-platform permission check
-      final PermissionStatus status;
-      if (Platform.isAndroid) {
-        // Android 13+ uses READ_MEDIA_IMAGES; older uses storage
-        final sdkInt = await _androidSdkVersion();
-        status = sdkInt >= 33
-            ? await Permission.photos.request()
-            : await Permission.storage.request();
-      } else {
-        status = await Permission.photos.request();
-      }
-
-      if (!mounted) return;
-
-      if (!status.isGranted && !status.isLimited) {
-        setState(() { _loading = false; _permissionDenied = true; });
-        return;
-      }
-
-      // Tell photo_manager to skip its own permission check
-      PhotoManager.setIgnorePermissionCheck(true);
-
-      final albums = await PhotoManager.getAssetPathList(
-        type: RequestType.image,
-        onlyAll: true,
-        filterOption: FilterOptionGroup(
-          orders: [
-            const OrderOption(type: OrderOptionType.createDate, asc: false),
-          ],
-        ),
-      );
-
-      if (!mounted) return;
-
-      if (albums.isEmpty) {
-        setState(() => _loading = false);
-        return;
-      }
-
-      final recent = await albums.first.getAssetListRange(start: 0, end: 60);
-      if (mounted) setState(() { _assets = recent; _loading = false; });
-    } catch (e) {
-      if (mounted) setState(() { _loading = false; _permissionDenied = true; });
-    }
-  }
-
-  Future<int> _androidSdkVersion() async {
-    if (!Platform.isAndroid) return 0;
-    try {
-      // Parse SDK int from system property via dart:io
-      final result = await Process.run('getprop', ['ro.build.version.sdk']);
-      return int.tryParse((result.stdout as String).trim()) ?? 0;
-    } catch (_) {
-      return 0;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = widget.isDark;
-
-    // ── Loading spinner ──────────────────────────────────────────────────────
-    if (_loading) {
-      return Center(
-        child: CircularProgressIndicator(
-          color: isDark ? Colors.white : Colors.black,
-          strokeWidth: 2,
-        ),
-      );
-    }
-
-    // ── Permission denied ────────────────────────────────────────────────────
-    if (_permissionDenied) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.photo_library_outlined,
-                size: 48,
-                color: isDark ? Colors.white38 : Colors.black26,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Allow photo access in Settings to pick from your library',
-                textAlign: TextAlign.center,
-                style: AppTypography.body2.copyWith(
-                  color: isDark ? Colors.white54 : Colors.black45,
-                ),
-              ),
-              const SizedBox(height: 16),
-              GestureDetector(
-                onTap: () async {
-                  await PhotoManager.openSetting();
-                  // Will be re-checked via didChangeAppLifecycleState on resume
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isDark ? Colors.white : Colors.black,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    'Open Settings',
-                    style: AppTypography.body2.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.black : Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // ── Photo grid: first cell = camera, rest = gallery thumbnails ───────────
-    return GridView.builder(
-      padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        mainAxisSpacing: 2,
-        crossAxisSpacing: 2,
-        childAspectRatio: 1,
-      ),
-      itemCount: _assets.length + 1,
-      itemBuilder: (context, index) {
-        if (index == 0) {
-          return _CameraCell(
-            isDark: isDark,
-            capturedFile: widget.cameraCapture,
-            onTap: widget.onCapture,
-          );
-        }
-        final asset = _assets[index - 1];
-        final selectedPaths = widget.selectedImages.map((f) => f.path).toSet();
-        return _GalleryThumbnailCell(
-          asset: asset,
-          isDark: isDark,
-          selectedPaths: selectedPaths,
-          onTap: () async {
-            final file = await asset.file;
-            if (file != null && context.mounted) widget.onToggle(file);
-          },
-        );
-      },
-    );
-  }
-}
-
-// ──────────────────────────────────────────────────────────────────────────────
-// Camera cell (first grid item)
-// ──────────────────────────────────────────────────────────────────────────────
-
-class _CameraCell extends StatelessWidget {
-  final bool isDark;
-  final File? capturedFile;
+  final IconData icon;
+  final Gradient iconBackground;
+  final String label;
+  final String subtitle;
   final VoidCallback onTap;
 
-  const _CameraCell({
+  const _PickerActionButton({
     required this.isDark,
-    required this.capturedFile,
+    required this.icon,
+    required this.iconBackground,
+    required this.label,
+    required this.subtitle,
     required this.onTap,
   });
 
@@ -581,128 +455,47 @@ class _CameraCell extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(6),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (capturedFile != null)
-              Image.file(capturedFile!, fit: BoxFit.cover)
-            else
-              Container(
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.08)
-                    : Colors.black.withValues(alpha: 0.06),
-              ),
-            Container(
-              color: Colors.black.withValues(
-                alpha: capturedFile != null ? 0.35 : 0.0,
-              ),
-              child: Center(
-                child: Icon(
-                  Icons.camera_alt_rounded,
-                  color: isDark || capturedFile != null
-                      ? Colors.white
-                      : Colors.black54,
-                  size: 30,
-                ),
-              ),
-            ),
-          ],
+      child: Container(
+        height: 56,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.06)
+              : const Color(0xFFF7F7F7),
+          borderRadius: BorderRadius.circular(16),
         ),
-      ),
-    );
-  }
-}
-
-// ──────────────────────────────────────────────────────────────────────────────
-// Gallery thumbnail cell
-// ──────────────────────────────────────────────────────────────────────────────
-
-class _GalleryThumbnailCell extends StatefulWidget {
-  final AssetEntity asset;
-  final bool isDark;
-  final Set<String> selectedPaths;
-  final VoidCallback onTap;
-
-  const _GalleryThumbnailCell({
-    required this.asset,
-    required this.isDark,
-    required this.selectedPaths,
-    required this.onTap,
-  });
-
-  @override
-  State<_GalleryThumbnailCell> createState() => _GalleryThumbnailCellState();
-}
-
-class _GalleryThumbnailCellState extends State<_GalleryThumbnailCell> {
-  Uint8List? _thumb;
-  String? _filePath;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadThumb();
-  }
-
-  Future<void> _loadThumb() async {
-    final bytes = await widget.asset.thumbnailDataWithSize(
-      const ThumbnailSize(300, 300),
-    );
-    final file = await widget.asset.file;
-    if (mounted) setState(() { _thumb = bytes; _filePath = file?.path; });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isSelected = _filePath != null && widget.selectedPaths.contains(_filePath);
-    final selectionNumber = isSelected
-        ? widget.selectedPaths.toList().indexOf(_filePath!) + 1
-        : -1;
-    return GestureDetector(
-      onTap: widget.onTap,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(4),
-        child: Stack(
-          fit: StackFit.expand,
+        child: Row(
           children: [
-            _thumb != null
-                ? Image.memory(_thumb!, fit: BoxFit.cover)
-                : Container(
-                    color: widget.isDark
-                        ? Colors.white.withValues(alpha: 0.06)
-                        : Colors.black.withValues(alpha: 0.04),
-                  ),
-            if (isSelected)
-              Container(color: Colors.black.withValues(alpha: 0.35)),
-            Positioned(
-              top: 6,
-              right: 6,
-              child: Container(
-                width: 22,
-                height: 22,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: isSelected ? Colors.white : Colors.transparent,
-                  border: Border.all(
-                    color: Colors.white,
-                    width: 2,
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                gradient: iconBackground,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 19, color: Colors.white),
+            ),
+            const SizedBox(width: 14),
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: AppTypography.body2.copyWith(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    color: isDark ? Colors.white : const Color(0xFF111111),
                   ),
                 ),
-                child: isSelected
-                    ? Center(
-                        child: Text(
-                          '$selectionNumber',
-                          style: const TextStyle(
-                            color: Colors.black,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      )
-                    : null,
-              ),
+                Text(
+                  subtitle,
+                  style: AppTypography.body2.copyWith(
+                    fontSize: 11,
+                    color: isDark ? Colors.white38 : Colors.black38,
+                  ),
+                ),
+              ],
             ),
           ],
         ),

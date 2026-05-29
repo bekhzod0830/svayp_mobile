@@ -585,6 +585,8 @@
   "chatOpenInMaps": "Открыть в Картах",
   "chatAttachCamera": "Камера",
   "chatAttachGallery": "Галерея",
+  "chatAttachGallerySubtitle": "Выбрать из галереи",
+  "chatAttachCameraSubtitle": "Сделать фото",
   "chatAttachPickHint": "Сделайте фото или выберите из галереи",
   "chatAttachComingSoon": "Отправка фото и геолокации скоро появится",
   "typeAMessage": "Введите ваше сообщение...",

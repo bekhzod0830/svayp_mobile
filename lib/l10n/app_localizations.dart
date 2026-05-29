@@ -2794,6 +2794,18 @@ abstract class AppLocalizations {
   /// **'Gallery'**
   String get chatAttachGallery;
 
+  /// No description provided for @chatAttachGallerySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose from your photos'**
+  String get chatAttachGallerySubtitle;
+
+  /// No description provided for @chatAttachCameraSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Take a new photo'**
+  String get chatAttachCameraSubtitle;
+
   /// No description provided for @chatAttachPickHint.
   ///
   /// In en, this message translates to:

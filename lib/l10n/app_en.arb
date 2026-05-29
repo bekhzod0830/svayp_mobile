@@ -589,6 +589,8 @@
   "chatOpenInMaps": "Open in Maps",
   "chatAttachCamera": "Camera",
   "chatAttachGallery": "Gallery",
+  "chatAttachGallerySubtitle": "Choose from your photos",
+  "chatAttachCameraSubtitle": "Take a new photo",
   "chatAttachPickHint": "Take a photo or choose from your library",
   "chatAttachComingSoon": "Photo & location sharing coming soon",
   "typeAMessage": "Type your message...",

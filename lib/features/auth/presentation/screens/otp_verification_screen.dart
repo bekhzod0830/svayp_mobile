@@ -28,11 +28,8 @@ class OtpVerificationScreen extends StatefulWidget {
 }
 
 class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
-  final List<TextEditingController> _otpControllers = List.generate(
-    6,
-    (_) => TextEditingController(),
-  );
-  final List<FocusNode> _otpFocusNodes = List.generate(6, (_) => FocusNode());
+  final TextEditingController _otpController = TextEditingController();
+  final FocusNode _otpFocusNode = FocusNode();
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
   bool _canResend = false;
@@ -47,74 +44,21 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     _startResendTimer();
     AnalyticsService.instance.logEvent(AnalyticsEvents.otpScreenOpened);
 
-    // Focus the first field as soon as the screen is shown
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _otpFocusNodes[0].requestFocus();
+      if (mounted) _otpFocusNode.requestFocus();
     });
-
-    // Listen to every field for paste / SMS autofill of full OTP
-    for (int i = 0; i < 6; i++) {
-      final idx = i;
-      _otpControllers[i].addListener(() => _handlePasteOrAutofill(idx));
-    }
-
-    // Detect backspace on already-empty fields so user can delete backwards
-    // without needing to tap each field manually.
-    for (int i = 1; i < 6; i++) {
-      final idx = i;
-      _otpFocusNodes[i].onKeyEvent = (node, event) {
-        if (event is KeyDownEvent &&
-            event.logicalKey == LogicalKeyboardKey.backspace &&
-            _otpControllers[idx].text.isEmpty) {
-          _otpFocusNodes[idx - 1].requestFocus();
-          return KeyEventResult.handled;
-        }
-        return KeyEventResult.ignored;
-      };
-    }
   }
 
   @override
   void dispose() {
-    for (var controller in _otpControllers) {
-      controller.dispose();
-    }
-    for (var focusNode in _otpFocusNodes) {
-      focusNode.dispose();
-    }
+    _otpController.dispose();
+    _otpFocusNode.dispose();
     _timer?.cancel();
     super.dispose();
   }
 
-  /// Handle paste or SMS autofill — any field may receive the full OTP string
-  void _handlePasteOrAutofill(int index) {
-    final text = _otpControllers[index].text;
-
-    if (text.length < 2) return; // Normal single-digit input — ignore
-
-    final digits = text.replaceAll(RegExp(r'\D'), '');
-    if (digits.length < 6) return;
-
-    // Distribute first 6 digits starting from position 0 (regardless of
-    // which field received the autofill / paste)
-    for (int i = 0; i < 6; i++) {
-      _otpControllers[i].text = digits[i];
-      _otpControllers[i].selection = TextSelection.fromPosition(
-        TextPosition(offset: 1),
-      );
-    }
-
-    // Move focus to last field and dismiss the keyboard
-    _otpFocusNodes[5].requestFocus();
-
-    // Auto-verify after a brief delay so the UI settles first
-    Future.delayed(const Duration(milliseconds: 150), () {
-      if (mounted) _verifyOTP();
-    });
-  }
-
   String _getOtpCode() {
-    return _otpControllers.map((c) => c.text).join();
+    return _otpController.text;
   }
 
   /// Format phone number as +998 (90) 123-12-12
@@ -352,119 +296,70 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                       ),
                       const SizedBox(height: 48),
 
-                      // OTP Input (6 digits)
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: List.generate(
-                          6,
-                          (index) => SizedBox(
-                            width: 48,
-                            height: 56,
-                            child: TextField(
-                              controller: _otpControllers[index],
-                              focusNode: _otpFocusNodes[index],
-                              keyboardType: TextInputType.number,
-                              keyboardAppearance: isDark
-                                  ? Brightness.dark
-                                  : Brightness.light,
-                              textAlign: TextAlign.center,
-                              textAlignVertical: TextAlignVertical.center,
-                              maxLength: index == 0 ? 6 : 1,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly,
-                                // Fields 1-5 hard-cap at 1 digit; field 0 allows
-                                // up to 6 so SMS autofill / paste can land there.
-                                if (index != 0)
-                                  LengthLimitingTextInputFormatter(1),
-                              ],
-                              // Only first field gets autofillHint for SMS autofill to work properly
-                              autofillHints: index == 0
-                                  ? const [AutofillHints.oneTimeCode]
-                                  : null,
-                              style: AppTypography.heading3.copyWith(
-                                height: 1.0,
-                                color: isDark
-                                    ? AppColors.darkPrimaryText
-                                    : AppColors.black,
-                              ),
-                              decoration: InputDecoration(
-                                counterText: '',
-                                filled: true,
-                                fillColor: isDark
-                                    ? AppColors.darkCardBackground
-                                    : AppColors.gray50,
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 0,
-                                  vertical: 16,
-                                ),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: isDark
-                                        ? AppColors.darkStandardBorder
-                                        : AppColors.standardBorder,
-                                    width: 1.5,
-                                  ),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: isDark
-                                        ? AppColors.darkStandardBorder
-                                        : AppColors.standardBorder,
-                                    width: 1.5,
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: isDark
-                                        ? AppColors.white
-                                        : AppColors.black,
-                                    width: 2,
-                                  ),
-                                ),
-                                errorBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: const BorderSide(
-                                    color: Colors.red,
-                                    width: 1.5,
-                                  ),
-                                ),
-                              ),
-                              onChanged: (value) {
-                                // Multi-char input (paste / autofill) is handled
-                                // by the per-controller listener; skip here.
-                                if (value.length > 1) return;
-
-                                // Handle forward movement (typing single digit)
-                                if (value.length == 1 && index < 5) {
-                                  _otpFocusNodes[index + 1].requestFocus();
-                                }
-
-                                // Handle backward movement (deletion/backspace)
-                                if (value.isEmpty && index > 0) {
-                                  _otpFocusNodes[index - 1].requestFocus();
-                                  _otpControllers[index - 1].clear();
-                                }
-
-                                // Auto-verify when last digit is entered manually
-                                if (index == 5 && value.length == 1) {
-                                  _verifyOTP();
-                                }
-                              },
-                              onTap: () {
-                                // Select all text when tapped for easier editing
-                                _otpControllers[index].selection =
-                                    TextSelection(
-                                      baseOffset: 0,
-                                      extentOffset:
-                                          _otpControllers[index].text.length,
-                                    );
-                              },
+                      // OTP Input — single field for 6-digit code
+                      TextField(
+                        controller: _otpController,
+                        focusNode: _otpFocusNode,
+                        keyboardType: TextInputType.number,
+                        keyboardAppearance: isDark
+                            ? Brightness.dark
+                            : Brightness.light,
+                        textAlign: TextAlign.center,
+                        textAlignVertical: TextAlignVertical.center,
+                        maxLength: 6,
+                        autofillHints: const [AutofillHints.oneTimeCode],
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(6),
+                        ],
+                        style: AppTypography.heading3.copyWith(
+                          height: 1.0,
+                          letterSpacing: 12,
+                          color: isDark
+                              ? AppColors.darkPrimaryText
+                              : AppColors.black,
+                        ),
+                        decoration: InputDecoration(
+                          counterText: '',
+                          filled: true,
+                          fillColor: isDark
+                              ? AppColors.darkCardBackground
+                              : AppColors.gray50,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 20,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide(
+                              color: isDark
+                                  ? AppColors.darkStandardBorder
+                                  : AppColors.standardBorder,
+                              width: 1.5,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide(
+                              color: isDark
+                                  ? AppColors.darkStandardBorder
+                                  : AppColors.standardBorder,
+                              width: 1.5,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide(
+                              color: isDark
+                                  ? AppColors.white
+                                  : AppColors.black,
+                              width: 2,
                             ),
                           ),
                         ),
+                        onChanged: (value) {
+                          if (value.length == 6) _verifyOTP();
+                        },
                       ),
                       const SizedBox(height: 32),
 
