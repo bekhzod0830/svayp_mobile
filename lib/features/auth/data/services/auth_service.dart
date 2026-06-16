@@ -202,6 +202,51 @@ class AuthService {
     return _apiClient.isAuthenticated();
   }
 
+  /// Telegram OIDC Login / Registration
+  ///
+  /// Exchanges the PKCE authorization code for tokens via the backend.
+  /// The backend verifies the Telegram id_token and returns the same
+  /// [TokenResponse] shape as [verifyOTP].
+  ///
+  /// Example:
+  /// ```dart
+  /// final tokenResponse = await authService.telegramOidcLogin(
+  ///   code: result.code,
+  ///   codeVerifier: result.codeVerifier,
+  ///   redirectUri: result.redirectUri,
+  ///   nonce: result.nonce,
+  /// );
+  /// ```
+  Future<TokenResponse> telegramOidcLogin({
+    required String code,
+    required String codeVerifier,
+    required String redirectUri,
+    required String nonce,
+  }) async {
+    try {
+      final response = await _apiClient.post(
+        ApiConfig.authTelegramOidc,
+        data: {
+          'code': code,
+          'codeVerifier': codeVerifier,
+          'redirectUri': redirectUri,
+          'nonce': nonce,
+        },
+      );
+
+      final tokenResponse = TokenResponse.fromJson(response.data);
+
+      await _apiClient.saveToken(tokenResponse.accessToken);
+      if (tokenResponse.refreshToken != null) {
+        await _apiClient.saveRefreshToken(tokenResponse.refreshToken!);
+      }
+
+      return tokenResponse;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   /// Admin / Partner Login
   ///
   /// Authenticates a partner (seller / sales rep / admin) with username + password.

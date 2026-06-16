@@ -8,6 +8,9 @@ class WebUrls {
 
   static const String _base = 'https://web.svaypai.com';
 
+  // ── Auth screens ───────────────────────────────────────────────────────────
+  static const String authPhone = '$_base/auth/phone';
+
   // ── Tab screens ────────────────────────────────────────────────────────────
   static const String discover = '$_base/discover';
   static const String shop = '$_base/shop';

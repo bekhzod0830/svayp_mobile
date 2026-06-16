@@ -23,6 +23,7 @@ class ApiConfig {
   // ==================== Authentication Endpoints ====================
   static const String authSendOtp = '/auth/otp/send';
   static const String authVerifyOtp = '/auth/otp/verify';
+  static const String authTelegramOidc = '/auth/telegram/oidc';
   static const String authRefreshToken = '/auth/token/refresh';
   static const String authLogout = '/auth/logout';
   static const String authMe = '/auth/me';

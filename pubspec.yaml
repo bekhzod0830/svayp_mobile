@@ -119,6 +119,12 @@ dependencies:
 
   # URL Launcher
   url_launcher: ^6.3.1
+
+  # Deep link handling (Telegram OIDC OAuth callback)
+  app_links: ^6.4.0
+
+  # SHA-256 for PKCE code_challenge
+  crypto: ^3.0.3
   
   # Google Maps for chat location sharing
   google_maps_flutter: ^2.8.0

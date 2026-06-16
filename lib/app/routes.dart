@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:swipe/features/onboarding/presentation/screens/splash_screen.dart';
 import 'package:swipe/features/onboarding/presentation/screens/force_update_screen.dart';
 import 'package:swipe/features/onboarding/presentation/screens/welcome_screen.dart';
-import 'package:swipe/features/auth/presentation/screens/phone_auth_screen.dart';
-import 'package:swipe/features/auth/presentation/screens/otp_verification_screen.dart';
-import 'package:swipe/features/auth/presentation/screens/partner_login_screen.dart';
+import 'package:swipe/features/auth/presentation/screens/auth_web_view_screen.dart';
+import 'package:swipe/features/auth/presentation/screens/phone_auth_screen.dart'; // kept — not used in new flow
+import 'package:swipe/features/auth/presentation/screens/otp_verification_screen.dart'; // kept — not used in new flow
+import 'package:swipe/features/auth/presentation/screens/partner_login_screen.dart'; // kept — not used in new flow
 import 'package:swipe/features/partner/presentation/screens/partner_main_screen.dart';
 import 'package:swipe/features/onboarding/presentation/screens/basic_info_screen.dart';
 import 'package:swipe/features/onboarding/presentation/screens/hijab_preference_screen.dart';
@@ -102,16 +103,13 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => const WelcomeScreen());
 
       case phoneAuth:
-        return MaterialPageRoute(builder: (_) => const PhoneAuthScreen());
+        return MaterialPageRoute(builder: (_) => const AuthWebViewScreen());
 
+      // Safety net: if any deep-link or old code still pushes these routes,
+      // redirect to the WebView auth flow instead of the old native screens.
       case otpVerification:
-        final phoneNumber = settings.arguments as String? ?? '';
-        return MaterialPageRoute(
-          builder: (_) => OtpVerificationScreen(phoneNumber: phoneNumber),
-        );
-
       case basicInfo:
-        return MaterialPageRoute(builder: (_) => const BasicInfoScreen());
+        return MaterialPageRoute(builder: (_) => const AuthWebViewScreen());
 
       case hijabPreference:
         return MaterialPageRoute(

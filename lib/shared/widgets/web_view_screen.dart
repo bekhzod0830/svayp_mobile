@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:swipe/core/localization/services/language_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
@@ -152,29 +153,36 @@ class _WebViewScreenState extends State<WebViewScreen> {
     await [Permission.camera, Permission.photos].request();
   }
 
-  /// Reads the stored tokens from SharedPreferences and loads the target URL
-  /// with auth_token / refresh_token appended as query parameters.
+  /// Reads the stored tokens, language preference, and theme from
+  /// SharedPreferences and loads the target URL with those values appended as
+  /// query parameters.
   ///
-  /// The web app reads these params in _app.tsx before its auth guard runs,
-  /// stores them in localStorage, and strips them from the URL — so the token
-  /// never stays visible in the address bar and no JS injection timing race
-  /// exists.
+  /// The web app reads these params before its auth guard and providers
+  /// initialise, stores them in localStorage, and strips them from the URL.
   Future<void> _loadWithToken() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('auth_token') ?? '';
       final refreshToken = prefs.getString('refresh_token') ?? '';
 
+      // Read the user's preferred language (stored by LanguageService via Hive).
+      final langCode = await LanguageService().getCurrentLanguageCode();
+
+      // Read theme preference stored by ThemeService ('dark' or 'light').
+      final theme = prefs.getString('theme_mode') ?? 'light';
+
       Uri uri = Uri.parse(widget.url);
+      final merged = Map<String, String>.from(uri.queryParameters)
+        ..['lang'] = langCode
+        ..['theme'] = theme;
       if (token.isNotEmpty) {
-        final merged = Map<String, String>.from(uri.queryParameters)
-          ..['auth_token'] = token
-          ..['refresh_token'] = refreshToken;
-        uri = uri.replace(queryParameters: merged);
+        merged['auth_token'] = token;
+        merged['refresh_token'] = refreshToken;
       }
+      uri = uri.replace(queryParameters: merged);
       await _controller.loadRequest(uri);
     } catch (_) {
-      // Fallback: load without token; web app will show its own login.
+      // Fallback: load without params; web app will use its own defaults.
       await _controller.loadRequest(Uri.parse(widget.url));
     }
   }

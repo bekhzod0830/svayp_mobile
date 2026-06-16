@@ -72,5 +72,16 @@
 		<string>comgooglemaps</string>
 		<string>geo</string>
 	</array>
-</dict>
-</plist>
+        <key>CFBundleURLTypes</key>
+        <array>
+                <dict>
+                        <key>CFBundleTypeRole</key>
+                        <string>Editor</string>
+                        <key>CFBundleURLName</key>
+                        <string>com.svaypai.app</string>
+                        <key>CFBundleURLSchemes</key>
+                        <array>
+                                <string>com.svaypai.app</string>
+                        </array>
+                </dict>
+        </array>

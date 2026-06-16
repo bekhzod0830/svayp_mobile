@@ -15,6 +15,7 @@ import 'package:swipe/core/analytics/analytics_service.dart';
 import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/core/utils/local_storage_helper.dart';
 import 'package:swipe/features/auth/data/services/auth_service.dart';
+import 'package:swipe/features/auth/data/services/telegram_auth_service.dart';
 import 'package:swipe/core/network/api_client.dart';
 import 'package:swipe/core/utils/error_message_helper.dart';
 
@@ -32,6 +33,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
   final _formKey = GlobalKey<FormState>();
   final _scrollController = ScrollController();
   bool _isLoading = false;
+  bool _isTelegramLoading = false;
   late final AuthService _authService;
   int _logoTapCount = 0;
   Timer? _logoTapResetTimer;
@@ -78,6 +80,53 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
     Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (_) => const PartnerLoginScreen()));
+  }
+
+  Future<void> _telegramLogin() async {
+    setState(() => _isTelegramLoading = true);
+
+    try {
+      final result = await TelegramAuthService.instance.startAuth();
+
+      if (!mounted) return;
+
+      switch (result) {
+        case TelegramAuthCancelled():
+          // User closed Telegram — silent, no error shown.
+          return;
+        case TelegramAuthError(:final message):
+          SnackBarHelper.showError(context, message);
+          return;
+        case TelegramAuthSuccess(
+          :final code,
+          :final codeVerifier,
+          :final redirectUri,
+          :final nonce,
+        ):
+          await _authService.telegramOidcLogin(
+            code: code,
+            codeVerifier: codeVerifier,
+            redirectUri: redirectUri,
+            nonce: nonce,
+          );
+          if (!mounted) return;
+          Navigator.of(context).pushReplacementNamed('/main');
+      }
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      SnackBarHelper.showError(
+        context,
+        ErrorMessageHelper.getLocalizedMessage(context, e),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      SnackBarHelper.showError(
+        context,
+        'Telegram login failed. Please try again.',
+      );
+    } finally {
+      if (mounted) setState(() => _isTelegramLoading = false);
+    }
   }
 
   Future<void> _sendOTP() async {
@@ -358,6 +407,63 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                         onPressed: _sendOTP,
                         isLoading: _isLoading,
                         isFullWidth: true,
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Divider
+                      Row(
+                        children: [
+                          const Expanded(child: Divider()),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Text(
+                              'или',
+                              style: AppTypography.body2.copyWith(
+                                color: isDark
+                                    ? AppColors.darkSecondaryText
+                                    : AppColors.secondaryText,
+                              ),
+                            ),
+                          ),
+                          const Expanded(child: Divider()),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Telegram Login Button
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: _isTelegramLoading ? null : _telegramLogin,
+                          icon: _isTelegramLoading
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Color(0xFF2AABEE),
+                                  ),
+                                )
+                              : const Icon(
+                                  Icons.send,
+                                  color: Color(0xFF2AABEE),
+                                  size: 20,
+                                ),
+                          label: const Text(
+                            'Продолжить через Telegram',
+                            style: TextStyle(
+                              color: Color(0xFF2AABEE),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            side: const BorderSide(color: Color(0xFF2AABEE)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 8),
                       // Browse as Guest

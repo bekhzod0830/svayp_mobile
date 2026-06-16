@@ -38,6 +38,16 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- Telegram OIDC OAuth callback deep link -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data
+                    android:scheme="com.svaypai.app"
+                    android:host="auth"
+                    android:path="/telegram/callback"/>
+            </intent-filter>
         </activity>
         <!-- Google Maps API Key -->
         <meta-data
