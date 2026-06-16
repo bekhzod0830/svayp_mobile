@@ -12,6 +12,7 @@ import 'package:swipe/core/constants/web_urls.dart';
 import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/core/localization/services/language_service.dart';
 import 'package:swipe/core/network/api_client.dart';
+import 'package:swipe/features/auth/data/services/telegram_auth_service.dart';
 import 'package:swipe/core/services/notification_service.dart';
 import 'package:swipe/core/services/seen_products_service.dart';
 import 'package:swipe/core/utils/local_storage_helper.dart';
@@ -39,12 +40,6 @@ class _AuthWebViewScreenState extends State<AuthWebViewScreen> {
   bool _isLoading = true;
   bool _hasError = false;
 
-  // Stored when the web page sends telegram_auth_start
-  String? _tgCodeVerifier;
-  String? _tgState;
-  String? _tgNonce;
-  String? _tgRedirectUri;
-
   @override
   void initState() {
     super.initState();
@@ -70,15 +65,6 @@ class _AuthWebViewScreenState extends State<AuthWebViewScreen> {
       )
       ..setNavigationDelegate(
         NavigationDelegate(
-          onNavigationRequest: (request) {
-            final url = request.url;
-            // Intercept Telegram OIDC callback deep link
-            if (url.startsWith('com.svaypai.app://auth/telegram/callback')) {
-              _handleTelegramCallback(url);
-              return NavigationDecision.prevent;
-            }
-            return NavigationDecision.navigate;
-          },
           onPageStarted: (_) {
             if (mounted) setState(() { _isLoading = true; _hasError = false; });
           },
@@ -130,32 +116,54 @@ class _AuthWebViewScreenState extends State<AuthWebViewScreen> {
         case 'guest_mode':
           await _handleGuestMode();
         case 'telegram_auth_start':
-          // Store PKCE session so we can use it when intercepting the callback
-          _tgCodeVerifier = map['codeVerifier'] as String?;
-          _tgState        = map['state']        as String?;
-          _tgNonce        = map['nonce']        as String?;
-          _tgRedirectUri  = map['redirectUri']  as String?;
+          // The web button delegates to native: open the Telegram app in an
+          // external browser and catch the deep-link callback. We generate our
+          // own PKCE in TelegramAuthService (the web's url/PKCE are ignored).
+          await _startTelegramAuth();
       }
     } catch (_) {
       // Malformed message — ignore silently.
     }
   }
 
-  /// Called when the WebView is about to navigate to the Telegram deep-link
-  /// callback URL (com.svaypai.app://auth/telegram/callback?code=...&state=...).
-  Future<void> _handleTelegramCallback(String callbackUrl) async {
-    final uri = Uri.parse(callbackUrl);
-    final code  = uri.queryParameters['code'];
-    final state = uri.queryParameters['state'];
+  /// Telegram OIDC via the native helper: opens the Telegram app in an external
+  /// browser (LaunchMode.externalApplication) and waits for the
+  /// com.svaypai.app://auth/telegram/callback deep link (caught by app_links),
+  /// validating `state` for CSRF. On success we exchange the code for tokens.
+  Future<void> _startTelegramAuth() async {
+    final result = await TelegramAuthService.instance.startAuth();
+    if (!mounted) return;
 
-    // CSRF check
-    if (code == null || state == null || state != _tgState ||
-        _tgCodeVerifier == null || _tgRedirectUri == null) {
-      // Mismatch — reload auth start
-      await _loadAuthUrl();
-      return;
+    switch (result) {
+      case TelegramAuthCancelled():
+        // User closed Telegram without finishing — silent.
+        return;
+      case TelegramAuthError(:final message):
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+      case TelegramAuthSuccess(
+          :final code,
+          :final codeVerifier,
+          :final redirectUri,
+          :final nonce,
+        ):
+        await _exchangeTelegramCode(
+          code: code,
+          codeVerifier: codeVerifier,
+          redirectUri: redirectUri,
+          nonce: nonce,
+        );
     }
+  }
 
+  /// Sends the Telegram authorization code to the backend and completes login.
+  Future<void> _exchangeTelegramCode({
+    required String code,
+    required String codeVerifier,
+    required String redirectUri,
+    required String nonce,
+  }) async {
     if (mounted) setState(() => _isLoading = true);
 
     try {
@@ -163,10 +171,10 @@ class _AuthWebViewScreenState extends State<AuthWebViewScreen> {
       final response = await apiClient.post<Map<String, dynamic>>(
         '/auth/telegram/oidc',
         data: {
-          'code':          code,
-          'codeVerifier': _tgCodeVerifier,
-          'redirectUri':  _tgRedirectUri,
-          'nonce':        _tgNonce,
+          'code':         code,
+          'codeVerifier': codeVerifier,
+          'redirectUri':  redirectUri,
+          'nonce':        nonce,
         },
       );
 
@@ -179,7 +187,7 @@ class _AuthWebViewScreenState extends State<AuthWebViewScreen> {
       final user = payload['user'] as Map<String, dynamic>? ?? {};
 
       if (accessToken.isEmpty) {
-        await _loadAuthUrl();
+        if (mounted) setState(() => _isLoading = false);
         return;
       }
 
@@ -192,9 +200,8 @@ class _AuthWebViewScreenState extends State<AuthWebViewScreen> {
       }, isNewUser: !(user['hasProfile'] as bool? ??
                      user['has_profile'] as bool? ?? false));
     } catch (_) {
-      // On error reload the auth flow
       if (mounted) setState(() => _isLoading = false);
-      await _loadAuthUrl();
+      // Stay on the auth page; the user can retry.
     }
   }
 
@@ -224,8 +231,7 @@ class _AuthWebViewScreenState extends State<AuthWebViewScreen> {
     await storage.clearGuestMode();
 
     // Clear seen product IDs if a different account is logging in.
-    final userIdInt = int.tryParse(userId) ?? 0;
-    await SeenProductsService.clearIfUserChanged(userIdInt);
+    await SeenProductsService.clearIfUserChanged(userId);
 
     // Register FCM token (fire-and-forget — non-critical).
     unawaited(NotificationService.instance.registerTokenWithBackend());
