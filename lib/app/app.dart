@@ -67,6 +67,7 @@ class SwipeAppState extends State<SwipeApp>
         codeVerifier: result.codeVerifier,
         redirectUri: result.redirectUri,
         nonce: result.nonce,
+        phoneNumber: result.enteredPhone,
       );
 
       // Tokens are saved by telegramOidcLogin. Finish the session.

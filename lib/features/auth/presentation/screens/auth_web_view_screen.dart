@@ -119,7 +119,8 @@ class _AuthWebViewScreenState extends State<AuthWebViewScreen> {
           // The web button delegates to native: open the Telegram app in an
           // external browser and catch the deep-link callback. We generate our
           // own PKCE in TelegramAuthService (the web's url/PKCE are ignored).
-          await _startTelegramAuth();
+          // The phone the user typed is forwarded as a fallback for the backend.
+          await _startTelegramAuth(map['phone'] as String?);
       }
     } catch (_) {
       // Malformed message — ignore silently.
@@ -130,8 +131,9 @@ class _AuthWebViewScreenState extends State<AuthWebViewScreen> {
   /// browser (LaunchMode.externalApplication) and waits for the
   /// com.svaypai.app://auth/telegram/callback deep link (caught by app_links),
   /// validating `state` for CSRF. On success we exchange the code for tokens.
-  Future<void> _startTelegramAuth() async {
-    final result = await TelegramAuthService.instance.startAuth();
+  Future<void> _startTelegramAuth(String? enteredPhone) async {
+    final result =
+        await TelegramAuthService.instance.startAuth(enteredPhone: enteredPhone);
     if (!mounted) return;
 
     switch (result) {
@@ -147,12 +149,14 @@ class _AuthWebViewScreenState extends State<AuthWebViewScreen> {
           :final codeVerifier,
           :final redirectUri,
           :final nonce,
+          :final enteredPhone,
         ):
         await _exchangeTelegramCode(
           code: code,
           codeVerifier: codeVerifier,
           redirectUri: redirectUri,
           nonce: nonce,
+          phoneNumber: enteredPhone,
         );
     }
   }
@@ -163,6 +167,7 @@ class _AuthWebViewScreenState extends State<AuthWebViewScreen> {
     required String codeVerifier,
     required String redirectUri,
     required String nonce,
+    String? phoneNumber,
   }) async {
     if (mounted) setState(() => _isLoading = true);
 
@@ -175,6 +180,8 @@ class _AuthWebViewScreenState extends State<AuthWebViewScreen> {
           'codeVerifier': codeVerifier,
           'redirectUri':  redirectUri,
           'nonce':        nonce,
+          if (phoneNumber != null && phoneNumber.isNotEmpty)
+            'phoneNumber': phoneNumber,
         },
       );
 

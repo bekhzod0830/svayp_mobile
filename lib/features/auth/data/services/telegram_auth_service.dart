@@ -16,11 +16,16 @@ class TelegramAuthSuccess extends TelegramAuthResult {
   final String redirectUri;
   final String nonce;
 
+  /// Phone the user typed on the auth screen — fallback for the backend when
+  /// Telegram does not return a verified phone_number.
+  final String? enteredPhone;
+
   TelegramAuthSuccess({
     required this.code,
     required this.codeVerifier,
     required this.redirectUri,
     required this.nonce,
+    this.enteredPhone,
   });
 }
 
@@ -59,6 +64,7 @@ class TelegramAuthService {
   static const String _kState    = 'tg_pkce_state';
   static const String _kNonce    = 'tg_pkce_nonce';
   static const String _kRedirect = 'tg_pkce_redirect';
+  static const String _kPhone    = 'tg_pkce_phone';
 
   final _appLinks = AppLinks();
   StreamSubscription<Uri>? _linkSub;
@@ -68,7 +74,7 @@ class TelegramAuthService {
   ///
   /// PKCE params are also persisted so that if the app is killed while the user
   /// is in the external browser, the cold-start handler in app.dart can finish.
-  Future<TelegramAuthResult> startAuth() async {
+  Future<TelegramAuthResult> startAuth({String? enteredPhone}) async {
     final codeVerifier = _generateCodeVerifier();
     final codeChallenge = _s256(codeVerifier);
     final state = _generateRandom(32);
@@ -80,6 +86,11 @@ class TelegramAuthService {
     await prefs.setString(_kState, state);
     await prefs.setString(_kNonce, nonce);
     await prefs.setString(_kRedirect, _redirectUri);
+    if (enteredPhone != null && enteredPhone.isNotEmpty) {
+      await prefs.setString(_kPhone, enteredPhone);
+    } else {
+      await prefs.remove(_kPhone);
+    }
 
     final authUri = Uri.parse(_authEndpoint).replace(queryParameters: {
       'client_id': _clientId,
@@ -130,6 +141,7 @@ class TelegramAuthService {
         codeVerifier: codeVerifier,
         redirectUri: _redirectUri,
         nonce: nonce,
+        enteredPhone: enteredPhone,
       ));
     });
 
@@ -170,6 +182,7 @@ class TelegramAuthService {
     final expectedState = prefs.getString(_kState);
     final nonce = prefs.getString(_kNonce) ?? '';
     final redirectUri = prefs.getString(_kRedirect) ?? _redirectUri;
+    final enteredPhone = prefs.getString(_kPhone);
     await _clearPending();
 
     final error = uri.queryParameters['error'];
@@ -189,6 +202,7 @@ class TelegramAuthService {
       codeVerifier: codeVerifier,
       redirectUri: redirectUri,
       nonce: nonce,
+      enteredPhone: enteredPhone,
     );
   }
 
@@ -198,6 +212,7 @@ class TelegramAuthService {
     await prefs.remove(_kState);
     await prefs.remove(_kNonce);
     await prefs.remove(_kRedirect);
+    await prefs.remove(_kPhone);
   }
 
   bool _isTelegramCallback(Uri uri) =>

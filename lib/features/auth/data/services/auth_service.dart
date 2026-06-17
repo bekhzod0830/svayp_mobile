@@ -222,6 +222,7 @@ class AuthService {
     required String codeVerifier,
     required String redirectUri,
     required String nonce,
+    String? phoneNumber,
   }) async {
     try {
       final response = await _apiClient.post(
@@ -231,6 +232,8 @@ class AuthService {
           'codeVerifier': codeVerifier,
           'redirectUri': redirectUri,
           'nonce': nonce,
+          if (phoneNumber != null && phoneNumber.isNotEmpty)
+            'phoneNumber': phoneNumber,
         },
       );
 
