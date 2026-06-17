@@ -34,6 +34,13 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
+            <!-- Disable Flutter's built-in deep linking so the app_links plugin
+                 receives the com.svaypai.app:// Telegram OIDC callback instead of
+                 Flutter trying to route /telegram/callback via the Navigator. -->
+            <meta-data
+              android:name="flutter_deeplinking_enabled"
+              android:value="false"
+              />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
