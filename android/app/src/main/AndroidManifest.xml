@@ -55,6 +55,15 @@
                     android:host="auth"
                     android:path="/telegram/callback"/>
             </intent-filter>
+            <!-- Broad custom-scheme catch-all for Telegram native SDK fallback.
+                 When App Link verification fails, the SDK redirects to
+                 com.svaypai.app://<anything> — this catches all such paths. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="com.svaypai.app"/>
+            </intent-filter>
             <!-- Telegram NATIVE login SDK app-link redirect (BotFather App URL).
                  Host must match telegram.oidc Android App URL app1194732191-login.tg.dev. -->
             <intent-filter android:autoVerify="true">
