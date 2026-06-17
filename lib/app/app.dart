@@ -76,8 +76,14 @@ class SwipeAppState extends State<SwipeApp>
 
       navigatorKey.currentState
           ?.pushNamedAndRemoveUntil('/main', (_) => false);
-    } catch (_) {
-      // Ignore — the user can retry from the auth screen.
+    } catch (e) {
+      // Surface the error so blockers (503 config / 400 phone) are visible.
+      final messenger = navigatorKey.currentState != null
+          ? ScaffoldMessenger.maybeOf(navigatorKey.currentContext!)
+          : null;
+      messenger?.showSnackBar(
+        SnackBar(content: Text('Telegram: $e')),
+      );
     }
   }
 

@@ -199,9 +199,14 @@ class _AuthWebViewScreenState extends State<AuthWebViewScreen> {
         'username': user['username']?.toString() ?? '',
       }, isNewUser: !(user['hasProfile'] as bool? ??
                      user['has_profile'] as bool? ?? false));
-    } catch (_) {
-      if (mounted) setState(() => _isLoading = false);
-      // Stay on the auth page; the user can retry.
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        // Surface the error (e.g. 503 not configured / 400 phone missing).
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Telegram: $e')),
+        );
+      }
     }
   }
 
