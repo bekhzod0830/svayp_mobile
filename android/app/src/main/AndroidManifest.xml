@@ -45,7 +45,7 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-            <!-- Telegram OIDC OAuth callback deep link -->
+            <!-- Telegram OIDC OAuth callback deep link (legacy web flow) -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
@@ -54,6 +54,17 @@
                     android:scheme="com.svaypai.app"
                     android:host="auth"
                     android:path="/telegram/callback"/>
+            </intent-filter>
+            <!-- Telegram NATIVE login SDK app-link redirect (BotFather App URL).
+                 Host must match telegram.oidc Android App URL app1194732191-login.tg.dev. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data
+                    android:scheme="https"
+                    android:host="app1194732191-login.tg.dev"
+                    android:pathPrefix="/tglogin"/>
             </intent-filter>
         </activity>
         <!-- Google Maps API Key -->

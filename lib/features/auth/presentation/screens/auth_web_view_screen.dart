@@ -12,7 +12,7 @@ import 'package:swipe/core/constants/web_urls.dart';
 import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/core/localization/services/language_service.dart';
 import 'package:swipe/core/network/api_client.dart';
-import 'package:swipe/features/auth/data/services/telegram_auth_service.dart';
+import 'package:swipe/features/auth/data/services/telegram_native_auth_service.dart';
 import 'package:swipe/core/services/notification_service.dart';
 import 'package:swipe/core/services/seen_products_service.dart';
 import 'package:swipe/core/utils/local_storage_helper.dart';
@@ -131,42 +131,25 @@ class _AuthWebViewScreenState extends State<AuthWebViewScreen> {
   /// browser (LaunchMode.externalApplication) and waits for the
   /// com.svaypai.app://auth/telegram/callback deep link (caught by app_links),
   /// validating `state` for CSRF. On success we exchange the code for tokens.
+  /// Native Telegram login: opens the Telegram app directly (no browser, no new
+  /// web device), gets a signed id_token, and exchanges it on the backend.
   Future<void> _startTelegramAuth(String? enteredPhone) async {
-    final result =
-        await TelegramAuthService.instance.startAuth(enteredPhone: enteredPhone);
-    if (!mounted) return;
-
-    switch (result) {
-      case TelegramAuthCancelled():
-        // User closed Telegram without finishing — silent.
-        return;
-      case TelegramAuthError(:final message):
+    try {
+      final idToken = await TelegramNativeAuth.instance.login();
+      if (!mounted || idToken == null) return; // null = user cancelled
+      await _exchangeTelegramNative(idToken: idToken, phoneNumber: enteredPhone);
+    } catch (e) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message)),
+          SnackBar(content: Text('Telegram: $e')),
         );
-      case TelegramAuthSuccess(
-          :final code,
-          :final codeVerifier,
-          :final redirectUri,
-          :final nonce,
-          :final enteredPhone,
-        ):
-        await _exchangeTelegramCode(
-          code: code,
-          codeVerifier: codeVerifier,
-          redirectUri: redirectUri,
-          nonce: nonce,
-          phoneNumber: enteredPhone,
-        );
+      }
     }
   }
 
-  /// Sends the Telegram authorization code to the backend and completes login.
-  Future<void> _exchangeTelegramCode({
-    required String code,
-    required String codeVerifier,
-    required String redirectUri,
-    required String nonce,
+  /// Sends the native id_token to the backend and completes login.
+  Future<void> _exchangeTelegramNative({
+    required String idToken,
     String? phoneNumber,
   }) async {
     if (mounted) setState(() => _isLoading = true);
@@ -174,12 +157,9 @@ class _AuthWebViewScreenState extends State<AuthWebViewScreen> {
     try {
       final apiClient = getIt<ApiClient>();
       final response = await apiClient.post<Map<String, dynamic>>(
-        '/auth/telegram/oidc',
+        '/auth/telegram/native',
         data: {
-          'code':         code,
-          'codeVerifier': codeVerifier,
-          'redirectUri':  redirectUri,
-          'nonce':        nonce,
+          'idToken': idToken,
           if (phoneNumber != null && phoneNumber.isNotEmpty)
             'phoneNumber': phoneNumber,
         },

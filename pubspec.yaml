@@ -125,6 +125,10 @@ dependencies:
 
   # SHA-256 for PKCE code_challenge
   crypto: ^3.0.3
+
+  # Telegram NATIVE login SDK (app-to-app, no browser → no Chrome device).
+  # Wraps the official TelegramMessenger/telegram-login Android & iOS SDKs.
+  telegram_login: ^1.0.0
   
   # Google Maps for chat location sharing
   google_maps_flutter: ^2.8.0
