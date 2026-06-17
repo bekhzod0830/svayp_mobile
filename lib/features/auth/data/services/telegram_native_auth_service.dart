@@ -31,6 +31,15 @@ class TelegramNativeAuth {
   final TelegramLogin _tg = TelegramLogin();
   bool _configured = false;
 
+  /// Forward a redirect URI to the SDK.
+  ///
+  /// Called by [AuthWebViewScreen] when the App Link verification fails and
+  /// Android receives the fallback `com.svaypai.app://` URI via [app_links].
+  /// We reconstruct it with scheme=https so the SDK's [uriMatchesRedirect]
+  /// check passes (it only compares scheme + host against the configured
+  /// HTTPS redirect URI).
+  Future<bool> handleUrl(Uri uri) => _tg.handleUrl(uri);
+
   /// Opens the Telegram app and returns a signed `id_token`, or `null` if the
   /// user cancelled. Throws [TelegramLoginError] on other failures.
   Future<String?> login() async {

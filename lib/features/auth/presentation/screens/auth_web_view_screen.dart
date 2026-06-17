@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -133,12 +134,43 @@ class _AuthWebViewScreenState extends State<AuthWebViewScreen> {
   /// validating `state` for CSRF. On success we exchange the code for tokens.
   /// Native Telegram login: opens the Telegram app directly (no browser, no new
   /// web device), gets a signed id_token, and exchanges it on the backend.
+  ///
+  /// When Android App Link verification fails (SHA-256 mismatch), Telegram
+  /// opens Chrome → "Almost done" page → user taps "Continue" → Chrome fires
+  /// the fallback custom-scheme URI `com.svaypai.app://...`. The SDK's internal
+  /// [uriMatchesRedirect] check rejects this scheme (expects `https`), so we
+  /// intercept it via [app_links] and forward it with the scheme swapped to
+  /// `https` — the check then passes and the SDK resolves the pending login.
   Future<void> _startTelegramAuth(String? enteredPhone) async {
+    StreamSubscription<Uri>? fallbackSub;
+
+    // Subscribe before calling login() so we don't miss the callback.
+    fallbackSub = AppLinks().uriLinkStream.listen((uri) {
+      if (uri.scheme == 'com.svaypai.app') {
+        // Rebuild the URI with https scheme so uriMatchesRedirect passes.
+        final httpsUri = Uri(
+          scheme: 'https',
+          host: uri.host.isNotEmpty
+              ? uri.host
+              : 'app1194732191-login.tg.dev',
+          path: uri.path.isNotEmpty ? uri.path : '/tglogin',
+          queryParameters: uri.queryParameters.isNotEmpty
+              ? uri.queryParameters
+              : null,
+          fragment: uri.fragment.isNotEmpty ? uri.fragment : null,
+        );
+        TelegramNativeAuth.instance.handleUrl(httpsUri);
+        fallbackSub?.cancel();
+      }
+    });
+
     try {
       final idToken = await TelegramNativeAuth.instance.login();
+      fallbackSub.cancel();
       if (!mounted || idToken == null) return; // null = user cancelled
       await _exchangeTelegramNative(idToken: idToken, phoneNumber: enteredPhone);
     } catch (e) {
+      fallbackSub.cancel();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Telegram: $e')),
