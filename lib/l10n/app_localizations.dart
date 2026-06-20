@@ -5835,6 +5835,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Add at least 5 items to unlock outfit creation'**
   String get outfitsNeedMoreItems;
+
+  /// No description provided for @verifyMethodTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Verify your identity'**
+  String get verifyMethodTitle;
+
+  /// No description provided for @verifyMethodSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a verification method'**
+  String get verifyMethodSubtitle;
+
+  /// No description provided for @continueWithGoogle.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue with Google'**
+  String get continueWithGoogle;
+
+  /// No description provided for @continueWithApple.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue with Apple'**
+  String get continueWithApple;
+
+  /// No description provided for @verifyWithSms.
+  ///
+  /// In en, this message translates to:
+  /// **'Verify with SMS'**
+  String get verifyWithSms;
+
+  /// No description provided for @signInTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in'**
+  String get signInTitle;
+
+  /// No description provided for @createAccountTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Create account'**
+  String get createAccountTitle;
+
+  /// No description provided for @linkAccountTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Link your account'**
+  String get linkAccountTitle;
 }
 
 class _AppLocalizationsDelegate

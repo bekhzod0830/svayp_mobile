@@ -120,16 +120,12 @@ dependencies:
   # URL Launcher
   url_launcher: ^6.3.1
 
-  # Deep link handling (Telegram OIDC OAuth callback)
-  app_links: ^6.4.0
+  # Google Sign-In (Android)
+  google_sign_in: ^6.2.1
 
-  # SHA-256 for PKCE code_challenge
-  crypto: ^3.0.3
+  # Sign in with Apple (iOS)
+  sign_in_with_apple: ^6.1.3
 
-  # Telegram NATIVE login SDK (app-to-app, no browser → no Chrome device).
-  # Wraps the official TelegramMessenger/telegram-login Android & iOS SDKs.
-  telegram_login: ^1.0.0
-  
   # Google Maps for chat location sharing
   google_maps_flutter: ^2.8.0
 

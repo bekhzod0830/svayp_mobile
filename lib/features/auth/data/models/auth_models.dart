@@ -239,6 +239,25 @@ class TokenResponse extends Equatable {
   ];
 }
 
+/// Phone status check response — used to decide the auth flow before sign-in.
+class PhoneStatusResult extends Equatable {
+  final bool exists;
+  final bool hasEmail;
+
+  const PhoneStatusResult({required this.exists, required this.hasEmail});
+
+  factory PhoneStatusResult.fromJson(Map<String, dynamic> json) {
+    final d = json['data'] as Map<String, dynamic>? ?? json;
+    return PhoneStatusResult(
+      exists: d['exists'] as bool? ?? false,
+      hasEmail: d['hasEmail'] as bool? ?? false,
+    );
+  }
+
+  @override
+  List<Object?> get props => [exists, hasEmail];
+}
+
 /// Message Response Model (for simple success messages)
 class MessageResponse extends Equatable {
   final String message;

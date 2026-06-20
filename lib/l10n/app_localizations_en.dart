@@ -2994,4 +2994,28 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get outfitsNeedMoreItems =>
       'Add at least 5 items to unlock outfit creation';
+
+  @override
+  String get verifyMethodTitle => 'Verify your identity';
+
+  @override
+  String get verifyMethodSubtitle => 'Choose a verification method';
+
+  @override
+  String get continueWithGoogle => 'Continue with Google';
+
+  @override
+  String get continueWithApple => 'Continue with Apple';
+
+  @override
+  String get verifyWithSms => 'Verify with SMS';
+
+  @override
+  String get signInTitle => 'Sign in';
+
+  @override
+  String get createAccountTitle => 'Create account';
+
+  @override
+  String get linkAccountTitle => 'Link your account';
 }

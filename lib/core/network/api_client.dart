@@ -88,6 +88,17 @@ class ApiClient {
   QueuedInterceptorsWrapper _tokenRefreshInterceptor() {
     return QueuedInterceptorsWrapper(
       onRequest: (options, handler) async {
+        // Auth endpoints handle their own credentials — never attach a
+        // stale Bearer token to them or Spring Security will reject the
+        // request before the controller is reached.
+        final isAuthEndpoint = options.path.startsWith('/auth/') &&
+            !options.path.contains('/auth/logout') &&
+            !options.path.contains('/auth/me');
+        if (isAuthEndpoint) {
+          handler.next(options);
+          return;
+        }
+
         final token = getToken();
         if (token != null) {
           // Proactively refresh if expired or within 60-second buffer.

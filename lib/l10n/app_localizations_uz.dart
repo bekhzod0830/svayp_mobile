@@ -3034,4 +3034,28 @@ class AppLocalizationsUz extends AppLocalizations {
   @override
   String get outfitsNeedMoreItems =>
       'Kiyim yaratish uchun kamida 5 narsa qo\'shing';
+
+  @override
+  String get verifyMethodTitle => 'Shaxsingizni tasdiqlang';
+
+  @override
+  String get verifyMethodSubtitle => 'Tasdiqlash usulini tanlang';
+
+  @override
+  String get continueWithGoogle => 'Google orqali davom etish';
+
+  @override
+  String get continueWithApple => 'Apple orqali davom etish';
+
+  @override
+  String get verifyWithSms => 'SMS orqali tasdiqlash';
+
+  @override
+  String get signInTitle => 'Kirish';
+
+  @override
+  String get createAccountTitle => 'Akkaunt yaratish';
+
+  @override
+  String get linkAccountTitle => 'Akkauntni bog\'lang';
 }

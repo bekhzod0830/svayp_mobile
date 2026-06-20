@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:swipe/features/onboarding/presentation/screens/splash_screen.dart';
 import 'package:swipe/features/onboarding/presentation/screens/force_update_screen.dart';
 import 'package:swipe/features/onboarding/presentation/screens/welcome_screen.dart';
+import 'package:swipe/features/auth/presentation/screens/phone_auth_screen.dart';
+import 'package:swipe/features/auth/presentation/screens/verify_method_screen.dart';
+import 'package:swipe/features/auth/presentation/screens/otp_verification_screen.dart';
+// WebView auth flow — kept for mini-app embedding; no longer the default entry.
 import 'package:swipe/features/auth/presentation/screens/auth_web_view_screen.dart';
-import 'package:swipe/features/auth/presentation/screens/phone_auth_screen.dart'; // kept — not used in new flow
-import 'package:swipe/features/auth/presentation/screens/otp_verification_screen.dart'; // kept — not used in new flow
 import 'package:swipe/features/auth/presentation/screens/partner_login_screen.dart'; // kept — not used in new flow
 import 'package:swipe/features/partner/presentation/screens/partner_main_screen.dart';
 import 'package:swipe/features/onboarding/presentation/screens/basic_info_screen.dart';
@@ -43,6 +45,8 @@ class AppRoutes {
   static const String splash = '/';
   static const String welcome = '/welcome';
   static const String phoneAuth = '/phone-auth';
+  static const String verifyMethod = '/verify-method';
+  static const String authWebView = '/auth-webview';
   static const String otpVerification = '/otp-verification';
   static const String basicInfo = '/basic-info';
   static const String hijabPreference = '/hijab-preference';
@@ -103,13 +107,40 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => const WelcomeScreen());
 
       case phoneAuth:
+        return MaterialPageRoute(builder: (_) => const PhoneAuthScreen());
+
+      case verifyMethod:
+        final args = settings.arguments;
+        if (args is VerifyMethodArgs) {
+          return MaterialPageRoute(
+            builder: (_) => VerifyMethodScreen(
+              phoneNumber: args.phoneNumber,
+              isNew: args.isNew,
+              isLinking: args.isLinking,
+            ),
+          );
+        }
+        // Legacy string argument (e.g. from OTP screen linking flow)
+        final phone = args as String? ?? '';
+        return MaterialPageRoute(
+          builder: (_) => VerifyMethodScreen(phoneNumber: phone, isLinking: true),
+        );
+
+      // WebView auth — retained for mini-app embedding (not the default entry).
+      case authWebView:
         return MaterialPageRoute(builder: (_) => const AuthWebViewScreen());
 
-      // Safety net: if any deep-link or old code still pushes these routes,
-      // redirect to the WebView auth flow instead of the old native screens.
       case otpVerification:
+        final phone = settings.arguments as String? ?? '';
+        return MaterialPageRoute(
+          builder: (_) => OtpVerificationScreen(phoneNumber: phone),
+        );
+
       case basicInfo:
-        return MaterialPageRoute(builder: (_) => const AuthWebViewScreen());
+        return MaterialPageRoute(
+          builder: (_) => const BasicInfoScreen(),
+          settings: settings,
+        );
 
       case hijabPreference:
         return MaterialPageRoute(

@@ -1,4 +1,3 @@
-import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -7,15 +6,12 @@ import 'package:swipe/app/routes.dart';
 import 'package:swipe/app/theme.dart';
 import 'package:swipe/core/analytics/analytics_navigator_observer.dart';
 import 'package:swipe/core/constants/app_constants.dart';
-import 'package:swipe/core/di/service_locator.dart';
+import 'package:swipe/core/analytics/analytics_navigator_observer.dart';
+import 'package:swipe/core/constants/app_constants.dart';
 import 'package:swipe/core/globals.dart';
 import 'package:swipe/core/localization/services/language_service.dart';
-import 'package:swipe/core/services/notification_service.dart';
 import 'package:swipe/core/services/theme_service.dart';
-import 'package:swipe/core/utils/local_storage_helper.dart';
 import 'package:swipe/l10n/app_localizations.dart';
-import 'package:swipe/features/auth/data/services/auth_service.dart';
-import 'package:swipe/features/auth/data/services/telegram_auth_service.dart';
 import 'package:swipe/features/onboarding/data/onboarding_data_manager.dart';
 
 /// Main App Widget
@@ -46,46 +42,6 @@ class SwipeAppState extends State<SwipeApp>
     );
     _themeService.addListener(_onThemeChanged);
     _initialize();
-    _handleColdStartTelegramLink();
-  }
-
-  /// Cold-start safety net for Telegram OIDC: if the app was killed while the
-  /// user was in the external browser/Telegram, the deep-link relaunch lands
-  /// here. We read the persisted PKCE, exchange the code for tokens, and go to
-  /// /main. (The warm path is handled by TelegramAuthService's stream listener.)
-  Future<void> _handleColdStartTelegramLink() async {
-    try {
-      final uri = await AppLinks().getInitialLink();
-      if (uri == null) return;
-
-      final result =
-          await TelegramAuthService.instance.completePendingFromUri(uri);
-      if (result is! TelegramAuthSuccess) return;
-
-      await getIt<AuthService>().telegramOidcLogin(
-        code: result.code,
-        codeVerifier: result.codeVerifier,
-        redirectUri: result.redirectUri,
-        nonce: result.nonce,
-        phoneNumber: result.enteredPhone,
-      );
-
-      // Tokens are saved by telegramOidcLogin. Finish the session.
-      final storage = await LocalStorageHelper.getInstance();
-      await storage.clearGuestMode();
-      NotificationService.instance.registerTokenWithBackend().ignore();
-
-      navigatorKey.currentState
-          ?.pushNamedAndRemoveUntil('/main', (_) => false);
-    } catch (e) {
-      // Surface the error so blockers (503 config / 400 phone) are visible.
-      final messenger = navigatorKey.currentState != null
-          ? ScaffoldMessenger.maybeOf(navigatorKey.currentContext!)
-          : null;
-      messenger?.showSnackBar(
-        SnackBar(content: Text('Telegram: $e')),
-      );
-    }
   }
 
   void _onThemeChanged() {

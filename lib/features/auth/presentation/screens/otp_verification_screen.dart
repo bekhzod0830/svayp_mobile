@@ -15,6 +15,7 @@ import 'package:swipe/core/utils/local_storage_helper.dart';
 import 'package:swipe/core/utils/error_message_helper.dart';
 import 'package:swipe/core/services/seen_products_service.dart';
 import 'package:swipe/core/services/notification_service.dart';
+import 'package:swipe/features/auth/presentation/screens/verify_method_screen.dart';
 
 /// OTP Verification Screen
 /// User enters 6-digit OTP code sent to their phone
@@ -144,26 +145,24 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 
       if (!mounted) return;
 
-      // Check if user has completed their profile
-      if (tokenResponse.user.hasProfile) {
-        // User has profile - go to main app
-        AnalyticsService.instance.logEvent(AnalyticsEvents.loginCompleted);
-        await AnalyticsService.instance.setUser(
-          userId: tokenResponse.user.id.toString(),
-          phone: tokenResponse.user.phoneNumber,
-          username: tokenResponse.user.username,
-        );
-        Navigator.of(context).pushReplacementNamed('/main');
-      } else {
-        // User needs to complete profile - start onboarding
-        AnalyticsService.instance.logEvent(AnalyticsEvents.registrationCompleted);
-        await AnalyticsService.instance.setUser(
-          userId: tokenResponse.user.id.toString(),
-          phone: tokenResponse.user.phoneNumber,
-          username: tokenResponse.user.username,
-        );
-        Navigator.of(context).pushReplacementNamed('/basic-info');
-      }
+      AnalyticsService.instance.logEvent(AnalyticsEvents.loginCompleted);
+      await AnalyticsService.instance.setUser(
+        userId: tokenResponse.user.id.toString(),
+        phone: tokenResponse.user.phoneNumber,
+        username: tokenResponse.user.username,
+      );
+
+      if (!mounted) return;
+
+      // Case 1: OTP verified for existing user without email — link social account
+      Navigator.of(context).pushReplacementNamed(
+        '/verify-method',
+        arguments: VerifyMethodArgs(
+          phoneNumber: widget.phoneNumber,
+          isNew: false,
+          isLinking: true,
+        ),
+      );
     } on ApiException catch (e) {
       if (!mounted) return;
       AnalyticsService.instance.logEvent(

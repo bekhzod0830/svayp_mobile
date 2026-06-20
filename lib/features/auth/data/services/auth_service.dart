@@ -202,48 +202,60 @@ class AuthService {
     return _apiClient.isAuthenticated();
   }
 
-  /// Telegram OIDC Login / Registration
-  ///
-  /// Exchanges the PKCE authorization code for tokens via the backend.
-  /// The backend verifies the Telegram id_token and returns the same
-  /// [TokenResponse] shape as [verifyOTP].
-  ///
-  /// Example:
-  /// ```dart
-  /// final tokenResponse = await authService.telegramOidcLogin(
-  ///   code: result.code,
-  ///   codeVerifier: result.codeVerifier,
-  ///   redirectUri: result.redirectUri,
-  ///   nonce: result.nonce,
-  /// );
-  /// ```
-  Future<TokenResponse> telegramOidcLogin({
-    required String code,
-    required String codeVerifier,
-    required String redirectUri,
-    required String nonce,
+  /// Check phone status before sign-in to decide the auth flow.
+  Future<PhoneStatusResult> checkPhone(String phoneNumber) async {
+    final normalizedPhone = _normalizePhoneNumber(phoneNumber);
+    final response = await _apiClient.post(
+      ApiConfig.authCheckPhone,
+      data: {'phoneNumber': normalizedPhone},
+    );
+    return PhoneStatusResult.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  /// Google Sign-In (Android)
+  Future<TokenResponse> googleLogin({
+    required String idToken,
     String? phoneNumber,
   }) async {
     try {
       final response = await _apiClient.post(
-        ApiConfig.authTelegramOidc,
+        ApiConfig.authGoogle,
         data: {
-          'code': code,
-          'codeVerifier': codeVerifier,
-          'redirectUri': redirectUri,
-          'nonce': nonce,
+          'idToken': idToken,
           if (phoneNumber != null && phoneNumber.isNotEmpty)
             'phoneNumber': phoneNumber,
         },
       );
-
       final tokenResponse = TokenResponse.fromJson(response.data);
-
       await _apiClient.saveToken(tokenResponse.accessToken);
       if (tokenResponse.refreshToken != null) {
         await _apiClient.saveRefreshToken(tokenResponse.refreshToken!);
       }
+      return tokenResponse;
+    } catch (e) {
+      rethrow;
+    }
+  }
 
+  /// Sign in with Apple (iOS)
+  Future<TokenResponse> appleLogin({
+    required String identityToken,
+    String? phoneNumber,
+  }) async {
+    try {
+      final response = await _apiClient.post(
+        ApiConfig.authApple,
+        data: {
+          'identityToken': identityToken,
+          if (phoneNumber != null && phoneNumber.isNotEmpty)
+            'phoneNumber': phoneNumber,
+        },
+      );
+      final tokenResponse = TokenResponse.fromJson(response.data);
+      await _apiClient.saveToken(tokenResponse.accessToken);
+      if (tokenResponse.refreshToken != null) {
+        await _apiClient.saveRefreshToken(tokenResponse.refreshToken!);
+      }
       return tokenResponse;
     } catch (e) {
       rethrow;

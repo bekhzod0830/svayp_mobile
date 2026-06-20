@@ -176,6 +176,20 @@ class LocalStorageHelper {
     return await _preferences?.remove(AppConstants.isGuestModeKey) ?? false;
   }
 
+  // ============== Feature Flags ==============
+
+  /// Whether the native "Browse as guest" entry is enabled (backend flag
+  /// feature.guest_login.enabled). Defaults to true so the button still shows
+  /// before the flag has been fetched, or when the network is unavailable.
+  bool isGuestLoginEnabled() {
+    return getBool('guest_login_enabled', defaultValue: true);
+  }
+
+  /// Persist the guest-login flag fetched from the backend.
+  Future<bool> setGuestLoginEnabled(bool value) async {
+    return await setBool('guest_login_enabled', value);
+  }
+
   // ============== Tutorial/First Time Flags ==============
 
   /// Mark tutorial as completed

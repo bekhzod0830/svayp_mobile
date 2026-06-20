@@ -5,6 +5,7 @@ import 'package:swipe/core/utils/local_storage_helper.dart';
 import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/core/network/api_client.dart';
 import 'package:swipe/core/services/version_check_service.dart';
+import 'package:swipe/core/services/feature_flag_service.dart';
 import 'package:swipe/features/auth/data/services/auth_service.dart';
 import 'package:swipe/features/profile/data/services/profile_service.dart';
 
@@ -58,11 +59,14 @@ class _SplashScreenState extends State<SplashScreen>
   void _navigateToNext() async {
     final apiClient = getIt<ApiClient>();
     final versionService = VersionCheckService(apiClient);
+    final featureFlagService = FeatureFlagService(apiClient);
 
-    // Run the minimum splash delay and the version check concurrently.
+    // Run the minimum splash delay, version check and feature-flag refresh
+    // concurrently. Feature flags are cached for the phone-auth screen.
     final results = await Future.wait([
       Future.delayed(const Duration(milliseconds: 2500)),
       versionService.check(),
+      featureFlagService.refresh(),
     ]);
 
     if (!mounted) return;

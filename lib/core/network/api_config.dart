@@ -12,6 +12,14 @@ class ApiConfig {
   /// API version prefix
   static const String apiPrefix = '/api/v1';
 
+  /// Google Sign-In Web/server OAuth client id (audience of the idToken).
+  /// Must equal the backend GOOGLE_CLIENT_ID. Leave empty to rely on the
+  /// audience configured in google-services.json / GoogleService-Info.plist.
+  static const String googleServerClientId = String.fromEnvironment(
+    'GOOGLE_SERVER_CLIENT_ID',
+    defaultValue: '187239045780-q0tnohll9h0saqppg46r6jn71h4movm4.apps.googleusercontent.com',
+  );
+
   /// Full base URL with API prefix
   static String get apiBaseUrl => '$baseUrl$apiPrefix';
 
@@ -21,9 +29,11 @@ class ApiConfig {
   static const Duration sendTimeout = Duration(seconds: 30);
 
   // ==================== Authentication Endpoints ====================
+  static const String authCheckPhone = '/auth/check-phone';
   static const String authSendOtp = '/auth/otp/send';
   static const String authVerifyOtp = '/auth/otp/verify';
-  static const String authTelegramOidc = '/auth/telegram/oidc';
+  static const String authGoogle = '/auth/google';
+  static const String authApple = '/auth/apple';
   static const String authRefreshToken = '/auth/token/refresh';
   static const String authLogout = '/auth/logout';
   static const String authMe = '/auth/me';
@@ -89,8 +99,9 @@ class ApiConfig {
   static const String sellerDetail = '/sellers/{id}';
   static const String sellerProducts = '/sellers/{id}/detail';
 
-  // ==================== App Version Endpoint ====================
+  // ==================== App Version / Config Endpoints ====================
   static const String appVersion = '/app/version';
+  static const String appFeatureFlags = '/app/feature-flags';
 
   // ==================== Upload Endpoints ====================
   static const String uploadImage = '/upload/image';

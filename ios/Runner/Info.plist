@@ -84,4 +84,14 @@
                                 <string>com.svaypai.app</string>
                         </array>
                 </dict>
+                <dict>
+                        <key>CFBundleTypeRole</key>
+                        <string>Editor</string>
+                        <key>CFBundleURLName</key>
+                        <string>google-sign-in</string>
+                        <key>CFBundleURLSchemes</key>
+                        <array>
+                                <string>com.googleusercontent.apps.187239045780-il2903l2vn5fgtvo6l0b823m510gmgm0</string>
+                        </array>
+                </dict>
         </array>

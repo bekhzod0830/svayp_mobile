@@ -2,8 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
@@ -13,12 +14,15 @@ import 'package:swipe/core/constants/web_urls.dart';
 import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/core/localization/services/language_service.dart';
 import 'package:swipe/core/network/api_client.dart';
-import 'package:swipe/features/auth/data/services/telegram_native_auth_service.dart';
+import 'package:swipe/core/network/api_config.dart';
 import 'package:swipe/core/services/notification_service.dart';
 import 'package:swipe/core/services/seen_products_service.dart';
 import 'package:swipe/core/utils/local_storage_helper.dart';
 
 /// Full-screen WebView that hosts the auth + onboarding flow.
+///
+/// Kept for mini-app embedding — it is no longer the default auth entry point
+/// (native phone → verify-method → OTP/social flow replaced it).
 ///
 /// The web pages communicate back to Flutter via a JavascriptChannel
 /// named "FlutterBridge". Supported message types:
@@ -26,9 +30,8 @@ import 'package:swipe/core/utils/local_storage_helper.dart';
 ///   onboarding_complete    — new user; just created their profile
 ///   partner_auth_complete  — partner/admin login
 ///   guest_mode             — user chose to browse without signing in
-///   telegram_auth_start    — web is about to redirect to Telegram OIDC;
-///                            Flutter stores PKCE params and intercepts
-///                            the com.svaypai.app:// deep-link callback
+///   google_auth_start      — web button tapped; Flutter triggers native Google Sign-In
+///   apple_auth_start       — web button tapped; Flutter triggers Sign in with Apple
 class AuthWebViewScreen extends StatefulWidget {
   const AuthWebViewScreen({super.key});
 
@@ -83,16 +86,17 @@ class _AuthWebViewScreenState extends State<AuthWebViewScreen> {
     _loadAuthUrl();
   }
 
-  /// Load the auth phone page, passing lang + theme as query params so the
-  /// web page can pick up the user's language and theme preference.
+  /// Load the auth phone page, passing lang + theme + platform as query params
+  /// so the web page can show the correct social auth button.
   Future<void> _loadAuthUrl() async {
     try {
       final langCode = await LanguageService().getCurrentLanguageCode();
       final prefs = await SharedPreferences.getInstance();
       final theme = prefs.getString('theme_mode') ?? 'light';
+      final platform = Platform.isAndroid ? 'android' : 'ios';
 
       final uri = Uri.parse(WebUrls.authPhone).replace(
-        queryParameters: {'lang': langCode, 'theme': theme},
+        queryParameters: {'lang': langCode, 'theme': theme, 'platform': platform},
       );
       await _controller.loadRequest(uri);
     } catch (_) {
@@ -116,88 +120,98 @@ class _AuthWebViewScreenState extends State<AuthWebViewScreen> {
           await _handlePartnerAuthComplete(map);
         case 'guest_mode':
           await _handleGuestMode();
-        case 'telegram_auth_start':
-          // The web button delegates to native: open the Telegram app in an
-          // external browser and catch the deep-link callback. We generate our
-          // own PKCE in TelegramAuthService (the web's url/PKCE are ignored).
-          // The phone the user typed is forwarded as a fallback for the backend.
-          await _startTelegramAuth(map['phone'] as String?);
+        case 'google_auth_start':
+          await _startGoogleAuth(map['phone'] as String?);
+        case 'apple_auth_start':
+          await _startAppleAuth(map['phone'] as String?);
       }
     } catch (_) {
       // Malformed message — ignore silently.
     }
   }
 
-  /// Telegram OIDC via the native helper: opens the Telegram app in an external
-  /// browser (LaunchMode.externalApplication) and waits for the
-  /// com.svaypai.app://auth/telegram/callback deep link (caught by app_links),
-  /// validating `state` for CSRF. On success we exchange the code for tokens.
-  /// Native Telegram login: opens the Telegram app directly (no browser, no new
-  /// web device), gets a signed id_token, and exchanges it on the backend.
-  ///
-  /// When Android App Link verification fails (SHA-256 mismatch), Telegram
-  /// opens Chrome → "Almost done" page → user taps "Continue" → Chrome fires
-  /// the fallback custom-scheme URI `com.svaypai.app://...`. The SDK's internal
-  /// [uriMatchesRedirect] check rejects this scheme (expects `https`), so we
-  /// intercept it via [app_links] and forward it with the scheme swapped to
-  /// `https` — the check then passes and the SDK resolves the pending login.
-  Future<void> _startTelegramAuth(String? enteredPhone) async {
-    StreamSubscription<Uri>? fallbackSub;
-
-    // Subscribe before calling login() so we don't miss the callback.
-    fallbackSub = AppLinks().uriLinkStream.listen((uri) {
-      if (uri.scheme == 'com.svaypai.app') {
-        // Rebuild the URI with https scheme so uriMatchesRedirect passes.
-        final httpsUri = Uri(
-          scheme: 'https',
-          host: uri.host.isNotEmpty
-              ? uri.host
-              : 'app1194732191-login.tg.dev',
-          path: uri.path.isNotEmpty ? uri.path : '/tglogin',
-          queryParameters: uri.queryParameters.isNotEmpty
-              ? uri.queryParameters
-              : null,
-          fragment: uri.fragment.isNotEmpty ? uri.fragment : null,
-        );
-        TelegramNativeAuth.instance.handleUrl(httpsUri);
-        fallbackSub?.cancel();
-      }
-    });
-
+  /// Triggers native Google Sign-In (Android) and exchanges the id_token for app tokens.
+  Future<void> _startGoogleAuth(String? enteredPhone) async {
+    if (mounted) setState(() => _isLoading = true);
     try {
-      final idToken = await TelegramNativeAuth.instance.login();
-      fallbackSub.cancel();
-      if (!mounted || idToken == null) return; // null = user cancelled
-      await _exchangeTelegramNative(idToken: idToken, phoneNumber: enteredPhone);
+      final googleSignIn = GoogleSignIn(scopes: ['email', 'profile']);
+      final account = await googleSignIn.signIn();
+      if (account == null) {
+        // User cancelled
+        if (mounted) setState(() => _isLoading = false);
+        return;
+      }
+      final auth = await account.authentication;
+      final idToken = auth.idToken;
+      if (idToken == null) {
+        if (mounted) setState(() => _isLoading = false);
+        return;
+      }
+      await _exchangeSocialToken(
+        endpoint: ApiConfig.authGoogle,
+        tokenKey: 'idToken',
+        token: idToken,
+        phoneNumber: enteredPhone,
+        provider: 'Google',
+      );
     } catch (e) {
-      fallbackSub.cancel();
       if (mounted) {
+        setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Telegram: $e')),
+          SnackBar(content: Text('Google Sign-In: $e')),
         );
       }
     }
   }
 
-  /// Sends the native id_token to the backend and completes login.
-  Future<void> _exchangeTelegramNative({
-    required String idToken,
+  /// Triggers Sign in with Apple (iOS) and exchanges the identity token for app tokens.
+  Future<void> _startAppleAuth(String? enteredPhone) async {
+    if (mounted) setState(() => _isLoading = true);
+    try {
+      final credential = await SignInWithApple.getAppleIDCredential(
+        scopes: [AppleIDAuthorizationScopes.email, AppleIDAuthorizationScopes.fullName],
+      );
+      final identityToken = credential.identityToken;
+      if (identityToken == null) {
+        if (mounted) setState(() => _isLoading = false);
+        return;
+      }
+      await _exchangeSocialToken(
+        endpoint: ApiConfig.authApple,
+        tokenKey: 'identityToken',
+        token: identityToken,
+        phoneNumber: enteredPhone,
+        provider: 'Apple',
+      );
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Sign in with Apple: $e')),
+        );
+      }
+    }
+  }
+
+  /// Sends a social token to the backend and completes the auth flow.
+  Future<void> _exchangeSocialToken({
+    required String endpoint,
+    required String tokenKey,
+    required String token,
+    required String provider,
     String? phoneNumber,
   }) async {
-    if (mounted) setState(() => _isLoading = true);
-
     try {
       final apiClient = getIt<ApiClient>();
       final response = await apiClient.post<Map<String, dynamic>>(
-        '/auth/telegram/native',
+        endpoint,
         data: {
-          'idToken': idToken,
+          tokenKey: token,
           if (phoneNumber != null && phoneNumber.isNotEmpty)
             'phoneNumber': phoneNumber,
         },
       );
 
-      // Unwrap nested data structure
       final body = response.data ?? {};
       final payload = (body['data'] ?? body) as Map<String, dynamic>;
 
@@ -221,9 +235,8 @@ class _AuthWebViewScreenState extends State<AuthWebViewScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        // Surface the error (e.g. 503 not configured / 400 phone missing).
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Telegram: $e')),
+          SnackBar(content: Text('$provider: $e')),
         );
       }
     }

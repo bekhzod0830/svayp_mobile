@@ -3018,4 +3018,28 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get outfitsNeedMoreItems =>
       'Добавьте минимум 5 вещей, чтобы создать образы';
+
+  @override
+  String get verifyMethodTitle => 'Подтвердите личность';
+
+  @override
+  String get verifyMethodSubtitle => 'Выберите способ подтверждения';
+
+  @override
+  String get continueWithGoogle => 'Продолжить через Google';
+
+  @override
+  String get continueWithApple => 'Продолжить через Apple';
+
+  @override
+  String get verifyWithSms => 'Подтвердить через SMS';
+
+  @override
+  String get signInTitle => 'Войти';
+
+  @override
+  String get createAccountTitle => 'Создать аккаунт';
+
+  @override
+  String get linkAccountTitle => 'Привяжите аккаунт';
 }

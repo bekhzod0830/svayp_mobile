@@ -12,12 +12,12 @@ import 'package:swipe/core/localization/widgets/language_selector.dart';
 import 'package:swipe/shared/widgets/widgets.dart';
 import 'package:swipe/core/analytics/analytics_events.dart';
 import 'package:swipe/core/analytics/analytics_service.dart';
-import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/core/utils/local_storage_helper.dart';
-import 'package:swipe/features/auth/data/services/auth_service.dart';
-import 'package:swipe/features/auth/data/services/telegram_auth_service.dart';
+import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/core/network/api_client.dart';
 import 'package:swipe/core/utils/error_message_helper.dart';
+import 'package:swipe/features/auth/data/services/auth_service.dart';
+import 'package:swipe/features/auth/presentation/screens/verify_method_screen.dart';
 
 /// Phone Authentication Screen
 /// User enters their phone number to receive OTP
@@ -33,10 +33,12 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
   final _formKey = GlobalKey<FormState>();
   final _scrollController = ScrollController();
   bool _isLoading = false;
-  bool _isTelegramLoading = false;
-  late final AuthService _authService;
   int _logoTapCount = 0;
   Timer? _logoTapResetTimer;
+  // Backend feature flag (feature.guest_login.enabled), cached on splash.
+  // Defaults to true so the button shows until the flag is read.
+  bool _guestLoginEnabled = true;
+  late final AuthService _authService;
 
   Future<void> _launchUrl(String url) async {
     try {
@@ -66,6 +68,13 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
     super.initState();
     _authService = getIt<AuthService>();
     AnalyticsService.instance.logEvent(AnalyticsEvents.authScreenOpened);
+    _loadGuestLoginFlag();
+  }
+
+  Future<void> _loadGuestLoginFlag() async {
+    final storage = await LocalStorageHelper.getInstance();
+    if (!mounted) return;
+    setState(() => _guestLoginEnabled = storage.isGuestLoginEnabled());
   }
 
   @override
@@ -82,104 +91,61 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
     ).push(MaterialPageRoute(builder: (_) => const PartnerLoginScreen()));
   }
 
-  Future<void> _telegramLogin() async {
-    setState(() => _isTelegramLoading = true);
+  /// Check phone status then route to the correct screen:
+  /// - New user → SocialAuthScreen (Google/Apple only)
+  /// - Existing + has email → SocialAuthScreen (Google/Apple only)
+  /// - Existing + no email → OTP → SocialAuthScreen (linking)
+  Future<void> _continue() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final phoneNumber = '+998${_phoneController.text}';
+    setState(() => _isLoading = true);
 
     try {
-      final result = await TelegramAuthService.instance.startAuth();
+      final status = await _authService.checkPhone(phoneNumber);
 
       if (!mounted) return;
 
-      switch (result) {
-        case TelegramAuthCancelled():
-          // User closed Telegram — silent, no error shown.
-          return;
-        case TelegramAuthError(:final message):
-          SnackBarHelper.showError(context, message);
-          return;
-        case TelegramAuthSuccess(
-          :final code,
-          :final codeVerifier,
-          :final redirectUri,
-          :final nonce,
-        ):
-          await _authService.telegramOidcLogin(
-            code: code,
-            codeVerifier: codeVerifier,
-            redirectUri: redirectUri,
-            nonce: nonce,
-          );
-          if (!mounted) return;
-          Navigator.of(context).pushReplacementNamed('/main');
+      if (status.exists && !status.hasEmail) {
+        // Case 1: existing user without email → send OTP first
+        await _authService.sendOTP(phoneNumber);
+        if (!mounted) return;
+        Navigator.of(context).pushNamed(
+          '/otp-verification',
+          arguments: phoneNumber,
+        );
+      } else {
+        // Case 2 (existing + email) or Case 3 (new user) → social auth directly
+        Navigator.of(context).pushNamed(
+          '/verify-method',
+          arguments: VerifyMethodArgs(
+            phoneNumber: phoneNumber,
+            isNew: !status.exists,
+            isLinking: false,
+          ),
+        );
       }
     } on ApiException catch (e) {
-      if (!mounted) return;
-      SnackBarHelper.showError(
-        context,
-        ErrorMessageHelper.getLocalizedMessage(context, e),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      SnackBarHelper.showError(
-        context,
-        'Telegram login failed. Please try again.',
-      );
-    } finally {
-      if (mounted) setState(() => _isTelegramLoading = false);
-    }
-  }
-
-  Future<void> _sendOTP() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
-    final l10n = AppLocalizations.of(context)!;
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      // Format phone number with country code
-      final phoneNumber = '+998${_phoneController.text}';
-
-      AnalyticsService.instance.logEvent(AnalyticsEvents.otpRequested);
-
-      // Send OTP to the phone number
-      await _authService.sendOTP(phoneNumber);
-
-      if (!mounted) return;
-
-      AnalyticsService.instance.logEvent(AnalyticsEvents.otpSentSuccess);
-
-      // Navigate to OTP verification screen
-      Navigator.of(
-        context,
-      ).pushNamed('/otp-verification', arguments: phoneNumber);
-    } on ApiException catch (e) {
-      if (!mounted) return;
-      AnalyticsService.instance.logEvent(
-        AnalyticsEvents.otpSentFailure,
-        parameters: {AnalyticsEvents.paramErrorCode: e.statusCode.toString()},
-      );
-      SnackBarHelper.showError(
-        context,
-        ErrorMessageHelper.getLocalizedMessage(context, e),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      AnalyticsService.instance.logEvent(
-        AnalyticsEvents.otpSentFailure,
-        parameters: {AnalyticsEvents.paramErrorCode: 'unknown'},
-      );
-      SnackBarHelper.showError(context, l10n.otpSendError);
-    } finally {
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+        SnackBarHelper.showError(
+          context,
+          ErrorMessageHelper.getLocalizedMessage(context, e),
+        );
       }
+    } catch (_) {
+      // Network error — still navigate to social auth (optimistic)
+      if (mounted) {
+        Navigator.of(context).pushNamed(
+          '/verify-method',
+          arguments: VerifyMethodArgs(
+            phoneNumber: phoneNumber,
+            isNew: false,
+            isLinking: false,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -404,83 +370,30 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                       // Continue Button
                       PrimaryButton(
                         text: l10n.continueButton,
-                        onPressed: _sendOTP,
+                        onPressed: _isLoading ? null : _continue,
                         isLoading: _isLoading,
                         isFullWidth: true,
                       ),
-                      const SizedBox(height: 12),
-
-                      // Divider
-                      Row(
-                        children: [
-                          const Expanded(child: Divider()),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            child: Text(
-                              'или',
-                              style: AppTypography.body2.copyWith(
-                                color: isDark
-                                    ? AppColors.darkSecondaryText
-                                    : AppColors.secondaryText,
-                              ),
-                            ),
-                          ),
-                          const Expanded(child: Divider()),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Telegram Login Button
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: _isTelegramLoading ? null : _telegramLogin,
-                          icon: _isTelegramLoading
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Color(0xFF2AABEE),
-                                  ),
-                                )
-                              : const Icon(
-                                  Icons.send,
-                                  color: Color(0xFF2AABEE),
-                                  size: 20,
-                                ),
-                          label: const Text(
-                            'Продолжить через Telegram',
-                            style: TextStyle(
-                              color: Color(0xFF2AABEE),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            side: const BorderSide(color: Color(0xFF2AABEE)),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
+                      // Browse as Guest — gated by the backend feature flag.
+                      if (_guestLoginEnabled) ...[
+                        const SizedBox(height: 12),
+                        TextButton(
+                          onPressed: () async {
+                            final storage =
+                                await LocalStorageHelper.getInstance();
+                            await storage.setGuestMode(true);
+                            if (context.mounted) {
+                              Navigator.of(
+                                context,
+                              ).pushReplacementNamed('/main');
+                            }
+                          },
+                          child: Text(
+                            l10n.browseAsGuest,
+                            style: const TextStyle(fontSize: 14),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      // Browse as Guest
-                      TextButton(
-                        onPressed: () async {
-                          final storage =
-                              await LocalStorageHelper.getInstance();
-                          await storage.setGuestMode(true);
-                          if (context.mounted) {
-                            Navigator.of(context).pushReplacementNamed('/main');
-                          }
-                        },
-                        child: Text(
-                          l10n.browseAsGuest,
-                          style: const TextStyle(fontSize: 14),
-                        ),
-                      ),
+                      ],
                     ],
                   ),
                 ),
