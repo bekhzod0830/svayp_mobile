@@ -261,21 +261,19 @@ class _VerifyMethodScreenState extends State<VerifyMethodScreen> {
 
               const Spacer(),
 
-              // Google
-              _SocialButton(
-                label: l10n.continueWithGoogle,
-                icon: SvgPicture.asset(
-                  'assets/icons/ic_google.svg',
-                  width: 22,
-                  height: 22,
-                ),
-                onPressed: _isLoading ? null : _googleSignIn,
-                isDark: isDark,
-              ),
-              const SizedBox(height: 12),
-
-              // Apple — iOS only
-              if (Platform.isIOS) ...[
+              // Android → Google only. iOS → Apple only.
+              if (!Platform.isIOS)
+                _SocialButton(
+                  label: l10n.continueWithGoogle,
+                  icon: SvgPicture.asset(
+                    'assets/icons/ic_google.svg',
+                    width: 22,
+                    height: 22,
+                  ),
+                  onPressed: _isLoading ? null : _googleSignIn,
+                  isDark: isDark,
+                )
+              else
                 _SocialButton(
                   label: l10n.continueWithApple,
                   icon: SvgPicture.asset(
@@ -287,8 +285,7 @@ class _VerifyMethodScreenState extends State<VerifyMethodScreen> {
                   onPressed: _isLoading ? null : _appleSignIn,
                   isDark: isDark,
                 ),
-                const SizedBox(height: 12),
-              ],
+              const SizedBox(height: 12),
 
               // SMS fallback — shown only for new users, not when linking or for existing users with email
               if (!widget.isLinking && widget.isNew)
