@@ -26,7 +26,9 @@ class SwipeAppState extends State<SwipeApp>
     with SingleTickerProviderStateMixin {
   final LanguageService _languageService = LanguageService();
   final ThemeService _themeService = ThemeService();
-  Locale _locale = const Locale('ru'); // Default to Russian
+  // Seed with the device locale (Uzbek fallback); replaced by any saved choice
+  // once [_loadLanguage] completes.
+  Locale _locale = Locale(LanguageService.resolveDeviceLanguageCode());
   bool _isInitialized = false;
 
   // Overlay animation for smooth theme transitions (avoids gray interpolation)

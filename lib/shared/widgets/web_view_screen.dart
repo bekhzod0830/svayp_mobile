@@ -2,9 +2,10 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:swipe/core/services/app_permissions.dart';
 import 'package:swipe/core/localization/services/language_service.dart';
+import 'package:swipe/core/utils/webview_settings_bridge.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
@@ -31,6 +32,11 @@ class _WebViewScreenState extends State<WebViewScreen> {
   late final WebViewController _controller;
   bool _isLoading = true;
   bool _hasError = false;
+  bool _pageLoaded = false;
+  // Last theme/language pushed to the web page. Used to inject changes live
+  // (no reload) only when they actually differ.
+  String? _lastTheme;
+  String? _lastLang;
 
   @override
   void initState() {
@@ -54,6 +60,14 @@ class _WebViewScreenState extends State<WebViewScreen> {
       },
     )
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      // Receive language/theme changes made inside the web view so the native
+      // app stays in sync.
+      ..addJavaScriptChannel(
+        'FlutterBridge',
+        onMessageReceived: (message) {
+          if (mounted) handleWebViewSettingsMessage(message.message, context);
+        },
+      )
       ..setNavigationDelegate(
         NavigationDelegate(
           onNavigationRequest: (NavigationRequest request) async {
@@ -88,6 +102,10 @@ class _WebViewScreenState extends State<WebViewScreen> {
             }
           },
           onPageFinished: (_) {
+            _pageLoaded = true;
+            // The page may have loaded with stale params if the user changed
+            // theme/language mid-load — reconcile now.
+            _syncSettingsToWeb();
             if (mounted) setState(() => _isLoading = false);
           },
           onWebResourceError: (WebResourceError error) {
@@ -150,7 +168,37 @@ class _WebViewScreenState extends State<WebViewScreen> {
   }
 
   Future<void> _requestNativePermissions() async {
-    await [Permission.camera, Permission.photos].request();
+    // Route through the shared coordinator so this camera/photos request is
+    // serialized with the notification request (see AppPermissions). Firing
+    // them concurrently caused the OS to drop the notification dialog.
+    await AppPermissions.requestStartupPermissions();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Reading Theme + Localizations here makes this widget rebuild whenever the
+    // native theme or locale changes, so we can push the change into the live
+    // web page without a reload.
+    _syncSettingsToWeb();
+  }
+
+  /// Inject the current native theme/language into the already-loaded web page
+  /// (no reload). The web exposes `__setNativeTheme` / `__setNativeLocale`,
+  /// which update silently without echoing back over the bridge — so this and
+  /// the web→native bridge can't loop.
+  void _syncSettingsToWeb() {
+    if (!_pageLoaded || !mounted) return;
+    final theme =
+        Theme.of(context).brightness == Brightness.dark ? 'dark' : 'light';
+    final lang = Localizations.localeOf(context).languageCode;
+    if (theme == _lastTheme && lang == _lastLang) return;
+    _lastTheme = theme;
+    _lastLang = lang;
+    _controller.runJavaScript(
+      "window.__setNativeTheme && window.__setNativeTheme('$theme');"
+      "window.__setNativeLocale && window.__setNativeLocale('$lang');",
+    );
   }
 
   /// Reads the stored tokens, language preference, and theme from
@@ -171,6 +219,10 @@ class _WebViewScreenState extends State<WebViewScreen> {
       // Read theme preference stored by ThemeService ('dark' or 'light').
       final theme = prefs.getString('theme_mode') ?? 'light';
 
+      // Remember what we loaded with so live-sync only injects real changes.
+      _lastLang = langCode;
+      _lastTheme = theme;
+
       Uri uri = Uri.parse(widget.url);
       final merged = Map<String, String>.from(uri.queryParameters)
         ..['lang'] = langCode
@@ -189,6 +241,14 @@ class _WebViewScreenState extends State<WebViewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Depend on Theme + Localizations so didChangeDependencies fires (and the
+    // change is pushed into the live web page) when either changes natively.
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    Localizations.localeOf(context);
+    // Match the web page's dark background (#111111) so the status-bar strip and
+    // the area behind the bottom nav don't flash white in dark mode.
+    final bgColor = isDark ? const Color(0xFF111111) : Colors.white;
+
     return PopScope(
       // Intercept back gestures: navigate inside the WebView first, then
       // fall through to Flutter's navigator pop.
@@ -202,7 +262,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: bgColor,
         body: SafeArea(
           top: true,
           bottom: false,

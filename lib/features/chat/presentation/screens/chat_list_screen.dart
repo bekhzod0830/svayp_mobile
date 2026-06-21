@@ -235,7 +235,7 @@ class ChatListScreenState extends State<ChatListScreen>
           child: Column(
             children: [
               // Glass Header
-              MainTopBar(title: l10n.chat),
+              MainTopBar(title: l10n.chat, showBackButton: false),
               // Content
               Expanded(
                 child: _isLoading

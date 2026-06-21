@@ -87,9 +87,12 @@ class _SplashScreenState extends State<SplashScreen>
     final storage = await LocalStorageHelper.getInstance();
     if (!mounted) return;
 
-    // Guest mode — no auth needed
+    // Guest mode — no auth needed. Land on Discover (LIBΛS); closet is gated.
     if (storage.isGuestMode()) {
-      Navigator.of(context).pushReplacementNamed('/main');
+      Navigator.of(context).pushReplacementNamed(
+        '/main',
+        arguments: {'initialIndex': 4}, // 4 = Discover (LIBΛS) tab
+      );
       return;
     }
 
@@ -108,11 +111,9 @@ class _SplashScreenState extends State<SplashScreen>
         await getIt<AuthService>().getCurrentUser();
         if (!mounted) return;
         Navigator.of(context).pushReplacementNamed('/partner-main');
-      } catch (_) {
+      } catch (e) {
         if (!mounted) return;
-        await apiClient.clearToken();
-        await apiClient.clearRefreshToken();
-        Navigator.of(context).pushReplacementNamed('/phone-auth');
+        await _handleVerificationError(e);
       }
       return;
     }
@@ -125,11 +126,34 @@ class _SplashScreenState extends State<SplashScreen>
       Navigator.of(context).pushReplacementNamed('/main');
     } catch (e) {
       if (!mounted) return;
-      // Any auth or profile failure → clear tokens and go to login
+      await _handleVerificationError(e);
+    }
+  }
+
+  /// Decide what to do when the startup token/profile verification fails.
+  ///
+  /// We must NOT log the user out for transient backend problems — clearing
+  /// the session would force a paid SMS re-login. Only a genuine auth/account
+  /// failure (401/403, or a missing profile 404) clears the tokens and sends
+  /// the user to login. Server outages (5xx), timeouts and network errors keep
+  /// the session intact and show the maintenance screen instead.
+  Future<void> _handleVerificationError(Object error) async {
+    final apiClient = getIt<ApiClient>();
+    final statusCode = error is ApiException ? error.statusCode : null;
+    final isAuthFailure =
+        statusCode == 401 || statusCode == 403 || statusCode == 404;
+
+    if (isAuthFailure) {
       await apiClient.clearToken();
       await apiClient.clearRefreshToken();
+      if (!mounted) return;
       Navigator.of(context).pushReplacementNamed('/phone-auth');
+      return;
     }
+
+    // Transient server/network error — keep the session, let the user retry.
+    if (!mounted) return;
+    Navigator.of(context).pushReplacementNamed('/server-maintenance');
   }
 
   @override

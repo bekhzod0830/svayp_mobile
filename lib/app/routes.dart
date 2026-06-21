@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:swipe/features/onboarding/presentation/screens/splash_screen.dart';
 import 'package:swipe/features/onboarding/presentation/screens/force_update_screen.dart';
+import 'package:swipe/features/onboarding/presentation/screens/server_maintenance_screen.dart';
 import 'package:swipe/features/onboarding/presentation/screens/welcome_screen.dart';
 import 'package:swipe/features/auth/presentation/screens/phone_auth_screen.dart';
 import 'package:swipe/features/auth/presentation/screens/verify_method_screen.dart';
@@ -83,6 +84,7 @@ class AppRoutes {
   static const String notifications = '/notifications';
   static const String notificationPreferences = '/notification-preferences';
   static const String forceUpdate = '/force-update';
+  static const String serverMaintenance = '/server-maintenance';
   static const String partnerLogin = '/partner-login';
   static const String partnerMain = '/partner-main';
   static const String chatList = '/chat-list';
@@ -101,6 +103,11 @@ class AppRoutes {
             latestVersion: args['version'] ?? '',
             storeUrl: args['storeUrl'] ?? '',
           ),
+        );
+
+      case serverMaintenance:
+        return MaterialPageRoute(
+          builder: (_) => const ServerMaintenanceScreen(),
         );
 
       case welcome:
@@ -263,7 +270,11 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => const ChatListScreen());
 
       case main:
-        return MaterialPageRoute(builder: (_) => MainScreen());
+        final mainArgs = settings.arguments as Map<String, dynamic>?;
+        final initialIndex = mainArgs?['initialIndex'] as int? ?? 0;
+        return MaterialPageRoute(
+          builder: (_) => MainScreen(initialIndex: initialIndex),
+        );
 
       case orderDetail:
         final args = settings.arguments;

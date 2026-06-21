@@ -18,6 +18,7 @@ import 'package:swipe/core/network/api_config.dart';
 import 'package:swipe/core/services/notification_service.dart';
 import 'package:swipe/core/services/seen_products_service.dart';
 import 'package:swipe/core/utils/local_storage_helper.dart';
+import 'package:swipe/core/utils/webview_settings_bridge.dart';
 
 /// Full-screen WebView that hosts the auth + onboarding flow.
 ///
@@ -32,6 +33,8 @@ import 'package:swipe/core/utils/local_storage_helper.dart';
 ///   guest_mode             — user chose to browse without signing in
 ///   google_auth_start      — web button tapped; Flutter triggers native Google Sign-In
 ///   apple_auth_start       — web button tapped; Flutter triggers Sign in with Apple
+///   set_language           — user changed language in the web view; sync native locale
+///   set_theme              — user toggled theme in the web view; sync native theme
 class AuthWebViewScreen extends StatefulWidget {
   const AuthWebViewScreen({super.key});
 
@@ -124,6 +127,9 @@ class _AuthWebViewScreenState extends State<AuthWebViewScreen> {
           await _startGoogleAuth(map['phone'] as String?);
         case 'apple_auth_start':
           await _startAppleAuth(map['phone'] as String?);
+        case 'set_language':
+        case 'set_theme':
+          if (mounted) await applyWebViewSetting(map, context);
       }
     } catch (_) {
       // Malformed message — ignore silently.

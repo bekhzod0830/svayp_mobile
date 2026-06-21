@@ -96,8 +96,27 @@ final _steps = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Public widget
+// Public widgets
 // ─────────────────────────────────────────────────────────────────────────────
+
+/// Full-screen swipe tutorial, shown as a route the first time the user
+/// navigates to the Discover tab. Pops itself when finished or skipped.
+class SwipeTutorialScreen extends StatelessWidget {
+  const SwipeTutorialScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF060610),
+      body: SwipeTutorialOverlay(
+        onDismiss: () {
+          final nav = Navigator.of(context);
+          if (nav.canPop()) nav.pop();
+        },
+      ),
+    );
+  }
+}
 
 class SwipeTutorialOverlay extends StatefulWidget {
   const SwipeTutorialOverlay({super.key, required this.onDismiss});

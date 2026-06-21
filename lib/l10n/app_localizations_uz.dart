@@ -198,6 +198,13 @@ class AppLocalizationsUz extends AppLocalizations {
       'Server xatosi yuz berdi. Keyinroq qayta urinib ko\'ring.';
 
   @override
+  String get serverMaintenanceTitle => 'Tez orada qaytamiz';
+
+  @override
+  String get serverMaintenanceSubtitle =>
+      'Texnik ishlar olib borilmoqda va xizmat vaqtincha mavjud emas. Qaytadan kirishingiz shart emas — bir necha daqiqadan so\'ng qayta urinib ko\'ring.';
+
+  @override
   String get tellUsAboutYourself => 'O\'zingiz haqida\ngapirib bering';
 
   @override
@@ -878,6 +885,13 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get shop => 'Do\'kon';
+
+  @override
+  String get market => 'Bozor';
+
+  @override
+  String get marketComingSoon =>
+      'Tez orada, bu yerda siz o\'z buyumlaringizni sotishingiz mumkin';
 
   @override
   String get visualSearch => 'Vizual qidiruv';
@@ -1952,6 +1966,9 @@ class AppLocalizationsUz extends AppLocalizations {
   String get browseAsGuest => 'Mehmon sifatida ko\'rish';
 
   @override
+  String get guest => 'Mehmon';
+
+  @override
   String get guestPromptTitle => 'Davom etish uchun kiring';
 
   @override
@@ -2952,7 +2969,7 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get forceUpdateSubtitle =>
-      'LIBAS ilovasining yangi versiyasi - yangi xususiyatlar va takomillashtirishlar bilan chiqdi. Davom etish uchun ilovasini yangilang.';
+      'Libas AI ilovasining yangi versiyasi - yangi xususiyatlar va takomillashtirishlar bilan chiqdi. Davom etish uchun ilovani yangilang.';
 
   @override
   String get forceUpdateButton => 'Yangilash';
@@ -3046,6 +3063,10 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get continueWithApple => 'Apple orqali davom etish';
+
+  @override
+  String get signInTroubleTelegram =>
+      'Kirishda muammo bormi? Telegram orqali biz bilan bog\'laning';
 
   @override
   String get verifyWithSms => 'SMS orqali tasdiqlash';

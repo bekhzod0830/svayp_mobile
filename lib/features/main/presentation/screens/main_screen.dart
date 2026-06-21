@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 import 'package:flutter/physics.dart';
 
 import 'package:flutter/material.dart';
@@ -7,7 +6,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/core/utils/responsive_utils.dart';
 import 'package:swipe/core/constants/web_urls.dart';
-import 'package:swipe/features/shop/presentation/utils/visual_search_launcher.dart';
 import 'package:swipe/shared/widgets/web_view_screen.dart';
 import 'package:swipe/core/analytics/analytics_events.dart';
 import 'package:swipe/core/analytics/analytics_service.dart';
@@ -21,6 +19,7 @@ import 'package:swipe/features/chat/data/services/chat_websocket_service.dart';
 import 'package:swipe/features/chat/data/models/chat_model.dart';
 import 'package:swipe/core/services/badge_notifier.dart';
 import 'package:swipe/features/discover/presentation/screens/discover_screen.dart';
+import 'package:swipe/features/discover/presentation/widgets/swipe_tutorial_overlay.dart';
 import 'package:swipe/features/shop/presentation/screens/shop_screen.dart';
 import 'package:swipe/features/chat/presentation/screens/chat_list_screen.dart';
 
@@ -48,6 +47,7 @@ class MainScreenState extends State<MainScreen>
 
   // Global keys for screen access
   final GlobalKey<NavigatorState> _closetKey = GlobalKey<NavigatorState>();
+  final GlobalKey<NavigatorState> _marketKey = GlobalKey<NavigatorState>();
   final GlobalKey<NavigatorState> _shopKey = GlobalKey<NavigatorState>();
   final GlobalKey<NavigatorState> _chatKey = GlobalKey<NavigatorState>();
   final GlobalKey<NavigatorState> _discoverKey = GlobalKey<NavigatorState>();
@@ -70,7 +70,7 @@ class MainScreenState extends State<MainScreen>
       value: _currentIndex.toDouble(),
     );
     _tabObservers = List.generate(
-      4,
+      5,
       (_) => _TabNavObserver(() {
         if (mounted) setState(() {});
       }),
@@ -83,11 +83,17 @@ class MainScreenState extends State<MainScreen>
     // and corrects the value to the accurate sum — preventing double-counting.
     final wsService = getIt<ChatWebSocketService>();
     _badgeListSub = wsService.listMessageStream.listen((event) {
-      if (_currentIndex != 2) {
+      if (_currentIndex != _chatTabIndex) {
         wsService.unreadCountNotifier.value += 1;
       }
     });
     _initBadge();
+    // Cover the case where the app launches straight onto the Discover tab.
+    if (_currentIndex == _discoverTabIndex) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _maybeShowDiscoverTutorial(),
+      );
+    }
   }
 
   void _connectWebSocket() {
@@ -155,8 +161,8 @@ class MainScreenState extends State<MainScreen>
   }
 
   void _onTabTapped(int index) async {
-    // Gate certain tabs for guest users (chat = 2)
-    if (index == 2) {
+    // Gate certain tabs for guest users (closet = 0, chat = 3)
+    if (index == 0 || index == _chatTabIndex) {
       final storage = await LocalStorageHelper.getInstance();
       if (storage.isGuestMode()) {
         if (mounted) GuestLoginPrompt.show(context);
@@ -166,16 +172,14 @@ class MainScreenState extends State<MainScreen>
 
     // If tapping the already-active tab, pop its navigator to root (toggle behaviour).
     if (index == _currentIndex) {
-      final keys = [_closetKey, _shopKey, _chatKey, _discoverKey];
-      _popTabToRoot(keys[index]);
+      _popTabToRoot(_tabKeys[index]);
       return;
     }
 
     // Pop all sub-routes in the tab we are leaving so it resets to root.
-    final keys = [_closetKey, _shopKey, _chatKey, _discoverKey];
-    _popTabToRoot(keys[_currentIndex]);
+    _popTabToRoot(_tabKeys[_currentIndex]);
 
-    const tabNames = ['closet', 'shop', 'chat', 'discover'];
+    const tabNames = ['closet', 'market', 'shop', 'chat', 'discover'];
     AnalyticsService.instance.logEvent(
       AnalyticsEvents.tabSelected,
       parameters: {AnalyticsEvents.paramTabName: tabNames[index < tabNames.length ? index : 0]},
@@ -194,13 +198,13 @@ class MainScreenState extends State<MainScreen>
       ),
     );
 
+    if (index == _discoverTabIndex) _maybeShowDiscoverTutorial();
   }
 
   /// Method to navigate to a specific tab from child screens
   void navigateToTab(int index) {
     // Pop all routes in the current tab before switching
-    final keys = [_closetKey, _shopKey, _chatKey, _discoverKey];
-    _popTabToRoot(keys[_currentIndex]);
+    _popTabToRoot(_tabKeys[_currentIndex]);
 
     final fromPos = _pillCtrl.value;
     setState(() {
@@ -215,11 +219,39 @@ class MainScreenState extends State<MainScreen>
       ),
     );
 
+    if (index == _discoverTabIndex) _maybeShowDiscoverTutorial();
   }
 
-  /// Maps tab index (0-3) to visual nav-bar slot (0,1,3,4 — slot 2 is VS).
-  double _tabToNavSlot(int tabIndex) =>
-      tabIndex < 2 ? tabIndex.toDouble() : (tabIndex + 1).toDouble();
+  /// Ordered navigator keys, one per tab (matches the nav-bar order:
+  /// Closet, Market, Shop, Chat, LIBΛS).
+  List<GlobalKey<NavigatorState>> get _tabKeys =>
+      [_closetKey, _marketKey, _shopKey, _chatKey, _discoverKey];
+
+  /// Each tab now maps 1:1 to its visual nav-bar slot.
+  double _tabToNavSlot(int tabIndex) => tabIndex.toDouble();
+
+  /// Tab index of the Chat feed.
+  static const int _chatTabIndex = 3;
+
+  /// Tab index of the Discover (LIBΛS) feed.
+  static const int _discoverTabIndex = 4;
+
+  /// Shows the swipe tutorial as a full screen the first time the user opens
+  /// the Discover tab. The tutorial persists a "seen" flag so it only appears
+  /// once. Shown here — rather than from DiscoverScreen.initState — so it
+  /// appears when the user actually navigates to Discover, not while the tab is
+  /// still built off-screen inside the IndexedStack (which previously made it
+  /// pop up over the closet tab on first launch).
+  Future<void> _maybeShowDiscoverTutorial() async {
+    final show = await shouldShowSwipeTutorial();
+    if (!mounted || !show) return;
+    await Navigator.of(context, rootNavigator: true).push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => const SwipeTutorialScreen(),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -234,10 +266,12 @@ class MainScreenState extends State<MainScreen>
         case 0:
           return _closetKey;
         case 1:
-          return _shopKey;
+          return _marketKey;
         case 2:
-          return _chatKey;
+          return _shopKey;
         case 3:
+          return _chatKey;
+        case 4:
           return _discoverKey;
         default:
           return _closetKey;
@@ -280,7 +314,7 @@ class MainScreenState extends State<MainScreen>
       },
       child: Scaffold(
         extendBody: true,
-        backgroundColor: Colors.white,
+        backgroundColor: isDark ? const Color(0xFF111111) : Colors.white,
         body: Stack(
           children: [
             IndexedStack(
@@ -302,26 +336,42 @@ class MainScreenState extends State<MainScreen>
                     },
                   ),
                 ),
-                // Tab 1: Shop (native)
+                // Tab 1: Market (WebView)
+                Navigator(
+                  key: _marketKey,
+                  observers: [_tabObservers[1]],
+                  onGenerateRoute: (settings) => MaterialPageRoute(
+                    builder: (context) {
+                      final mq = MediaQuery.of(context);
+                      final bottomInset =
+                          mq.viewPadding.bottom.clamp(16.0, 60.0);
+                      return WebViewScreen(
+                        url: WebUrls.market,
+                        bottomPadding: 60.0 + bottomInset,
+                      );
+                    },
+                  ),
+                ),
+                // Tab 2: Shop (native)
                 Navigator(
                   key: _shopKey,
-                  observers: [_tabObservers[1]],
+                  observers: [_tabObservers[2]],
                   onGenerateRoute: (settings) => MaterialPageRoute(
                     builder: (context) => const ShopScreen(),
                   ),
                 ),
-                // Tab 2: Chat (native)
+                // Tab 3: Chat (native)
                 Navigator(
                   key: _chatKey,
-                  observers: [_tabObservers[2]],
+                  observers: [_tabObservers[3]],
                   onGenerateRoute: (settings) => MaterialPageRoute(
                     builder: (context) => const ChatListScreen(),
                   ),
                 ),
-                // Tab 3: Discover (native)
+                // Tab 4: Discover (native)
                 Navigator(
                   key: _discoverKey,
-                  observers: [_tabObservers[3]],
+                  observers: [_tabObservers[4]],
                   onGenerateRoute: (settings) => MaterialPageRoute(
                     builder: (context) => const DiscoverScreen(),
                   ),
@@ -421,6 +471,17 @@ class MainScreenState extends State<MainScreen>
                                   _buildNavItem(
                                     context: context,
                                     index: 1,
+                                    inactiveIcon:
+                                        Icons.storefront_outlined,
+                                    activeIcon: Icons.storefront,
+                                    label: l10n.market,
+                                    isDark: isDark,
+                                    iconScale: iconScale,
+                                    fontScale: fontScale,
+                                  ),
+                                  _buildNavItem(
+                                    context: context,
+                                    index: 2,
                                     inactiveIcon: Icons.search,
                                     activeIcon: Icons.search,
                                     label: l10n.shop,
@@ -428,49 +489,9 @@ class MainScreenState extends State<MainScreen>
                                     iconScale: iconScale,
                                     fontScale: fontScale,
                                   ),
-                                  // Visual Search — center button
-                                  Expanded(
-                                    child: GestureDetector(
-                                      onTap: () {
-                                        AnalyticsService.instance.logEvent(
-                                            AnalyticsEvents
-                                                .visualSearchOpened);
-                                        launchVisualSearch(context);
-                                      },
-                                      behavior: HitTestBehavior.opaque,
-                                      child: Center(
-                                        child: Column(
-                                          mainAxisSize:
-                                              MainAxisSize.min,
-                                          children: [
-                                            const _VisualSearchNavButton(),
-                                            const SizedBox(height: 2),
-                                            Text(
-                                              l10n.visualSearch,
-                                              maxLines: 1,
-                                              softWrap: false,
-                                              overflow: TextOverflow
-                                                  .ellipsis,
-                                              style: TextStyle(
-                                                fontSize:
-                                                    9.5 * fontScale,
-                                                fontWeight:
-                                                    FontWeight.w400,
-                                                color: (isDark
-                                                        ? Colors.white
-                                                        : Colors.black)
-                                                    .withValues(
-                                                        alpha: 0.45),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
                                   _buildNavItem(
                                     context: context,
-                                    index: 2,
+                                    index: 3,
                                     inactiveIcon: Icons.send_outlined,
                                     activeIcon: Icons.send,
                                     label: l10n.chat,
@@ -481,7 +502,7 @@ class MainScreenState extends State<MainScreen>
                                   ),
                                   _buildNavItem(
                                     context: context,
-                                    index: 3,
+                                    index: 4,
                                     inactiveIcon:
                                         Icons.explore_outlined,
                                     activeIcon: Icons.explore,
@@ -494,7 +515,7 @@ class MainScreenState extends State<MainScreen>
                                       text: TextSpan(
                                         style: TextStyle(
                                           fontSize: 9.5 * fontScale,
-                                          fontWeight: _currentIndex == 3
+                                          fontWeight: _currentIndex == _discoverTabIndex
                                               ? FontWeight.w600
                                               : FontWeight.w400,
                                           color: isDark
@@ -623,69 +644,6 @@ class MainScreenState extends State<MainScreen>
 /// Helper method to access MainScreen state from anywhere
 MainScreenState? findMainScreenState(BuildContext context) {
   return context.findAncestorStateOfType<MainScreenState>();
-}
-
-/// Pulsing gradient circle for the Visual Search center bottom-nav button.
-class _VisualSearchNavButton extends StatefulWidget {
-  const _VisualSearchNavButton();
-
-  @override
-  State<_VisualSearchNavButton> createState() => _VisualSearchNavButtonState();
-}
-
-class _VisualSearchNavButtonState extends State<_VisualSearchNavButton>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2000),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (_, __) {
-        final pulse =
-            (math.sin(_ctrl.value * math.pi * 2 - math.pi / 2) + 1) / 2;
-        return Container(
-          width: 34,
-          height: 34,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFFf093fb), Color(0xFFF5576c)],
-            ),
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: Color.fromRGBO(240, 147, 251, 0.30 + pulse * 0.30),
-                blurRadius: 8.0 + pulse * 14.0,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: const Icon(
-            Icons.camera_alt_rounded,
-            color: Colors.white,
-            size: 18,
-          ),
-        );
-      },
-    );
-  }
 }
 
 class _TabNavObserver extends NavigatorObserver {

@@ -1,3 +1,5 @@
+import 'dart:ui' show PlatformDispatcher;
+
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:swipe/core/localization/models/language_model.dart';
@@ -16,6 +18,25 @@ class LanguageService {
     {'code': 'uz', 'name': 'Uzbek', 'nativeName': 'O\'zbekcha'},
   ];
 
+  /// Locale codes we ship translations for.
+  static const List<String> supportedCodes = ['en', 'ru', 'uz'];
+
+  /// Fallback used on first launch when the device locale isn't supported.
+  static const String defaultLanguageCode = 'uz';
+
+  /// First-launch language: the device/phone locale when it's one we support,
+  /// otherwise Uzbek. Synchronous so it can seed the initial app locale.
+  ///
+  /// The same resolution feeds the web view (via the `lang` query param), so
+  /// both surfaces start on the same language.
+  static String resolveDeviceLanguageCode() {
+    final deviceCode =
+        PlatformDispatcher.instance.locale.languageCode.toLowerCase();
+    return supportedCodes.contains(deviceCode)
+        ? deviceCode
+        : defaultLanguageCode;
+  }
+
   /// Initialize Hive box
   Future<void> init() async {
     if (_box == null || !_box!.isOpen) {
@@ -32,8 +53,8 @@ class LanguageService {
       return Locale(languageModel.languageCode);
     }
 
-    // Default to Russian
-    return const Locale('ru');
+    // First launch — follow the device locale (Uzbek fallback).
+    return Locale(resolveDeviceLanguageCode());
   }
 
   /// Get current language code
@@ -41,7 +62,7 @@ class LanguageService {
     await init();
 
     final languageModel = _box?.get(_languageKey);
-    return languageModel?.languageCode ?? 'ru';
+    return languageModel?.languageCode ?? resolveDeviceLanguageCode();
   }
 
   /// Save selected language

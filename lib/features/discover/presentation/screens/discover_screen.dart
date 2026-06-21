@@ -11,7 +11,6 @@ import 'package:swipe/core/network/api_client.dart';
 import 'package:swipe/core/services/badge_notifier.dart';
 import 'package:swipe/features/discover/domain/entities/product.dart';
 import 'package:swipe/features/discover/presentation/widgets/swipeable_product_card.dart';
-import 'package:swipe/features/discover/presentation/widgets/swipe_tutorial_overlay.dart';
 import 'package:swipe/features/cart/data/services/cart_service.dart';
 import 'package:swipe/features/liked/data/services/liked_service.dart';
 import 'package:swipe/features/product/presentation/screens/product_detail_screen.dart';
@@ -21,7 +20,7 @@ import 'package:swipe/core/services/recommendation_cache_service.dart';
 import 'package:swipe/core/services/seen_products_service.dart';
 import 'package:swipe/core/cache/image_cache_manager.dart';
 import 'package:swipe/core/utils/responsive_utils.dart';
-import 'package:swipe/core/services/notification_service.dart';
+import 'package:swipe/core/services/app_permissions.dart';
 import 'package:swipe/core/services/sound_service.dart';
 import 'package:swipe/shared/widgets/main_top_bar.dart';
 import 'package:swipe/shared/widgets/swipe_feedback_banner.dart';
@@ -67,7 +66,6 @@ class DiscoverScreenState extends State<DiscoverScreen> {
   String? _nextCursor;
   int _guestPage = 0;
   static const int _guestPageSize = 20;
-  OverlayEntry? _tutorialOverlayEntry;
   int _currentCardIndex = 0;
   String? _authToken;
   DateTime? _lastBackPressTime;
@@ -77,15 +75,15 @@ class DiscoverScreenState extends State<DiscoverScreen> {
     super.initState();
     _initializeScreen();
     SoundService.instance.preload();
-    // Request notification permission here — after login/registration.
-    // iOS shows the system dialog only once; subsequent calls are instant & silent.
-    NotificationService.instance.requestPermissionAndRegisterToken().ignore();
+    // Request all startup permissions here — after login/registration.
+    // Serialized via AppPermissions so the notification dialog isn't dropped by
+    // the closet WebView's concurrent camera/photos request. The OS shows each
+    // dialog only once; subsequent calls are instant & silent.
+    AppPermissions.requestStartupPermissions().ignore();
   }
 
   @override
   void dispose() {
-    _tutorialOverlayEntry?.remove();
-    _tutorialOverlayEntry = null;
     _dragProgressNotifier.dispose();
     super.dispose();
   }
@@ -116,29 +114,10 @@ class DiscoverScreenState extends State<DiscoverScreen> {
     // ── 5. Refresh cart count from API in background (doesn't block products) ──
     unawaited(_updateCartCount());
 
-    // ── 6. Show swipe tutorial for first-time users ──
-    final show = await shouldShowSwipeTutorial();
-    if (mounted && show) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _showTutorialOverlay();
-      });
-    }
-  }
-
-  void _showTutorialOverlay() {
-    _tutorialOverlayEntry?.remove();
-    _tutorialOverlayEntry = OverlayEntry(
-      builder: (_) => Material(
-        type: MaterialType.transparency,
-        child: SwipeTutorialOverlay(
-          onDismiss: () {
-            _tutorialOverlayEntry?.remove();
-            _tutorialOverlayEntry = null;
-          },
-        ),
-      ),
-    );
-    Overlay.of(context, rootOverlay: true).insert(_tutorialOverlayEntry!);
+    // NOTE: The first-run swipe tutorial is shown by MainScreen when the user
+    // navigates to the Discover tab — not here. Triggering it from initState
+    // fired while the Discover tab was still built off-screen (IndexedStack),
+    // making the tutorial appear over the closet tab on first launch.
   }
 
   @override
@@ -1111,6 +1090,7 @@ class DiscoverScreenState extends State<DiscoverScreen> {
                   // Consistent top bar (same as Shop, Profile, Chat)
                   MainTopBar(
                     title: 'LIBΛS',
+                    showBackButton: false,
                     titleChild: RichText(
                       text: TextSpan(
                         style: AppTypography.heading2.copyWith(

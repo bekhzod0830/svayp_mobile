@@ -454,6 +454,18 @@ abstract class AppLocalizations {
   /// **'A server error occurred. Please try again later.'**
   String get serverErrorGeneric;
 
+  /// No description provided for @serverMaintenanceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'We\'ll be right back'**
+  String get serverMaintenanceTitle;
+
+  /// No description provided for @serverMaintenanceSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'We\'re doing some maintenance and our service is temporarily unavailable. You don\'t need to sign in again — please check back in a few minutes.'**
+  String get serverMaintenanceSubtitle;
+
   /// No description provided for @tellUsAboutYourself.
   ///
   /// In en, this message translates to:
@@ -1755,6 +1767,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Shop'**
   String get shop;
+
+  /// No description provided for @market.
+  ///
+  /// In en, this message translates to:
+  /// **'Market'**
+  String get market;
+
+  /// No description provided for @marketComingSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Soon, the place where you can sell your things'**
+  String get marketComingSoon;
 
   /// No description provided for @visualSearch.
   ///
@@ -3730,6 +3754,12 @@ abstract class AppLocalizations {
   /// **'Browse as Guest'**
   String get browseAsGuest;
 
+  /// No description provided for @guest.
+  ///
+  /// In en, this message translates to:
+  /// **'Guest'**
+  String get guest;
+
   /// No description provided for @guestPromptTitle.
   ///
   /// In en, this message translates to:
@@ -5683,7 +5713,7 @@ abstract class AppLocalizations {
   /// No description provided for @forceUpdateSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'A new version of LIBAS is available with exciting new features and improvements. Please update to continue.'**
+  /// **'A new version of Libas AI is available with exciting new features and improvements. Please update to continue.'**
   String get forceUpdateSubtitle;
 
   /// No description provided for @forceUpdateButton.
@@ -5859,6 +5889,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Continue with Apple'**
   String get continueWithApple;
+
+  /// No description provided for @signInTroubleTelegram.
+  ///
+  /// In en, this message translates to:
+  /// **'Having trouble signing in? Contact us on Telegram'**
+  String get signInTroubleTelegram;
 
   /// No description provided for @verifyWithSms.
   ///

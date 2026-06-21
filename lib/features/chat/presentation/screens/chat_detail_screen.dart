@@ -11,6 +11,7 @@ import 'package:swipe/features/chat/data/services/chat_cache_service.dart';
 import 'package:swipe/features/chat/data/services/chat_websocket_service.dart';
 import 'package:swipe/features/chat/presentation/widgets/chat_emoji_panel.dart';
 import 'package:swipe/features/chat/presentation/widgets/chat_attachment_sheet.dart';
+import 'package:swipe/features/chat/presentation/widgets/link_preview.dart';
 import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/core/network/api_client.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -1585,30 +1586,25 @@ class _MessageBubble extends StatelessWidget {
                         Padding(
                           // Reserve bottom-right space for the timestamp.
                           padding: const EdgeInsets.only(bottom: 2),
-                          child: Text.rich(
-                            TextSpan(
-                              children: [
-                                TextSpan(
-                                  text: message.content,
-                                  style: AppTypography.body2.copyWith(
-                                    color: isMine
-                                        ? (isDark
-                                              ? AppColors.black
-                                              : AppColors.white)
-                                        : (isDark
-                                              ? AppColors.darkPrimaryText
-                                              : AppColors.black),
-                                    height: 1.4,
-                                  ),
-                                ),
-                                // Invisible spacer that matches the timestamp width
-                                // so the last text line never collides with the time.
-                                const TextSpan(
-                                  text:
-                                      '\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0',
-                                  style: TextStyle(fontSize: 10),
-                                ),
-                              ],
+                          child: LinkifiedMessageText(
+                            text: message.content,
+                            linkColor: const Color(0xFF2E7CF6),
+                            baseStyle: AppTypography.body2.copyWith(
+                              color: isMine
+                                  ? (isDark
+                                        ? AppColors.black
+                                        : AppColors.white)
+                                  : (isDark
+                                        ? AppColors.darkPrimaryText
+                                        : AppColors.black),
+                              height: 1.4,
+                            ),
+                            // Invisible spacer that matches the timestamp width
+                            // so the last text line never collides with the time.
+                            trailing: const TextSpan(
+                              text:
+                                  '\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0',
+                              style: TextStyle(fontSize: 10),
                             ),
                           ),
                         ),
@@ -1634,6 +1630,13 @@ class _MessageBubble extends StatelessWidget {
                         ),
                       ],
                     ),
+                    // Rich preview card for the first link in the message.
+                    if (firstUrlIn(message.content) != null)
+                      LinkPreviewCard(
+                        url: firstUrlIn(message.content)!,
+                        isMine: isMine,
+                        isDark: isDark,
+                      ),
                   ],
                 ),
               ),

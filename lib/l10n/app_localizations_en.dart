@@ -194,6 +194,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'A server error occurred. Please try again later.';
 
   @override
+  String get serverMaintenanceTitle => 'We\'ll be right back';
+
+  @override
+  String get serverMaintenanceSubtitle =>
+      'We\'re doing some maintenance and our service is temporarily unavailable. You don\'t need to sign in again — please check back in a few minutes.';
+
+  @override
   String get tellUsAboutYourself => 'Tell us about\nyourself';
 
   @override
@@ -865,6 +872,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get shop => 'Shop';
+
+  @override
+  String get market => 'Market';
+
+  @override
+  String get marketComingSoon =>
+      'Soon, the place where you can sell your things';
 
   @override
   String get visualSearch => 'Visual Search';
@@ -1921,6 +1935,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get browseAsGuest => 'Browse as Guest';
 
   @override
+  String get guest => 'Guest';
+
+  @override
   String get guestPromptTitle => 'Sign in to continue';
 
   @override
@@ -2913,7 +2930,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get forceUpdateSubtitle =>
-      'A new version of LIBAS is available with exciting new features and improvements. Please update to continue.';
+      'A new version of Libas AI is available with exciting new features and improvements. Please update to continue.';
 
   @override
   String get forceUpdateButton => 'Update Now';
@@ -3006,6 +3023,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get continueWithApple => 'Continue with Apple';
+
+  @override
+  String get signInTroubleTelegram =>
+      'Having trouble signing in? Contact us on Telegram';
 
   @override
   String get verifyWithSms => 'Verify with SMS';

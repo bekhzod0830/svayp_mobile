@@ -1,43 +1,31 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:swipe/app/routes.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
 import 'package:swipe/l10n/app_localizations.dart';
-import 'package:url_launcher/url_launcher.dart';
 
-/// Force Update Screen
+/// Server Maintenance Screen
 ///
-/// Shown when the running app version is older than the latest version
-/// published by the backend. Fully blocks the app (no back navigation).
-class ForceUpdateScreen extends StatefulWidget {
-  final String latestVersion;
-  final String storeUrl;
-
-  const ForceUpdateScreen({
-    super.key,
-    required this.latestVersion,
-    required this.storeUrl,
-  });
+/// Shown when the backend is temporarily unreachable (5xx responses,
+/// timeouts or network errors) while the user already has a valid session.
+///
+/// IMPORTANT: this screen does NOT clear the auth tokens. It exists so a
+/// transient server outage never logs the user out — losing the session
+/// would force a paid SMS re-login. Retry simply re-runs the splash gate,
+/// which re-verifies the (still valid) token once the backend recovers.
+class ServerMaintenanceScreen extends StatefulWidget {
+  const ServerMaintenanceScreen({super.key});
 
   @override
-  State<ForceUpdateScreen> createState() => _ForceUpdateScreenState();
+  State<ServerMaintenanceScreen> createState() =>
+      _ServerMaintenanceScreenState();
 }
 
-class _ForceUpdateScreenState extends State<ForceUpdateScreen>
+class _ServerMaintenanceScreenState extends State<ServerMaintenanceScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _fadeController;
   late final Animation<double> _fadeAnim;
-  bool _isLaunching = false;
-
-  // Used only when the backend doesn't supply a platform-specific storeUrl.
-  // The iOS listing currently lives in the Uzbekistan storefront only; the
-  // '/us/' path 404s, so the region-less id form keyed to /uz/ is used.
-  static const String _iosFallbackUrl =
-      'https://apps.apple.com/uz/app/id6759787092';
-  static const String _androidFallbackUrl =
-      'https://play.google.com/store/apps/details?id=com.svayp.app';
 
   @override
   void initState() {
@@ -55,33 +43,13 @@ class _ForceUpdateScreenState extends State<ForceUpdateScreen>
     super.dispose();
   }
 
-  Future<void> _openStore() async {
-    if (_isLaunching) return;
-    setState(() => _isLaunching = true);
-    final platformFallback =
-        Platform.isAndroid ? _androidFallbackUrl : _iosFallbackUrl;
-    final rawUrl =
-        widget.storeUrl.isNotEmpty ? widget.storeUrl : platformFallback;
-    try {
-      // On iOS, replace https://apps.apple.com with itms-apps://apps.apple.com
-      // so the OS opens the App Store app directly instead of Safari.
-      final iosUrl = rawUrl.replaceFirst(
-        'https://apps.apple.com',
-        'itms-apps://apps.apple.com',
-      );
-      final preferredUri = Uri.parse(Platform.isIOS ? iosUrl : rawUrl);
-      final fallbackUri = Uri.parse(rawUrl);
-
-      if (await canLaunchUrl(preferredUri)) {
-        await launchUrl(preferredUri, mode: LaunchMode.externalApplication);
-      } else if (await canLaunchUrl(fallbackUri)) {
-        await launchUrl(fallbackUri, mode: LaunchMode.externalApplication);
-      }
-    } catch (_) {
-      // silently ignore — user can try again
-    } finally {
-      if (mounted) setState(() => _isLaunching = false);
-    }
+  /// Re-run the splash gate. Tokens are still intact, so once the backend
+  /// is healthy again the user lands straight back in the app — no re-login.
+  void _retry() {
+    Navigator.of(context).pushNamedAndRemoveUntil(
+      AppRoutes.splash,
+      (route) => false,
+    );
   }
 
   @override
@@ -92,8 +60,7 @@ class _ForceUpdateScreenState extends State<ForceUpdateScreen>
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness:
-            isDark ? Brightness.light : Brightness.dark,
+        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
         statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
       ),
       child: PopScope(
@@ -124,7 +91,9 @@ class _ForceUpdateScreenState extends State<ForceUpdateScreen>
                         ),
                         children: const [
                           TextSpan(text: 'LIB'),
-                          TextSpan(text: 'Λ', style: TextStyle(color: Color(0xFFF370A7))),
+                          TextSpan(
+                              text: 'Λ',
+                              style: TextStyle(color: Color(0xFFF370A7))),
                           TextSpan(text: 'S'),
                         ],
                       ),
@@ -134,7 +103,7 @@ class _ForceUpdateScreenState extends State<ForceUpdateScreen>
 
                     // ── title ─────────────────────────────────────────
                     Text(
-                      l10n.forceUpdateTitle,
+                      l10n.serverMaintenanceTitle,
                       textAlign: TextAlign.center,
                       style: AppTypography.heading2.copyWith(
                         fontWeight: FontWeight.w700,
@@ -150,7 +119,7 @@ class _ForceUpdateScreenState extends State<ForceUpdateScreen>
 
                     // ── subtitle ──────────────────────────────────────
                     Text(
-                      l10n.forceUpdateSubtitle,
+                      l10n.serverMaintenanceSubtitle,
                       textAlign: TextAlign.center,
                       style: AppTypography.body1.copyWith(
                         color: isDark
@@ -162,47 +131,29 @@ class _ForceUpdateScreenState extends State<ForceUpdateScreen>
 
                     const Spacer(flex: 3),
 
-                    // ── update button ─────────────────────────────────
+                    // ── retry button ──────────────────────────────────
                     SizedBox(
                       width: double.infinity,
                       height: 56,
                       child: ElevatedButton(
-                        onPressed: _isLaunching ? null : _openStore,
+                        onPressed: _retry,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: isDark
-                              ? AppColors.white
-                              : AppColors.black,
-                          foregroundColor: isDark
-                              ? AppColors.black
-                              : AppColors.white,
-                          disabledBackgroundColor: isDark
-                              ? AppColors.white.withValues(alpha: 0.4)
-                              : AppColors.black.withValues(alpha: 0.4),
+                          backgroundColor:
+                              isDark ? AppColors.white : AppColors.black,
+                          foregroundColor:
+                              isDark ? AppColors.black : AppColors.white,
                           elevation: 0,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),
                         ),
-                        child: _isLaunching
-                            ? SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.5,
-                                  color: isDark
-                                      ? AppColors.black
-                                      : AppColors.white,
-                                ),
-                              )
-                            : Text(
-                                l10n.forceUpdateButton,
-                                style: AppTypography.button.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                  color: isDark
-                                      ? AppColors.black
-                                      : AppColors.white,
-                                ),
-                              ),
+                        child: Text(
+                          l10n.tryAgain,
+                          style: AppTypography.button.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: isDark ? AppColors.black : AppColors.white,
+                          ),
+                        ),
                       ),
                     ),
 

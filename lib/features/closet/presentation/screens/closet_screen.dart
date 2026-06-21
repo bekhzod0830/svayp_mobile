@@ -208,7 +208,7 @@ class _ClosetScreenState extends State<ClosetScreen> {
         bottom: false,
         child: Column(
           children: [
-            MainTopBar(title: l10n.closet),
+            MainTopBar(title: l10n.closet, showBackButton: false),
             Expanded(
               child: _loading
                   ? Center(

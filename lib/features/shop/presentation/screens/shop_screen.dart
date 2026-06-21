@@ -18,6 +18,7 @@ import 'package:swipe/shared/widgets/main_top_bar.dart';
 import 'dart:ui';
 import 'package:swipe/core/analytics/analytics_events.dart';
 import 'package:swipe/core/analytics/analytics_service.dart';
+import 'package:swipe/features/shop/presentation/utils/visual_search_launcher.dart';
 
 // Pre-computed colors to avoid withOpacity() allocations during rebuilds
 const _kShadowBlack08 = Color(0x14000000); // black.withOpacity(0.08)
@@ -729,7 +730,11 @@ class _ShopScreenState extends State<ShopScreen>
             Column(
               children: [
                 // Glass Header with title
-                MainTopBar(title: l10n.shop, extraActions: const []),
+                MainTopBar(
+                  title: l10n.shop,
+                  extraActions: const [],
+                  showBackButton: false,
+                ),
 
                 // Filter row: Categories (left) + Shops (right)
                 Padding(
@@ -856,13 +861,21 @@ class _ShopScreenState extends State<ShopScreen>
               ],
             ),
 
-            // TODO: ChatGPT-style Search Bar (not needed yet)
-            // Positioned(
-            //   left: 16,
-            //   right: 16,
-            //   bottom: MediaQuery.of(context).viewPadding.bottom + 76,
-            //   child: Container( ... ),
-            // ),
+            // Visual Search — floating button in the bottom-right corner.
+            // Moved here from the bottom nav bar's center slot.
+            Positioned(
+              right: 16,
+              bottom: MediaQuery.of(context).viewPadding.bottom + 84,
+              child: _AnimatedVisualSearchButton(
+                label: l10n.visualSearch,
+                onTap: () {
+                  AnalyticsService.instance.logEvent(
+                    AnalyticsEvents.visualSearchOpened,
+                  );
+                  launchVisualSearch(context);
+                },
+              ),
+            ),
           ],
         ),
       ),

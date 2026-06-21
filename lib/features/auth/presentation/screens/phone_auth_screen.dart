@@ -149,6 +149,18 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
     }
   }
 
+  /// Enters guest mode and lands on the Discover (LIBΛS) feed. The closet tab
+  /// is gated for guests, so Discover — not the closet — is their home.
+  Future<void> _continueAsGuest() async {
+    final storage = await LocalStorageHelper.getInstance();
+    await storage.setGuestMode(true);
+    if (!mounted) return;
+    Navigator.of(context).pushReplacementNamed(
+      '/main',
+      arguments: {'initialIndex': 4}, // 4 = Discover (LIBΛS) tab
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -173,6 +185,28 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
         automaticallyImplyLeading: false, // Remove back button
+        // Guest entry — top-right corner, gated by the backend feature flag.
+        actions: [
+          if (_guestLoginEnabled)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: TextButton(
+                onPressed: _continueAsGuest,
+                style: TextButton.styleFrom(
+                  foregroundColor: isDark
+                      ? AppColors.darkPrimaryText
+                      : AppColors.black,
+                ),
+                child: Text(
+                  l10n.guest,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
       body: SafeArea(
         child: Center(
@@ -374,26 +408,6 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                         isLoading: _isLoading,
                         isFullWidth: true,
                       ),
-                      // Browse as Guest — gated by the backend feature flag.
-                      if (_guestLoginEnabled) ...[
-                        const SizedBox(height: 12),
-                        TextButton(
-                          onPressed: () async {
-                            final storage =
-                                await LocalStorageHelper.getInstance();
-                            await storage.setGuestMode(true);
-                            if (context.mounted) {
-                              Navigator.of(
-                                context,
-                              ).pushReplacementNamed('/main');
-                            }
-                          },
-                          child: Text(
-                            l10n.browseAsGuest,
-                            style: const TextStyle(fontSize: 14),
-                          ),
-                        ),
-                      ],
                     ],
                   ),
                 ),

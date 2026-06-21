@@ -2,6 +2,7 @@ import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/core/constants/app_colors.dart';
@@ -150,6 +151,15 @@ class _VerifyMethodScreenState extends State<VerifyMethodScreen> {
     }
   }
 
+  /// Opens the support Telegram chat for users who can't sign in.
+  Future<void> _openTelegramSupport() async {
+    final uri = Uri.parse('https://t.me/libasai_admin');
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && mounted) {
+      SnackBarHelper.showError(context, 'Could not open Telegram.');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -280,7 +290,10 @@ class _VerifyMethodScreenState extends State<VerifyMethodScreen> {
                     'assets/icons/ic_apple.svg',
                     width: 22,
                     height: 22,
-                    colorFilter: ColorFilter.mode(primaryText, BlendMode.srcIn),
+                    colorFilter: ColorFilter.mode(
+                      _SocialButton.foregroundColor(isDark),
+                      BlendMode.srcIn,
+                    ),
                   ),
                   onPressed: _isLoading ? null : _appleSignIn,
                   isDark: isDark,
@@ -315,6 +328,22 @@ class _VerifyMethodScreenState extends State<VerifyMethodScreen> {
                       )
                     : null,
               ),
+              const SizedBox(height: 8),
+
+              // Trouble signing in → contact support on Telegram.
+              Center(
+                child: TextButton(
+                  onPressed: _openTelegramSupport,
+                  child: Text(
+                    l10n.signInTroubleTelegram,
+                    textAlign: TextAlign.center,
+                    style: AppTypography.body2.copyWith(
+                      color: secondaryText,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                ),
+              ),
               const SizedBox(height: 16),
             ],
           ),
@@ -324,7 +353,9 @@ class _VerifyMethodScreenState extends State<VerifyMethodScreen> {
   }
 }
 
-/// Outlined, pill-shaped social button (secondary style per DESIGN.md).
+/// Filled, pill-shaped social button (black style). Uses the app's inverted
+/// high-contrast convention: black bg + white fg in light mode, white bg +
+/// black fg in dark mode (so it stays readable on the dark background).
 class _SocialButton extends StatelessWidget {
   final String label;
   final Widget icon;
@@ -338,21 +369,25 @@ class _SocialButton extends StatelessWidget {
     required this.isDark,
   });
 
+  /// Foreground color for a black-style social button in the given theme.
+  /// Exposed so callers can tint monochrome icons (e.g. Apple) to match.
+  static Color foregroundColor(bool isDark) =>
+      isDark ? AppColors.black : AppColors.white;
+
   @override
   Widget build(BuildContext context) {
-    final fg = isDark ? AppColors.darkPrimaryText : AppColors.black;
+    final bg = isDark ? AppColors.white : AppColors.black;
+    final fg = foregroundColor(isDark);
     return SizedBox(
       height: 54,
-      child: OutlinedButton(
+      child: ElevatedButton(
         onPressed: onPressed,
-        style: OutlinedButton.styleFrom(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: bg,
           foregroundColor: fg,
-          side: BorderSide(
-            color: isDark
-                ? AppColors.darkStandardBorder
-                : AppColors.standardBorder,
-            width: 1.5,
-          ),
+          disabledBackgroundColor: bg.withValues(alpha: 0.5),
+          disabledForegroundColor: fg.withValues(alpha: 0.7),
+          elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(9999),
           ),

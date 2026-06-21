@@ -21,12 +21,20 @@ class MainTopBar extends StatefulWidget {
   final List<Widget> extraActions;
   final Widget? titleChild;
 
+  /// Whether a back button may be shown when this bar sits inside a pushed
+  /// route. Root tab screens (Discover, Shop, Chat, Closet) set this to false:
+  /// they are never meant to be popped, and the [Navigator.canPop] heuristic
+  /// can misfire on them (e.g. after a locale-driven app rebuild), producing a
+  /// phantom back button that crashes the app when tapped.
+  final bool showBackButton;
+
   const MainTopBar({
     super.key,
     required this.title,
     this.isLikedScreen = false,
     this.extraActions = const [],
     this.titleChild,
+    this.showBackButton = true,
   });
 
   @override
@@ -61,7 +69,7 @@ class _MainTopBarState extends State<MainTopBar> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final iconColor = isDark ? Colors.white : Colors.black;
-    final canPop = Navigator.canPop(context);
+    final canPop = widget.showBackButton && Navigator.canPop(context);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
