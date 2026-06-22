@@ -5,6 +5,7 @@ import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/core/analytics/analytics_events.dart';
 import 'package:swipe/core/analytics/analytics_service.dart';
 import 'package:swipe/core/constants/app_colors.dart';
+import 'package:swipe/core/constants/app_constants.dart';
 import 'package:swipe/core/constants/app_typography.dart';
 import 'package:swipe/shared/widgets/widgets.dart';
 import 'package:swipe/core/di/service_locator.dart';
@@ -153,6 +154,18 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       );
 
       if (!mounted) return;
+
+      // Whitelisted number → OTP is the whole login. Skip the account-linking
+      // (verify-method) page and go straight into the app.
+      final digits = widget.phoneNumber.replaceAll(RegExp(r'\D'), '');
+      if (AppConstants.otpOnlyPhones.contains(digits)) {
+        if (tokenResponse.user.hasProfile) {
+          Navigator.of(context).pushNamedAndRemoveUntil('/main', (_) => false);
+        } else {
+          Navigator.of(context).pushReplacementNamed('/basic-info');
+        }
+        return;
+      }
 
       // Case 1: OTP verified for existing user without email — link social account
       Navigator.of(context).pushReplacementNamed(

@@ -82,4 +82,9 @@ class AppConstants {
   static const int maxNameLength = 50;
   static const int otpLength = 4;
   static const int otpResendSeconds = 60;
+
+  // Auth — phone numbers (digits only, no '+') that use the OTP-only flow:
+  // they skip the email / social verify-method (account linking) step and go
+  // straight into the app after OTP verification.
+  static const Set<String> otpOnlyPhones = {'998909958022'};
 }

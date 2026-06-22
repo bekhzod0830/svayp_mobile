@@ -887,7 +887,7 @@ class AppLocalizationsUz extends AppLocalizations {
   String get shop => 'Do\'kon';
 
   @override
-  String get market => 'Bozor';
+  String get market => 'Market';
 
   @override
   String get marketComingSoon =>

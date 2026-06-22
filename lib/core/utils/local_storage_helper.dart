@@ -190,6 +190,18 @@ class LocalStorageHelper {
     return await setBool('guest_login_enabled', value);
   }
 
+  /// Whether the "Verify with SMS" option is enabled (backend flag
+  /// feature.sms_otp_enabled). Defaults to false so Google/Apple is the only
+  /// path until the flag is fetched, or when the network is unavailable.
+  bool isSmsOtpEnabled() {
+    return getBool('sms_otp_enabled', defaultValue: false);
+  }
+
+  /// Persist the sms-otp flag fetched from the backend.
+  Future<bool> setSmsOtpEnabled(bool value) async {
+    return await setBool('sms_otp_enabled', value);
+  }
+
   // ============== Tutorial/First Time Flags ==============
 
   /// Mark tutorial as completed

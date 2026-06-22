@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/features/auth/presentation/screens/partner_login_screen.dart';
 import 'package:swipe/core/constants/app_colors.dart';
+import 'package:swipe/core/constants/app_constants.dart';
 import 'package:swipe/core/constants/app_typography.dart';
 import 'package:swipe/core/utils/validators.dart';
 import 'package:swipe/core/utils/responsive_utils.dart';
@@ -102,6 +103,18 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
     setState(() => _isLoading = true);
 
     try {
+      // Whitelisted number → straight to OTP, no email verification needed.
+      if (AppConstants.otpOnlyPhones
+          .contains(phoneNumber.replaceAll(RegExp(r'\D'), ''))) {
+        await _authService.sendOTP(phoneNumber);
+        if (!mounted) return;
+        Navigator.of(context).pushNamed(
+          '/otp-verification',
+          arguments: phoneNumber,
+        );
+        return;
+      }
+
       final status = await _authService.checkPhone(phoneNumber);
 
       if (!mounted) return;
@@ -336,7 +349,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                                   ),
                                   recognizer: TapGestureRecognizer()
                                     ..onTap = () => _launchUrl(
-                                      'https://svaypai.com/$locale/terms',
+                                      'https://libas.uz/$locale/terms',
                                     ),
                                 ),
                                 TextSpan(
@@ -360,7 +373,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                                   ),
                                   recognizer: TapGestureRecognizer()
                                     ..onTap = () => _launchUrl(
-                                      'https://svaypai.com/$locale/privacy',
+                                      'https://libas.uz/$locale/privacy',
                                     ),
                                 ),
                                 if (l10n.agreeToTermsSuffix.isNotEmpty)

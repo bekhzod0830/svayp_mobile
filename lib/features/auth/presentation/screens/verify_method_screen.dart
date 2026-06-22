@@ -9,6 +9,7 @@ import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
 import 'package:swipe/core/utils/responsive_utils.dart';
 import 'package:swipe/core/utils/error_message_helper.dart';
+import 'package:swipe/core/utils/local_storage_helper.dart';
 import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/core/network/api_client.dart';
 import 'package:swipe/shared/widgets/widgets.dart';
@@ -54,12 +55,22 @@ class _VerifyMethodScreenState extends State<VerifyMethodScreen> {
   late final SocialAuthService _social;
   late final AuthService _authService;
   bool _isLoading = false;
+  // Backend feature flag (feature.sms_otp_enabled), cached on splash. Defaults
+  // to false so Google/Apple is the only path until the flag is read.
+  bool _smsOtpEnabled = false;
 
   @override
   void initState() {
     super.initState();
     _authService = getIt<AuthService>();
     _social = getIt<SocialAuthService>();
+    _loadSmsOtpFlag();
+  }
+
+  Future<void> _loadSmsOtpFlag() async {
+    final storage = await LocalStorageHelper.getInstance();
+    if (!mounted) return;
+    setState(() => _smsOtpEnabled = storage.isSmsOtpEnabled());
   }
 
   /// Format as +998 (90) 123-12-12.
@@ -300,8 +311,10 @@ class _VerifyMethodScreenState extends State<VerifyMethodScreen> {
                 ),
               const SizedBox(height: 12),
 
-              // SMS fallback — shown only for new users, not when linking or for existing users with email
-              if (!widget.isLinking && widget.isNew)
+              // SMS fallback — shown only for new users (not when linking or
+              // for existing users with email) AND only when the backend
+              // feature.sms_otp_enabled flag is on.
+              if (!widget.isLinking && widget.isNew && _smsOtpEnabled)
                 TextButton(
                   onPressed: _isLoading ? null : _smsSignIn,
                   child: Text(

@@ -111,6 +111,9 @@ Future<XFile?> _showCategoryPicker(BuildContext context, XFile image) {
     isScrollControlled: true,
     isDismissible: true,
     enableDrag: false,
+    // Present above the main scaffold's floating bottom nav bar (the body uses
+    // extendBody: true), otherwise the Search button is hidden behind it.
+    useRootNavigator: true,
     builder: (ctx) {
       bool isProcessing = false;
       return PopScope(
@@ -120,10 +123,11 @@ Future<XFile?> _showCategoryPicker(BuildContext context, XFile image) {
           builder: (ctx, setState) {
             // ~75 % of the screen height — big enough to crop comfortably.
             final sheetHeight = MediaQuery.of(ctx).size.height * 0.75;
+            final bottomInset = MediaQuery.of(ctx).padding.bottom;
             return SizedBox(
-              height: sheetHeight,
+              height: sheetHeight + bottomInset,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + bottomInset),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(28),
                   child: BackdropFilter(

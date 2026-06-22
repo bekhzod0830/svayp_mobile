@@ -52,6 +52,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     with WidgetsBindingObserver {
   String _userName = 'User';
   String _userPhone = '';
+  String _userEmail = '';
   String _userId = '';
   String _username = '';
   String _userRole = '';
@@ -152,6 +153,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         _userProfile = profile;
         _userName = user.fullName ?? 'User';
         _userPhone = user.phoneNumber;
+        _userEmail = user.email ?? '';
         _username = user.username ?? '';
         _userRole = user.role;
         _userId = user.id;
@@ -186,6 +188,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         _isLoading = false;
         _userName = 'User';
         _userPhone = '';
+        _userEmail = '';
         _userId = '';
         _cashbackBalance = 0.0;
       });
@@ -546,6 +549,46 @@ class _ProfileScreenState extends State<ProfileScreen>
                                                             ),
                                                           ],
                                                         ),
+                                                        // Show email if available
+                                                        if (_userEmail
+                                                            .isNotEmpty) ...[
+                                                          const SizedBox(
+                                                            height: 6,
+                                                          ),
+                                                          Row(
+                                                            children: [
+                                                              Icon(
+                                                                Icons
+                                                                    .email_outlined,
+                                                                size: 16,
+                                                                color: isDark
+                                                                    ? AppColors
+                                                                          .darkSecondaryText
+                                                                    : AppColors
+                                                                          .gray600,
+                                                              ),
+                                                              const SizedBox(
+                                                                width: 6,
+                                                              ),
+                                                              Flexible(
+                                                                child: Text(
+                                                                  _userEmail,
+                                                                  style: AppTypography
+                                                                      .body2
+                                                                      .copyWith(
+                                                                        color:
+                                                                            isDark
+                                                                            ? AppColors.darkSecondaryText
+                                                                            : AppColors.gray600,
+                                                                      ),
+                                                                  overflow:
+                                                                      TextOverflow
+                                                                          .ellipsis,
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        ],
                                                         const SizedBox(
                                                           height: 6,
                                                         ),

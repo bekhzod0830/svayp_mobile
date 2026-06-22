@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
@@ -17,6 +18,7 @@ class NotificationItem {
   bool isRead;
   final String type;
   final String? entityId;
+  final String? imageUrl;
 
   NotificationItem({
     required this.id,
@@ -26,6 +28,7 @@ class NotificationItem {
     required this.isRead,
     required this.type,
     this.entityId,
+    this.imageUrl,
   });
 
   factory NotificationItem.fromJson(Map<String, dynamic> json) {
@@ -39,6 +42,8 @@ class NotificationItem {
       isRead: json['is_read'] as bool? ?? false,
       type: json['type'] as String? ?? 'SYSTEM',
       entityId: json['entity_id'] as String?,
+      imageUrl:
+          json['image_url'] as String? ?? json['image'] as String?,
     );
   }
 }
@@ -140,6 +145,19 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         BadgeNotifier.instance.clearUnreadNotifications();
       }
     } catch (_) {}
+  }
+
+  /// Marks the item read and routes it: SYSTEM messages open an in-app popup
+  /// with the full text + image, everything else deep-links to its page.
+  void _onTapItem(NotificationItem item) {
+    _markAsRead(item);
+    NotificationService.handleNotificationOpen(
+      typeStr: item.type,
+      entityId: item.entityId,
+      title: item.title,
+      body: item.body,
+      imageUrl: item.imageUrl,
+    );
   }
 
   Future<void> _markAsRead(NotificationItem item) async {
@@ -347,21 +365,44 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           final item = _items[index];
           final icon = _iconForType(item.type);
           final color = _colorForType(item.type, isDark);
+          final hasImage = item.imageUrl != null &&
+              item.imageUrl!.trim().isNotEmpty;
 
           return InkWell(
-            onTap: () => _markAsRead(item),
+            onTap: () => _onTapItem(item),
             child: ListTile(
               tileColor: item.isRead
                   ? Colors.transparent
                   : (isDark
                         ? AppColors.darkCardBackground.withValues(alpha: 0.4)
                         : color.withValues(alpha: 0.05)),
-              leading: CircleAvatar(
-                backgroundColor: color.withValues(alpha: 0.12),
-                child: Icon(icon, color: color, size: 22),
-              ),
+              leading: hasImage
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: CachedNetworkImage(
+                        imageUrl: item.imageUrl!,
+                        width: 44,
+                        height: 44,
+                        fit: BoxFit.cover,
+                        placeholder: (_, __) => Container(
+                          width: 44,
+                          height: 44,
+                          color: color.withValues(alpha: 0.12),
+                        ),
+                        errorWidget: (_, __, ___) => CircleAvatar(
+                          backgroundColor: color.withValues(alpha: 0.12),
+                          child: Icon(icon, color: color, size: 22),
+                        ),
+                      ),
+                    )
+                  : CircleAvatar(
+                      backgroundColor: color.withValues(alpha: 0.12),
+                      child: Icon(icon, color: color, size: 22),
+                    ),
               title: Text(
                 item.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: AppTypography.body1.copyWith(
                   fontWeight: item.isRead ? FontWeight.normal : FontWeight.w600,
                   color: isDark ? AppColors.darkPrimaryText : AppColors.black,
@@ -373,7 +414,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   const SizedBox(height: 2),
                   Text(
                     item.body,
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: AppTypography.body2.copyWith(
                       color: isDark
@@ -392,7 +433,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   ),
                 ],
               ),
-              isThreeLine: true,
+              trailing: Icon(
+                Icons.chevron_right,
+                size: 20,
+                color: isDark
+                    ? AppColors.darkSecondaryText
+                    : AppColors.secondaryText,
+              ),
             ),
           );
         },

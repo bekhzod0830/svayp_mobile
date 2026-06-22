@@ -13,6 +13,7 @@ class FeatureFlagService {
   const FeatureFlagService(this._apiClient);
 
   static const String _guestLoginKey = 'feature.guest_login.enabled';
+  static const String _smsOtpKey = 'feature.sms_otp_enabled';
 
   /// Pulls the latest flags and persists them. Never throws — on any failure
   /// the previously cached values are kept (so the app degrades gracefully).
@@ -31,6 +32,11 @@ class FeatureFlagService {
       if (flags.containsKey(_guestLoginKey)) {
         final enabled = _asBool(flags[_guestLoginKey]);
         await storage.setGuestLoginEnabled(enabled);
+      }
+
+      if (flags.containsKey(_smsOtpKey)) {
+        final enabled = _asBool(flags[_smsOtpKey]);
+        await storage.setSmsOtpEnabled(enabled);
       }
     } catch (_) {
       // Keep cached flags on failure — never block startup.

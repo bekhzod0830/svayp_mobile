@@ -9,6 +9,10 @@
     <!-- Location permissions for chat location sharing -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- Saving "looks" to the photo gallery (gal). Only needed on API <= 28;
+         API 29+ uses scoped storage and requires no permission. -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
 
     
     <application

@@ -12,8 +12,21 @@ import 'package:swipe/core/services/notification_preferences_service.dart';
 import 'package:swipe/core/localization/services/language_service.dart';
 import 'package:swipe/core/network/api_client.dart';
 import 'package:swipe/core/di/service_locator.dart';
+import 'package:swipe/core/widgets/in_app_message_dialog.dart';
 import 'package:swipe/app/routes.dart';
 import 'package:swipe/features/chat/data/services/chat_websocket_service.dart';
+
+/// Builds the JSON payload carried by a local notification so a tap can later
+/// reconstruct the message (type, target entity, text and image).
+String buildNotificationPayload(Map<String, dynamic> data) {
+  return jsonEncode({
+    'type': data['type'] ?? '',
+    'entityId': data['entityId'],
+    'title': data['title'],
+    'body': data['body'],
+    'image': data['image'] ?? data['imageUrl'],
+  });
+}
 
 /// Handles FCM background messages (must be top-level).
 /// For data-only messages (no `notification` key) the OS won't auto-show a
@@ -66,7 +79,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       ),
       iOS: const DarwinNotificationDetails(),
     ),
-    payload: '${message.data["type"] ?? ""}|${message.data["entityId"] ?? ""}',
+    payload: buildNotificationPayload(message.data),
   );
 }
 
@@ -264,8 +277,22 @@ class NotificationService {
       title,
       body,
       NotificationDetails(android: androidDetails, iOS: iosDetails),
-      payload: _buildPayload(message.data),
+      payload: buildNotificationPayload({
+        ...message.data,
+        'title': title,
+        'body': body,
+        'image': _imageUrlFromMessage(message),
+      }),
     );
+  }
+
+  /// Extracts an image URL from an FCM message, checking the notification
+  /// payload (Android/Apple) first, then common data keys.
+  static String? _imageUrlFromMessage(RemoteMessage message) {
+    return message.notification?.android?.imageUrl ??
+        message.notification?.apple?.imageUrl ??
+        message.data['image'] as String? ??
+        message.data['imageUrl'] as String?;
   }
 
   // ─── Local notification persistence ──────────────────────────────────────
@@ -280,6 +307,7 @@ class NotificationService {
     required String body,
     required String type,
     String? entityId,
+    String? imageUrl,
   }) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -291,6 +319,7 @@ class NotificationService {
         'body': body,
         'type': type,
         'entity_id': entityId,
+        'image_url': imageUrl,
         'created_at': DateTime.now().toUtc().toIso8601String(),
         'is_read': false,
         'is_local': true,
@@ -348,6 +377,7 @@ class NotificationService {
           body: body,
           type: typeStr.isEmpty ? 'SYSTEM' : typeStr,
           entityId: entityId,
+          imageUrl: _imageUrlFromMessage(message),
         );
       }
 
@@ -370,37 +400,68 @@ class NotificationService {
 
   void _handleBackgroundTap() {
     FirebaseMessaging.onMessageOpenedApp.listen((message) {
-      _navigate(message.data);
+      handleNotificationOpen(
+        typeStr: message.data['type'] as String? ?? '',
+        entityId: message.data['entityId'] as String?,
+        title: message.notification?.title ?? message.data['title'] as String?,
+        body: message.notification?.body ?? message.data['body'] as String?,
+        imageUrl: _imageUrlFromMessage(message),
+      );
     });
   }
 
   Future<void> _handleTerminatedTap() async {
     final initial = await _fcm.getInitialMessage();
     if (initial != null) {
-      // Delay navigation until the widget tree is ready.
+      // Delay handling until the widget tree is ready.
       Future.delayed(const Duration(milliseconds: 500), () {
-        _navigate(initial.data);
+        handleNotificationOpen(
+          typeStr: initial.data['type'] as String? ?? '',
+          entityId: initial.data['entityId'] as String?,
+          title:
+              initial.notification?.title ?? initial.data['title'] as String?,
+          body: initial.notification?.body ?? initial.data['body'] as String?,
+          imageUrl: _imageUrlFromMessage(initial),
+        );
       });
     }
   }
 
   // ─── Deep-link routing ───────────────────────────────────────────────────────
 
-  String _buildPayload(Map<String, dynamic> data) {
-    return '${data['type'] ?? ''}|${data['entityId'] ?? ''}';
-  }
-
   void _handleNotificationTap(String? payload) {
     if (payload == null) return;
-    final parts = payload.split('|');
-    final type = parts.isNotEmpty ? parts[0] : '';
-    final entityId = parts.length > 1 ? parts[1] : null;
-    _navigate({'type': type, 'entityId': entityId});
+    Map<String, dynamic> data;
+    try {
+      data = jsonDecode(payload) as Map<String, dynamic>;
+    } catch (_) {
+      // Backward-compat with the old `type|entityId` payload format.
+      final parts = payload.split('|');
+      data = {
+        'type': parts.isNotEmpty ? parts[0] : '',
+        'entityId': parts.length > 1 ? parts[1] : null,
+      };
+    }
+    handleNotificationOpen(
+      typeStr: data['type'] as String? ?? '',
+      entityId: data['entityId'] as String?,
+      title: data['title'] as String?,
+      body: data['body'] as String?,
+      imageUrl: data['image'] as String?,
+    );
   }
 
-  void _navigate(Map<String, dynamic> data) {
-    final typeStr = data['type'] as String? ?? '';
-    final entityId = data['entityId'] as String?;
+  /// Handles opening a notification (tapped banner, list item, or cold start).
+  ///
+  /// SYSTEM / broadcast messages are surfaced as an in-app popup showing their
+  /// text and image. All other types deep-link to the relevant page.
+  static void handleNotificationOpen({
+    required String typeStr,
+    String? entityId,
+    String? title,
+    String? body,
+    String? imageUrl,
+  }) {
     final type = NotificationType.fromString(typeStr);
     final nav = navigatorKey.currentState;
     if (nav == null) return;
@@ -428,7 +489,33 @@ class NotificationService {
           nav.pushNamed(AppRoutes.discover);
         }
       case NotificationType.system:
-        nav.pushNamed(AppRoutes.notifications);
+        _showSystemMessage(
+          title: title ?? '',
+          body: body ?? '',
+          imageUrl: imageUrl,
+        );
     }
+  }
+
+  /// Shows a SYSTEM notification as an in-app popup. Falls back to the
+  /// notifications list when there's no content to display.
+  static void _showSystemMessage({
+    required String title,
+    required String body,
+    String? imageUrl,
+  }) {
+    final ctx = navigatorKey.currentContext;
+    final hasContent =
+        title.isNotEmpty || body.isNotEmpty || (imageUrl?.isNotEmpty ?? false);
+    if (ctx == null || !hasContent) {
+      navigatorKey.currentState?.pushNamed(AppRoutes.notifications);
+      return;
+    }
+    showInAppMessageDialog(
+      ctx,
+      title: title,
+      body: body,
+      imageUrl: imageUrl,
+    );
   }
 }
