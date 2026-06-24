@@ -952,17 +952,19 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
                                   prev.day != curr.day;
                             }
 
-                            // The C2C listing context card carries no text — its info is in the
-                            // header, so skip the otherwise-empty bubble.
+                            // Skip a truly-empty bubble (no text/attachment/location). The C2C
+                            // listing card (messageType=listing) renders below, so keep it.
                             final isEmptyContext = message.content.trim().isEmpty &&
                                 message.attachments.isEmpty &&
                                 message.latitude == null &&
-                                message.messageType != MessageType.product;
+                                message.messageType != MessageType.product &&
+                                message.messageType != MessageType.listing;
 
                             Widget msgWidget;
                             if (isEmptyContext) {
                               msgWidget = const SizedBox.shrink();
-                            } else if (message.messageType == MessageType.product) {
+                            } else if (message.messageType == MessageType.product ||
+                                message.messageType == MessageType.listing) {
                               msgWidget = _ProductMessageBubble(
                                 message: message,
                                 isDark: isDark,

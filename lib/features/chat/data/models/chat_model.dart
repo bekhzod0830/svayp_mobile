@@ -4,7 +4,7 @@ import 'package:equatable/equatable.dart';
 enum ChatStatus { active, archived, resolved }
 
 /// Message Type Enum
-enum MessageType { text, image, file, product, location, system }
+enum MessageType { text, image, file, product, location, system, listing }
 
 /// Sender Type Enum
 enum SenderType { user, seller, admin }
@@ -398,6 +398,8 @@ class ChatMessageResponse extends Equatable {
         return MessageType.location;
       case 'SYSTEM':
         return MessageType.system;
+      case 'LISTING':
+        return MessageType.listing;
       default:
         return MessageType.text;
     }
