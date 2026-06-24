@@ -284,6 +284,8 @@ class ChatMessageResponse extends Equatable {
   final String senderName;
   final String? senderImage;
   final SenderType senderType;
+  /// Server-computed: true if sent by the requesting user. Authoritative bubble alignment.
+  final bool? isMine;
   final String content;
   final MessageType messageType;
   final double? latitude;
@@ -309,6 +311,7 @@ class ChatMessageResponse extends Equatable {
     required this.senderName,
     this.senderImage,
     required this.senderType,
+    this.isMine,
     required this.content,
     required this.messageType,
     this.latitude,
@@ -336,6 +339,7 @@ class ChatMessageResponse extends Equatable {
       senderName: json['sender_name'] as String? ?? '',
       senderImage: json['sender_image'] as String?,
       senderType: _parseSenderType(json['sender_type'] as String?),
+      isMine: json['is_mine'] as bool?,
       content: json['content'] as String? ?? '',
       messageType: _parseMessageType(json['message_type'] as String?),
       latitude: (json['latitude'] as num?)?.toDouble(),
@@ -433,6 +437,7 @@ class ChatMessageResponse extends Equatable {
     String? senderName,
     String? senderImage,
     SenderType? senderType,
+    bool? isMine,
     String? content,
     MessageType? messageType,
     double? latitude,
@@ -458,6 +463,7 @@ class ChatMessageResponse extends Equatable {
       senderName: senderName ?? this.senderName,
       senderImage: senderImage ?? this.senderImage,
       senderType: senderType ?? this.senderType,
+      isMine: isMine ?? this.isMine,
       content: content ?? this.content,
       messageType: messageType ?? this.messageType,
       latitude: latitude ?? this.latitude,
@@ -508,6 +514,7 @@ class ChatMessageResponse extends Equatable {
     senderName,
     senderImage,
     senderType,
+    isMine,
     content,
     messageType,
     latitude,

@@ -926,12 +926,17 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
                             // reverse: true means index 0 = last message (newest)
                             final reversedIndex = _messages.length - 1 - index;
                             final message = _messages[reversedIndex];
-                            // Use senderType for reliable bubble alignment:
-                            // - Seller view (_isAdmin): seller/admin messages are mine
-                            // - User view: only user messages are mine
-                            final isMine = _isAdmin
-                                ? message.senderType != SenderType.user
-                                : message.senderType == SenderType.user;
+                            // Own-message alignment: prefer senderId (correct for both B2B and
+                            // C2C marketplace chats, where BOTH participants are senderType=USER);
+                            // fall back to senderType only when the current user id is unknown.
+                            // Prefer the server's authoritative is_mine; fall back to senderId /
+                            // senderType for realtime/optimistic messages without the flag.
+                            final isMine = message.isMine ??
+                                (_currentUserId.isNotEmpty
+                                    ? message.senderId == _currentUserId
+                                    : (_isAdmin
+                                          ? message.senderType != SenderType.user
+                                          : message.senderType == SenderType.user));
 
                             // Check if a date separator is needed
                             bool showDateSeparator = false;
@@ -947,8 +952,17 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
                                   prev.day != curr.day;
                             }
 
+                            // The C2C listing context card carries no text — its info is in the
+                            // header, so skip the otherwise-empty bubble.
+                            final isEmptyContext = message.content.trim().isEmpty &&
+                                message.attachments.isEmpty &&
+                                message.latitude == null &&
+                                message.messageType != MessageType.product;
+
                             Widget msgWidget;
-                            if (message.messageType == MessageType.product) {
+                            if (isEmptyContext) {
+                              msgWidget = const SizedBox.shrink();
+                            } else if (message.messageType == MessageType.product) {
                               msgWidget = _ProductMessageBubble(
                                 message: message,
                                 isDark: isDark,
