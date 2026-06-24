@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:gal/gal.dart';
 import 'package:provider/provider.dart';
 import 'package:swipe/app/app.dart';
+import 'package:swipe/core/globals.dart';
 import 'package:swipe/core/localization/services/language_service.dart';
 import 'package:swipe/core/services/theme_service.dart';
+import 'package:swipe/features/chat/presentation/screens/chat_detail_screen.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/shared/widgets/widgets.dart';
 
@@ -48,6 +50,20 @@ Future<bool> applyWebViewSetting(
       // The web "Save Look" button can't download inside a WebView, so it
       // hands us the rendered image to write into the device photo gallery.
       await _saveImageToGallery(map, context);
+      return true;
+
+    case 'open_chat':
+      // The marketplace WebView started a C2C chat — open it in the NATIVE chat
+      // module (same screen as the C2B "Проверить наличие" flow). Pushed on the
+      // root navigator so Back returns to the marketplace WebView.
+      final chatId = (map['chatId'] as String?)?.trim() ?? '';
+      if (chatId.isNotEmpty) {
+        navigatorKey.currentState?.push(
+          MaterialPageRoute(
+            builder: (_) => ChatDetailScreen(chatId: chatId),
+          ),
+        );
+      }
       return true;
 
     default:
