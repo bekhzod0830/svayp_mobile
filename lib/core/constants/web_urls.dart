@@ -24,4 +24,15 @@ class WebUrls {
 
   static String productDetail(String productId) => '$_base/product/$productId';
   static String chatDetail(String chatId) => '$_base/chat/$chatId';
+
+  /// Resolves a notification `url` value to a full web URL.
+  /// Absolute http(s) URLs are returned unchanged; relative paths
+  /// (e.g. '/market/create') are prefixed with the web app base.
+  static String resolve(String pathOrUrl) {
+    if (pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://')) {
+      return pathOrUrl;
+    }
+    final path = pathOrUrl.startsWith('/') ? pathOrUrl : '/$pathOrUrl';
+    return '$_base$path';
+  }
 }

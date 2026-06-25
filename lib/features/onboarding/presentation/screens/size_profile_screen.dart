@@ -7,7 +7,10 @@ import 'package:swipe/core/utils/responsive_utils.dart';
 import 'package:swipe/shared/widgets/widgets.dart';
 import 'package:swipe/core/analytics/analytics_events.dart';
 import 'package:swipe/core/analytics/onboarding_analytics_mixin.dart';
+import 'package:swipe/core/network/api_client.dart';
+import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/features/onboarding/data/onboarding_data_manager.dart';
+import 'package:swipe/features/profile/data/services/profile_service.dart';
 
 /// Size Profile Screen - Second step of profile setup
 /// User selects height and body type
@@ -67,10 +70,14 @@ class _SizeProfileScreenState extends State<SizeProfileScreen>
 
       if (!mounted) return;
 
-      trackStepCompleted();
-
-      // Navigate to style quiz screen
-      Navigator.of(context).pushNamed('/style-quiz');
+      // Female users continue to the style quiz, which submits the profile at
+      // the end. Male users skip the quiz, so submit the profile here instead.
+      if (manager.gender == 'male') {
+        await _createProfileAndFinish(manager, l10n);
+      } else {
+        trackStepCompleted();
+        Navigator.of(context).pushNamed('/style-quiz');
+      }
     } catch (e) {
       if (!mounted) return;
       SnackBarHelper.showError(context, l10n.saveInfoError);
@@ -81,6 +88,38 @@ class _SizeProfileScreenState extends State<SizeProfileScreen>
         });
       }
     }
+  }
+
+  /// Submits the collected profile for users who skip the style quiz (male
+  /// flow) and navigates to the completion screen.
+  Future<void> _createProfileAndFinish(
+    OnboardingDataManager manager,
+    AppLocalizations l10n,
+  ) async {
+    final apiClient = getIt<ApiClient>();
+    if (!apiClient.isAuthenticated()) {
+      Navigator.of(
+        context,
+      ).pushNamedAndRemoveUntil('/phone-auth', (route) => false);
+      return;
+    }
+
+    if (!manager.hasRequiredFields) {
+      SnackBarHelper.showError(context, l10n.pleaseCompleteAllFields);
+      return;
+    }
+
+    try {
+      await getIt<ProfileService>().createProfile(manager.toProfileRequest());
+    } catch (e) {
+      if (!mounted) return;
+      SnackBarHelper.showError(context, l10n.failedToCreateProfile);
+      return;
+    }
+
+    if (!mounted) return;
+    trackStepCompleted();
+    Navigator.of(context).pushNamed('/onboarding-completion');
   }
 
   @override

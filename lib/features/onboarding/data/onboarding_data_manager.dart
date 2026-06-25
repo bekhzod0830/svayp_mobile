@@ -232,8 +232,9 @@ class OnboardingDataManager extends ChangeNotifier {
       braCupSize: _braCupSize?.toUpperCase(),
       braSupportLevel: _braSupportLevel?.toUpperCase(),
 
-      // Muslim fashion preferences - convert to UPPERCASE
-      hijabPreference: _hijabPreference!.toUpperCase(),
+      // Muslim fashion preferences - convert to UPPERCASE.
+      // Male users skip the hijab step, so default to NOT_APPLICABLE.
+      hijabPreference: (_hijabPreference ?? 'not_applicable').toUpperCase(),
       fitPreference: _fitPreference.isNotEmpty
           ? _fitPreference.map((e) => e.toUpperCase()).toList()
           : [],

@@ -18,6 +18,7 @@ import 'package:swipe/features/chat/data/services/chat_service.dart';
 import 'package:swipe/features/chat/data/services/chat_websocket_service.dart';
 import 'package:swipe/features/chat/data/models/chat_model.dart';
 import 'package:swipe/core/services/badge_notifier.dart';
+import 'package:swipe/core/services/notification_service.dart';
 import 'package:swipe/features/discover/presentation/screens/discover_screen.dart';
 import 'package:swipe/features/discover/presentation/widgets/swipe_tutorial_overlay.dart';
 import 'package:swipe/features/shop/presentation/screens/shop_screen.dart';
@@ -88,6 +89,13 @@ class MainScreenState extends State<MainScreen>
       }
     });
     _initBadge();
+    // Now that the app has reached its landing screen, surface any cold-start
+    // notification (tapped while terminated) that was deferred during startup.
+    // Done after the first frame so the navigator has settled on /main and the
+    // popup/deep-link lands here instead of on the to-be-replaced splash route.
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => NotificationService.instance.flushPendingInitialNotification(),
+    );
     // Cover the case where the app launches straight onto the Discover tab.
     if (_currentIndex == _discoverTabIndex) {
       WidgetsBinding.instance.addPostFrameCallback(
@@ -314,6 +322,12 @@ class MainScreenState extends State<MainScreen>
       },
       child: Scaffold(
         extendBody: true,
+        // Keep the floating bottom navbar pinned to the bottom when a soft
+        // keyboard opens inside a WebView tab (Closet/Market). Without this the
+        // Scaffold resizes to the keyboard inset and pushes the navbar up over
+        // the page content. The WebView handles scrolling its focused input
+        // into view above the keyboard itself.
+        resizeToAvoidBottomInset: false,
         backgroundColor: isDark ? const Color(0xFF111111) : Colors.white,
         body: Stack(
           children: [

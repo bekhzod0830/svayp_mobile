@@ -104,29 +104,13 @@ class ApiClient {
           // Proactively refresh if expired or within 60-second buffer.
           // This avoids the round-trip 401 for background-resumed sessions.
           if (isTokenExpired(token, clockSkew: const Duration(seconds: 60))) {
-            final refreshTokenValue = getRefreshToken();
-            if (refreshTokenValue != null) {
-              try {
-                final response = await _refreshDio.post(
-                  ApiConfig.authRefreshToken,
-                  data: {'refreshToken': refreshTokenValue},
-                );
-                final data = response.data is Map
-                    ? (response.data['data'] ?? response.data)
-                    : response.data;
-                final newToken = data['access_token'] as String?;
-                if (newToken != null) {
-                  await saveToken(newToken);
-                  final newRefresh = data['refresh_token'] as String?;
-                  if (newRefresh != null) await saveRefreshToken(newRefresh);
-                  options.headers['Authorization'] = 'Bearer $newToken';
-                  handler.next(options);
-                  return;
-                }
-              } catch (_) {
-                // Proactive refresh failed – let the request proceed.
-                // The 401 error interceptor will handle it or clear tokens.
-              }
+            // Proactive refresh failed → fall through and attach the old
+            // token; the 401 error interceptor will handle it or clear tokens.
+            final newToken = await refreshAccessToken();
+            if (newToken != null) {
+              options.headers['Authorization'] = 'Bearer $newToken';
+              handler.next(options);
+              return;
             }
           }
           options.headers['Authorization'] = 'Bearer $token';
@@ -175,39 +159,24 @@ class ApiClient {
           return;
         }
 
-        try {
-          final response = await _refreshDio.post(
-            ApiConfig.authRefreshToken,
-            data: {'refreshToken': refreshTokenValue},
-          );
-
-          // The endpoint may wrap data: { "data": { ... } }
-          final data = response.data is Map
-              ? (response.data['data'] ?? response.data)
-              : response.data;
-
-          final newAccessToken = data['access_token'] as String?;
-          final newRefreshToken = data['refresh_token'] as String?;
-
-          if (newAccessToken != null) {
-            await saveToken(newAccessToken);
-            if (newRefreshToken != null) {
-              await saveRefreshToken(newRefreshToken);
-            }
-
-            // Retry the original request with the fresh token
-            error.requestOptions.headers['Authorization'] =
-                'Bearer $newAccessToken';
-            error.requestOptions.extra['_retried'] = true;
+        final newAccessToken = await refreshAccessToken();
+        if (newAccessToken != null) {
+          // Retry the original request with the fresh token
+          error.requestOptions.headers['Authorization'] =
+              'Bearer $newAccessToken';
+          error.requestOptions.extra['_retried'] = true;
+          try {
             final retryResponse = await _refreshDio.fetch(error.requestOptions);
             handler.resolve(retryResponse);
             return;
+          } catch (_) {
+            handler.next(error);
+            return;
           }
-        } catch (_) {
-          // Refresh itself failed – clear everything
-          await _clearAllTokens();
         }
 
+        // Refresh failed – clear everything and surface the original error.
+        await _clearAllTokens();
         handler.next(error);
       },
     );
@@ -329,6 +298,55 @@ class ApiClient {
     final token = getToken();
     if (token == null) return false;
     return !isTokenExpired(token);
+  }
+
+  // ==================== Token Refresh ====================
+
+  /// Refreshes the access token using the stored refresh token.
+  ///
+  /// Returns the new access token on success, or null when there is no refresh
+  /// token or the refresh request fails. On success the new access (and
+  /// refresh) tokens are persisted. Uses [_refreshDio] (no interceptors) to
+  /// avoid re-entrancy. Shared by the interceptor and by out-of-band callers
+  /// such as the visual-search upload.
+  Future<String?> refreshAccessToken() async {
+    final refreshTokenValue = getRefreshToken();
+    if (refreshTokenValue == null) return null;
+    try {
+      final response = await _refreshDio.post(
+        ApiConfig.authRefreshToken,
+        data: {'refreshToken': refreshTokenValue},
+      );
+      // The endpoint may wrap data: { "data": { ... } }
+      final data = response.data is Map
+          ? (response.data['data'] ?? response.data)
+          : response.data;
+      final newAccessToken = data['access_token'] as String?;
+      if (newAccessToken != null) {
+        await saveToken(newAccessToken);
+        final newRefreshToken = data['refresh_token'] as String?;
+        if (newRefreshToken != null) await saveRefreshToken(newRefreshToken);
+        return newAccessToken;
+      }
+    } catch (_) {
+      // Caller decides how to handle a failed refresh.
+    }
+    return null;
+  }
+
+  /// Returns a valid (non-expired) access token, refreshing proactively when it
+  /// is expired or within the 60-second clock-skew buffer.
+  ///
+  /// Use this for requests issued outside the Dio client (e.g. the raw
+  /// multipart visual-search upload) so they get the same auto-refresh as
+  /// interceptor-backed calls. Returns null when there is no usable session.
+  Future<String?> getValidToken() async {
+    final token = getToken();
+    if (token == null) return null;
+    if (!isTokenExpired(token, clockSkew: const Duration(seconds: 60))) {
+      return token;
+    }
+    return await refreshAccessToken() ?? token;
   }
 
   // ==================== HTTP Methods ====================

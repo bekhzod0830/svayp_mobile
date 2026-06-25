@@ -145,26 +145,37 @@ class _WebViewScreenState extends State<WebViewScreen> {
     FileSelectorParams params,
   ) async {
     final picker = ImagePicker();
-    XFile? picked;
 
+    // Camera capture (`capture` attribute) is always a single shot.
     if (params.isCaptureEnabled) {
-      picked = await picker.pickImage(
+      final shot = await picker.pickImage(
         source: ImageSource.camera,
         maxWidth: 1920,
         maxHeight: 1920,
         imageQuality: 85,
       );
-    } else {
-      picked = await picker.pickImage(
-        source: ImageSource.gallery,
+      return shot == null ? const [] : [Uri.file(shot.path).toString()];
+    }
+
+    // Gallery with `<input multiple>` (e.g. adding listing photos): let the user
+    // select many images in one trip instead of re-opening the picker per image.
+    if (params.mode == FileSelectorMode.openMultiple) {
+      final picked = await picker.pickMultiImage(
         maxWidth: 1920,
         maxHeight: 1920,
         imageQuality: 85,
       );
+      return picked.map((x) => Uri.file(x.path).toString()).toList();
     }
 
-    if (picked == null) return [];
-    return [Uri.file(picked.path).toString()];
+    // Single-file gallery input.
+    final single = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1920,
+      maxHeight: 1920,
+      imageQuality: 85,
+    );
+    return single == null ? const [] : [Uri.file(single.path).toString()];
   }
 
   Future<void> _requestNativePermissions() async {
@@ -262,6 +273,13 @@ class _WebViewScreenState extends State<WebViewScreen> {
         }
       },
       child: Scaffold(
+        // Keep the WebView at full height when a soft keyboard opens. Otherwise
+        // this Scaffold insets its body by the keyboard height, shrinking the
+        // WebView surface — which collapses the web page's `100dvh` layout and
+        // makes pinned buttons jump up with a white gap. Instead the keyboard
+        // overlays the page and the web side keeps the focused field in view
+        // (visual-viewport scroll + `interactive-widget=resizes-visual`).
+        resizeToAvoidBottomInset: false,
         backgroundColor: bgColor,
         body: SafeArea(
           top: true,

@@ -25,7 +25,6 @@ Future<void> launchVisualSearch(BuildContext context) async {
     return;
   }
 
-  final authToken = getIt<ApiClient>().getToken();
   final visualSearchService = VisualSearchApiService();
 
   try {
@@ -59,7 +58,7 @@ Future<void> launchVisualSearch(BuildContext context) async {
 
     final response = await visualSearchService.fetchRecommendations(
       image: croppedImage,
-      token: authToken,
+      apiClient: getIt<ApiClient>(),
     );
 
     // Dismiss the loader if still visible (user may have already dismissed it).
@@ -84,6 +83,9 @@ Future<void> launchVisualSearch(BuildContext context) async {
       );
     }
   } catch (e) {
+    // Surface the real cause (HTTP status / exception) in logs; the user still
+    // sees the friendly snackbar below.
+    debugPrint('Visual search failed: $e');
     if (context.mounted) {
       final navigator = Navigator.of(context, rootNavigator: true);
       if (navigator.canPop()) navigator.pop();

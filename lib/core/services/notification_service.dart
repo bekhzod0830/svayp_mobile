@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io' show Platform;
 
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:swipe/core/enums/notification_type.dart';
@@ -14,7 +14,10 @@ import 'package:swipe/core/network/api_client.dart';
 import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/core/widgets/in_app_message_dialog.dart';
 import 'package:swipe/app/routes.dart';
+import 'package:swipe/core/constants/web_urls.dart';
+import 'package:swipe/shared/widgets/web_view_screen.dart';
 import 'package:swipe/features/chat/data/services/chat_websocket_service.dart';
+import 'package:swipe/features/main/presentation/screens/main_screen.dart';
 
 /// Builds the JSON payload carried by a local notification so a tap can later
 /// reconstruct the message (type, target entity, text and image).
@@ -25,6 +28,10 @@ String buildNotificationPayload(Map<String, dynamic> data) {
     'title': data['title'],
     'body': data['body'],
     'image': data['image'] ?? data['imageUrl'],
+    // Optional explicit deep-link targets (override type-based routing).
+    'tab': data['tab'],
+    'route': data['route'],
+    'url': data['url'],
   });
 }
 
@@ -98,6 +105,13 @@ class NotificationService {
 
   bool _tokenRefreshListenerAdded = false;
   bool _registrationEnabled = false;
+
+  /// Holds a cold-start notification (tapped while the app was terminated)
+  /// until the app has finished navigating to its landing screen. Firing it
+  /// earlier shows the popup/deep-link on top of the splash route, which is
+  /// then destroyed by the splash's pushReplacement — losing the popup.
+  /// Flushed via [flushPendingInitialNotification] once the main screen mounts.
+  VoidCallback? _pendingInitialNotification;
 
   static const String _fcmEnabledKey = 'fcm_enabled';
 
@@ -406,25 +420,47 @@ class NotificationService {
         title: message.notification?.title ?? message.data['title'] as String?,
         body: message.notification?.body ?? message.data['body'] as String?,
         imageUrl: _imageUrlFromMessage(message),
+        tab: message.data['tab'] as String?,
+        route: message.data['route'] as String?,
+        url: message.data['url'] as String?,
       );
     });
   }
 
   Future<void> _handleTerminatedTap() async {
     final initial = await _fcm.getInitialMessage();
-    if (initial != null) {
-      // Delay handling until the widget tree is ready.
-      Future.delayed(const Duration(milliseconds: 500), () {
-        handleNotificationOpen(
-          typeStr: initial.data['type'] as String? ?? '',
-          entityId: initial.data['entityId'] as String?,
-          title:
-              initial.notification?.title ?? initial.data['title'] as String?,
-          body: initial.notification?.body ?? initial.data['body'] as String?,
-          imageUrl: _imageUrlFromMessage(initial),
-        );
-      });
-    }
+    if (initial == null) return;
+
+    // The app is cold-starting: the splash screen is still showing and will
+    // pushReplacement to the landing route once auth/profile verification
+    // completes. Handling the tap now would surface the popup/deep-link on the
+    // splash route, which the pushReplacement then tears down. Stash it and let
+    // the main screen flush it once navigation has settled.
+    _pendingInitialNotification = () {
+      handleNotificationOpen(
+        typeStr: initial.data['type'] as String? ?? '',
+        entityId: initial.data['entityId'] as String?,
+        title: initial.notification?.title ?? initial.data['title'] as String?,
+        body: initial.notification?.body ?? initial.data['body'] as String?,
+        imageUrl: _imageUrlFromMessage(initial),
+        tab: initial.data['tab'] as String?,
+        route: initial.data['route'] as String?,
+        url: initial.data['url'] as String?,
+      );
+    };
+  }
+
+  /// Processes a cold-start notification that was deferred during startup.
+  ///
+  /// Call once the app has reached its landing screen (e.g. from the main
+  /// screen's first frame) so the deep-link/popup lands on the real route
+  /// instead of the splash route that gets replaced during startup. No-op if
+  /// there is no pending notification.
+  void flushPendingInitialNotification() {
+    final pending = _pendingInitialNotification;
+    if (pending == null) return;
+    _pendingInitialNotification = null;
+    pending();
   }
 
   // ─── Deep-link routing ───────────────────────────────────────────────────────
@@ -448,23 +484,102 @@ class NotificationService {
       title: data['title'] as String?,
       body: data['body'] as String?,
       imageUrl: data['image'] as String?,
+      tab: data['tab'] as String?,
+      route: data['route'] as String?,
+      url: data['url'] as String?,
     );
+  }
+
+  /// Bottom-nav tab names, in nav-bar order. Index = tab index used by
+  /// [MainScreenState.navigateToTab].
+  static const List<String> _tabNames = [
+    'closet',
+    'market',
+    'shop',
+    'chat',
+    'discover',
+  ];
+
+  /// Resolves a notification `tab` value to a bottom-nav tab index.
+  /// Accepts a tab name ('closet', 'market', 'shop', 'chat', 'discover') or a
+  /// numeric string ('0'–'4'). Returns null if it matches no known tab.
+  static int? _tabIndexFromValue(String? tab) {
+    if (tab == null || tab.isEmpty) return null;
+    final byName = _tabNames.indexOf(tab.toLowerCase());
+    if (byName != -1) return byName;
+    final byNumber = int.tryParse(tab);
+    if (byNumber != null && byNumber >= 0 && byNumber < _tabNames.length) {
+      return byNumber;
+    }
+    return null;
   }
 
   /// Handles opening a notification (tapped banner, list item, or cold start).
   ///
-  /// SYSTEM / broadcast messages are surfaced as an in-app popup showing their
-  /// text and image. All other types deep-link to the relevant page.
+  /// An explicit [tab], [route], and/or [url] in the payload takes precedence
+  /// for navigation:
+  ///  - [tab] switches the bottom-nav tab (closet/market/shop/chat/discover).
+  ///  - [route] pushes a native Flutter named page on top (with [entityId] as
+  ///    its route argument) — for pages registered in [AppRoutes].
+  ///  - [url] opens a web page (e.g. '/market/create') in a full-screen WebView
+  ///    — for pages that live in the web app, not the native router.
+  /// When none is given, navigation falls back to type-based routing.
+  ///
+  /// Independently, SYSTEM messages with text/image always surface as an in-app
+  /// popup — shown on top of whatever destination the navigation resolved to.
   static void handleNotificationOpen({
     required String typeStr,
     String? entityId,
     String? title,
     String? body,
     String? imageUrl,
+    String? tab,
+    String? route,
+    String? url,
   }) {
-    final type = NotificationType.fromString(typeStr);
     final nav = navigatorKey.currentState;
     if (nav == null) return;
+
+    final type = NotificationType.fromString(typeStr);
+
+    // Explicit deep-link target from the payload wins over type-based routing.
+    final tabIndex = _tabIndexFromValue(tab);
+    final hasRoute = route != null && route.isNotEmpty;
+    final hasUrl = url != null && url.isNotEmpty;
+    if (tabIndex != null || hasRoute || hasUrl) {
+      if (tabIndex != null) {
+        // No-op if the main screen isn't mounted (e.g. on the auth flow).
+        MainScreen.globalKey.currentState?.navigateToTab(tabIndex);
+      }
+      if (hasRoute) {
+        nav.pushNamed(route, arguments: entityId);
+      }
+      if (hasUrl) {
+        // Web pages (Market, Closet, etc.) live in the web app, not AppRoutes —
+        // open them in a full-screen WebView instead of the native router.
+        nav.push(
+          MaterialPageRoute<void>(
+            builder: (_) => WebViewScreen(url: WebUrls.resolve(url)),
+          ),
+        );
+      }
+      // The popup is opt-in here: only an explicit `type: SYSTEM` shows it on
+      // top of the destination. Any other (or missing) type navigates silently
+      // — note NotificationType.fromString defaults unknown types to system,
+      // so we check the raw value, not the parsed enum.
+      // Skip the no-content fallback so it can't override the navigation above.
+      final hasContent = (title?.isNotEmpty ?? false) ||
+          (body?.isNotEmpty ?? false) ||
+          (imageUrl?.isNotEmpty ?? false);
+      if (typeStr == NotificationType.system.value && hasContent) {
+        _showSystemMessage(
+          title: title ?? '',
+          body: body ?? '',
+          imageUrl: imageUrl,
+        );
+      }
+      return;
+    }
 
     switch (type) {
       case NotificationType.orderUpdate:

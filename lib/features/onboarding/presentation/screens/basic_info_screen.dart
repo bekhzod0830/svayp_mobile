@@ -59,8 +59,8 @@ class _BasicInfoScreenState extends State<BasicInfoScreen>
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
 
-  // Always set gender to female
-  final String _selectedGender = 'female';
+  // Selected gender ('male' or 'female'), null until the user picks one
+  String? _selectedGender;
 
   // Date input controllers
   final _dayController = TextEditingController();
@@ -92,6 +92,9 @@ class _BasicInfoScreenState extends State<BasicInfoScreen>
       }
       if (manager.email != null) {
         _emailController.text = manager.email!;
+      }
+      if (manager.gender != null) {
+        _selectedGender = manager.gender;
       }
       if (manager.dateOfBirth != null) {
         final d = manager.dateOfBirth!;
@@ -230,12 +233,54 @@ class _BasicInfoScreenState extends State<BasicInfoScreen>
     );
   }
 
+  /// Build a single selectable gender option (Male / Female).
+  Widget _buildGenderOption({required String label, required String value}) {
+    final bool isSelected = _selectedGender == value;
+    return Expanded(
+      child: GestureDetector(
+        onTap: _isLoading
+            ? null
+            : () {
+                // Gender is the last field, so dismiss the keyboard to reveal
+                // the Continue button at the bottom.
+                FocusScope.of(context).unfocus();
+                setState(() => _selectedGender = value);
+              },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            color: isSelected ? AppColors.black : AppColors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected ? AppColors.black : AppColors.standardBorder,
+              width: isSelected ? 1.5 : 1,
+            ),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: AppTypography.body2.copyWith(
+              fontWeight: FontWeight.w600,
+              color: isSelected ? AppColors.white : AppColors.black,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _continue() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
     final l10n = AppLocalizations.of(context)!;
+
+    if (_selectedGender == null) {
+      SnackBarHelper.showError(context, l10n.selectGenderError);
+      return;
+    }
 
     if (_selectedDate == null) {
       SnackBarHelper.showError(context, l10n.selectDateError);
@@ -256,7 +301,7 @@ class _BasicInfoScreenState extends State<BasicInfoScreen>
         email: _emailController.text.trim().isNotEmpty
             ? _emailController.text.trim()
             : null,
-        gender: _selectedGender, // Always female
+        gender: _selectedGender!,
         dateOfBirth: _selectedDate!,
       );
 
@@ -264,10 +309,16 @@ class _BasicInfoScreenState extends State<BasicInfoScreen>
 
       trackStepCompleted();
 
-      // Navigate to hijab preference screen (since gender is always female)
-      Navigator.of(
-        context,
-      ).pushNamed('/hijab-preference', arguments: {'gender': _selectedGender});
+      // Female users go through the modest-fashion steps (hijab, fit, style
+      // quiz). Male users skip those and go straight to height & sizes.
+      if (_selectedGender == 'male') {
+        Navigator.of(context).pushNamed('/size-profile');
+      } else {
+        Navigator.of(context).pushNamed(
+          '/hijab-preference',
+          arguments: {'gender': _selectedGender},
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       SnackBarHelper.showError(context, l10n.saveInfoError);
@@ -285,6 +336,9 @@ class _BasicInfoScreenState extends State<BasicInfoScreen>
     final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: AppColors.white,
+      // Keep the layout fixed when the keyboard opens: let it overlay the
+      // bottom instead of pushing the Continue button up over the content.
+      resizeToAvoidBottomInset: false,
       body: SizedBox(
         height: MediaQuery.of(context).size.height,
         child: Stack(
@@ -435,6 +489,29 @@ class _BasicInfoScreenState extends State<BasicInfoScreen>
                                 ),
                               ],
                             ),
+                            const SizedBox(height: 24),
+
+                            // Gender
+                            Text(
+                              l10n.gender,
+                              style: AppTypography.body1.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                _buildGenderOption(
+                                  label: l10n.female,
+                                  value: 'female',
+                                ),
+                                const SizedBox(width: 12),
+                                _buildGenderOption(
+                                  label: l10n.male,
+                                  value: 'male',
+                                ),
+                              ],
+                            ),
                           ],
                         ),
                       ),
@@ -465,6 +542,7 @@ class _BasicInfoScreenState extends State<BasicInfoScreen>
                     child: ElevatedButton(
                       onPressed:
                           (_nameController.text.isEmpty ||
+                              _selectedGender == null ||
                               _selectedDay == null ||
                               _selectedMonth == null ||
                               _selectedYear == null ||

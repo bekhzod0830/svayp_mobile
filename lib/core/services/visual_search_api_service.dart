@@ -7,6 +7,7 @@ import 'package:http_parser/http_parser.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/product.dart';
 import '../config/api_config.dart';
+import '../network/api_client.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Response models
@@ -85,11 +86,55 @@ class VisualSearchApiService {
   /// Send [image] to the visual search endpoint and return matching products.
   ///
   /// Uses POST /api/v1/products/search/visual?limit=<limit> with multipart/form-data.
-  /// [token] optional JWT for authorised requests.
+  ///
+  /// The request runs outside the Dio client, so it manages auth itself:
+  /// [apiClient] provides a proactively-refreshed token, and on a 401/403 the
+  /// token is force-refreshed and the upload retried once — mirroring the
+  /// auto-refresh every other request in the app gets from the Dio interceptor.
+  /// Without this, the token captured before the (slow) gallery-pick + crop
+  /// step is often expired by request time and the backend rejects it with 401.
   Future<VisualSearchResponse> fetchRecommendations({
     required XFile image,
-    String? token,
+    required ApiClient apiClient,
     int limit = 20,
+    String? category,
+  }) async {
+    final token = await apiClient.getValidToken();
+    var result = await _send(
+      image: image,
+      token: token,
+      limit: limit,
+      category: category,
+    );
+
+    // Token rejected mid-flight → force one refresh and retry.
+    if (result.statusCode == 401 || result.statusCode == 403) {
+      final refreshed = await apiClient.refreshAccessToken();
+      if (refreshed != null && refreshed != token) {
+        result = await _send(
+          image: image,
+          token: refreshed,
+          limit: limit,
+          category: category,
+        );
+      }
+    }
+
+    if (result.statusCode == 200) {
+      final jsonData = json.decode(result.body) as Map<String, dynamic>;
+      return VisualSearchResponse.fromJson(jsonData);
+    }
+    throw VisualSearchException(
+      statusCode: result.statusCode,
+      body: result.body,
+    );
+  }
+
+  /// Performs a single multipart POST to the visual search endpoint.
+  Future<({int statusCode, String body})> _send({
+    required XFile image,
+    required String? token,
+    required int limit,
     String? category,
   }) async {
     final params = <String, String>{'limit': limit.toString()};
@@ -120,12 +165,19 @@ class VisualSearchApiService {
 
     final streamed = await request.send();
     final body = await streamed.stream.bytesToString();
-
-    if (streamed.statusCode == 200) {
-      final jsonData = json.decode(body) as Map<String, dynamic>;
-      return VisualSearchResponse.fromJson(jsonData);
-    } else {
-      throw Exception('Visual search failed: ${streamed.statusCode} $body');
-    }
+    return (statusCode: streamed.statusCode, body: body);
   }
+}
+
+/// Thrown when the visual search endpoint returns a non-200 response.
+/// Carries the HTTP [statusCode] so callers can log/diagnose the real cause
+/// (e.g. 401 auth, 413 too large) instead of a generic failure.
+class VisualSearchException implements Exception {
+  final int statusCode;
+  final String body;
+
+  const VisualSearchException({required this.statusCode, required this.body});
+
+  @override
+  String toString() => 'VisualSearchException($statusCode): $body';
 }
