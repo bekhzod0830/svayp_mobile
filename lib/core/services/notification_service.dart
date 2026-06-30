@@ -493,6 +493,7 @@ class NotificationService {
   /// Bottom-nav tab names, in nav-bar order. Index = tab index used by
   /// [MainScreenState.navigateToTab].
   static const List<String> _tabNames = [
+    'feed',
     'closet',
     'market',
     'shop',
@@ -501,8 +502,8 @@ class NotificationService {
   ];
 
   /// Resolves a notification `tab` value to a bottom-nav tab index.
-  /// Accepts a tab name ('closet', 'market', 'shop', 'chat', 'discover') or a
-  /// numeric string ('0'–'4'). Returns null if it matches no known tab.
+  /// Accepts a tab name ('feed', 'closet', 'market', 'shop', 'chat',
+  /// 'discover') or a numeric string ('0'–'5'). Returns null if no match.
   static int? _tabIndexFromValue(String? tab) {
     if (tab == null || tab.isEmpty) return null;
     final byName = _tabNames.indexOf(tab.toLowerCase());

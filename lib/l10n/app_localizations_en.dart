@@ -877,6 +877,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get market => 'Market';
 
   @override
+  String get feed => 'Feed';
+
+  @override
   String get marketComingSoon =>
       'Soon, the place where you can sell your things';
 

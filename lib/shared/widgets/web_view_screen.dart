@@ -120,6 +120,25 @@ class _WebViewScreenState extends State<WebViewScreen> {
               }
             }
           },
+          onHttpError: (HttpResponseError error) {
+            // A 4xx/5xx HTTP status is a "successful" load to the WebView, so
+            // without this it would silently render the origin's error page
+            // (e.g. the Next.js 404). Surface the recoverable Retry screen, but
+            // ONLY when the MAIN document fails — match the requested path
+            // against the page URL so the common sub-resource 404s (images via
+            // /api/proxy-image, analytics) never blank the page.
+            final status = error.response?.statusCode ?? 0;
+            final failedPath = error.request?.uri.path;
+            final mainPath = Uri.parse(widget.url).path;
+            if (status >= 400 && failedPath == mainPath) {
+              if (mounted) {
+                setState(() {
+                  _isLoading = false;
+                  _hasError = true;
+                });
+              }
+            }
+          },
         ),
       );
 

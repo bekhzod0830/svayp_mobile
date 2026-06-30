@@ -618,9 +618,9 @@ class _CartScreenState extends State<CartScreen> {
             const SizedBox(height: 32),
             ElevatedButton(
               onPressed: () {
-                // Navigate back to main screen and switch to Discovery tab
+                // Navigate back to main screen and switch to the Closet tab
                 Navigator.of(context).popUntil((route) => route.isFirst);
-                MainScreen.globalKey.currentState?.navigateToTab(0);
+                MainScreen.globalKey.currentState?.navigateToTab(1); // Closet
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: isDark ? AppColors.white : AppColors.black,

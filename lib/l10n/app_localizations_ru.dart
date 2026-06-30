@@ -888,6 +888,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get market => 'Маркет';
 
   @override
+  String get feed => 'Лента';
+
+  @override
   String get marketComingSoon => 'Скоро здесь вы сможете продавать свои вещи';
 
   @override

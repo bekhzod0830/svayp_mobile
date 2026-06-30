@@ -170,7 +170,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
     if (!mounted) return;
     Navigator.of(context).pushReplacementNamed(
       '/main',
-      arguments: {'initialIndex': 4}, // 4 = Discover (LIBΛS) tab
+      arguments: {'initialIndex': 0}, // 0 = Feed (Лента) — default landing
     );
   }
 

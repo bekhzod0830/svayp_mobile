@@ -48,6 +48,7 @@ class MainScreenState extends State<MainScreen>
 
   // Global keys for screen access
   final GlobalKey<NavigatorState> _closetKey = GlobalKey<NavigatorState>();
+  final GlobalKey<NavigatorState> _feedKey = GlobalKey<NavigatorState>();
   final GlobalKey<NavigatorState> _marketKey = GlobalKey<NavigatorState>();
   final GlobalKey<NavigatorState> _shopKey = GlobalKey<NavigatorState>();
   final GlobalKey<NavigatorState> _chatKey = GlobalKey<NavigatorState>();
@@ -67,11 +68,11 @@ class MainScreenState extends State<MainScreen>
     _pillCtrl = AnimationController(
       vsync: this,
       lowerBound: -0.6,
-      upperBound: 4.6,
+      upperBound: 5.6,
       value: _currentIndex.toDouble(),
     );
     _tabObservers = List.generate(
-      5,
+      6,
       (_) => _TabNavObserver(() {
         if (mounted) setState(() {});
       }),
@@ -169,8 +170,8 @@ class MainScreenState extends State<MainScreen>
   }
 
   void _onTabTapped(int index) async {
-    // Gate certain tabs for guest users (closet = 0, chat = 3)
-    if (index == 0 || index == _chatTabIndex) {
+    // Gate certain tabs for guest users (closet = 1, chat = 4). Feed (0) is public.
+    if (index == _closetTabIndex || index == _chatTabIndex) {
       final storage = await LocalStorageHelper.getInstance();
       if (storage.isGuestMode()) {
         if (mounted) GuestLoginPrompt.show(context);
@@ -187,7 +188,7 @@ class MainScreenState extends State<MainScreen>
     // Pop all sub-routes in the tab we are leaving so it resets to root.
     _popTabToRoot(_tabKeys[_currentIndex]);
 
-    const tabNames = ['closet', 'market', 'shop', 'chat', 'discover'];
+    const tabNames = ['feed', 'closet', 'market', 'shop', 'chat', 'discover'];
     AnalyticsService.instance.logEvent(
       AnalyticsEvents.tabSelected,
       parameters: {AnalyticsEvents.paramTabName: tabNames[index < tabNames.length ? index : 0]},
@@ -231,18 +232,21 @@ class MainScreenState extends State<MainScreen>
   }
 
   /// Ordered navigator keys, one per tab (matches the nav-bar order:
-  /// Closet, Market, Shop, Chat, LIBΛS).
+  /// Feed, Closet, Market, Shop, Chat, LIBΛS).
   List<GlobalKey<NavigatorState>> get _tabKeys =>
-      [_closetKey, _marketKey, _shopKey, _chatKey, _discoverKey];
+      [_feedKey, _closetKey, _marketKey, _shopKey, _chatKey, _discoverKey];
 
   /// Each tab now maps 1:1 to its visual nav-bar slot.
   double _tabToNavSlot(int tabIndex) => tabIndex.toDouble();
 
+  /// Tab index of the Closet (Гардероб) — second tab, after Feed.
+  static const int _closetTabIndex = 1;
+
   /// Tab index of the Chat feed.
-  static const int _chatTabIndex = 3;
+  static const int _chatTabIndex = 4;
 
   /// Tab index of the Discover (LIBΛS) feed.
-  static const int _discoverTabIndex = 4;
+  static const int _discoverTabIndex = 5;
 
   /// Shows the swipe tutorial as a full screen the first time the user opens
   /// the Discover tab. The tutorial persists a "seen" flag so it only appears
@@ -272,14 +276,16 @@ class MainScreenState extends State<MainScreen>
     GlobalKey<NavigatorState> getCurrentNavigatorKey() {
       switch (_currentIndex) {
         case 0:
-          return _closetKey;
+          return _feedKey;
         case 1:
-          return _marketKey;
+          return _closetKey;
         case 2:
-          return _shopKey;
+          return _marketKey;
         case 3:
-          return _chatKey;
+          return _shopKey;
         case 4:
+          return _chatKey;
+        case 5:
           return _discoverKey;
         default:
           return _closetKey;
@@ -334,10 +340,26 @@ class MainScreenState extends State<MainScreen>
             IndexedStack(
               index: _currentIndex,
               children: [
-                // Tab 0: Closet (WebView)
+                // Tab 0: Feed / Лента (WebView)
+                Navigator(
+                  key: _feedKey,
+                  observers: [_tabObservers[0]],
+                  onGenerateRoute: (settings) => MaterialPageRoute(
+                    builder: (context) {
+                      final mq = MediaQuery.of(context);
+                      final bottomInset =
+                          mq.viewPadding.bottom.clamp(16.0, 60.0);
+                      return WebViewScreen(
+                        url: WebUrls.feed,
+                        bottomPadding: 60.0 + bottomInset,
+                      );
+                    },
+                  ),
+                ),
+                // Tab 1: Closet (WebView)
                 Navigator(
                   key: _closetKey,
-                  observers: [_tabObservers[0]],
+                  observers: [_tabObservers[1]],
                   onGenerateRoute: (settings) => MaterialPageRoute(
                     builder: (context) {
                       final mq = MediaQuery.of(context);
@@ -350,10 +372,10 @@ class MainScreenState extends State<MainScreen>
                     },
                   ),
                 ),
-                // Tab 1: Market (WebView)
+                // Tab 2: Market (WebView)
                 Navigator(
                   key: _marketKey,
-                  observers: [_tabObservers[1]],
+                  observers: [_tabObservers[2]],
                   onGenerateRoute: (settings) => MaterialPageRoute(
                     builder: (context) {
                       final mq = MediaQuery.of(context);
@@ -366,26 +388,26 @@ class MainScreenState extends State<MainScreen>
                     },
                   ),
                 ),
-                // Tab 2: Shop (native)
+                // Tab 3: Shop (native)
                 Navigator(
                   key: _shopKey,
-                  observers: [_tabObservers[2]],
+                  observers: [_tabObservers[3]],
                   onGenerateRoute: (settings) => MaterialPageRoute(
                     builder: (context) => const ShopScreen(),
                   ),
                 ),
-                // Tab 3: Chat (native)
+                // Tab 4: Chat (native)
                 Navigator(
                   key: _chatKey,
-                  observers: [_tabObservers[3]],
+                  observers: [_tabObservers[4]],
                   onGenerateRoute: (settings) => MaterialPageRoute(
                     builder: (context) => const ChatListScreen(),
                   ),
                 ),
-                // Tab 4: Discover (native)
+                // Tab 5: Discover (native)
                 Navigator(
                   key: _discoverKey,
-                  observers: [_tabObservers[4]],
+                  observers: [_tabObservers[5]],
                   onGenerateRoute: (settings) => MaterialPageRoute(
                     builder: (context) => const DiscoverScreen(),
                   ),
@@ -442,7 +464,7 @@ class MainScreenState extends State<MainScreen>
                       ),
                       child: LayoutBuilder(
                         builder: (ctx, bc) {
-                          final itemW = bc.maxWidth / 5;
+                          final itemW = bc.maxWidth / 6;
                           return Stack(
                             children: [
                               // ── Sliding indicator pill ──────
@@ -475,6 +497,17 @@ class MainScreenState extends State<MainScreen>
                                     context: context,
                                     index: 0,
                                     inactiveIcon:
+                                        Icons.home_outlined,
+                                    activeIcon: Icons.home,
+                                    label: l10n.feed,
+                                    isDark: isDark,
+                                    iconScale: iconScale,
+                                    fontScale: fontScale,
+                                  ),
+                                  _buildNavItem(
+                                    context: context,
+                                    index: 1,
+                                    inactiveIcon:
                                         Icons.checkroom_outlined,
                                     activeIcon: Icons.checkroom,
                                     label: l10n.closet,
@@ -484,7 +517,7 @@ class MainScreenState extends State<MainScreen>
                                   ),
                                   _buildNavItem(
                                     context: context,
-                                    index: 1,
+                                    index: 2,
                                     inactiveIcon:
                                         Icons.storefront_outlined,
                                     activeIcon: Icons.storefront,
@@ -495,7 +528,7 @@ class MainScreenState extends State<MainScreen>
                                   ),
                                   _buildNavItem(
                                     context: context,
-                                    index: 2,
+                                    index: 3,
                                     inactiveIcon: Icons.search,
                                     activeIcon: Icons.search,
                                     label: l10n.shop,
@@ -505,7 +538,7 @@ class MainScreenState extends State<MainScreen>
                                   ),
                                   _buildNavItem(
                                     context: context,
-                                    index: 3,
+                                    index: 4,
                                     inactiveIcon: Icons.send_outlined,
                                     activeIcon: Icons.send,
                                     label: l10n.chat,
@@ -516,7 +549,7 @@ class MainScreenState extends State<MainScreen>
                                   ),
                                   _buildNavItem(
                                     context: context,
-                                    index: 4,
+                                    index: 5,
                                     inactiveIcon:
                                         Icons.explore_outlined,
                                     activeIcon: Icons.explore,

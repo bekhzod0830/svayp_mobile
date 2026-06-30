@@ -271,6 +271,8 @@ class AppRoutes {
 
       case main:
         final mainArgs = settings.arguments as Map<String, dynamic>?;
+        // Default landing tab = Feed (Лента, index 0) — see Feed plan: it is the
+        // first screen users see after registration/login to drive engagement.
         final initialIndex = mainArgs?['initialIndex'] as int? ?? 0;
         return MaterialPageRoute(
           builder: (_) => MainScreen(initialIndex: initialIndex),

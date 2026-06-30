@@ -680,7 +680,7 @@ class LikedScreenState extends State<LikedScreen>
             const SizedBox(height: 32),
             ElevatedButton(
               onPressed: () {
-                MainScreen.globalKey.currentState?.navigateToTab(0);
+                MainScreen.globalKey.currentState?.navigateToTab(1); // Closet
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.black,

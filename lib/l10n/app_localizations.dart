@@ -1774,6 +1774,12 @@ abstract class AppLocalizations {
   /// **'Market'**
   String get market;
 
+  /// No description provided for @feed.
+  ///
+  /// In en, this message translates to:
+  /// **'Feed'**
+  String get feed;
+
   /// No description provided for @marketComingSoon.
   ///
   /// In en, this message translates to:

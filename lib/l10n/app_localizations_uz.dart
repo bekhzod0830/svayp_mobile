@@ -890,6 +890,9 @@ class AppLocalizationsUz extends AppLocalizations {
   String get market => 'Market';
 
   @override
+  String get feed => 'Lenta';
+
+  @override
   String get marketComingSoon =>
       'Tez orada, bu yerda siz o\'z buyumlaringizni sotishingiz mumkin';
 

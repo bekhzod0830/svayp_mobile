@@ -16,6 +16,7 @@ class WebUrls {
   static const String shop = '$_base/shop';
   static const String chat = '$_base/chat';
   static const String closet = '$_base/closet';
+  static const String feed = '$_base/feed';
   static const String market = '$_base/market';
 
   // ── Pushed screens ─────────────────────────────────────────────────────────
