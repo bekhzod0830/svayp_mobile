@@ -47,7 +47,9 @@ Future<void> initializeDependencies() async {
   // Closet service (local Hive-backed wardrobe)
   getIt.registerLazySingleton<ClosetService>(() => ClosetService());
 
-  // Analytics service (Firebase Analytics + Smartlook)
+  // Analytics service (Firebase Analytics + backend app_events dispatcher)
   getIt.registerSingleton<AnalyticsService>(AnalyticsService.instance);
   await AnalyticsService.instance.init();
+  // Attribute backend analytics events to the logged-in user when a token exists.
+  AnalyticsService.instance.attachTokenProvider(() => getIt<ApiClient>().getToken());
 }

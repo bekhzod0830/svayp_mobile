@@ -7,6 +7,8 @@ import 'package:swipe/app/theme.dart';
 import 'package:swipe/core/analytics/analytics_navigator_observer.dart';
 import 'package:swipe/core/constants/app_constants.dart';
 import 'package:swipe/core/analytics/analytics_navigator_observer.dart';
+import 'package:swipe/core/analytics/analytics_service.dart';
+import 'package:swipe/core/analytics/session_manager.dart';
 import 'package:swipe/core/constants/app_constants.dart';
 import 'package:swipe/core/globals.dart';
 import 'package:swipe/core/localization/services/language_service.dart';
@@ -23,7 +25,7 @@ class SwipeApp extends StatefulWidget {
 }
 
 class SwipeAppState extends State<SwipeApp>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   final LanguageService _languageService = LanguageService();
   final ThemeService _themeService = ThemeService();
   // Seed with the device locale (Uzbek fallback); replaced by any saved choice
@@ -43,7 +45,31 @@ class SwipeAppState extends State<SwipeApp>
       duration: const Duration(milliseconds: 280),
     );
     _themeService.addListener(_onThemeChanged);
+    WidgetsBinding.instance.addObserver(this);
+    // First launch of this process — start a session and record the app open.
+    AnalyticsService.instance.logSessionStart();
+    AnalyticsService.instance.logAppOpen();
     _initialize();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    switch (state) {
+      case AppLifecycleState.resumed:
+        // New session only if the app was idle past the session timeout.
+        if (SessionManager.instance.isExpired) {
+          AnalyticsService.instance.logSessionStart();
+        }
+        AnalyticsService.instance.logAppOpen();
+        break;
+      case AppLifecycleState.paused:
+        AnalyticsService.instance.logSessionEnd();
+        AnalyticsService.instance.flush();
+        break;
+      default:
+        break;
+    }
   }
 
   void _onThemeChanged() {
@@ -58,6 +84,7 @@ class SwipeAppState extends State<SwipeApp>
   @override
   void dispose() {
     _themeService.removeListener(_onThemeChanged);
+    WidgetsBinding.instance.removeObserver(this);
     _themeOverlayController.dispose();
     super.dispose();
   }

@@ -268,8 +268,21 @@ class _WebViewScreenState extends State<WebViewScreen> {
         if (didPop) return;
         if (await _controller.canGoBack()) {
           await _controller.goBack();
-        } else if (context.mounted) {
-          Navigator.of(context).pop();
+          return;
+        }
+        if (!context.mounted) return;
+        // Web history is exhausted. Only pop this navigator when it actually has
+        // a route to return to (e.g. a pushed full-screen WebView). When this
+        // screen is the root of a tab's nested Navigator (Closet/Market inside
+        // MainScreen), popping would empty that Navigator and reveal the bare
+        // Scaffold background — the "black screen" seen on the Android back
+        // gesture. In that case defer to the parent PopScope (MainScreen), which
+        // switches to the first tab or exits the app.
+        final navigator = Navigator.of(context);
+        if (navigator.canPop()) {
+          navigator.pop();
+        } else {
+          await Navigator.of(context, rootNavigator: true).maybePop();
         }
       },
       child: Scaffold(

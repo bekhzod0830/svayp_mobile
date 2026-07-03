@@ -2,8 +2,10 @@ import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_smartlook/flutter_smartlook.dart';
 
-/// Automatically tracks screen views in both Firebase Analytics and Smartlook
-/// whenever the user navigates to a new route.
+import 'analytics_service.dart';
+
+/// Automatically tracks screen views in Firebase Analytics, Smartlook AND our backend
+/// dispatcher (app_events screen_view + current-screen enrichment) on every navigation.
 ///
 /// Add to MaterialApp:
 ///   navigatorObservers: [AnalyticsNavigatorObserver()],
@@ -22,6 +24,14 @@ class AnalyticsNavigatorObserver extends RouteObserver<ModalRoute<Object?>> {
     super.didPush(route, previousRoute);
     _firebaseObserver.didPush(route, previousRoute);
     _smartlookObserver.didPush(route, previousRoute);
+    _trackScreen(route);
+  }
+
+  void _trackScreen(Route<dynamic>? route) {
+    final name = route?.settings.name;
+    if (name != null && name.isNotEmpty) {
+      AnalyticsService.instance.setScreen(name);
+    }
   }
 
   @override
@@ -36,5 +46,6 @@ class AnalyticsNavigatorObserver extends RouteObserver<ModalRoute<Object?>> {
     super.didReplace(newRoute: newRoute, oldRoute: oldRoute);
     _firebaseObserver.didReplace(newRoute: newRoute, oldRoute: oldRoute);
     _smartlookObserver.didReplace(newRoute: newRoute, oldRoute: oldRoute);
+    _trackScreen(newRoute);
   }
 }

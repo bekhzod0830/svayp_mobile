@@ -107,6 +107,10 @@ abstract class AnalyticsEvents {
   // ─── Navigation ───────────────────────────────────────────────────────────
   static const String tabSelected = 'tab_selected';
 
+  // ─── Wardrobe / Closet ──────────────────────────────────────────────────────
+  /// User added an item to their closet/wardrobe
+  static const String closetItemAdded = 'closet_item_added';
+
   // ─── Parameter keys ───────────────────────────────────────────────────────
   static const String paramStep = 'step';
   static const String paramScreen = 'screen';

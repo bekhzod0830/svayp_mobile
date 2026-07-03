@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:swipe/core/analytics/analytics_events.dart';
+import 'package:swipe/core/analytics/analytics_service.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
 import 'package:swipe/core/di/service_locator.dart';
@@ -40,6 +42,10 @@ class _AddClosetItemScreenState extends State<AddClosetItemScreen> {
       await getIt<ClosetService>().addItem(
         imageFile: widget.imageFile,
         category: _selectedCategory!,
+      );
+      AnalyticsService.instance.logEvent(
+        AnalyticsEvents.closetItemAdded,
+        parameters: {AnalyticsEvents.paramCategory: _selectedCategory!.name},
       );
       if (mounted) Navigator.of(context).pop(true);
     } catch (_) {

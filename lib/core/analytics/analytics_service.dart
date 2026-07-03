@@ -1,9 +1,21 @@
-import 'package:firebase_analytics/firebase_analytics.dart';
-import 'package:flutter_smartlook/flutter_smartlook.dart';
+import 'dart:io' show Platform;
 
-/// Unified analytics service that fans events out to:
-///   • Firebase Analytics  — funnels, retention, custom events
-///   • Smartlook           — session recordings, tap heatmaps
+import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
+
+import 'analytics_api_service.dart';
+import 'session_manager.dart';
+
+/// Unified analytics dispatcher. Every event fans out to:
+///   • Firebase Analytics — funnels, retention, custom events (Google console)
+///   • Our backend (app_events) — GA-like dashboard in the admin + ML signals
+///   • PostHog — wired in Phase C (posthog_flutter)
+///
+/// Each event is enriched with session_id, platform, app version/build, OS version,
+/// anon_id, source and the current screen, so the backend can power Acquisition /
+/// Engagement / Retention / Tech without per-call boilerplate.
 ///
 /// Usage:
 ///   AnalyticsService.instance.logEvent(AnalyticsEvents.otpRequested);
@@ -13,15 +25,56 @@ class AnalyticsService {
   static final AnalyticsService instance = AnalyticsService._();
 
   final FirebaseAnalytics _firebase = FirebaseAnalytics.instance;
+  static const _uuid = Uuid();
+  static const String _anonKey = 'analytics_anon_id';
+
+  // ─── Enrichment context ────────────────────────────────────────────────────
+  final String _platform =
+      Platform.isIOS ? 'iOS' : (Platform.isAndroid ? 'Android' : 'other');
+  String? _appVersion;
+  int? _appBuild;
+  String? _osVersion;
+  String? _anonId;
+  String? _userId;
+  String? _currentScreen;
 
   // ─── Initialisation ────────────────────────────────────────────────────────
 
-  /// Call once from main() after Smartlook is started.
-  /// Disables Firebase Analytics collection in debug mode (use DebugView instead).
+  /// Call once from main() after Firebase is ready.
   Future<void> init() async {
-    // Always enable collection so DebugView works during development.
-    // Firebase automatically batches/samples data in production.
     await _firebase.setAnalyticsCollectionEnabled(true);
+
+    try {
+      final info = await PackageInfo.fromPlatform();
+      _appVersion = info.version;
+      _appBuild = int.tryParse(info.buildNumber);
+    } catch (_) {/* version is best-effort */}
+
+    try {
+      _osVersion = '$_platform ${Platform.operatingSystemVersion}';
+    } catch (_) {/* os version is best-effort */}
+
+    await _loadAnonId();
+    await AnalyticsApiService.instance.init();
+  }
+
+  /// Wire the auth-token getter so backend events are attributed to the logged-in user.
+  /// Anonymous events still flow (and carry anon_id) when no token is available.
+  void attachTokenProvider(String? Function() provider) {
+    AnalyticsApiService.instance.tokenProvider = provider;
+  }
+
+  Future<void> _loadAnonId() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _anonId = prefs.getString(_anonKey);
+      if (_anonId == null) {
+        _anonId = _uuid.v4();
+        await prefs.setString(_anonKey, _anonId!);
+      }
+    } catch (_) {
+      _anonId ??= _uuid.v4();
+    }
   }
 
   // ─── User Identity ─────────────────────────────────────────────────────────
@@ -31,8 +84,10 @@ class AnalyticsService {
     required String userId,
     String? phone,
     String? username,
+    String? tier,
+    String? source,
   }) async {
-    // Firebase — tie all future events to this user
+    _userId = userId;
     await _firebase.setUserId(id: userId);
     if (phone != null && phone.isNotEmpty) {
       await _firebase.setUserProperty(name: 'phone_number', value: phone);
@@ -40,70 +95,96 @@ class AnalyticsService {
     if (username != null && username.isNotEmpty) {
       await _firebase.setUserProperty(name: 'username', value: username);
     }
-
-    // Smartlook — identify the session (disabled)
-    // await Smartlook.instance.user.setIdentifier(userId);
-    // if (username != null && username.isNotEmpty) {
-    //   await Smartlook.instance.user.setName(username);
-    // } else if (phone != null && phone.isNotEmpty) {
-    //   await Smartlook.instance.user.setName(phone);
-    // }
-    // if (phone != null && phone.isNotEmpty) {
-    //   await Smartlook.instance.user.setEmail(phone);
-    // }
+    if (tier != null && tier.isNotEmpty) {
+      await _firebase.setUserProperty(name: 'tier', value: tier);
+    }
+    if (source != null && source.isNotEmpty) {
+      await _firebase.setUserProperty(name: 'registration_source', value: source);
+    }
+    if (_appVersion != null) {
+      await _firebase.setUserProperty(name: 'app_version', value: _appVersion);
+    }
+    await _firebase.setUserProperty(name: 'platform', value: _platform);
+    // PostHog identify — added in Phase C.
   }
 
   /// Call on logout to disassociate the session from the user.
   Future<void> clearUser() async {
+    _userId = null;
     await _firebase.setUserId(id: null);
-    // await Smartlook.instance.user.openNew();
   }
 
   // ─── Screen Tracking ───────────────────────────────────────────────────────
 
-  /// Track a screen view manually (the NavigatorObserver handles routes
-  /// automatically; call this only for non-route screens like bottom sheets).
-  Future<void> logScreen(String screenName) async {
-    await _firebase.logScreenView(screenName: screenName);
-    // await Smartlook.instance.trackNavigationEnter(screenName);
+  /// Record the current screen. Updates enrichment context and emits a screen_view
+  /// event to the backend (Firebase screen_view is handled by the NavigatorObserver).
+  Future<void> setScreen(String screenName) async {
+    _currentScreen = screenName;
+    _enqueueBackend('screen_view', {'screen': screenName});
   }
 
-  Future<void> logScreenExit(String screenName) async {
-    // await Smartlook.instance.trackNavigationExit(screenName);
+  Future<void> logScreen(String screenName) async {
+    _currentScreen = screenName;
+    await _firebase.logScreenView(screenName: screenName);
+    _enqueueBackend('screen_view', {'screen': screenName});
   }
+
+  Future<void> logScreenExit(String screenName) async {}
+
+  // ─── Lifecycle ──────────────────────────────────────────────────────────────
+
+  void logAppOpen() => logEvent('app_open');
+
+  void logSessionStart() {
+    SessionManager.instance.rotate();
+    logEvent('session_start');
+  }
+
+  void logSessionEnd() => logEvent('session_end');
 
   // ─── Event Logging ─────────────────────────────────────────────────────────
 
-  /// Log a named event with optional string parameters.
+  /// Log a named event with optional string parameters. Fans out to Firebase and
+  /// our backend (app_events). Never throws.
   Future<void> logEvent(
     String name, {
     Map<String, String>? parameters,
   }) async {
-    // Firebase Analytics
-    await _firebase.logEvent(
-      name: name,
-      parameters: parameters?.cast<String, Object>(),
-    );
+    try {
+      await _firebase.logEvent(
+        name: name,
+        parameters: parameters?.cast<String, Object>(),
+      );
+    } catch (_) {/* never disrupt the app */}
 
-    // Smartlook custom event (disabled)
-    // if (parameters != null && parameters.isNotEmpty) {
-    //   final props = Properties();
-    //   parameters.forEach((key, value) => props.putString(key, value: value));
-    //   await Smartlook.instance.trackEvent(name, properties: props);
-    // } else {
-    //   await Smartlook.instance.trackEvent(name);
-    // }
+    _enqueueBackend(name, parameters);
   }
 
-  // ─── Smartlook recording helpers ───────────────────────────────────────────
-
-  /// Pause session recording (e.g. on sensitive screens like payment forms).
-  Future<void> pauseRecording() async {
-    // await Smartlook.instance.stop();
+  void _enqueueBackend(String name, Map<String, String>? parameters) {
+    try {
+      final event = <String, dynamic>{
+        'eventName': name,
+        'sessionId': SessionManager.instance.currentId(),
+        'anonId': _anonId,
+        'platform': _platform,
+        'source': 'mobile',
+        'clientTs': DateTime.now().toUtc().toIso8601String(),
+        if (_appVersion != null) 'appVersion': _appVersion,
+        if (_appBuild != null) 'appBuild': _appBuild,
+        if (_osVersion != null) 'osVersion': _osVersion,
+        if (_currentScreen != null) 'screen': _currentScreen,
+        if (parameters != null && parameters.isNotEmpty) 'properties': parameters,
+      };
+      AnalyticsApiService.instance.enqueue(event);
+    } catch (_) {/* analytics must never break the caller */}
   }
 
-  /// Resume session recording.
-  Future<void> resumeRecording() async {
-    // await Smartlook.instance.start();
-  }
+  /// Flush the backend queue (e.g. on app pause). Best-effort.
+  Future<void> flush() => AnalyticsApiService.instance.flush();
+
+  // ─── Session-replay helpers (Smartlook/PostHog — Phase C) ───────────────────
+
+  Future<void> pauseRecording() async {}
+
+  Future<void> resumeRecording() async {}
 }
