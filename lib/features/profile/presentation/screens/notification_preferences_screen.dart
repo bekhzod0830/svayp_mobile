@@ -35,6 +35,10 @@ class _NotificationPreferencesScreenState
         return 'New Arrivals';
       case NotificationType.recommendation:
         return 'Recommendations';
+      case NotificationType.feedLike:
+        return 'Post Likes';
+      case NotificationType.feedComment:
+        return 'Post Comments';
       case NotificationType.system:
         return 'News & Announcements';
     }
@@ -54,6 +58,10 @@ class _NotificationPreferencesScreenState
         return 'New items matching your style profile';
       case NotificationType.recommendation:
         return 'Personalised picks from our AI';
+      case NotificationType.feedLike:
+        return 'When someone likes your feed post';
+      case NotificationType.feedComment:
+        return 'When someone comments on your feed post';
       case NotificationType.system:
         return 'Promotions, updates, and app news';
     }
@@ -73,6 +81,10 @@ class _NotificationPreferencesScreenState
         return Icons.fiber_new_outlined;
       case NotificationType.recommendation:
         return Icons.star_outline;
+      case NotificationType.feedLike:
+        return Icons.favorite_outline;
+      case NotificationType.feedComment:
+        return Icons.mode_comment_outlined;
       case NotificationType.system:
         return Icons.campaign_outlined;
     }

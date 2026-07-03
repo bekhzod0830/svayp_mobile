@@ -96,6 +96,9 @@ dependencies:
   # Save images to the device photo gallery (web "Save Look" → native gallery)
   gal: ^2.3.0
 
+  # Native system share sheet (web "Share" → native share)
+  share_plus: ^10.1.2
+
   # Camera (custom Pinterest-style camera screen)
   camera: ^0.11.0
 

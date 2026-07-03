@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Exposes cacheDir/share_images to other apps for the targeted share sheet
+     (Instagram / Threads / TikTok / Telegram). See MainActivity "svayp/targeted_share". -->
+<paths>
+    <cache-path name="share_images" path="share_images/" />
+</paths>

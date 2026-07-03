@@ -2,9 +2,11 @@ import 'dart:async';
 import 'package:flutter/physics.dart';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/core/utils/responsive_utils.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import 'package:swipe/core/constants/web_urls.dart';
 import 'package:swipe/shared/widgets/web_view_screen.dart';
 import 'package:swipe/core/analytics/analytics_events.dart';
@@ -54,6 +56,11 @@ class MainScreenState extends State<MainScreen>
   final GlobalKey<NavigatorState> _chatKey = GlobalKey<NavigatorState>();
   final GlobalKey<NavigatorState> _discoverKey = GlobalKey<NavigatorState>();
   late final List<_TabNavObserver> _tabObservers;
+
+  // WebView controllers for the web-backed tabs (0=Feed, 1=Closet, 2=Market),
+  // captured on creation so the root PopScope can walk the web page's own history
+  // on Android back before falling back to tab-switch / app-exit.
+  final Map<int, WebViewController> _webControllers = {};
 
   // Keys for screens to enable refresh
   // Immediate-increment listener so the badge updates even before
@@ -297,14 +304,53 @@ class MainScreenState extends State<MainScreen>
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
 
-        // Try to pop within the current tab's navigator first
-        final navigatorKey = getCurrentNavigatorKey();
-        final navigatorState = navigatorKey.currentState;
+        final currentIndex = _currentIndex;
 
+        // 1. Pop within the current tab's nested navigator first (pushed routes).
+        final navigatorState = getCurrentNavigatorKey().currentState;
         if (navigatorState != null && navigatorState.canPop()) {
           navigatorState.pop();
-        } else if (_currentIndex != 0) {
-          // If can't pop and not on first tab, go to first tab
+          return;
+        }
+
+        // 2. WebView tabs (Feed/Closet/Market): walk back through the web page's
+        //    OWN history. The tab's nested Navigator never receives the Android
+        //    system-back event, so WebViewScreen's own PopScope can't do this —
+        //    the host drives it here via the captured controller. This is what
+        //    makes "back inside Market" return to the previous web page instead
+        //    of jumping to another tab or showing a black screen.
+        //
+        //    The page itself reports whether Back has anywhere to go: the web
+        //    app sets __svaypTabRoot on tab-root pages and counts open overlays
+        //    in __svaypOverlays (see use-root-back-guard / use-overlay-back-close).
+        //    This is authoritative — the native canGoBack() misreports SPA
+        //    pushState history on some Android WebViews, which exited the app
+        //    from pushed pages like /feed/me or /market/<id>.
+        final webController = _webControllers[currentIndex];
+        if (webController != null) {
+          try {
+            final res = await webController.runJavaScriptReturningResult(
+              '(function(){var o=window.__svaypOverlays||0;'
+              'var r=window.__svaypTabRoot===true;'
+              'return (o>0)||(!r&&history.length>1);})()',
+            );
+            final webWantsBack = res == true || res.toString() == 'true';
+            if (webWantsBack) {
+              await webController.runJavaScript('history.back()');
+              return;
+            }
+          } catch (_) {
+            // Page not ready / JS failed — fall back to the native history API.
+            if (await webController.canGoBack()) {
+              await webController.goBack();
+              return;
+            }
+          }
+        }
+
+        // 3. Nothing left to go back to in this tab.
+        if (currentIndex != 0) {
+          // Not on the home (Feed) tab → go home, mirroring Android convention.
           final fromPos = _pillCtrl.value;
           setState(() {
             _currentIndex = 0;
@@ -322,8 +368,10 @@ class MainScreenState extends State<MainScreen>
             ),
           );
         } else {
-          // On first tab with nothing to pop, allow app to exit
-          Navigator.of(context).pop();
+          // On the home tab with nothing to pop → background the app cleanly.
+          // (Navigator.pop() here would tear down MainScreen and reveal a bare
+          // black Scaffold underneath — the reported "black screen".)
+          await SystemNavigator.pop();
         }
       },
       child: Scaffold(
@@ -352,6 +400,7 @@ class MainScreenState extends State<MainScreen>
                       return WebViewScreen(
                         url: WebUrls.feed,
                         bottomPadding: 60.0 + bottomInset,
+                        onControllerCreated: (c) => _webControllers[0] = c,
                       );
                     },
                   ),
@@ -368,6 +417,7 @@ class MainScreenState extends State<MainScreen>
                       return WebViewScreen(
                         url: WebUrls.closet,
                         bottomPadding: 60.0 + bottomInset,
+                        onControllerCreated: (c) => _webControllers[1] = c,
                       );
                     },
                   ),
@@ -384,6 +434,7 @@ class MainScreenState extends State<MainScreen>
                       return WebViewScreen(
                         url: WebUrls.market,
                         bottomPadding: 60.0 + bottomInset,
+                        onControllerCreated: (c) => _webControllers[2] = c,
                       );
                     },
                   ),

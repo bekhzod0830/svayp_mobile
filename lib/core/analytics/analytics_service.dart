@@ -162,16 +162,18 @@ class AnalyticsService {
 
   void _enqueueBackend(String name, Map<String, String>? parameters) {
     try {
+      // Wire-формат — snake_case, единый с webapp (бэкенд принимает оба
+      // варианта через @JsonAlias, но шлём канонический).
       final event = <String, dynamic>{
-        'eventName': name,
-        'sessionId': SessionManager.instance.currentId(),
-        'anonId': _anonId,
+        'event_name': name,
+        'session_id': SessionManager.instance.currentId(),
+        'anon_id': _anonId,
         'platform': _platform,
         'source': 'mobile',
-        'clientTs': DateTime.now().toUtc().toIso8601String(),
-        if (_appVersion != null) 'appVersion': _appVersion,
-        if (_appBuild != null) 'appBuild': _appBuild,
-        if (_osVersion != null) 'osVersion': _osVersion,
+        'client_ts': DateTime.now().toUtc().toIso8601String(),
+        if (_appVersion != null) 'app_version': _appVersion,
+        if (_appBuild != null) 'app_build': _appBuild,
+        if (_osVersion != null) 'os_version': _osVersion,
         if (_currentScreen != null) 'screen': _currentScreen,
         if (parameters != null && parameters.isNotEmpty) 'properties': parameters,
       };

@@ -1,11 +1,15 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:gal/gal.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:swipe/app/app.dart';
 import 'package:swipe/core/globals.dart';
 import 'package:swipe/core/localization/services/language_service.dart';
+import 'package:swipe/core/services/targeted_share.dart';
 import 'package:swipe/core/services/theme_service.dart';
 import 'package:swipe/features/chat/presentation/screens/chat_detail_screen.dart';
 import 'package:swipe/l10n/app_localizations.dart';
@@ -50,6 +54,12 @@ Future<bool> applyWebViewSetting(
       // The web "Save Look" button can't download inside a WebView, so it
       // hands us the rendered image to write into the device photo gallery.
       await _saveImageToGallery(map, context);
+      return true;
+
+    case 'share_image':
+      // The web "Share" button can't use the Web Share API inside a WebView, so
+      // it hands us the rendered image to open the native system share sheet.
+      await _shareImage(map, context);
       return true;
 
     case 'open_chat':
@@ -106,6 +116,123 @@ Future<void> _saveImageToGallery(
       SnackBarHelper.showError(context, l10n.genericError);
     }
   }
+}
+
+/// Social apps offered as quick share targets, in display order. Each target
+/// may have several package aliases (TikTok ships under two package names).
+class _ShareTarget {
+  final String label;
+  final IconData icon;
+  final List<String> packages;
+  const _ShareTarget(this.label, this.icon, this.packages);
+}
+
+const List<_ShareTarget> _shareTargets = [
+  _ShareTarget('Instagram', Icons.camera_alt_outlined, ['com.instagram.android']),
+  _ShareTarget('Threads', Icons.alternate_email, ['com.instagram.barcelona']),
+  _ShareTarget('TikTok', Icons.music_note_outlined,
+      ['com.zhiliaoapp.musically', 'com.ss.android.ugc.trill']),
+  _ShareTarget('Telegram', Icons.send_outlined, ['org.telegram.messenger']),
+];
+
+/// Decodes the base64 image from a `share_image` bridge message, writes it to a
+/// temporary file, and shares it. On Android a short in-app sheet offers the
+/// installed social apps (Instagram / Threads / TikTok / Telegram) directly,
+/// with the full system sheet behind "…"; iOS uses the system sheet. Failures
+/// are swallowed after notifying the user — they must never crash the WebView.
+Future<void> _shareImage(
+  Map<String, dynamic> map,
+  BuildContext context,
+) async {
+  final base64Str = map['base64'] as String?;
+  if (base64Str == null || base64Str.isEmpty) return;
+
+  final l10n = AppLocalizations.of(context);
+  try {
+    final bytes = base64Decode(base64Str);
+    final rawName = (map['filename'] as String?)?.trim();
+    final name = (rawName != null && rawName.isNotEmpty) ? rawName : 'libas-look.png';
+    final mimeType = (map['mimeType'] as String?)?.trim() ?? 'image/png';
+
+    // Written under cacheDir/share_images — MUST match res/xml/share_paths.xml,
+    // which the FileProvider exposes for the targeted share intents.
+    final dir = await getTemporaryDirectory();
+    final shareDir = Directory('${dir.path}/share_images');
+    if (!shareDir.existsSync()) shareDir.createSync(recursive: true);
+    final file = File('${shareDir.path}/$name');
+    await file.writeAsBytes(bytes);
+
+    if (!context.mounted) return;
+    if (Platform.isAndroid) {
+      await _showShareTargets(context, file, mimeType);
+    } else {
+      await Share.shareXFiles([XFile(file.path, mimeType: mimeType)]);
+    }
+  } catch (_) {
+    if (context.mounted && l10n != null) {
+      SnackBarHelper.showError(context, l10n.genericError);
+    }
+  }
+}
+
+/// Android: bottom sheet with the INSTALLED social targets + "more" (system
+/// sheet). Falls back straight to the system sheet when none are installed.
+Future<void> _showShareTargets(
+  BuildContext context,
+  File file,
+  String mimeType,
+) async {
+  final allPackages = <String>[
+    for (final t in _shareTargets) ...t.packages,
+  ];
+  final installed = await TargetedShare.installedOf(allPackages);
+  if (!context.mounted) return;
+
+  final available = _shareTargets
+      .where((t) => t.packages.any(installed.contains))
+      .toList();
+  if (available.isEmpty) {
+    await Share.shareXFiles([XFile(file.path, mimeType: mimeType)]);
+    return;
+  }
+
+  Future<void> systemShare() =>
+      Share.shareXFiles([XFile(file.path, mimeType: mimeType)]);
+
+  await showModalBottomSheet<void>(
+    context: context,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
+    builder: (ctx) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 12),
+          for (final target in available)
+            ListTile(
+              leading: Icon(target.icon),
+              title: Text(target.label),
+              onTap: () async {
+                Navigator.of(ctx).pop();
+                final pkg = target.packages.firstWhere(installed.contains);
+                final ok = await TargetedShare.shareTo(pkg, file.path, mimeType);
+                if (!ok) await systemShare();
+              },
+            ),
+          ListTile(
+            leading: const Icon(Icons.more_horiz),
+            title: Text(MaterialLocalizations.of(ctx).moreButtonTooltip),
+            onTap: () {
+              Navigator.of(ctx).pop();
+              systemShare();
+            },
+          ),
+          const SizedBox(height: 4),
+        ],
+      ),
+    ),
+  );
 }
 
 /// Convenience wrapper that decodes a raw bridge message string and applies it.

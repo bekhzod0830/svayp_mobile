@@ -22,7 +22,18 @@ class WebViewScreen extends StatefulWidget {
   /// overlaying widgets such as the floating bottom nav bar.
   final double bottomPadding;
 
-  const WebViewScreen({super.key, required this.url, this.bottomPadding = 0});
+  /// Exposes the created [WebViewController] to the parent (e.g. MainScreen),
+  /// so the host can drive web-history back-navigation from a parent PopScope
+  /// when this screen is embedded in a tab's nested Navigator (which never
+  /// receives the Android system-back event itself).
+  final void Function(WebViewController controller)? onControllerCreated;
+
+  const WebViewScreen({
+    super.key,
+    required this.url,
+    this.bottomPadding = 0,
+    this.onControllerCreated,
+  });
 
   @override
   State<WebViewScreen> createState() => _WebViewScreenState();
@@ -60,6 +71,9 @@ class _WebViewScreenState extends State<WebViewScreen> {
       },
     )
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      // No pinch/double-tap zoom anywhere in the web content — accidental
+      // magnification made the feed/closet/market pages look broken.
+      ..enableZoom(false)
       // Receive language/theme changes made inside the web view so the native
       // app stays in sync.
       ..addJavaScriptChannel(
@@ -152,6 +166,10 @@ class _WebViewScreenState extends State<WebViewScreen> {
           as AndroidWebViewController;
       androidController.setOnShowFileSelector(_handleFileSelector);
     }
+
+    // Hand the controller to the parent so it can drive web-history back
+    // navigation (see MainScreen's root PopScope for the tab-embedded case).
+    widget.onControllerCreated?.call(_controller);
 
     // Load the URL with auth tokens embedded as query params so the web app
     // can store them before its auth guard runs.
@@ -249,6 +267,14 @@ class _WebViewScreenState extends State<WebViewScreen> {
       // Read theme preference stored by ThemeService ('dark' or 'light').
       final theme = prefs.getString('theme_mode') ?? 'light';
 
+      // Make the WebView OPAQUE. Left transparent (the platform default on iOS
+      // WKWebView), a sibling WebView living in the same IndexedStack (Feed vs
+      // Closet, same origin) can bleed through this one — the "feed sometimes
+      // shows the wardrobe" artifact. An opaque background stops the show-through.
+      await _controller.setBackgroundColor(
+        theme == 'dark' ? const Color(0xFF111111) : Colors.white,
+      );
+
       // Remember what we loaded with so live-sync only injects real changes.
       _lastLang = langCode;
       _lastTheme = theme;
@@ -269,6 +295,25 @@ class _WebViewScreenState extends State<WebViewScreen> {
     }
   }
 
+  /// Android: render with Hybrid Composition (real platform view in the widget
+  /// tree) instead of the default Texture/Display-List mode. With several
+  /// same-origin WebViews alive in MainScreen's IndexedStack (Feed / Closet /
+  /// Market), the default mode intermittently composites the WRONG WebView's
+  /// texture — the "feed shows the wardrobe" artifact. Hybrid composition ties
+  /// each WebView to its own native view and eliminates the mix-up.
+  Widget _buildWebViewWidget() {
+    final platform = _controller.platform;
+    if (platform is AndroidWebViewController) {
+      return WebViewWidget.fromPlatformCreationParams(
+        params: AndroidWebViewWidgetCreationParams(
+          controller: platform,
+          displayWithHybridComposition: true,
+        ),
+      );
+    }
+    return WebViewWidget(controller: _controller);
+  }
+
   @override
   Widget build(BuildContext context) {
     // Depend on Theme + Localizations so didChangeDependencies fires (and the
@@ -285,9 +330,25 @@ class _WebViewScreenState extends State<WebViewScreen> {
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
-        if (await _controller.canGoBack()) {
-          await _controller.goBack();
-          return;
+        // Ask the PAGE whether Back has anywhere to go (overlays / pushed
+        // routes) — authoritative for SPA pushState history, which the native
+        // canGoBack() misreports on some Android WebViews. Falls back to the
+        // native history API when the page isn't ready.
+        try {
+          final res = await _controller.runJavaScriptReturningResult(
+            '(function(){var o=window.__svaypOverlays||0;'
+            'var r=window.__svaypTabRoot===true;'
+            'return (o>0)||(!r&&history.length>1);})()',
+          );
+          if (res == true || res.toString() == 'true') {
+            await _controller.runJavaScript('history.back()');
+            return;
+          }
+        } catch (_) {
+          if (await _controller.canGoBack()) {
+            await _controller.goBack();
+            return;
+          }
         }
         if (!context.mounted) return;
         // Web history is exhausted. Only pop this navigator when it actually has
@@ -320,7 +381,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
             padding: EdgeInsets.only(bottom: widget.bottomPadding),
             child: Stack(
               children: [
-                WebViewWidget(controller: _controller),
+                _buildWebViewWidget(),
                 if (_isLoading)
               const Center(
                 child: CircularProgressIndicator(

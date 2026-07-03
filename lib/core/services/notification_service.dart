@@ -604,6 +604,11 @@ class NotificationService {
         } else {
           nav.pushNamed(AppRoutes.discover);
         }
+      case NotificationType.feedLike:
+      case NotificationType.feedComment:
+        // Feed lives in a WebView tab — open it. No-op if MainScreen isn't mounted.
+        MainScreen.globalKey.currentState
+            ?.navigateToTab(_tabNames.indexOf('feed'));
       case NotificationType.system:
         _showSystemMessage(
           title: title ?? '',

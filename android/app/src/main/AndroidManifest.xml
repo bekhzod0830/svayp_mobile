@@ -89,6 +89,17 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- Exposes cached share images to the targeted share intents
+             (Instagram / Threads / TikTok / Telegram). See MainActivity. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.share.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/share_paths" />
+        </provider>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
@@ -117,5 +128,12 @@
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="geo" />
         </intent>
+        <!-- Package visibility for the targeted share sheet (Android 11+):
+             without these, PackageManager reports the apps as not installed. -->
+        <package android:name="com.instagram.android" />
+        <package android:name="com.instagram.barcelona" />
+        <package android:name="com.zhiliaoapp.musically" />
+        <package android:name="com.ss.android.ugc.trill" />
+        <package android:name="org.telegram.messenger" />
     </queries>
 </manifest>

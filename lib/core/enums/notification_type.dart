@@ -7,6 +7,8 @@ enum NotificationType {
   recommendation('RECOMMENDATION'),
   orderUpdate('ORDER_UPDATE'),
   newMessage('NEW_MESSAGE'),
+  feedLike('FEED_LIKE'),
+  feedComment('FEED_COMMENT'),
   system('SYSTEM');
 
   final String value;
