@@ -1122,5 +1122,8 @@
   "verifyWithSms": "SMS orqali tasdiqlash",
   "signInTitle": "Kirish",
   "createAccountTitle": "Akkaunt yaratish",
-  "linkAccountTitle": "Akkauntni bog'lang"
+  "linkAccountTitle": "Akkauntni bog'lang",
+  "selectCountry": "Davlatni tanlang",
+  "searchCountry": "Davlat yoki kodni qidiring",
+  "noResultsFound": "Hech narsa topilmadi"
 }

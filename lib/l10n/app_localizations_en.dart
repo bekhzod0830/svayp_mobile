@@ -3042,4 +3042,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get linkAccountTitle => 'Link your account';
+
+  @override
+  String get selectCountry => 'Select country';
+
+  @override
+  String get searchCountry => 'Search country or code';
+
+  @override
+  String get noResultsFound => 'No results found';
 }

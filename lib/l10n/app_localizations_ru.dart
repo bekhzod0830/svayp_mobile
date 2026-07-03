@@ -3065,4 +3065,13 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get linkAccountTitle => 'Привяжите аккаунт';
+
+  @override
+  String get selectCountry => 'Выберите страну';
+
+  @override
+  String get searchCountry => 'Поиск страны или кода';
+
+  @override
+  String get noResultsFound => 'Ничего не найдено';
 }

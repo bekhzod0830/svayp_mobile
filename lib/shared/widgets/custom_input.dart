@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
+import 'package:swipe/core/constants/countries.dart';
+import 'package:swipe/shared/widgets/country_code_picker.dart';
 
 /// Custom Text Input Field
 class CustomTextField extends StatelessWidget {
@@ -152,6 +154,12 @@ class CustomTextField extends StatelessWidget {
 }
 
 /// Phone Number Input Field
+///
+/// Renders a tappable country flag + dial-code prefix and a national-number
+/// field. Tapping the prefix opens [CountryCodePicker]; the chosen [Country] is
+/// reported back through [onCountryChanged] so the parent can rebuild and
+/// assemble the full E.164 number. Digit grouping and the max input length are
+/// driven by the selected [country].
 class PhoneTextField extends StatelessWidget {
   final TextEditingController? controller;
   final String? label;
@@ -161,7 +169,13 @@ class PhoneTextField extends StatelessWidget {
   final String? Function(String?)? validator;
   final FocusNode? focusNode;
   final bool autofocus;
-  final String countryCode;
+
+  /// Currently selected country (drives the prefix, hint and length limit).
+  final Country country;
+
+  /// Called with the newly picked country when the user taps the prefix and
+  /// selects a different one. When null, the country prefix is not tappable.
+  final ValueChanged<Country>? onCountryChanged;
 
   const PhoneTextField({
     super.key,
@@ -173,13 +187,23 @@ class PhoneTextField extends StatelessWidget {
     this.validator,
     this.focusNode,
     this.autofocus = false,
-    this.countryCode = '+998',
+    this.country = Countries.defaultCountry,
+    this.onCountryChanged,
   });
+
+  Future<void> _pickCountry(BuildContext context) async {
+    if (onCountryChanged == null) return;
+    final selected = await CountryCodePicker.show(context, selected: country);
+    if (selected != null && selected != country) {
+      onCountryChanged!(selected);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final canPick = onCountryChanged != null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -205,31 +229,51 @@ class PhoneTextField extends StatelessWidget {
           autofocus: autofocus,
           inputFormatters: [
             FilteringTextInputFormatter.digitsOnly,
-            LengthLimitingTextInputFormatter(9), // 9 digits after +998
-            _PhoneNumberFormatter(),
+            LengthLimitingTextInputFormatter(country.maxLength),
+            _PhoneNumberFormatter(country: country),
           ],
           style: AppTypography.body1.copyWith(
             color: isDark ? AppColors.darkPrimaryText : AppColors.black,
           ),
           decoration: InputDecoration(
-            hintText: '90 123 45 67',
+            hintText: country.example ?? '',
             hintStyle: AppTypography.body1.copyWith(
               color: isDark
                   ? AppColors.darkPlaceholderText
                   : AppColors.placeholderText,
             ),
             errorText: errorText,
-            prefixIcon: Container(
-              width: 70,
-              alignment: Alignment.center,
-              child: Text(
-                countryCode,
-                style: AppTypography.body1.copyWith(
-                  fontWeight: FontWeight.w500,
-                  color: isDark ? AppColors.darkPrimaryText : AppColors.black,
+            prefixIcon: InkWell(
+              onTap: canPick ? () => _pickCountry(context) : null,
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(country.flag, style: const TextStyle(fontSize: 22)),
+                    const SizedBox(width: 6),
+                    Text(
+                      country.dialCode,
+                      style: AppTypography.body1.copyWith(
+                        fontWeight: FontWeight.w500,
+                        color: isDark
+                            ? AppColors.darkPrimaryText
+                            : AppColors.black,
+                      ),
+                    ),
+                    if (canPick)
+                      Icon(
+                        Icons.arrow_drop_down,
+                        color: isDark
+                            ? AppColors.darkSecondaryText
+                            : AppColors.secondaryText,
+                      ),
+                  ],
                 ),
               ),
             ),
+            prefixIconConstraints: const BoxConstraints(minWidth: 0),
             filled: true,
             fillColor: isDark ? AppColors.darkCardBackground : AppColors.white,
             contentPadding: const EdgeInsets.symmetric(
@@ -277,7 +321,34 @@ class PhoneTextField extends StatelessWidget {
 }
 
 /// Phone Number Formatter
+///
+/// Inserts spaces so the typed national number reads in the grouping natural to
+/// the selected [country] (derived from its example, e.g. "90 123 45 67").
+/// Countries without an example fall back to generic groups of three.
 class _PhoneNumberFormatter extends TextInputFormatter {
+  final Country country;
+
+  _PhoneNumberFormatter({required this.country});
+
+  /// Groups [digits] according to [sizes]; anything beyond the template groups
+  /// in threes so long numbers still stay readable.
+  String _group(String digits, List<int> sizes) {
+    if (digits.isEmpty) return '';
+    final buffer = StringBuffer();
+    int i = 0;
+    int g = 0;
+    while (i < digits.length) {
+      int size = g < sizes.length ? sizes[g] : 3;
+      if (size <= 0) size = 3;
+      final end = (i + size) > digits.length ? digits.length : i + size;
+      if (buffer.isNotEmpty) buffer.write(' ');
+      buffer.write(digits.substring(i, end));
+      i = end;
+      g++;
+    }
+    return buffer.toString();
+  }
+
   @override
   TextEditingValue formatEditUpdate(
     TextEditingValue oldValue,
@@ -286,17 +357,8 @@ class _PhoneNumberFormatter extends TextInputFormatter {
     // Remove all non-digit characters
     final digitsOnly = newValue.text.replaceAll(RegExp(r'\D'), '');
 
-    // Build formatted string: "90 123 45 67"
-    final buffer = StringBuffer();
-    for (int i = 0; i < digitsOnly.length; i++) {
-      buffer.write(digitsOnly[i]);
-      // Add space after positions 2, 5, 7 (indices 1, 4, 6)
-      if (i == 1 || i == 4 || i == 6) {
-        buffer.write(' ');
-      }
-    }
-
-    final formatted = buffer.toString();
+    // Build formatted string using the country's grouping, e.g. "90 123 45 67".
+    final formatted = _group(digitsOnly, country.digitGroupSizes);
 
     // Calculate cursor position
     int cursorPosition = newValue.selection.baseOffset;
@@ -334,6 +396,11 @@ class _PhoneNumberFormatter extends TextInputFormatter {
     );
   }
 }
+
+/// Test-only accessor for the private country-aware phone formatter.
+@visibleForTesting
+TextInputFormatter phoneNumberFormatterForTest(Country country) =>
+    _PhoneNumberFormatter(country: country);
 
 /// OTP Input Field (4 digits)
 class OtpTextField extends StatelessWidget {

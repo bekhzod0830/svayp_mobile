@@ -1122,5 +1122,8 @@
   "verifyWithSms": "Подтвердить через SMS",
   "signInTitle": "Войти",
   "createAccountTitle": "Создать аккаунт",
-  "linkAccountTitle": "Привяжите аккаунт"
+  "linkAccountTitle": "Привяжите аккаунт",
+  "selectCountry": "Выберите страну",
+  "searchCountry": "Поиск страны или кода",
+  "noResultsFound": "Ничего не найдено"
 }

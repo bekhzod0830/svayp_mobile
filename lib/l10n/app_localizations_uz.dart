@@ -3082,4 +3082,13 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get linkAccountTitle => 'Akkauntni bog\'lang';
+
+  @override
+  String get selectCountry => 'Davlatni tanlang';
+
+  @override
+  String get searchCountry => 'Davlat yoki kodni qidiring';
+
+  @override
+  String get noResultsFound => 'Hech narsa topilmadi';
 }
