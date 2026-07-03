@@ -888,6 +888,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get market => 'Маркет';
 
   @override
+  String get feed => 'Лента';
+
+  @override
   String get marketComingSoon => 'Скоро здесь вы сможете продавать свои вещи';
 
   @override
@@ -3062,4 +3065,13 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get linkAccountTitle => 'Привяжите аккаунт';
+
+  @override
+  String get selectCountry => 'Выберите страну';
+
+  @override
+  String get searchCountry => 'Поиск страны или кода';
+
+  @override
+  String get noResultsFound => 'Ничего не найдено';
 }

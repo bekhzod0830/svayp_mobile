@@ -336,205 +336,204 @@ class _BasicInfoScreenState extends State<BasicInfoScreen>
     final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       backgroundColor: AppColors.white,
-      // Keep the layout fixed when the keyboard opens: let it overlay the
-      // bottom instead of pushing the Continue button up over the content.
-      resizeToAvoidBottomInset: false,
-      body: SizedBox(
-        height: MediaQuery.of(context).size.height,
-        child: Stack(
-          children: [
-            // Scrollable content
-            SafeArea(
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    Padding(
-                      padding: EdgeInsets.all(
-                        ResponsiveUtils.getHorizontalPadding(context),
-                      ),
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Progress Indicator
-                            const OnboardingProgressBar(
-                              currentStep: 1,
-                              totalSteps: 6,
-                            ),
-                            const SizedBox(height: 32),
-
-                            // Title
-                            Text(
-                              l10n.tellUsAboutYourself,
-                              style: AppTypography.display2.copyWith(
-                                height: 1.2,
+      // Resize when the keyboard opens so the Continue button rides above it
+      // and the form stays scrollable. The numeric date keypad has no "Done"
+      // key, so both a tap-outside (GestureDetector below) and a scroll drag
+      // (keyboardDismissBehavior) are wired up to dismiss it.
+      resizeToAvoidBottomInset: true,
+      body: SafeArea(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: Column(
+            children: [
+              // Scrollable content
+              Expanded(
+                child: SingleChildScrollView(
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: EdgeInsets.all(
+                          ResponsiveUtils.getHorizontalPadding(context),
+                        ),
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Progress Indicator
+                              const OnboardingProgressBar(
+                                currentStep: 1,
+                                totalSteps: 6,
                               ),
-                            ),
-                            const SizedBox(height: 12),
+                              const SizedBox(height: 32),
 
-                            // Subtitle
-                            Text(
-                              l10n.personalizeExperience,
-                              style: AppTypography.body1.copyWith(
-                                color: AppColors.secondaryText,
-                              ),
-                            ),
-                            const SizedBox(height: 40),
-
-                            // Name Input
-                            CustomTextField(
-                              controller: _nameController,
-                              label: l10n.fullName,
-                              hintText: l10n.enterYourName,
-                              validator: Validators.name,
-                              textInputAction: TextInputAction.next,
-                            ),
-                            const SizedBox(height: 24),
-
-                            // Date of Birth - Numeric input fields
-                            Text(
-                              l10n.dateOfBirth,
-                              style: AppTypography.body1.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Day field
-                                Expanded(
-                                  flex: 2,
-                                  child: _buildDateField(
-                                    controller: _dayController,
-                                    focusNode: _dayFocus,
-                                    hint: l10n.day,
-                                    maxLength: 2,
-                                    minValue: 1,
-                                    maxValue: 31,
-                                    validator: _validateDay,
-                                    onChanged: (v) {
-                                      _parseDateFields();
-                                      // Auto-advance to month when 2 digits entered
-                                      if (v.length == 2) {
-                                        FocusScope.of(
-                                          context,
-                                        ).requestFocus(_monthFocus);
-                                      }
-                                    },
-                                  ),
+                              // Title
+                              Text(
+                                l10n.tellUsAboutYourself,
+                                style: AppTypography.display2.copyWith(
+                                  height: 1.2,
                                 ),
-                                const Padding(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 14,
-                                  ),
-                                  child: Text(
-                                    '.',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w600,
+                              ),
+                              const SizedBox(height: 12),
+
+                              // Subtitle
+                              Text(
+                                l10n.personalizeExperience,
+                                style: AppTypography.body1.copyWith(
+                                  color: AppColors.secondaryText,
+                                ),
+                              ),
+                              const SizedBox(height: 40),
+
+                              // Name Input
+                              CustomTextField(
+                                controller: _nameController,
+                                label: l10n.fullName,
+                                hintText: l10n.enterYourName,
+                                validator: Validators.name,
+                                textInputAction: TextInputAction.next,
+                              ),
+                              const SizedBox(height: 24),
+
+                              // Date of Birth - Numeric input fields
+                              Text(
+                                l10n.dateOfBirth,
+                                style: AppTypography.body1.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Day field
+                                  Expanded(
+                                    flex: 2,
+                                    child: _buildDateField(
+                                      controller: _dayController,
+                                      focusNode: _dayFocus,
+                                      hint: l10n.day,
+                                      maxLength: 2,
+                                      minValue: 1,
+                                      maxValue: 31,
+                                      validator: _validateDay,
+                                      onChanged: (v) {
+                                        _parseDateFields();
+                                        // Auto-advance to month when 2 digits entered
+                                        if (v.length == 2) {
+                                          FocusScope.of(
+                                            context,
+                                          ).requestFocus(_monthFocus);
+                                        }
+                                      },
                                     ),
                                   ),
-                                ),
-                                // Month field
-                                Expanded(
-                                  flex: 2,
-                                  child: _buildDateField(
-                                    controller: _monthController,
-                                    focusNode: _monthFocus,
-                                    hint: l10n.month,
-                                    maxLength: 2,
-                                    minValue: 1,
-                                    maxValue: 12,
-                                    validator: _validateMonth,
-                                    onChanged: (v) {
-                                      _parseDateFields();
-                                      // Auto-advance to year when 2 digits entered
-                                      if (v.length == 2) {
-                                        FocusScope.of(
-                                          context,
-                                        ).requestFocus(_yearFocus);
-                                      }
-                                    },
-                                  ),
-                                ),
-                                const Padding(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 14,
-                                  ),
-                                  child: Text(
-                                    '.',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w600,
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 14,
+                                    ),
+                                    child: Text(
+                                      '.',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                // Year field
-                                Expanded(
-                                  flex: 3,
-                                  child: _buildDateField(
-                                    controller: _yearController,
-                                    focusNode: _yearFocus,
-                                    hint: l10n.year,
-                                    maxLength: 4,
-                                    minValue: 1900,
-                                    maxValue: 2026,
-                                    validator: _validateYear,
-                                    onChanged: (_) => _parseDateFields(),
+                                  // Month field
+                                  Expanded(
+                                    flex: 2,
+                                    child: _buildDateField(
+                                      controller: _monthController,
+                                      focusNode: _monthFocus,
+                                      hint: l10n.month,
+                                      maxLength: 2,
+                                      minValue: 1,
+                                      maxValue: 12,
+                                      validator: _validateMonth,
+                                      onChanged: (v) {
+                                        _parseDateFields();
+                                        // Auto-advance to year when 2 digits entered
+                                        if (v.length == 2) {
+                                          FocusScope.of(
+                                            context,
+                                          ).requestFocus(_yearFocus);
+                                        }
+                                      },
+                                    ),
                                   ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 24),
-
-                            // Gender
-                            Text(
-                              l10n.gender,
-                              style: AppTypography.body1.copyWith(
-                                fontWeight: FontWeight.w600,
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 14,
+                                    ),
+                                    child: Text(
+                                      '.',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                  // Year field
+                                  Expanded(
+                                    flex: 3,
+                                    child: _buildDateField(
+                                      controller: _yearController,
+                                      focusNode: _yearFocus,
+                                      hint: l10n.year,
+                                      maxLength: 4,
+                                      minValue: 1900,
+                                      maxValue: 2026,
+                                      validator: _validateYear,
+                                      onChanged: (_) => _parseDateFields(),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                _buildGenderOption(
-                                  label: l10n.female,
-                                  value: 'female',
+                              const SizedBox(height: 24),
+
+                              // Gender
+                              Text(
+                                l10n.gender,
+                                style: AppTypography.body1.copyWith(
+                                  fontWeight: FontWeight.w600,
                                 ),
-                                const SizedBox(width: 12),
-                                _buildGenderOption(
-                                  label: l10n.male,
-                                  value: 'male',
-                                ),
-                              ],
-                            ),
-                          ],
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  _buildGenderOption(
+                                    label: l10n.female,
+                                    value: 'female',
+                                  ),
+                                  const SizedBox(width: 12),
+                                  _buildGenderOption(
+                                    label: l10n.male,
+                                    value: 'male',
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 100),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
 
-            // Bottom Navigation - Only Continue button (no back button)
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Container(
+              // Bottom Navigation - Only Continue button (no back button).
+              // Sits below the scroll area so it always rides just above the
+              // keyboard (or the safe-area inset) and stays tappable.
+              Container(
+                width: double.infinity,
                 color: AppColors.white,
-                padding: EdgeInsets.fromLTRB(
-                  24,
-                  16,
-                  24,
-                  MediaQuery.of(context).padding.bottom + 16,
-                ),
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
                 child: Align(
                   alignment: Alignment.centerRight,
                   child: SizedBox(
@@ -584,10 +583,10 @@ class _BasicInfoScreenState extends State<BasicInfoScreen>
                   ),
                 ),
               ),
-            ), // closes Positioned
-          ], // closes Stack children
-        ), // closes Stack
-      ), // closes SizedBox
+            ], // closes Column children
+          ), // closes Column
+        ), // closes GestureDetector
+      ), // closes SafeArea
     ); // closes Scaffold
   }
 }

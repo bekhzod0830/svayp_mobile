@@ -1774,6 +1774,12 @@ abstract class AppLocalizations {
   /// **'Market'**
   String get market;
 
+  /// No description provided for @feed.
+  ///
+  /// In en, this message translates to:
+  /// **'Feed'**
+  String get feed;
+
   /// No description provided for @marketComingSoon.
   ///
   /// In en, this message translates to:
@@ -5919,6 +5925,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Link your account'**
   String get linkAccountTitle;
+
+  /// No description provided for @selectCountry.
+  ///
+  /// In en, this message translates to:
+  /// **'Select country'**
+  String get selectCountry;
+
+  /// No description provided for @searchCountry.
+  ///
+  /// In en, this message translates to:
+  /// **'Search country or code'**
+  String get searchCountry;
+
+  /// No description provided for @noResultsFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No results found'**
+  String get noResultsFound;
 }
 
 class _AppLocalizationsDelegate

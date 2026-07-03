@@ -890,6 +890,9 @@ class AppLocalizationsUz extends AppLocalizations {
   String get market => 'Market';
 
   @override
+  String get feed => 'Lenta';
+
+  @override
   String get marketComingSoon =>
       'Tez orada, bu yerda siz o\'z buyumlaringizni sotishingiz mumkin';
 
@@ -3079,4 +3082,13 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get linkAccountTitle => 'Akkauntni bog\'lang';
+
+  @override
+  String get selectCountry => 'Davlatni tanlang';
+
+  @override
+  String get searchCountry => 'Davlat yoki kodni qidiring';
+
+  @override
+  String get noResultsFound => 'Hech narsa topilmadi';
 }

@@ -293,6 +293,7 @@
   "remove": "Remove",
   "shop": "Shop",
   "market": "Market",
+  "feed": "Feed",
   "marketComingSoon": "Soon, the place where you can sell your things",
   "visualSearch": "Visual Search",
   "categories": "Categories",
@@ -1130,5 +1131,8 @@
   "verifyWithSms": "Verify with SMS",
   "signInTitle": "Sign in",
   "createAccountTitle": "Create account",
-  "linkAccountTitle": "Link your account"
+  "linkAccountTitle": "Link your account",
+  "selectCountry": "Select country",
+  "searchCountry": "Search country or code",
+  "noResultsFound": "No results found"
 }

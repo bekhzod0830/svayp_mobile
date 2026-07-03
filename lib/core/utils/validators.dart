@@ -1,4 +1,5 @@
 import 'package:swipe/core/constants/app_constants.dart';
+import 'package:swipe/core/constants/countries.dart';
 
 /// Form Validators
 class Validators {
@@ -18,26 +19,22 @@ class Validators {
     return null;
   }
 
-  /// Validate phone number
-  static String? phone(String? value) {
+  /// Validate a national phone number (the digits typed after the dial code).
+  ///
+  /// Length rules come from the selected [country] (defaults to Uzbekistan for
+  /// backward compatibility). The dial code lives in a separate prefix, so
+  /// [value] is expected to be the national number only.
+  static String? phone(String? value, {Country? country}) {
     if (value == null || value.isEmpty) {
       return 'Phone number is required';
     }
-    // Remove all non-digit characters
+    // Remove all non-digit characters (spaces from the display formatting).
     final cleaned = value.replaceAll(RegExp(r'[^\d]'), '');
 
-    // Check if it has 12 digits (998 + 9 digits) or 9 digits (without country code)
-    if (cleaned.length != 12 && cleaned.length != 9) {
+    final c = country ?? Countries.defaultCountry;
+    if (cleaned.length < c.minLength || cleaned.length > c.maxLength) {
       return 'Please enter a valid phone number';
     }
-
-    // If 12 digits, must start with 998
-    if (cleaned.length == 12 && !cleaned.startsWith('998')) {
-      return 'Phone number must start with +998';
-    }
-
-    // REMOVED: Operator code validation for testing purposes
-    // Allow any operator code to make testing easier
 
     return null;
   }

@@ -286,6 +286,7 @@
   "remove": "Удалить",
   "shop": "Магазин",
   "market": "Маркет",
+  "feed": "Лента",
   "marketComingSoon": "Скоро здесь вы сможете продавать свои вещи",
   "visualSearch": "Поиск",
   "categories": "Категории",
@@ -1121,5 +1122,8 @@
   "verifyWithSms": "Подтвердить через SMS",
   "signInTitle": "Войти",
   "createAccountTitle": "Создать аккаунт",
-  "linkAccountTitle": "Привяжите аккаунт"
+  "linkAccountTitle": "Привяжите аккаунт",
+  "selectCountry": "Выберите страну",
+  "searchCountry": "Поиск страны или кода",
+  "noResultsFound": "Ничего не найдено"
 }

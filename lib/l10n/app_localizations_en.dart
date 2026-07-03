@@ -877,6 +877,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get market => 'Market';
 
   @override
+  String get feed => 'Feed';
+
+  @override
   String get marketComingSoon =>
       'Soon, the place where you can sell your things';
 
@@ -3039,4 +3042,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get linkAccountTitle => 'Link your account';
+
+  @override
+  String get selectCountry => 'Select country';
+
+  @override
+  String get searchCountry => 'Search country or code';
+
+  @override
+  String get noResultsFound => 'No results found';
 }

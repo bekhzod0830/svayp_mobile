@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
+import 'package:swipe/core/cache/image_cache_manager.dart';
 import 'package:swipe/features/onboarding/data/onboarding_data_manager.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/core/constants/app_colors.dart';
@@ -121,6 +123,8 @@ class _StyleQuizScreenState extends State<StyleQuizScreen>
             );
           }).toList();
         });
+        // Warm the cache for every card so swiping is instant.
+        _prefetchQuizImages();
         return; // Successfully loaded from API
       }
     } catch (e) {
@@ -174,6 +178,33 @@ class _StyleQuizScreenState extends State<StyleQuizScreen>
         ),
       );
     });
+    // Warm the cache for every card so swiping is instant.
+    _prefetchQuizImages();
+  }
+
+  /// Preload every quiz image up front so the user never waits on a per-card
+  /// fetch while swiping. Network images are downloaded into the shared disk
+  /// cache (the same [ImageCacheManager.instance] the cards read from), and
+  /// bundled assets are decoded into the image cache. Fire-and-forget: a
+  /// failure on any single image is swallowed here and surfaces later in the
+  /// card's own error placeholder, so it never blocks the rest.
+  void _prefetchQuizImages() {
+    if (!mounted) return;
+    for (final item in _quizItems) {
+      if (item.isNetworkImage) {
+        _warmDiskCache(item.imageUrl!);
+      } else if (item.imagePath.isNotEmpty) {
+        precacheImage(AssetImage(item.imagePath), context, onError: (_, __) {});
+      }
+    }
+  }
+
+  Future<void> _warmDiskCache(String url) async {
+    try {
+      await ImageCacheManager.instance.downloadFile(url);
+    } catch (_) {
+      // Ignored — the card's errorWidget handles display failures.
+    }
   }
 
   List<String> _getStyleCategories(AppLocalizations l10n) {
@@ -1016,30 +1047,29 @@ class _SwipeableQuizCardState extends State<_SwipeableQuizCard>
                 fit: StackFit.expand,
                 children: [
                   if (widget.item.isNetworkImage)
-                    Image.network(
-                      widget.item.imageUrl!,
+                    CachedNetworkImage(
+                      imageUrl: widget.item.imageUrl!,
+                      cacheManager: ImageCacheManager.instance,
                       fit: BoxFit.cover,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Container(
-                          color: AppColors.gray200,
-                          child: const Center(
-                            child: CircularProgressIndicator(
-                              color: AppColors.black,
-                            ),
+                      // No fade: prefetched images are already cached, so the
+                      // card should show them immediately.
+                      fadeInDuration: Duration.zero,
+                      placeholder: (context, url) => Container(
+                        color: AppColors.gray200,
+                        child: const Center(
+                          child: CircularProgressIndicator(
+                            color: AppColors.black,
                           ),
-                        );
-                      },
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          color: AppColors.gray200,
-                          child: const Icon(
-                            Icons.image_outlined,
-                            size: 64,
-                            color: AppColors.gray500,
-                          ),
-                        );
-                      },
+                        ),
+                      ),
+                      errorWidget: (context, url, error) => Container(
+                        color: AppColors.gray200,
+                        child: const Icon(
+                          Icons.image_outlined,
+                          size: 64,
+                          color: AppColors.gray500,
+                        ),
+                      ),
                     )
                   else
                     Image.asset(

@@ -159,7 +159,7 @@ class OrderConfirmationScreen extends StatelessWidget {
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: () {
-                        // Find MainScreenState and navigate to Discover (LIBΛS) tab (index 4)
+                        // Find MainScreenState and navigate to Discover (LIBΛS) tab (index 5)
                         // Prefer ancestor lookup; fall back to the global key
                         final mainScreenState =
                             context.findAncestorStateOfType<MainScreenState>()
@@ -167,7 +167,7 @@ class OrderConfirmationScreen extends StatelessWidget {
                         Navigator.of(
                           context,
                         ).popUntil((route) => route.isFirst);
-                        mainScreenState?.navigateToTab(4);
+                        mainScreenState?.navigateToTab(5);
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: isDark

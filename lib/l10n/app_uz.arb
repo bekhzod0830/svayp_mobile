@@ -89,6 +89,7 @@
   "remove": "O'chirish",
   "shop": "Do'kon",
   "market": "Market",
+  "feed": "Lenta",
   "marketComingSoon": "Tez orada, bu yerda siz o'z buyumlaringizni sotishingiz mumkin",
   "visualSearch": "Vizual qidiruv",
   "categories": "Kategoriyalar",
@@ -1121,5 +1122,8 @@
   "verifyWithSms": "SMS orqali tasdiqlash",
   "signInTitle": "Kirish",
   "createAccountTitle": "Akkaunt yaratish",
-  "linkAccountTitle": "Akkauntni bog'lang"
+  "linkAccountTitle": "Akkauntni bog'lang",
+  "selectCountry": "Davlatni tanlang",
+  "searchCountry": "Davlat yoki kodni qidiring",
+  "noResultsFound": "Hech narsa topilmadi"
 }

@@ -7,6 +7,7 @@ import 'package:swipe/features/auth/presentation/screens/partner_login_screen.da
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_constants.dart';
 import 'package:swipe/core/constants/app_typography.dart';
+import 'package:swipe/core/constants/countries.dart';
 import 'package:swipe/core/utils/validators.dart';
 import 'package:swipe/core/utils/responsive_utils.dart';
 import 'package:swipe/core/localization/widgets/language_selector.dart';
@@ -33,6 +34,8 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
   final _phoneController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   final _scrollController = ScrollController();
+  // Selected phone country — defaults to Uzbekistan, changeable via the picker.
+  Country _selectedCountry = Countries.defaultCountry;
   bool _isLoading = false;
   int _logoTapCount = 0;
   Timer? _logoTapResetTimer;
@@ -99,7 +102,9 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
   Future<void> _continue() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final phoneNumber = '+998${_phoneController.text}';
+    // Assemble an E.164 number: selected dial code + typed national digits.
+    final nationalDigits = _phoneController.text.replaceAll(RegExp(r'\D'), '');
+    final phoneNumber = '${_selectedCountry.dialCode}$nationalDigits';
     setState(() => _isLoading = true);
 
     try {
@@ -170,7 +175,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
     if (!mounted) return;
     Navigator.of(context).pushReplacementNamed(
       '/main',
-      arguments: {'initialIndex': 4}, // 4 = Discover (LIBΛS) tab
+      arguments: {'initialIndex': 0}, // 0 = Feed (Лента) — default landing
     );
   }
 
@@ -322,7 +327,19 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                           PhoneTextField(
                             controller: _phoneController,
                             label: l10n.phoneNumber,
-                            validator: Validators.phone,
+                            country: _selectedCountry,
+                            onCountryChanged: (country) {
+                              setState(() {
+                                _selectedCountry = country;
+                                // Re-run validation against the new country's
+                                // length rules if the form was already checked.
+                                _formKey.currentState?.validate();
+                              });
+                            },
+                            validator: (value) => Validators.phone(
+                              value,
+                              country: _selectedCountry,
+                            ),
                           ),
                           const SizedBox(height: 16),
 

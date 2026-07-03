@@ -87,11 +87,11 @@ class _SplashScreenState extends State<SplashScreen>
     final storage = await LocalStorageHelper.getInstance();
     if (!mounted) return;
 
-    // Guest mode — no auth needed. Land on Discover (LIBΛS); closet is gated.
+    // Guest mode — no auth needed. Land on Feed (Лента, public browse).
     if (storage.isGuestMode()) {
       Navigator.of(context).pushReplacementNamed(
         '/main',
-        arguments: {'initialIndex': 4}, // 4 = Discover (LIBΛS) tab
+        arguments: {'initialIndex': 0}, // 0 = Feed (Лента)
       );
       return;
     }
