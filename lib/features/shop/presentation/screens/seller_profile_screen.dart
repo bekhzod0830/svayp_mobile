@@ -6,6 +6,7 @@ import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
 import 'package:swipe/core/services/product_api_service.dart';
+import 'package:swipe/core/services/seller_cache_service.dart';
 import 'package:swipe/core/models/product.dart' as api_models;
 import 'package:swipe/features/discover/domain/entities/product.dart';
 import 'package:swipe/features/product/presentation/screens/product_detail_screen.dart';
@@ -69,12 +70,22 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token');
     if (mounted) setState(() => _authToken = token);
-    await Future.wait([_fetchSellerInfo(token), _fetchInitialProducts(token)]);
+    // Seller info passed in by the caller is already complete — refetching it
+    // on every open is a wasted GET /sellers/{id}. Seed the shared cache so
+    // other screens (ProductDetail) reuse it too.
+    final passedInfo = widget.sellerInfo;
+    if (passedInfo != null) {
+      SellerCacheService.instance.put(passedInfo);
+    }
+    await Future.wait([
+      if (passedInfo == null) _fetchSellerInfo(token),
+      _fetchInitialProducts(token),
+    ]);
   }
 
   Future<void> _fetchSellerInfo(String? token) async {
     try {
-      final info = await _apiService.getSeller(
+      final info = await SellerCacheService.instance.getSeller(
         sellerId: widget.sellerId,
         token: token,
       );

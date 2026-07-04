@@ -71,17 +71,26 @@ class OrdersScreenState extends State<OrdersScreen>
     super.dispose();
   }
 
+  /// Last orders load — throttles the resume-triggered refresh so a quick
+  /// app switch doesn't refetch the whole list every time.
+  DateTime? _lastOrdersLoadAt;
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      // Refresh when app comes back to foreground
-      _loadOrders();
+      // Refresh when app comes back to foreground, at most once per minute.
+      final last = _lastOrdersLoadAt;
+      if (last == null ||
+          DateTime.now().difference(last) >= const Duration(seconds: 60)) {
+        _loadOrders();
+      }
     }
   }
 
   Future<void> _loadOrders() async {
     if (!mounted) return;
 
+    _lastOrdersLoadAt = DateTime.now();
     setState(() {
       _isLoading = true;
       _errorMessage = null;

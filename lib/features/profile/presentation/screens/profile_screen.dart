@@ -91,12 +91,21 @@ class _ProfileScreenState extends State<ProfileScreen>
     super.dispose();
   }
 
-  /// Re-load profile data whenever the app is brought back to the foreground.
-  /// This ensures the token-refresh interceptor fires and keeps the session alive.
+  /// Last profile load — throttles the resume-triggered reload: profile data
+  /// rarely changes, yet every foreground used to refire /auth/me +
+  /// /users/profile. The Dio interceptor keeps the token fresh on any call.
+  DateTime? _lastUserDataLoadAt;
+
+  /// Re-load profile data when the app returns to the foreground,
+  /// at most once per minute.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _loadUserData();
+      final last = _lastUserDataLoadAt;
+      if (last == null ||
+          DateTime.now().difference(last) >= const Duration(seconds: 60)) {
+        _loadUserData();
+      }
     }
   }
 
@@ -110,6 +119,7 @@ class _ProfileScreenState extends State<ProfileScreen>
       return;
     }
 
+    _lastUserDataLoadAt = DateTime.now();
     setState(() {
       _isLoading = true;
     });

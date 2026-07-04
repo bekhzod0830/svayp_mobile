@@ -17,6 +17,8 @@ import 'package:swipe/core/cache/image_cache_manager.dart';
 import 'package:swipe/features/chat/presentation/screens/chat_compose_screen.dart';
 import 'package:swipe/features/shop/presentation/screens/seller_profile_screen.dart';
 import 'package:swipe/core/services/product_api_service.dart';
+import 'package:swipe/core/services/cart_badge_service.dart';
+import 'package:swipe/core/services/seller_cache_service.dart';
 import 'package:swipe/core/models/product.dart' as api_models;
 import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/core/network/api_client.dart';
@@ -93,11 +95,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     // Update cart count from API
     await _updateCartCount();
 
-    // Fetch seller info (logo + locations) in background
+    // Fetch seller info (logo + locations) in background — served from the
+    // shared 10-min cache, so reopening products of the same seller is free.
     final sellerId = widget.product.sellerId;
     if (sellerId != null && sellerId.isNotEmpty) {
       setState(() => _isLoadingSellerInfo = true);
-      _apiService
+      SellerCacheService.instance
           .getSeller(sellerId: sellerId, token: _authToken)
           .then((info) {
             if (mounted) {
@@ -113,26 +116,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
   }
 
-  Future<void> _updateCartCount() async {
-    if (!mounted) return;
-    try {
-      if (_authToken != null && _authToken!.isNotEmpty) {
-        final cartData = await _apiService.getCart(token: _authToken!);
-        final summary = cartData['summary'] as Map<String, dynamic>;
-        final totalItems = summary['total_items'] as int;
-        if (!mounted) return;
-        BadgeNotifier.instance.setCartCount(totalItems);
-      } else {
-        await _cartService.init();
-        if (!mounted) return;
-        BadgeNotifier.instance.setCartCount(_cartService.getTotalQuantity());
-      }
-    } catch (e) {
-      await _cartService.init();
-      if (!mounted) return;
-      BadgeNotifier.instance.setCartCount(_cartService.getTotalQuantity());
-    }
-  }
+  /// Badge refresh goes through the shared [CartBadgeService]: concurrent
+  /// calls are coalesced and repeats within 15s are skipped. Cart mutations
+  /// pass force: true so the badge updates immediately.
+  Future<void> _updateCartCount({bool force = false}) =>
+      CartBadgeService.instance.refresh(token: _authToken, force: force);
 
   @override
   void dispose() {
@@ -200,7 +188,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         );
 
         // Only update cart count after successful API call
-        await _updateCartCount();
+        await _updateCartCount(force: true);
       } catch (e) {
         // Rollback local cart on API failure
 
@@ -225,7 +213,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       }
     } else {
       // Not authenticated - just update local cart count
-      await _updateCartCount();
+      await _updateCartCount(force: true);
     }
 
     if (mounted) {
@@ -406,7 +394,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                   builder: (context) => const CartScreen(),
                                 ),
                               );
-                              await _updateCartCount();
+                              // Cart screen may have mutated the cart.
+                              await _updateCartCount(force: true);
                             },
                           ),
                           if (count > 0)

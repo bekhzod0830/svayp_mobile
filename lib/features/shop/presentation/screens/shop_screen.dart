@@ -7,6 +7,7 @@ import 'package:swipe/features/discover/domain/entities/product.dart';
 import 'package:swipe/features/product/presentation/screens/product_detail_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:swipe/core/services/product_api_service.dart';
+import 'package:swipe/core/services/seller_cache_service.dart';
 import 'package:swipe/core/models/product.dart' as api_models;
 import 'package:swipe/core/cache/image_cache_manager.dart';
 import 'package:swipe/features/shop/presentation/screens/seller_profile_screen.dart';
@@ -512,6 +513,8 @@ class _ShopScreenState extends State<ShopScreen>
         limit: 100,
         token: _authToken,
       );
+      // Seed the shared cache — ProductDetail then opens sellers for free.
+      results.forEach(SellerCacheService.instance.put);
       if (mounted) setState(() => _sellers = results);
     } catch (_) {
       // Sellers list is optional – failure is non-fatal

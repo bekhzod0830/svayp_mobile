@@ -2,14 +2,70 @@
 /// Handles all product-related API calls
 
 import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
+import '../di/service_locator.dart';
 import '../models/product.dart';
+import '../network/api_client.dart';
 import '../config/api_config.dart';
 
 class ProductApiService {
   // Base URL from centralized config
   // Change environment in api_config.dart based on where you're testing
   String get baseUrl => ApiConfig.baseUrl;
+
+  // ── Transport shim ─────────────────────────────────────────────────────
+  // Requests go through the shared Dio ApiClient (auth header injection,
+  // proactive + reactive 401 refresh, 30s timeouts) instead of the raw
+  // `http` package. The shim exposes http.Response-like statusCode/body so
+  // every existing parsing/error branch below stays untouched. The explicit
+  // `token` parameters are kept for API compatibility but the Authorization
+  // header is now managed by the ApiClient interceptor (same storage key).
+
+  ApiClient get _client => getIt<ApiClient>();
+
+  Future<_RawResponse> _get(Uri uri) => _send('GET', uri);
+  Future<_RawResponse> _post(Uri uri, {String? body}) =>
+      _send('POST', uri, body: body);
+  Future<_RawResponse> _patch(Uri uri, {String? body}) =>
+      _send('PATCH', uri, body: body);
+  Future<_RawResponse> _delete(Uri uri) => _send('DELETE', uri);
+
+  Future<_RawResponse> _send(String method, Uri uri, {String? body}) async {
+    final options = Options(
+      responseType: ResponseType.plain,
+      headers: {'Content-Type': 'application/json'},
+    );
+    final url = uri.toString();
+    try {
+      final Response<String> response;
+      if (method == 'GET') {
+        response = await _client.get<String>(url, options: options);
+      } else if (method == 'POST') {
+        response = await _client.post<String>(url, data: body, options: options);
+      } else if (method == 'PATCH') {
+        response =
+            await _client.patch<String>(url, data: body, options: options);
+      } else if (method == 'DELETE') {
+        response = await _client.delete<String>(url, options: options);
+      } else {
+        throw ArgumentError('Unsupported method $method');
+      }
+      return _RawResponse(response.statusCode ?? 0, response.data ?? '');
+    } on ApiException catch (e) {
+      // HTTP error statuses surface as values (matching the old package:http
+      // semantics) so the per-method statusCode branches keep working.
+      // Network/timeout failures rethrow — callers already catch those.
+      final response = e.response;
+      if (response != null) {
+        final data = response.data;
+        return _RawResponse(
+          e.statusCode,
+          data is String ? data : (data?.toString() ?? ''),
+        );
+      }
+      rethrow;
+    }
+  }
 
   /// Get list of products with optional filters
   ///
@@ -53,13 +109,7 @@ class ProductApiService {
         '$baseUrl/products/all',
       ).replace(queryParameters: queryParams);
 
-      // Build headers
-      final headers = <String, String>{'Content-Type': 'application/json'};
-      if (token != null) {
-        headers['Authorization'] = 'Bearer $token';
-      }
-
-      final response = await http.get(uri, headers: headers);
+      final response = await _get(uri);
 
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
@@ -83,13 +133,7 @@ class ProductApiService {
     try {
       final uri = Uri.parse('$baseUrl/products/$productId');
 
-      // Build headers
-      final headers = <String, String>{'Content-Type': 'application/json'};
-      if (token != null) {
-        headers['Authorization'] = 'Bearer $token';
-      }
-
-      final response = await http.get(uri, headers: headers);
+      final response = await _get(uri);
 
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
@@ -151,13 +195,7 @@ class ProductApiService {
         '$baseUrl/products/search',
       ).replace(queryParameters: queryParams);
 
-      // Build headers
-      final headers = <String, String>{'Content-Type': 'application/json'};
-      if (token != null) {
-        headers['Authorization'] = 'Bearer $token';
-      }
-
-      final response = await http.get(uri, headers: headers);
+      final response = await _get(uri);
 
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
@@ -211,13 +249,7 @@ class ProductApiService {
     try {
       final uri = Uri.parse('$baseUrl/products/recommendations?limit=$limit');
 
-      // Build headers with required authentication
-      final headers = <String, String>{
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      };
-
-      final response = await http.get(uri, headers: headers);
+      final response = await _get(uri);
 
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
@@ -246,12 +278,7 @@ class ProductApiService {
     try {
       final uri = Uri.parse('$baseUrl/products/$productId/like');
 
-      final headers = <String, String>{
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      };
-
-      final response = await http.post(uri, headers: headers);
+      final response = await _post(uri);
 
       if (response.statusCode != 200 && response.statusCode != 201) {
         throw Exception(
@@ -275,12 +302,7 @@ class ProductApiService {
     try {
       final uri = Uri.parse('$baseUrl/products/$productId/favorite');
 
-      final headers = <String, String>{
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      };
-
-      final response = await http.delete(uri, headers: headers);
+      final response = await _delete(uri);
 
       if (response.statusCode != 200 && response.statusCode != 204) {
         throw Exception(
@@ -305,12 +327,7 @@ class ProductApiService {
         '$baseUrl/products/favorites',
       ).replace(queryParameters: {'page': page.toString(), 'size': '10'});
 
-      final headers = <String, String>{
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      };
-
-      final response = await http.get(uri, headers: headers);
+      final response = await _get(uri);
 
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
@@ -347,12 +364,7 @@ class ProductApiService {
     try {
       final uri = Uri.parse('$baseUrl/cart');
 
-      final headers = <String, String>{
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      };
-
-      final response = await http.get(uri, headers: headers);
+      final response = await _get(uri);
 
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
@@ -381,12 +393,7 @@ class ProductApiService {
     try {
       final uri = Uri.parse('$baseUrl/cart/$itemId');
 
-      final headers = <String, String>{
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      };
-
-      final response = await http.delete(uri, headers: headers);
+      final response = await _delete(uri);
 
       if (response.statusCode == 200 || response.statusCode == 204) {
       } else if (response.statusCode == 401) {
@@ -415,14 +422,9 @@ class ProductApiService {
     try {
       final uri = Uri.parse('$baseUrl/cart/$itemId');
 
-      final headers = <String, String>{
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      };
-
       final body = json.encode({'quantity': quantity});
 
-      final response = await http.patch(uri, headers: headers, body: body);
+      final response = await _patch(uri, body: body);
 
       if (response.statusCode == 200) {
       } else if (response.statusCode == 401) {
@@ -445,12 +447,7 @@ class ProductApiService {
     try {
       final uri = Uri.parse('$baseUrl/cart');
 
-      final headers = <String, String>{
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      };
-
-      final response = await http.delete(uri, headers: headers);
+      final response = await _delete(uri);
 
       if (response.statusCode == 200 || response.statusCode == 204) {
       } else if (response.statusCode == 401) {
@@ -483,11 +480,6 @@ class ProductApiService {
     try {
       final uri = Uri.parse('$baseUrl/cart');
 
-      final headers = <String, String>{
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      };
-
       final bodyMap = {
         'productId': productId,
         'selectedSize': selectedSize.toUpperCase(),
@@ -496,7 +488,7 @@ class ProductApiService {
       };
       final body = json.encode(bodyMap);
 
-      final response = await http.post(uri, headers: headers, body: body);
+      final response = await _post(uri, body: body);
 
       if (response.statusCode == 200 || response.statusCode == 201) {
       } else if (response.statusCode == 401) {
@@ -527,12 +519,7 @@ class ProductApiService {
         '$baseUrl/feed/quiz',
       ).replace(queryParameters: {'limit': limit.toString()});
 
-      final headers = <String, String>{'Content-Type': 'application/json'};
-      if (token != null) {
-        headers['Authorization'] = 'Bearer $token';
-      }
-
-      final response = await http.get(uri, headers: headers);
+      final response = await _get(uri);
 
       if (response.statusCode == 200) {
         final dynamic jsonData = json.decode(response.body);
@@ -582,11 +569,6 @@ class ProductApiService {
     try {
       final uri = Uri.parse('$baseUrl/events');
 
-      final headers = <String, String>{'Content-Type': 'application/json'};
-      if (token != null) {
-        headers['Authorization'] = 'Bearer $token';
-      }
-
       final body = json.encode({
         'productId': productId,
         'eventType': eventType,
@@ -596,7 +578,7 @@ class ProductApiService {
         if (metadata != null) 'metadata': metadata,
       });
 
-      final response = await http.post(uri, headers: headers, body: body);
+      final response = await _post(uri, body: body);
 
       if (response.statusCode != 200 && response.statusCode != 201) {
         // Silently fail – event logging should never disrupt the user
@@ -630,12 +612,7 @@ class ProductApiService {
         '$baseUrl/feed',
       ).replace(queryParameters: queryParams);
 
-      final headers = <String, String>{
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      };
-
-      final response = await http.get(uri, headers: headers);
+      final response = await _get(uri);
 
       if (response.statusCode == 200) {
         final dynamic jsonData = json.decode(response.body);
@@ -711,12 +688,7 @@ class ProductApiService {
   }) async {
     try {
       final uri = Uri.parse('$baseUrl/sellers/$sellerId');
-      final headers = <String, String>{'Content-Type': 'application/json'};
-      if (token != null) {
-        headers['Authorization'] = 'Bearer $token';
-      }
-
-      final response = await http.get(uri, headers: headers);
+      final response = await _get(uri);
 
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
@@ -759,13 +731,7 @@ class ProductApiService {
         '$baseUrl/sellers/$brandId/detail',
       ).replace(queryParameters: queryParams);
 
-      // Build headers
-      final headers = <String, String>{'Content-Type': 'application/json'};
-      if (token != null) {
-        headers['Authorization'] = 'Bearer $token';
-      }
-
-      final response = await http.get(uri, headers: headers);
+      final response = await _get(uri);
 
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
@@ -800,10 +766,7 @@ class ProductApiService {
       final uri = Uri.parse(
         '$baseUrl/sellers',
       ).replace(queryParameters: queryParams);
-      final headers = <String, String>{'Content-Type': 'application/json'};
-      if (token != null) headers['Authorization'] = 'Bearer $token';
-
-      final response = await http.get(uri, headers: headers);
+      final response = await _get(uri);
 
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body) as Map<String, dynamic>;
@@ -833,6 +796,14 @@ class ProductApiService {
       rethrow;
     }
   }
+}
+
+/// Minimal http.Response stand-in returned by the Dio-backed transport shim.
+class _RawResponse {
+  final int statusCode;
+  final String body;
+
+  const _RawResponse(this.statusCode, this.body);
 }
 
 /// A single physical location of a seller (store/outlet)

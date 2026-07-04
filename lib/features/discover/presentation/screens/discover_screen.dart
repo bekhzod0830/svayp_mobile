@@ -9,6 +9,7 @@ import 'package:swipe/core/constants/app_typography.dart';
 import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/core/network/api_client.dart';
 import 'package:swipe/core/services/badge_notifier.dart';
+import 'package:swipe/core/services/cart_badge_service.dart';
 import 'package:swipe/features/discover/domain/entities/product.dart';
 import 'package:swipe/features/discover/presentation/widgets/swipeable_product_card.dart';
 import 'package:swipe/features/cart/data/services/cart_service.dart';
@@ -120,11 +121,15 @@ class DiscoverScreenState extends State<DiscoverScreen> {
     // making the tutorial appear over the closet tab on first launch.
   }
 
+  bool _depsInitialized = false;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     // Refresh auth token and cart count when screen becomes visible
     // This ensures we get the latest token if user just completed onboarding
+    final isFirstCall = !_depsInitialized;
+    _depsInitialized = true;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (mounted) {
         // Get fresh token from ApiClient
@@ -136,32 +141,20 @@ class DiscoverScreenState extends State<DiscoverScreen> {
           });
           await _loadProducts(resetIndex: true);
         }
-        await _updateCartCount();
+        // On first mount the cart count is already refreshed by
+        // _initializeScreen — skip the duplicate GET /cart.
+        if (!isFirstCall) {
+          await _updateCartCount();
+        }
       }
     });
   }
 
-  Future<void> _updateCartCount() async {
-    if (!mounted) return;
-
-    try {
-      if (_authToken != null && _authToken!.isNotEmpty) {
-        final cartData = await _apiService.getCart(token: _authToken!);
-        final summary = cartData['summary'] as Map<String, dynamic>;
-        final totalItems = summary['total_items'] as int;
-        if (!mounted) return;
-        BadgeNotifier.instance.setCartCount(totalItems);
-      } else {
-        await _cartService.init();
-        if (!mounted) return;
-        BadgeNotifier.instance.setCartCount(_cartService.getTotalQuantity());
-      }
-    } catch (e) {
-      await _cartService.init();
-      if (!mounted) return;
-      BadgeNotifier.instance.setCartCount(_cartService.getTotalQuantity());
-    }
-  }
+  /// Badge refresh goes through the shared [CartBadgeService]: concurrent
+  /// calls are coalesced and repeats within 15s are skipped. Cart mutations
+  /// pass force: true so the badge updates immediately.
+  Future<void> _updateCartCount({bool force = false}) =>
+      CartBadgeService.instance.refresh(token: _authToken, force: force);
 
   Future<void> _loadProducts({bool resetIndex = false}) async {
     if (!mounted) return;
@@ -924,7 +917,7 @@ class DiscoverScreenState extends State<DiscoverScreen> {
           token: _authToken,
         );
 
-        await _updateCartCount();
+        await _updateCartCount(force: true);
       } catch (e) {
         await _cartService.removeByMatch(
           productId: swipedProduct.id,
@@ -934,7 +927,7 @@ class DiscoverScreenState extends State<DiscoverScreen> {
         _showToast('Failed to add to cart');
       }
     } else {
-      await _updateCartCount();
+      await _updateCartCount(force: true);
     }
   }
 

@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
 import 'package:swipe/core/services/product_api_service.dart';
+import 'package:swipe/core/services/seller_cache_service.dart';
 import 'package:swipe/features/shop/presentation/screens/seller_profile_screen.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 
@@ -107,6 +108,7 @@ class _SellersListScreenState extends State<SellersListScreen> {
         token: _authToken,
       );
       if (!mounted) return;
+      results.forEach(SellerCacheService.instance.put);
       await _saveCache(prefs, results);
       if (mounted) {
         setState(() {
@@ -142,6 +144,7 @@ class _SellersListScreenState extends State<SellersListScreen> {
         limit: _pageSize,
         token: _authToken,
       );
+      results.forEach(SellerCacheService.instance.put);
 
       final resolvedPrefs = prefs ?? await SharedPreferences.getInstance();
 

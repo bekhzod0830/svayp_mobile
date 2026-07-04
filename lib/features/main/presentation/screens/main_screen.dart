@@ -118,10 +118,21 @@ class MainScreenState extends State<MainScreen>
     getIt<ChatWebSocketService>().connect(token);
   }
 
+  /// Last badge init — dampens resume flapping (rapid pause/resume cycles)
+  /// without breaking the post-pause resync: STOMP does not replay messages
+  /// missed while paused, so the REST reseed must still run on a real return.
+  DateTime? _lastBadgeInitAt;
+
   Future<void> _initBadge() async {
+    final last = _lastBadgeInitAt;
+    if (last != null &&
+        DateTime.now().difference(last) < const Duration(seconds: 15)) {
+      return;
+    }
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token');
     if (token == null) return;
+    _lastBadgeInitAt = DateTime.now();
 
     final wsService = getIt<ChatWebSocketService>();
     final chatService = ChatService(getIt<ApiClient>());

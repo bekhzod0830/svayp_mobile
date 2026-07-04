@@ -118,10 +118,15 @@ class _SplashScreenState extends State<SplashScreen>
       return;
     }
 
-    // Regular user — verify token AND profile existence
+    // Regular user — verify token AND profile existence.
+    // The two calls are independent — run them in parallel to save one RTT
+    // on every cold start (Future.wait rethrows the first error, same
+    // 401/404 handling as the sequential version).
     try {
-      await getIt<AuthService>().getCurrentUser();
-      await getIt<ProfileService>().getProfile();
+      await Future.wait([
+        getIt<AuthService>().getCurrentUser(),
+        getIt<ProfileService>().getProfile(),
+      ]);
       if (!mounted) return;
       Navigator.of(context).pushReplacementNamed('/main');
     } catch (e) {

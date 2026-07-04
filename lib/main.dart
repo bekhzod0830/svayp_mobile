@@ -41,14 +41,6 @@ void main() async {
   // Initialize Firebase (auto-detects GoogleService-Info.plist / google-services.json)
   await Firebase.initializeApp();
 
-  // TODO: Remove after getting Firebase Installation ID for in-app messaging test
-  try {
-    const channel = MethodChannel('firebase_installation_id');
-    final id = await channel.invokeMethod<String>('getId');
-    // ignore: avoid_print
-    print('Firebase Installation ID: $id');
-  } catch (_) {}
-
   // Initialize Hive
   await Hive.initFlutter();
 
