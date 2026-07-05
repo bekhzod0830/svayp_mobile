@@ -29,6 +29,7 @@ import 'package:swipe/features/onboarding/presentation/screens/avoided_prints_sc
 // import 'package:swipe/features/onboarding/presentation/screens/style_categories_screen.dart'; // REMOVED FROM FLOW
 // import 'package:swipe/features/onboarding/presentation/screens/brand_preferences_screen.dart'; // DISABLED
 import 'package:swipe/features/onboarding/presentation/screens/onboarding_completion_screen.dart';
+import 'package:swipe/features/onboarding/presentation/screens/section_intent_screen.dart';
 import 'package:swipe/features/main/presentation/screens/main_screen.dart';
 import 'package:swipe/features/profile/presentation/screens/notifications_screen.dart';
 import 'package:swipe/features/profile/presentation/screens/notification_preferences_screen.dart';
@@ -64,6 +65,7 @@ class AppRoutes {
   static const String brandPreferences = '/brand-preferences';
   static const String styleAnalysis = '/style-analysis';
   static const String onboardingCompletion = '/onboarding-completion';
+  static const String sectionIntent = '/section-intent';
   static const String tutorial = '/tutorial';
   static const String avoidedItems = '/avoided-items';
   static const String avoidedShoes = '/avoided-shoes';
@@ -216,6 +218,11 @@ class AppRoutes {
       case onboardingCompletion:
         return MaterialPageRoute(
           builder: (_) => const OnboardingCompletionScreen(),
+        );
+
+      case sectionIntent:
+        return MaterialPageRoute(
+          builder: (_) => const SectionIntentScreen(),
         );
 
       case tutorial:

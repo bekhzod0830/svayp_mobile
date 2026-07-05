@@ -726,6 +726,31 @@ class AppLocalizationsRu extends AppLocalizations {
   String get startExploring => 'Начать просмотр';
 
   @override
+  String get intentTitle => 'С чего хотите начать?';
+
+  @override
+  String get intentSubtitle =>
+      'Выберите, с чего начать — всё остальное всегда доступно.';
+
+  @override
+  String get intentDiscoverTitle => 'LIBΛS Свайпы';
+
+  @override
+  String get intentDiscoverSubtitle => 'Свайпайте и находите образы для вас';
+
+  @override
+  String get intentShopSubtitle => 'Покупайте у любимых брендов';
+
+  @override
+  String get intentMarketSubtitle => 'Покупайте и продавайте вещи';
+
+  @override
+  String get intentClosetSubtitle => 'Организуйте гардероб и примеряйте образы';
+
+  @override
+  String get intentFeedSubtitle => 'Вдохновляйтесь образами сообщества';
+
+  @override
   String get add => 'Добавить';
 
   @override

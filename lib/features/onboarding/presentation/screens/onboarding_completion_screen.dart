@@ -253,11 +253,9 @@ class _OnboardingCompletionScreenState extends State<OnboardingCompletionScreen>
 
       AnalyticsService.instance.logEvent(AnalyticsEvents.onboardingCompleted);
 
-      // Navigate to main app (discover screen)
-      Navigator.of(context).pushNamedAndRemoveUntil(
-        '/main',
-        (route) => false, // Remove all previous routes
-      );
+      // Ask the user which section to start in; that screen routes to /main
+      // with the chosen tab (and clears the onboarding stack).
+      Navigator.of(context).pushReplacementNamed('/section-intent');
     } catch (e) {
       if (!mounted) return;
       final l10n = AppLocalizations.of(context)!;

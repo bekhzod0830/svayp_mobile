@@ -50,6 +50,8 @@ abstract class AnalyticsEvents {
   static const String onboardingAvoidedPrintsViewed  = 'ob_avoided_prints_viewed';
   static const String onboardingTutorialViewed       = 'ob_tutorial_viewed';
   static const String onboardingCompletionViewed     = 'ob_completion_viewed';
+  static const String onboardingIntentViewed         = 'ob_intent_viewed';
+  static const String onboardingIntentSelected       = 'ob_intent_selected';
 
   // ─── Onboarding step completed events (one unique event per screen) ───────
   static const String onboardingBasicInfoCompleted     = 'ob_basic_info_done';

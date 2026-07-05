@@ -201,6 +201,11 @@ Future<void> _showShareTargets(
 
   await showModalBottomSheet<void>(
     context: context,
+    // Present on the root navigator so the sheet overlays MainScreen's floating
+    // bottom navbar (which lives in the root Scaffold's Stack, above the nested
+    // per-tab navigator this WebView runs in). Without this the share targets
+    // render behind the navbar.
+    useRootNavigator: true,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),

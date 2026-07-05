@@ -717,6 +717,32 @@ class AppLocalizationsEn extends AppLocalizations {
   String get startExploring => 'Start Exploring';
 
   @override
+  String get intentTitle => 'What would you like to do?';
+
+  @override
+  String get intentSubtitle =>
+      'Pick a place to start — you can explore everything anytime.';
+
+  @override
+  String get intentDiscoverTitle => 'LIBΛS Swipes';
+
+  @override
+  String get intentDiscoverSubtitle =>
+      'Swipe to discover styles picked for you';
+
+  @override
+  String get intentShopSubtitle => 'Browse and buy from top brands';
+
+  @override
+  String get intentMarketSubtitle => 'Buy and sell pre-loved fashion';
+
+  @override
+  String get intentClosetSubtitle => 'Organize your wardrobe and try on looks';
+
+  @override
+  String get intentFeedSubtitle => 'Get inspired by community looks';
+
+  @override
   String get add => 'Add';
 
   @override

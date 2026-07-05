@@ -728,6 +728,33 @@ class AppLocalizationsUz extends AppLocalizations {
   String get startExploring => 'Tadqiq qilishni boshlash';
 
   @override
+  String get intentTitle => 'Nimadan boshlaysiz?';
+
+  @override
+  String get intentSubtitle =>
+      'Boshlash uchun bo\'limni tanlang — qolganini istalgan vaqtda ochasiz.';
+
+  @override
+  String get intentDiscoverTitle => 'LIBΛS Svayp';
+
+  @override
+  String get intentDiscoverSubtitle =>
+      'Svayp qiling va o\'zingizga mos uslublarni toping';
+
+  @override
+  String get intentShopSubtitle => 'Brendlardan xarid qiling';
+
+  @override
+  String get intentMarketSubtitle => 'Kiyimlarni oling va soting';
+
+  @override
+  String get intentClosetSubtitle =>
+      'Garderobingizni tartibga soling va kiyib ko\'ring';
+
+  @override
+  String get intentFeedSubtitle => 'Hamjamiyat uslublaridan ilhomlaning';
+
+  @override
   String get add => 'Qo\'shish';
 
   @override

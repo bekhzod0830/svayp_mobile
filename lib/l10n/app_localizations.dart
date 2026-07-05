@@ -1462,6 +1462,54 @@ abstract class AppLocalizations {
   /// **'Start Exploring'**
   String get startExploring;
 
+  /// No description provided for @intentTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'What would you like to do?'**
+  String get intentTitle;
+
+  /// No description provided for @intentSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a place to start — you can explore everything anytime.'**
+  String get intentSubtitle;
+
+  /// No description provided for @intentDiscoverTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'LIBΛS Swipes'**
+  String get intentDiscoverTitle;
+
+  /// No description provided for @intentDiscoverSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Swipe to discover styles picked for you'**
+  String get intentDiscoverSubtitle;
+
+  /// No description provided for @intentShopSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Browse and buy from top brands'**
+  String get intentShopSubtitle;
+
+  /// No description provided for @intentMarketSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Buy and sell pre-loved fashion'**
+  String get intentMarketSubtitle;
+
+  /// No description provided for @intentClosetSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Organize your wardrobe and try on looks'**
+  String get intentClosetSubtitle;
+
+  /// No description provided for @intentFeedSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Get inspired by community looks'**
+  String get intentFeedSubtitle;
+
   /// No description provided for @add.
   ///
   /// In en, this message translates to:
