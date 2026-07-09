@@ -82,6 +82,7 @@ dependencies:
   
   # Analytics
   firebase_analytics: ^11.3.0
+  posthog_flutter: ^4.10.0
   flutter_smartlook: ^4.1.32
 
   # Phone Auth & Push Notifications

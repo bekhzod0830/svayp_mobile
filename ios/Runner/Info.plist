@@ -97,5 +97,8 @@
                         </array>
                 </dict>
         </array>
+        <!-- PostHog: авто-инициализация выключена — настраиваем вручную в AnalyticsService -->
+        <key>com.posthog.posthog.AUTO_INIT</key>
+        <false/>
 </dict>
 </plist>

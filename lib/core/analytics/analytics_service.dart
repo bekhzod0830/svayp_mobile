@@ -2,10 +2,12 @@ import 'dart:io' show Platform;
 
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:posthog_flutter/posthog_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 import 'analytics_api_service.dart';
+import 'posthog_config.dart';
 import 'session_manager.dart';
 
 /// Unified analytics dispatcher. Every event fans out to:
@@ -56,6 +58,19 @@ class AnalyticsService {
 
     await _loadAnonId();
     await AnalyticsApiService.instance.init();
+    await _initPostHog();
+  }
+
+  /// PostHog (self-hosted) — включается только при заданном POSTHOG_KEY.
+  Future<void> _initPostHog() async {
+    if (!PostHogSettings.enabled) return;
+    try {
+      final config = PostHogConfig(PostHogSettings.apiKey)
+        ..host = PostHogSettings.host
+        ..captureApplicationLifecycleEvents = true
+        ..debug = false;
+      await Posthog().setup(config);
+    } catch (_) {/* аналитика никогда не роняет приложение */}
   }
 
   /// Wire the auth-token getter so backend events are attributed to the logged-in user.
@@ -105,13 +120,27 @@ class AnalyticsService {
       await _firebase.setUserProperty(name: 'app_version', value: _appVersion);
     }
     await _firebase.setUserProperty(name: 'platform', value: _platform);
-    // PostHog identify — added in Phase C.
+
+    if (PostHogSettings.enabled) {
+      try {
+        await Posthog().identify(userId: userId, userProperties: {
+          if (username != null && username.isNotEmpty) 'username': username,
+          if (tier != null && tier.isNotEmpty) 'tier': tier,
+          'platform': _platform,
+        });
+      } catch (_) {/* ignore */}
+    }
   }
 
   /// Call on logout to disassociate the session from the user.
   Future<void> clearUser() async {
     _userId = null;
     await _firebase.setUserId(id: null);
+    if (PostHogSettings.enabled) {
+      try {
+        await Posthog().reset();
+      } catch (_) {/* ignore */}
+    }
   }
 
   // ─── Screen Tracking ───────────────────────────────────────────────────────
@@ -127,6 +156,11 @@ class AnalyticsService {
     _currentScreen = screenName;
     await _firebase.logScreenView(screenName: screenName);
     _enqueueBackend('screen_view', {'screen': screenName});
+    if (PostHogSettings.enabled) {
+      try {
+        await Posthog().screen(screenName: screenName);
+      } catch (_) {/* ignore */}
+    }
   }
 
   Future<void> logScreenExit(String screenName) async {}
@@ -158,6 +192,12 @@ class AnalyticsService {
     } catch (_) {/* never disrupt the app */}
 
     _enqueueBackend(name, parameters);
+
+    if (PostHogSettings.enabled) {
+      try {
+        await Posthog().capture(eventName: name, properties: parameters ?? const {});
+      } catch (_) {/* ignore */}
+    }
   }
 
   void _enqueueBackend(String name, Map<String, String>? parameters) {
