@@ -87,14 +87,19 @@ class AnalyticsService {
         // в PostHog → Session replay.
         ..sessionReplay = true
         ..debug = false;
-      // Полная видимость записи: по умолчанию SDK маскирует ВСЁ (тексты,
-      // картинки, platform views) — вебвью выглядел чёрным прямоугольником,
-      // а нативные экраны серыми плашками. Выключаем маски, чтобы натив и
-      // вебвью были видны в ОДНОЙ мобильной записи.
+      // Видимость записи: по умолчанию SDK маскирует ВСЁ (тексты, картинки,
+      // platform views). Тексты и картинки открываем — иначе нативные экраны
+      // в записи бесполезны.
       // ВНИМАНИЕ: с maskAllTexts=false в записи видны и вводимые тексты
       // (телефон/OTP на экране входа).
+      //
+      // maskAllPlatformViews ОСТАВЛЯЕМ true: с false плагин включает нативный
+      // захват, и его fallback (captureNativeScreenshotFallback) КРАШИТ
+      // приложение на hybrid-composition WebView: "Software rendering doesn't
+      // support hardware bitmaps" (баг posthog_flutter 5.30, PosthogFlutterPlugin.kt:863).
+      // Вебвью в мобильной записи остаётся чёрным — его детальная запись идёт
+      // отдельным web-реплеем из webapp.
       config.sessionReplayConfig
-        ..maskAllPlatformViews = false
         ..maskAllImages = false
         ..maskAllTexts = false;
       await Posthog().setup(config);
