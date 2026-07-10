@@ -163,6 +163,13 @@ flutter_launcher_icons:
   image_path: "swipe_app_icons/Assets.xcassets/AppIcon.appiconset/1024.png"
   remove_alpha_ios: true
 
+# Вендорный форк posthog_flutter с патчем захвата WebView в session replay
+# (hybrid composition → PixelCopy всего окна). См. vendor/posthog_flutter,
+# метка [SVAYP PATCH] в PosthogFlutterPlugin.kt. Синхронизировать при апгрейде.
+dependency_overrides:
+  posthog_flutter:
+    path: vendor/posthog_flutter
+
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 

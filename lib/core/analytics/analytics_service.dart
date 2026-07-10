@@ -90,13 +90,12 @@ class AnalyticsService {
       // Видимость записи: тексты и картинки открываем (иначе нативные экраны
       // в записи бесполезны). ВНИМАНИЕ: видны вводимые тексты (телефон/OTP).
       //
-      // maskAllPlatformViews ОСТАВЛЯЕМ true. С false вебвью снимается
-      // нестабильно (то чёрный кадр, то краш "Software rendering doesn't
-      // support hardware bitmaps") даже при отключённом Impeller —
-      // hybrid-composition SurfaceView надёжно posthog_flutter не берёт.
-      // Вебвью в мобильной записи чёрный; его детальная запись идёт отдельным
-      // web-реплеем из webapp (тот же юзер, подписан телефоном).
+      // maskAllPlatformViews=false — снимаем и WebView, чтобы натив и вебвью
+      // были в ОДНОЙ мобильной записи. Работает с вендорным форком плагина
+      // (vendor/posthog_flutter): при hybrid composition он снимает всё окно
+      // одним PixelCopy — иначе стоковый плагин чернит/крашит вебвью.
       config.sessionReplayConfig
+        ..maskAllPlatformViews = false
         ..maskAllImages = false
         ..maskAllTexts = false;
       await Posthog().setup(config);

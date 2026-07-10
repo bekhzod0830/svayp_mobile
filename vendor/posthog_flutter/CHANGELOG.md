@@ -1,0 +1,597 @@
+## Next
+
+## 5.30.0
+
+### Minor Changes
+
+- b851632: Improve error-tracking cause handling: `captureException` now walks an error's cause chain (`AsyncError`, all enumerable `ParallelWaitError` failures, and exceptions exposing a `cause` getter) into multiple `$exception_list` items, outermost-first (wrapper first, root cause last), with a cycle guard and a depth cap of 10.
+
+## 5.29.0
+
+### Minor Changes
+
+- de7b5e8: Platform views are now masked by default in session replay (they now appear as a black box). Use `maskAllPlatformViews = false` to disable masking globally, or wrap individual views in `PostHogPlatformView(privacy: PostHogPlatformViewPrivacy.capture)` to reveal them selectively.
+
+## 5.28.0
+
+### Minor Changes
+
+- 3fe9ab2: Add `addExceptionStep`, recording breadcrumb-style context records that attach to every captured `$exception` as `$exception_steps`, giving the error-tracking UI a timeline of recent activity leading up to each error.
+
+  Steps accumulate in a rolling, byte-bounded buffer owned by the embedded native SDK, so they also survive native fatal crashes and attach to the crash `$exception` reported on the next launch. The buffer rotates only by byte-budget eviction and is not cleared by a capture or an identity change. Configure it on `config.errorTrackingConfig.exceptionSteps` (`enabled`, `maxBytes`).
+
+  ```dart
+  Posthog().addExceptionStep('User tapped Checkout', properties: {'screen': 'cart'});
+  ```
+
+  Requires `posthog-android` and `posthog-ios` versions that support exception steps. On web, steps are forwarded to posthog-js, and exceptions captured via `captureException` now route through posthog-js's `captureException` (instead of a generic `$exception` capture) so steps and other required metadata attach.
+
+## 5.27.0
+
+### Minor Changes
+
+- 647d48b: Add structured logging. Send logs to PostHog from your Flutter app and see them next to your events and session replays.
+
+  ```dart
+  Posthog().logger.info('checkout completed', {'order_id': 'ord_789'});
+  Posthog().logger.error('payment failed', {'error_code': 'E001'});
+
+  // Or pick the level at runtime:
+  await Posthog().captureLog(body: 'request finished', level: PostHogLogSeverity.warn);
+  ```
+
+  Levels: `trace`, `debug`, `info`, `warn`, `error`, `fatal`. Configure service identity, redaction (`beforeSend`), and batching/rate-cap tuning on `config.logsConfig` — all optional, with sensible native defaults. Works on iOS, Android, and web.
+
+  Requires `posthog-android` `3.48.0` or newer.
+
+  See https://posthog.com/docs/logs for details.
+
+## 5.26.0
+
+### Minor Changes
+
+- 4749dd4: Add `setPersonPropertiesForFlags`, `resetPersonPropertiesForFlags`, `setGroupPropertiesForFlags`, and `resetGroupPropertiesForFlags`, bringing the Flutter SDK to parity with the native iOS/Android and JS SDKs.
+
+  These set person/group properties that are sent inline with the next feature flag evaluation request, so flags targeting those properties can be evaluated immediately — without enqueuing a `$set` event or waiting for it to be ingested into the person store. By default they reload feature flags and the returned `Future` completes only after the reload finishes, so the next `getFeatureFlag`/`getFeatureFlagResult` reflects the updated properties. Pass `reloadFeatureFlags: false` to skip the reload.
+
+  ```dart
+  await Posthog().setPersonPropertiesForFlags({
+    "storefront_country": "US",
+    "superwall_demand_score": 88,
+  });
+  final result = await Posthog().getFeatureFlagResult("my_flag");
+  ```
+
+## 5.25.3
+
+### Patch Changes
+
+- 7077816: `reloadFeatureFlags()` now resolves its `Future` only after feature flags have finished loading, instead of returning immediately. `await Posthog().reloadFeatureFlags()` is now reliable, so reading a flag (or starting session recording) right after a reload sees the up-to-date result.
+
+## 5.25.2
+
+### Patch Changes
+
+- 2c0925e: Fix link-type survey questions with no URL silently failing to render on Android. The deserializer now treats a missing link as an empty string instead of throwing on `null`.
+
+## 5.25.1
+
+### Patch Changes
+
+- 06b1569: Skip Flutter SDK setup for blank project tokens before storing config or installing Dart integrations.
+
+## 5.25.0
+
+### Minor Changes
+
+- cfcab97: Support Android builds with AGP 9 built-in Kotlin while preserving compatibility with AGP 8. This release requires Android Gradle Plugin 8.0 or newer.
+
+### Patch Changes
+
+- f9490ed: Raise the minimum `posthog-android` version to 3.44.0 to guarantee session replay minimum recording duration support.
+
+## 5.24.2
+
+### Patch Changes
+
+- 5c60fb5: Reinstall Flutter error autocapture handlers when re-enabling data collection.
+
+## 5.24.1
+
+### Patch Changes
+
+- 0d4ab6e: Prefer projectToken when configuring PostHog on Darwin platforms.
+
+## 5.24.0
+
+### Minor Changes
+
+- 4e3fa7b: Rename apiKey to projectToken with backward-compatible aliases
+
+## 5.23.3
+
+### Patch Changes
+
+- 04535db: Trim surrounding whitespace from API keys and host config before passing them to the native SDKs.
+
+## 5.23.2
+
+### Patch Changes
+
+- e9e94d1: Accept Map args in the web session recording start handler
+- b55480e: Avoid retaining raw RGBA bytes for session replay diffing
+- 4bbfb38: Reduce session replay frame callback overhead
+- 3bc8c50: Cancel in-flight session replay screenshot capture when stopping
+- 0bdb58c: Prevent overlapping session replay snapshot captures
+- d4dcbbe: Dispose native session replay resources on screenshot errors
+
+## 5.23.1
+
+### Patch Changes
+
+- b4532f5: fix: suppress ghost screen events when app is in background
+- ac2b568: chore: bump posthog-ios dependency to 3.50.0 for error tracking GA
+
+## 5.23.0
+
+### Minor Changes
+
+- 5e31246: Enable captureApplicationLifecycleEvents by default and align Android config key name.
+
+  Application lifecycle events (`Application Opened`, `Application Backgrounded`, etc.) are now captured by default. If you don't want these events, you can disable them:
+
+  - **Dart (recommended):** Set `config.captureApplicationLifecycleEvents = false` in your PostHog configuration.
+  - **Android (manifest):** Add `<meta-data android:name="com.posthog.posthog.CAPTURE_APPLICATION_LIFECYCLE_EVENTS" android:value="false" />` to your `AndroidManifest.xml`. The legacy key `com.posthog.posthog.TRACK_APPLICATION_LIFECYCLE_EVENTS` is still supported.
+  - **iOS/macOS (Info.plist):** Set `com.posthog.posthog.CAPTURE_APPLICATION_LIFECYCLE_EVENTS` to `NO` in your `Info.plist`.
+
+## 5.22.0
+
+### Minor Changes
+
+- ca19677: Add native exception capture support for Apple platforms (iOS, macOS, tvOS)
+
+## 5.21.1
+
+### Patch Changes
+
+- 85d0d6a: fix: PostHogMaskWidget mask appearing at screen origin
+
+## 5.21.0
+
+### Minor Changes
+
+- 81a5883: Web: Override SDK info via \_overrideSDKInfo and set location properties on capture events
+
+### Patch Changes
+
+- 259ef67: Web: Fix dartify cast error in chunk_ids_web.dart for error tracking
+
+## 5.20.0
+
+### Minor Changes
+
+- bba1d83: bump native sdk versions to support survey event property filters
+
+## 5.19.0
+
+### Minor Changes
+
+- 8f6b291: Add Swift Package Manager support for iOS and macOS
+
+## 5.18.0
+
+### Minor Changes
+
+- 12a378f: feat(surveys): support survey schedule 'always' to show every time and survey wait period filtering (seenSurveyWaitPeriodInDays)
+
+## 5.17.1
+
+### Patch Changes
+
+- e4b9224: fix: bump iOS SDK minimum to 3.43.0 to fix feature flags race condition between preload and identify
+
+## 5.17.0
+
+### Minor Changes
+
+- 6d13370: Breaking: Minimum Dart SDK version is now 3.6.0 and minimum Flutter version is now 3.27.0. Migrate to pub workspace structure.
+
+## 5.16.0
+
+### Minor Changes
+
+- e703672: feat: add sampleRate support
+
+## 5.15.3
+
+### Patch Changes
+
+- 541b280: fix: textfield masking and element transform positioning in session replay
+
+## 5.15.2
+
+### Patch Changes
+
+- c7dcd9c: test new release process, again
+
+## 5.15.1
+
+### Patch Changes
+
+- f7801dc: test new release process
+
+## 5.15.0
+
+- fix: add explicit `package:meta/meta.dart` import for `@internal` annotation ([#286](https://github.com/PostHog/posthog-flutter/issues/286))
+- feat: add `setPersonProperties` method to set person properties without requiring `identify` ([#284](https://github.com/PostHog/posthog-flutter/pull/284))
+- fix: add `filled: false` to survey open-text questions to prevent app theme from overriding survey customization values ([#285](https://github.com/PostHog/posthog-flutter/pull/285))
+
+## 5.14.0
+
+- feat: add manual session recording control APIs ([#256](https://github.com/PostHog/posthog-flutter/pull/256))
+  - `startSessionRecording({bool resumeCurrent = true})` Start session recording, optionally starting a new session
+  - `stopSessionRecording()` Stop the current session recording
+  - `isSessionReplayActive()` Check if session replay is currently active
+- feat: add `getFeatureFlagResult` API ([#279](https://github.com/PostHog/posthog-flutter/pull/279))
+
+## 5.13.0
+
+- chore: add support for thumbs up/down surveys ([#257](https://github.com/PostHog/posthog-flutter/pull/257))
+
+- perf: Optimize Screenshot diff check ([#271](https://github.com/PostHog/posthog-flutter/pull/271))
+
+- chore: improve survey color handling ([#233](https://github.com/PostHog/posthog-flutter/pull/233))
+
+- feat: add `beforeSend` callback to `PostHogConfig` for dropping or modifying events before they are sent to PostHog ([#255](https://github.com/PostHog/posthog-flutter/pull/255))
+  - **Limitation**:
+    - Does NOT intercept native-initiated events such as:
+      - Session replay events (`$snapshot`) when `config.sessionReplay` is enabled
+      - Application lifecycle events (`Application Opened`, etc.) when `config.captureApplicationLifecycleEvents` is enabled
+      - Feature flag events (`$feature_flag_called`) when `config.sendFeatureFlagEvents` is enabled
+      - Identity events (`$set`) when `identify` is called
+      - Survey events (`survey shown`, etc.) when `config.surveys` is enabled
+    - Only user-provided properties are available; system properties (like `$device_type`, `$session_id`) are added by the native SDK at a later stage.
+- perf: Optimize mask widget rect collection to O(N) ([#269](https://github.com/PostHog/posthog-flutter/pull/269))
+
+## 5.12.0
+
+- feat: flutter error tracking support for web ([#243](https://github.com/PostHog/posthog-flutter/pull/243))
+- feat: add `userProperties` and `userPropertiesSetOnce` parameters to `capture()` method ([#254](https://github.com/PostHog/posthog-flutter/pull/254))
+
+## 5.11.1
+
+- fix: RichText, SelectableText, TextField labels and hints not being masked in session replay ([#251](https://github.com/PostHog/posthog-flutter/pull/251))
+
+## 5.11.0
+
+- chore: update languageVersion and apiVersion from 1.8 to 2.0 on Android to be compatible with Kotlin 2.3 ([#245](https://github.com/PostHog/posthog-flutter/pull/245))
+
+## 5.10.0
+
+- feat: Add `onFeatureFlags` callback to `PostHogConfig` to get notified when feature flags are loaded. Use `Posthog().getFeatureFlag()` or `Posthog().isFeatureEnabled()` within the callback to access fresh flag values. ([#224](https://github.com/PostHog/posthog-flutter/pull/224))
+
+## 5.9.1
+
+- fix: TextFormField widgets were not being masked ([#227](https://github.com/PostHog/posthog-flutter/pull/227))
+
+## 5.9.0
+
+- feat: add autocapture exceptions ([#214](https://github.com/PostHog/posthog-flutter/pull/214))
+  - **Limitations**:
+    - No Flutter web support
+    - No native iOS exception capture
+    - No native C/C++ exception capture on Android (Java/Kotlin only)
+    - No stacktrace demangling for obfuscated builds ([--obfuscate](https://docs.flutter.dev/deployment/obfuscate) and [--split-debug-info](https://docs.flutter.dev/deployment/obfuscate)) for Dart code and [isMinifyEnabled](https://developer.android.com/topic/performance/app-optimization/enable-app-optimization) for Java/Kotlin code
+    - No [source code context](/docs/error-tracking/stack-traces)
+    - No background isolate error capture
+
+## 5.8.0
+
+- feat: surveys GA ([#215](https://github.com/PostHog/posthog-flutter/pull/215))
+  > Note: Surveys are now enabled by default.
+
+## 5.7.0
+
+- feat: add manual error capture ([#212](https://github.com/PostHog/posthog-flutter/pull/212))
+  - **Note**: The following features are not yet supported:
+    - Automatic exception capture
+    - De-obfuscating stacktraces from obfuscated builds ([--obfuscate](https://docs.flutter.dev/deployment/obfuscate) and [--split-debug-info](https://docs.flutter.dev/deployment/obfuscate))
+    - [Source code context](/docs/error-tracking/stack-traces) associated with an exception
+    - Flutter web support
+  - **BREAKING**: Minimum Dart SDK version bumped to 3.4.0 and Flutter to 3.22.0 (required for `stack_trace` dependency compatibility)
+
+## 5.6.0
+
+- feat: surveys use the new response question id format ([#210](https://github.com/PostHog/posthog-flutter/pull/210))
+
+## 5.5.0
+
+- chore: Android plugin sets compileSdkVersion to flutter.compileSdkVersion instead of hardcoded ([#207](https://github.com/PostHog/posthog-flutter/pull/207))
+
+## 5.4.3
+
+- fix: Android back button wasn't cleaning up the Survey resources ([#205](https://github.com/PostHog/posthog-flutter/pull/205))
+
+## 5.4.2
+
+- fix: mask TextField widgets automatically if obscureText is enabled ([#204](https://github.com/PostHog/posthog-flutter/pull/204))
+
+## 5.4.1
+
+- chore: update posthog-ios dependency to min. 3.31.0 ([#202](https://github.com/PostHog/posthog-flutter/pull/202))
+
+## 5.4.0
+
+- feat: surveys for Android ([#198](https://github.com/PostHog/posthog-flutter/pull/198))
+  - See how to setup in [Surveys docs](https://posthog.com/docs/surveys/installation?tab=Flutter)
+
+## 5.3.1
+
+- fix: don't render HTML content ([#196](https://github.com/PostHog/posthog-flutter/pull/196))
+
+## 5.3.0
+
+- chore: update languageVersion and apiVersion from 1.6 to 1.8 on Android to be compatible with Kotlin 2.2 ([#193](https://github.com/PostHog/posthog-flutter/pull/193))
+
+## 5.2.0
+
+- feat: add `isOptOut` method to check if the current user is opted out of data capture. ([#190](https://github.com/PostHog/posthog-flutter/pull/190))
+
+## 5.1.0
+
+- feat: surveys for iOS ([#188](https://github.com/PostHog/posthog-flutter/pull/188))
+  - See how to setup in [Surveys docs](https://posthog.com/docs/surveys/installation?tab=Flutter)
+
+## 5.0.0
+
+- chore: support flutter web wasm builds ([#112](https://github.com/PostHog/posthog-flutter/pull/112))
+
+### Breaking changes
+
+- Dart min version 3.3.0
+- Flutter min version 3.19.0
+
+## 4.11.0
+
+- chore: Session Replay - GA ([#178](https://github.com/PostHog/posthog-flutter/pull/178))
+
+## 4.10.8
+
+- chore: pin the iOS SDK to 3.22.x ([#177](https://github.com/PostHog/posthog-flutter/pull/177))
+
+## 4.10.7
+
+- fix: import dart io only on non-web platforms ([#176](https://github.com/PostHog/posthog-flutter/pull/176))
+
+## 4.10.6
+
+- fix: check if image size is valid before sending snapshot ([#174](https://github.com/PostHog/posthog-flutter/pull/174))
+
+## 4.10.5
+
+- chore: linux and windows NoOp support ([#173](https://github.com/PostHog/posthog-flutter/pull/173))
+
+## 4.10.4
+
+- fix: dispose recorder if masking is disabled ([#166](https://github.com/PostHog/posthog-flutter/pull/166))
+
+## 4.10.3
+
+- chore: pin the iOS SDK to 3.x.x ([#162](https://github.com/PostHog/posthog-flutter/pull/162))
+
+## 4.10.2
+
+- chore: pin the iOS SDK to 3.19.x ([#157](https://github.com/PostHog/posthog-flutter/pull/157))
+
+## 4.10.1
+
+- fix: isSessionReplayActive returns false by default for flutter web ([#158](https://github.com/PostHog/posthog-flutter/pull/158))
+
+## 4.10.0
+
+- chore: add support for session replay manual masking with the PostHogMaskWidget widget ([#153](https://github.com/PostHog/posthog-flutter/pull/153))
+
+## 4.9.4
+
+- fix: solve masks out of sync when moving too fast ([#147](https://github.com/PostHog/posthog-flutter/pull/147))
+
+## 4.9.3
+
+- chore: pin the iOS SDK to 3.18.0 ([#149](https://github.com/PostHog/posthog-flutter/pull/149))
+
+## 4.9.2
+
+- chore: improve error logging when capturing snapshots ([#146](https://github.com/PostHog/posthog-flutter/pull/146))
+
+## 4.9.1
+
+- fix: blank screen when viewing session replay recordings ([#139](https://github.com/PostHog/posthog-flutter/pull/139))
+
+## 4.9.0
+
+- feat: add getter for current session identifier ([#134](https://github.com/PostHog/posthog-flutter/pull/134))
+
+## 4.8.0
+
+- chore: change screenshots debouncing approach to throttling ([#131](https://github.com/PostHog/posthog-flutter/pull/131))
+  - Added `throttleDelay` config and deprecated `debouncerDelay` config.
+
+## 4.7.1
+
+- chore: do not send repeated snapshots ([#126](https://github.com/PostHog/posthog-flutter/pull/126))
+
+## 4.7.0
+
+- chore: flutter session replay (Android and iOS) ([#123](https://github.com/PostHog/posthog-flutter/pull/123))
+  - [Session replay docs](https://posthog.com/docs/session-replay/mobile), [PR pending review](https://github.com/PostHog/posthog.com/pull/10042)
+  - Thanks @thisames for the [PR](https://github.com/PostHog/posthog-flutter/pull/116)!
+
+## 4.6.0
+
+- chore: change host to new address ([#106](https://github.com/PostHog/posthog-flutter/pull/106))
+- chore: allow manual initialization of the SDK ([#117](https://github.com/PostHog/posthog-flutter/pull/117))
+
+## 4.5.0
+
+- add PrivacyInfo for macOS ([#105](https://github.com/PostHog/posthog-flutter/pull/105))
+
+## 4.4.1
+
+- fix: const `defaultHost` was renamed to `DEFAULT_HOST` and broke the Android build ([#98](https://github.com/PostHog/posthog-flutter/issues/98))
+
+## 4.4.0
+
+- chore: Allow overriding the route filtering using a ctor param `routeFilter` ([#95](https://github.com/PostHog/posthog-flutter/pull/95))
+
+```dart
+bool myRouteFilter(Route<dynamic>? route) =>
+        route is PageRoute || route is OverlayRoute;
+final observer = PosthogObserver(routeFilter: myRouteFilter);
+```
+
+## 4.3.0
+
+- add PrivacyInfo ([#94](https://github.com/PostHog/posthog-flutter/pull/94))
+
+## 4.2.0
+
+- add flush method ([#92](https://github.com/PostHog/posthog-flutter/pull/92))
+
+## 4.1.0
+
+- add unregister method ([#86](https://github.com/PostHog/posthog-flutter/pull/86))
+
+## 4.0.1
+
+- Fix passing optional values to the JS SDK ([#84](https://github.com/PostHog/posthog-flutter/pull/84))
+
+## 4.0.0
+
+- Android minSdkVersion 21
+- iOS min version 13.0
+- Flutter min version 3.3.0
+- Upgraded PostHog Android SDK to [v3](https://posthog.com/docs/libraries/android)
+- Upgraded PostHog iOS SDK to [v3](https://posthog.com/docs/libraries/ios/usage)
+- Upgraded PostHog JS SDK to the latest version
+- PostHog Flutter Plugins are written in Kotlin and Swift
+- Added missing features such as feature flags payloads, debug, and more
+
+## 4.0.0-RC.2
+
+- Upgrade iOS SDK to [3.1.0](https://github.com/PostHog/posthog-ios/releases/tag/3.1.0) [#79](https://github.com/PostHog/posthog-flutter/pull/79)
+
+## 4.0.0-RC.1
+
+- Upgrade iOS SDK to [3.0.0](https://github.com/PostHog/posthog-ios/releases/tag/3.0.0) [#78](https://github.com/PostHog/posthog-flutter/pull/78)
+
+## 4.0.0-beta.2
+
+- Flutter macOS support [#76](https://github.com/PostHog/posthog-flutter/pull/76)
+
+## 4.0.0-beta.1
+
+- Record the root view as `root ('/')` instead of not recording at all [#74](https://github.com/PostHog/posthog-flutter/pull/74)
+- Do not mutate the given properties when calling capture [#74](https://github.com/PostHog/posthog-flutter/pull/74)
+  - Thanks @lukepighetti for the [PR](https://github.com/PostHog/posthog-flutter/pull/66)!
+- Fix `CAPTURE_APPLICATION_LIFECYCLE_EVENTS` typo for iOS [#74](https://github.com/PostHog/posthog-flutter/pull/74)
+- Added iOS support for the `DEBUG` config [#74](https://github.com/PostHog/posthog-flutter/pull/74)
+- Upgrade iOS SDK that fixes missing `Application Opened` events [#74](https://github.com/PostHog/posthog-flutter/pull/74)
+
+## 4.0.0-alpha.2
+
+- Internal changes only
+
+## 4.0.0-alpha.1
+
+- Migrate to the new SDKs and latest tooling [#70](https://github.com/PostHog/posthog-flutter/pull/70)
+  - Added missing features such as feature flags payloads, debug, and more
+
+### Breaking changes
+
+- Android minSdkVersion 21
+- iOS min version 13.0
+- Flutter min version 3.3.0
+- Upgraded PostHog Android SDK to [v3](https://posthog.com/docs/libraries/android)
+- Upgraded PostHog iOS SDK to [v3 preview](https://posthog.com/docs/libraries/ios/usage)
+- Upgraded PostHog JS SDK to the latest version
+- PostHog Flutter Plugins are written in Kotlin and Swift
+
+### Acknowledgements
+
+Thanks @nehemiekoffi for the initial PR!
+
+## 3.3.0
+
+- Migrate to Java 8 and minSdkVersion 19 [#54](https://github.com/PostHog/posthog-flutter/pull/54)
+
+## 3.2.0
+
+- Add support to Dart v3.0.0 [#52](https://github.com/PostHog/posthog-flutter/pull/52)
+
+## 3.1.0
+
+- Adds support for `groups`
+- Fixes a type issue with identify so that the userId is now always a String
+
+## 3.0.5
+
+- Fixes a bug with the iOS implementation for feature flags that stopped the SDK from building
+
+## 3.0.4
+
+- Adds CI/CD for deploying to pub.dev
+
+## 3.0.0
+
+- Adds basic feature flags support with `isFeatureEnabled` and `reloadFeatureFlags`
+
+## 2.0.3
+
+- Bugfixes with flutter web and identify call https://github.com/PostHog/posthog-flutter/pull/16
+
+## 2.0.2
+
+- Update to androidX for example android project
+- Fix ios example app and params
+- Fix web library, example, and docs
+
+## 2.0.1
+
+- Remove `generated_plugin_registrant.dart` from library
+
+## 2.0.0
+
+- Migrate to flutter 2
+
+## 1.11.2
+
+- Bump and pin version for Android lib to 1.1.1 because of bug
+
+## 1.11.1
+
+- Bump and pin version for Android lib to 1.1.0
+
+## 1.11.0
+
+- Bump the version for Android lib for screen \$screen_name consistency
+
+## 1.10.0
+
+- We will include the last screen that you set in the capture events now.
+  This will require users to user `Posthog().capture()` instead of `Posthog.capture()`
+
+## 1.9.3
+
+- Bug fix for android identify method
+
+## 1.9.2
+
+- Rename entire repo from flutter-posthog to posthog-flutter
+
+## 1.9.1
+
+- Some renaming for consistency
+
+## 1.9.0
+
+- PostHog client library for Flutter is released!
