@@ -1,5 +1,6 @@
 import 'dart:io' show Platform;
 
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:posthog_flutter/posthog_flutter.dart';
@@ -36,6 +37,7 @@ class AnalyticsService {
   String? _appVersion;
   int? _appBuild;
   String? _osVersion;
+  String? _deviceModel;
   String? _anonId;
   String? _userId;
   String? _currentScreen;
@@ -52,9 +54,22 @@ class AnalyticsService {
       _appBuild = int.tryParse(info.buildNumber);
     } catch (_) {/* version is best-effort */}
 
+    // Человекочитаемые ОС и модель ("Android 14", "SM-A525F") вместо
+    // build-fingerprint из Platform.operatingSystemVersion — иначе в дашборде
+    // «Технологии» версии нечитаемы, а device_model вовсе не заполнялся.
     try {
-      _osVersion = '$_platform ${Platform.operatingSystemVersion}';
+      final deviceInfo = DeviceInfoPlugin();
+      if (Platform.isAndroid) {
+        final android = await deviceInfo.androidInfo;
+        _osVersion = 'Android ${android.version.release}';
+        _deviceModel = android.model;
+      } else if (Platform.isIOS) {
+        final ios = await deviceInfo.iosInfo;
+        _osVersion = 'iOS ${ios.systemVersion}';
+        _deviceModel = ios.utsname.machine;
+      }
     } catch (_) {/* os version is best-effort */}
+    _osVersion ??= '$_platform ${Platform.operatingSystemVersion}';
 
     await _loadAnonId();
     await AnalyticsApiService.instance.init();
@@ -68,7 +83,20 @@ class AnalyticsService {
       final config = PostHogConfig(PostHogSettings.apiKey)
         ..host = PostHogSettings.host
         ..captureApplicationLifecycleEvents = true
+        // Session replay: запись экранов/жестов для просмотра «что делал юзер»
+        // в PostHog → Session replay.
+        ..sessionReplay = true
         ..debug = false;
+      // Полная видимость записи: по умолчанию SDK маскирует ВСЁ (тексты,
+      // картинки, platform views) — вебвью выглядел чёрным прямоугольником,
+      // а нативные экраны серыми плашками. Выключаем маски, чтобы натив и
+      // вебвью были видны в ОДНОЙ мобильной записи.
+      // ВНИМАНИЕ: с maskAllTexts=false в записи видны и вводимые тексты
+      // (телефон/OTP на экране входа).
+      config.sessionReplayConfig
+        ..maskAllPlatformViews = false
+        ..maskAllImages = false
+        ..maskAllTexts = false;
       await Posthog().setup(config);
     } catch (_) {/* аналитика никогда не роняет приложение */}
   }
@@ -125,6 +153,7 @@ class AnalyticsService {
       try {
         await Posthog().identify(userId: userId, userProperties: {
           if (username != null && username.isNotEmpty) 'username': username,
+          if (phone != null && phone.isNotEmpty) 'phone': phone,
           if (tier != null && tier.isNotEmpty) 'tier': tier,
           'platform': _platform,
         });
@@ -214,6 +243,7 @@ class AnalyticsService {
         if (_appVersion != null) 'app_version': _appVersion,
         if (_appBuild != null) 'app_build': _appBuild,
         if (_osVersion != null) 'os_version': _osVersion,
+        if (_deviceModel != null) 'device_model': _deviceModel,
         if (_currentScreen != null) 'screen': _currentScreen,
         if (parameters != null && parameters.isNotEmpty) 'properties': parameters,
       };

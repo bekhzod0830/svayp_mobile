@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_smartlook/flutter_smartlook.dart';
+import 'package:posthog_flutter/posthog_flutter.dart';
 import 'package:swipe/app/app.dart';
+import 'package:swipe/core/analytics/posthog_config.dart';
 import 'package:swipe/core/config/env.dart';
 import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/core/localization/models/language_model.dart';
@@ -73,5 +75,10 @@ void main() async {
   PaintingBinding.instance.imageCache.maximumSize = 100;
   PaintingBinding.instance.imageCache.maximumSizeBytes = 50 << 20; // 50 MB
 
-  runApp(const SwipeApp());
+  // PostHogWidget обязателен для session replay НАТИВНЫХ экранов (Flutter
+  // рендерит в canvas — виджет делает скриншоты для записи). Без ключа
+  // PostHog выключен, обёртка безвредна.
+  runApp(PostHogSettings.enabled
+      ? PostHogWidget(child: const SwipeApp())
+      : const SwipeApp());
 }
