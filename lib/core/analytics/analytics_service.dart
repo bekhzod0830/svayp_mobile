@@ -87,19 +87,16 @@ class AnalyticsService {
         // в PostHog → Session replay.
         ..sessionReplay = true
         ..debug = false;
-      // Видимость записи: по умолчанию SDK маскирует ВСЁ (тексты, картинки,
-      // platform views). Открываем всё, чтобы натив И вебвью были в ОДНОЙ
-      // мобильной записи (юзер требует одно видео со всем).
-      // ВНИМАНИЕ: с maskAllTexts=false в записи видны вводимые тексты
-      // (телефон/OTP на экране входа).
+      // Видимость записи: тексты и картинки открываем (иначе нативные экраны
+      // в записи бесполезны). ВНИМАНИЕ: видны вводимые тексты (телефон/OTP).
       //
-      // maskAllPlatformViews=false раньше КРАШИЛ на hybrid-composition WebView
-      // ("Software rendering doesn't support hardware bitmaps"), но краш был
-      // из-за hardware-bitmap Impeller'а. Impeller отключён в AndroidManifest
-      // → FlutterImageView отдаёт software-битмап, и PixelCopy-путь плагина
-      // (тот, что «captured N platform view rects») снимает вебвью без краша.
+      // maskAllPlatformViews ОСТАВЛЯЕМ true. С false вебвью снимается
+      // нестабильно (то чёрный кадр, то краш "Software rendering doesn't
+      // support hardware bitmaps") даже при отключённом Impeller —
+      // hybrid-composition SurfaceView надёжно posthog_flutter не берёт.
+      // Вебвью в мобильной записи чёрный; его детальная запись идёт отдельным
+      // web-реплеем из webapp (тот же юзер, подписан телефоном).
       config.sessionReplayConfig
-        ..maskAllPlatformViews = false
         ..maskAllImages = false
         ..maskAllTexts = false;
       await Posthog().setup(config);
