@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:swipe/core/analytics/analytics_service.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
 import 'package:swipe/core/utils/local_storage_helper.dart';
@@ -6,6 +9,7 @@ import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/core/network/api_client.dart';
 import 'package:swipe/core/services/version_check_service.dart';
 import 'package:swipe/core/services/feature_flag_service.dart';
+import 'package:swipe/features/auth/data/models/auth_models.dart';
 import 'package:swipe/features/auth/data/services/auth_service.dart';
 import 'package:swipe/features/profile/data/services/profile_service.dart';
 
@@ -123,10 +127,19 @@ class _SplashScreenState extends State<SplashScreen>
     // on every cold start (Future.wait rethrows the first error, same
     // 401/404 handling as the sequential version).
     try {
-      await Future.wait([
+      final results = await Future.wait([
         getIt<AuthService>().getCurrentUser(),
         getIt<ProfileService>().getProfile(),
       ]);
+      // Identify на СТАРТЕ (юзер зашёл уже залогиненным): без этого мобильная
+      // session-replay запись анонимна — identify раньше был только в момент
+      // логина. Тот же user_id, что в вебвью → PostHog сшивает в одну персону.
+      final me = results[0] as UserResponse;
+      unawaited(AnalyticsService.instance.setUser(
+        userId: me.id,
+        phone: me.phoneNumber,
+        username: me.username,
+      ));
       if (!mounted) return;
       Navigator.of(context).pushReplacementNamed('/main');
     } catch (e) {
