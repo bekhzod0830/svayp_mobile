@@ -11,7 +11,8 @@ import 'package:swipe/core/analytics/onboarding_analytics_mixin.dart';
 /// routes them straight to the matching main-app tab.
 ///
 /// Tab indices mirror MainScreen's nav order:
-///   0 = Feed · 1 = Closet · 2 = Market · 3 = Shop · 5 = Discover (LIBΛS swipes)
+///   1 = Closet · 2 = Market · 3 = Shop · 5 = Discover (LIBΛS swipes)
+/// (Feed / index 0 is disabled from the nav bar this release.)
 class SectionIntentScreen extends StatefulWidget {
   const SectionIntentScreen({super.key});
 
@@ -96,13 +97,8 @@ class _SectionIntentScreenState extends State<SectionIntentScreen>
         tabIndex: 1,
         tabName: 'closet',
       ),
-      _SectionOption(
-        icon: Icons.dynamic_feed_outlined,
-        title: l10n.feed,
-        subtitle: l10n.intentFeedSubtitle,
-        tabIndex: 0,
-        tabName: 'feed',
-      ),
+      // Feed is disabled from the nav bar this release, so it is not offered as
+      // a starting section here.
     ];
 
     return Scaffold(

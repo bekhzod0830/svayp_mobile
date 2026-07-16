@@ -19,11 +19,20 @@ class AppConstants {
   static const String userProfileKey = 'user_profile';
   static const String themeKey = 'theme_mode';
   static const String isGuestModeKey = 'is_guest_mode';
+  // Pre-auth intro carousel. Distinct from isOnboardedKey (legacy profile
+  // funnel completion) — reusing it would skip the carousel for legacy users.
+  static const String hasSeenIntroKey = 'has_seen_intro';
+  // Set after profile creation, cleared once the welcome gift dialog is shown.
+  static const String pendingWelcomeGiftKey = 'pending_welcome_gift';
 
   // Onboarding
   static const int styleQuizItemCount = 20;
   static const int minimumAge = 13;
   static const int maximumAge = 100;
+  // Fallback for the signup gift shown on the intro carousel / welcome popup
+  // when feature.signup_gift.coins hasn't been fetched. Must match the real
+  // grant (BACKEND TODO: flag + coin grant don't exist server-side yet).
+  static const int defaultSignupGiftCoins = 20;
 
   // Swipe Configuration
   static const double swipeThresholdHorizontal = 100.0; // pixels

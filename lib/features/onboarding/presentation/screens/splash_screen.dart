@@ -91,18 +91,22 @@ class _SplashScreenState extends State<SplashScreen>
     final storage = await LocalStorageHelper.getInstance();
     if (!mounted) return;
 
-    // Guest mode — no auth needed. Land on Feed (Лента, public browse).
+    // Guest mode — no auth needed. Land on Discover (LIBΛS), which is public;
+    // the Closet/Chat tabs are gated for guests and Feed is disabled this release.
     if (storage.isGuestMode()) {
       Navigator.of(context).pushReplacementNamed(
         '/main',
-        arguments: {'initialIndex': 0}, // 0 = Feed (Лента)
+        arguments: {'initialIndex': 5}, // 5 = Discover (LIBΛS)
       );
       return;
     }
 
-    // No local token or it's expired — go to login
+    // No local token or it's expired — first-time installs see the intro
+    // carousel once, everyone else goes straight to login.
     if (!apiClient.isAuthenticated()) {
-      Navigator.of(context).pushReplacementNamed('/phone-auth');
+      final next =
+          storage.hasSeenIntro() ? '/phone-auth' : '/intro-onboarding';
+      Navigator.of(context).pushReplacementNamed(next);
       return;
     }
 

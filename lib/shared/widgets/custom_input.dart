@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
 import 'package:swipe/core/constants/countries.dart';
+import 'package:swipe/features/onboarding/presentation/widgets/intro/intro_inputs.dart';
+import 'package:swipe/features/onboarding/presentation/widgets/intro/intro_theme.dart';
 import 'package:swipe/shared/widgets/country_code_picker.dart';
 
 /// Custom Text Input Field
@@ -64,13 +66,7 @@ class CustomTextField extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (label != null) ...[
-          Text(
-            label!,
-            style: AppTypography.body2.copyWith(
-              fontWeight: FontWeight.w500,
-              color: AppColors.gray700,
-            ),
-          ),
+          Text(label!, style: IntroInputs.label),
           const SizedBox(height: 8),
         ],
         TextFormField(
@@ -83,6 +79,7 @@ class CustomTextField extends StatelessWidget {
           onFieldSubmitted: onSubmitted,
           onTap: onTap,
           validator: validator,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
           enabled: enabled,
           readOnly: readOnly,
           maxLines: maxLines,
@@ -90,62 +87,19 @@ class CustomTextField extends StatelessWidget {
           inputFormatters: inputFormatters,
           autofocus: autofocus,
           textCapitalization: textCapitalization,
-          style: AppTypography.body1,
-          decoration: InputDecoration(
-            hintText: hintText,
-            hintStyle: AppTypography.body1.copyWith(
-              color: AppColors.placeholderText,
-            ),
+          style: IntroInputs.field,
+          decoration: IntroInputs.decoration(
+            hint: hintText,
             errorText: errorText,
-            helperText: helperText,
             prefixIcon: prefixIcon != null
-                ? Icon(prefixIcon, color: AppColors.gray600)
+                ? Icon(prefixIcon, color: IntroPalette.gray)
                 : null,
             suffixIcon: suffixIcon != null
                 ? IconButton(
-                    icon: Icon(suffixIcon, color: AppColors.gray600),
+                    icon: Icon(suffixIcon, color: IntroPalette.gray),
                     onPressed: onSuffixIconTap,
                   )
                 : null,
-            filled: true,
-            fillColor: enabled ? AppColors.white : AppColors.gray100,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 12,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(
-                color: AppColors.standardBorder,
-                width: 1.5,
-              ),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(
-                color: AppColors.standardBorder,
-                width: 1.5,
-              ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: AppColors.black, width: 2),
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: AppColors.error, width: 2),
-            ),
-            focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: AppColors.error, width: 2),
-            ),
-            disabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(
-                color: AppColors.gray300,
-                width: 1.5,
-              ),
-            ),
           ),
         ),
       ],
@@ -201,21 +155,13 @@ class PhoneTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     final canPick = onCountryChanged != null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (label != null) ...[
-          Text(
-            label!,
-            style: AppTypography.body2.copyWith(
-              fontWeight: FontWeight.w500,
-              color: isDark ? AppColors.darkSecondaryText : AppColors.gray700,
-            ),
-          ),
+          Text(label!, style: IntroInputs.label),
           const SizedBox(height: 8),
         ],
         TextFormField(
@@ -226,93 +172,42 @@ class PhoneTextField extends StatelessWidget {
           onChanged: onChanged,
           onFieldSubmitted: onSubmitted,
           validator: validator,
+          // Re-validate as the user types so a stale "required" error clears
+          // once a valid number is entered.
+          autovalidateMode: AutovalidateMode.onUserInteraction,
           autofocus: autofocus,
           inputFormatters: [
             FilteringTextInputFormatter.digitsOnly,
             LengthLimitingTextInputFormatter(country.maxLength),
             _PhoneNumberFormatter(country: country),
           ],
-          style: AppTypography.body1.copyWith(
-            color: isDark ? AppColors.darkPrimaryText : AppColors.black,
-          ),
-          decoration: InputDecoration(
-            hintText: country.example ?? '',
-            hintStyle: AppTypography.body1.copyWith(
-              color: isDark
-                  ? AppColors.darkPlaceholderText
-                  : AppColors.placeholderText,
-            ),
+          style: IntroInputs.field,
+          decoration: IntroInputs.decoration(
+            hint: country.example ?? '',
             errorText: errorText,
+            // Dial-code prefix only (no flag here — flags stay in the picker).
             prefixIcon: InkWell(
               onTap: canPick ? () => _pickCountry(context) : null,
               borderRadius: BorderRadius.circular(8),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+                padding: const EdgeInsets.only(left: 16, right: 10),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(country.flag, style: const TextStyle(fontSize: 22)),
-                    const SizedBox(width: 6),
                     Text(
                       country.dialCode,
-                      style: AppTypography.body1.copyWith(
-                        fontWeight: FontWeight.w500,
-                        color: isDark
-                            ? AppColors.darkPrimaryText
-                            : AppColors.black,
-                      ),
+                      style: IntroInputs.field,
                     ),
                     if (canPick)
-                      Icon(
+                      const Icon(
                         Icons.arrow_drop_down,
-                        color: isDark
-                            ? AppColors.darkSecondaryText
-                            : AppColors.secondaryText,
+                        color: IntroPalette.gray,
                       ),
                   ],
                 ),
               ),
             ),
             prefixIconConstraints: const BoxConstraints(minWidth: 0),
-            filled: true,
-            fillColor: isDark ? AppColors.darkCardBackground : AppColors.white,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 12,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(
-                color: isDark
-                    ? AppColors.darkStandardBorder
-                    : AppColors.standardBorder,
-                width: 1.5,
-              ),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(
-                color: isDark
-                    ? AppColors.darkStandardBorder
-                    : AppColors.standardBorder,
-                width: 1.5,
-              ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(
-                color: isDark ? AppColors.darkPrimaryText : AppColors.black,
-                width: 2,
-              ),
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: AppColors.error, width: 2),
-            ),
-            focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: AppColors.error, width: 2),
-            ),
           ),
         ),
       ],

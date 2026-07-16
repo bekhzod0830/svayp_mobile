@@ -1,9 +1,13 @@
 import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:swipe/l10n/app_localizations.dart';
+import 'package:swipe/app/theme.dart';
 import 'package:swipe/features/auth/presentation/screens/partner_login_screen.dart';
+import 'package:swipe/features/onboarding/presentation/widgets/intro/intro_buttons.dart';
+import 'package:swipe/features/onboarding/presentation/widgets/intro/intro_theme.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_constants.dart';
 import 'package:swipe/core/constants/app_typography.dart';
@@ -175,15 +179,24 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
     if (!mounted) return;
     Navigator.of(context).pushReplacementNamed(
       '/main',
-      arguments: {'initialIndex': 0}, // 0 = Feed (Лента) — default landing
+      arguments: {'initialIndex': 5}, // 5 = Discover (LIBΛS) — public guest home
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    // Force light so the auth flow reads as one experience with the intro
+    // carousel (light-only), regardless of the app theme. isDark is then
+    // always false at runtime but the dark branches stay valid code.
+    return Theme(
+      data: AppTheme.lightTheme,
+      child: Builder(builder: _buildContent),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final locale = Localizations.localeOf(context).languageCode;
     final horizontalPadding = ResponsiveUtils.getHorizontalPadding(context);
     final maxWidth = ResponsiveUtils.responsive<double>(
@@ -193,7 +206,9 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
       desktop: 800,
     );
 
-    return Scaffold(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark,
+      child: Scaffold(
       backgroundColor: isDark ? AppColors.darkMainBackground : AppColors.white,
       appBar: AppBar(
         backgroundColor: isDark
@@ -287,26 +302,19 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                           // Title
                           Text(
                             l10n.enterPhoneNumber,
-                            style: AppTypography.display2.copyWith(
-                              height: 1.2,
-                              fontSize:
+                            style: IntroPalette.headline(
+                              size:
                                   28 *
                                   ResponsiveUtils.getFontSizeScale(context),
-                              color: isDark
-                                  ? AppColors.darkPrimaryText
-                                  : AppColors.black,
-                            ),
+                            ).copyWith(height: 1.2),
                           ),
                           const SizedBox(height: 12),
 
                           // Subtitle
                           Text(
                             l10n.phoneVerificationSubtitle,
-                            style: AppTypography.body1.copyWith(
-                              color: isDark
-                                  ? AppColors.darkSecondaryText
-                                  : AppColors.secondaryText,
-                              fontSize:
+                            style: IntroPalette.subtitle(
+                              size:
                                   16 *
                                   ResponsiveUtils.getFontSizeScale(context),
                             ),
@@ -431,12 +439,11 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Continue Button
-                      PrimaryButton(
-                        text: l10n.continueButton,
-                        onPressed: _isLoading ? null : _continue,
+                      // Continue Button — pink gradient to match onboarding.
+                      IntroPrimaryButton(
+                        label: l10n.continueButton,
+                        onTap: _isLoading ? null : _continue,
                         isLoading: _isLoading,
-                        isFullWidth: true,
                       ),
                     ],
                   ),
@@ -445,6 +452,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

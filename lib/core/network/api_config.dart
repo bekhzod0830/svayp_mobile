@@ -12,6 +12,9 @@ class ApiConfig {
   /// API version prefix
   static const String apiPrefix = '/api/v1';
 
+  /// v2 API prefix — currently only simplified profile creation.
+  static const String apiPrefixV2 = '/api/v2';
+
   /// Google Sign-In Web/server OAuth client id (audience of the idToken).
   /// Must equal the backend GOOGLE_CLIENT_ID. Leave empty to rely on the
   /// audience configured in google-services.json / GoogleService-Info.plist.
@@ -22,6 +25,9 @@ class ApiConfig {
 
   /// Full base URL with API prefix
   static String get apiBaseUrl => '$baseUrl$apiPrefix';
+
+  /// Full base URL with the v2 API prefix
+  static String get apiBaseUrlV2 => '$baseUrl$apiPrefixV2';
 
   /// Timeout durations
   static const Duration connectTimeout = Duration(seconds: 30);
@@ -41,6 +47,12 @@ class ApiConfig {
 
   // ==================== User Endpoints ====================
   static const String userProfile = '/users/profile';
+
+  /// v2 simplified profile creation (name + dob + gender only). Absolute URL
+  /// on purpose: Dio's baseUrl carries the /api/v1 prefix, so a relative
+  /// '/api/v2/...' path would double-prefix. Dio passes absolute URLs through
+  /// unchanged and the auth interceptor still attaches the Bearer token.
+  static String get userProfileV2 => '$apiBaseUrlV2/users/profile';
   static const String userMe = '/users/me';
   static const String updateProfile = '/users/me';
   static const String deleteAccount = '/users/me';

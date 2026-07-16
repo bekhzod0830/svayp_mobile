@@ -14,7 +14,7 @@ publish_to: 'none'
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 2.3.2+32
+version: 2.4.0+34
 
 environment:
   sdk: ^3.9.2
@@ -190,6 +190,10 @@ flutter:
     - assets/icons/
     - assets/lottie/
     - assets/sounds/
+    - assets/onboarding/closet_items/
+    - assets/onboarding/try_it_on/
+    - assets/onboarding/market/
+    - assets/onboarding/shop/
     - lib/img/
     - lib/img/body_type/
     - lib/img/brands/
@@ -208,6 +212,21 @@ flutter:
 
   # For details regarding adding assets from package dependencies, see
   # https://flutter.dev/to/asset-from-package
+
+  # Golos Text (OFL) — used only by the intro onboarding carousel and the
+  # welcome gift dialog to match the marketing design deck. Bundled (not
+  # google_fonts) because the carousel shows on first launch, possibly offline.
+  fonts:
+    - family: GolosText
+      fonts:
+        - asset: assets/fonts/GolosText-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/GolosText-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/GolosText-ExtraBold.ttf
+          weight: 800
+        - asset: assets/fonts/GolosText-Black.ttf
+          weight: 900
 
   # To add custom fonts to your application, add a fonts section here,
   # in this "flutter" section. Each entry in this list should have a

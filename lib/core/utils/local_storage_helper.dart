@@ -33,6 +33,33 @@ class LocalStorageHelper {
     return await _preferences?.remove(AppConstants.isOnboardedKey) ?? false;
   }
 
+  /// Whether the pre-auth intro carousel has been shown on this install.
+  bool hasSeenIntro() {
+    return _preferences?.getBool(AppConstants.hasSeenIntroKey) ?? false;
+  }
+
+  /// Mark the pre-auth intro carousel as seen.
+  Future<bool> setSeenIntro(bool value) async {
+    return await _preferences?.setBool(AppConstants.hasSeenIntroKey, value) ??
+        false;
+  }
+
+  /// Whether the welcome gift dialog still needs to be shown after
+  /// registration (survives process death between profile creation and the
+  /// first main-screen frame).
+  bool isWelcomeGiftPending() {
+    return _preferences?.getBool(AppConstants.pendingWelcomeGiftKey) ?? false;
+  }
+
+  /// Set/clear the pending welcome gift flag.
+  Future<bool> setWelcomeGiftPending(bool value) async {
+    return await _preferences?.setBool(
+          AppConstants.pendingWelcomeGiftKey,
+          value,
+        ) ??
+        false;
+  }
+
   // ============== User Authentication ==============
 
   /// Save user token
@@ -200,6 +227,21 @@ class LocalStorageHelper {
   /// Persist the sms-otp flag fetched from the backend.
   Future<bool> setSmsOtpEnabled(bool value) async {
     return await setBool('sms_otp_enabled', value);
+  }
+
+  /// Signup gift amount shown on the intro carousel and welcome popup
+  /// (backend flag feature.signup_gift.coins). Falls back to the bundled
+  /// default before the flag has been fetched or when offline.
+  int getSignupGiftCoins() {
+    return getInt(
+      'signup_gift_coins',
+      defaultValue: AppConstants.defaultSignupGiftCoins,
+    );
+  }
+
+  /// Persist the signup-gift amount fetched from the backend.
+  Future<bool> setSignupGiftCoins(int value) async {
+    return await setInt('signup_gift_coins', value);
   }
 
   // ============== Tutorial/First Time Flags ==============

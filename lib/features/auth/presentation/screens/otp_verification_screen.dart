@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
 import 'package:swipe/l10n/app_localizations.dart';
+import 'package:swipe/app/theme.dart';
 import 'package:swipe/core/analytics/analytics_events.dart';
 import 'package:swipe/core/analytics/analytics_service.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_constants.dart';
 import 'package:swipe/core/constants/app_typography.dart';
+import 'package:swipe/features/onboarding/presentation/widgets/intro/intro_buttons.dart';
+import 'package:swipe/features/onboarding/presentation/widgets/intro/intro_theme.dart';
 import 'package:swipe/shared/widgets/widgets.dart';
 import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/features/auth/data/services/auth_service.dart';
@@ -242,11 +245,20 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    // Force light to match the intro carousel / rest of the auth flow.
+    return Theme(
+      data: AppTheme.lightTheme,
+      child: Builder(builder: _buildContent),
+    );
+  }
 
-    return Scaffold(
+  Widget _buildContent(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark,
+      child: Scaffold(
       backgroundColor: isDark ? AppColors.darkMainBackground : AppColors.white,
       appBar: AppBar(
         backgroundColor: isDark
@@ -275,12 +287,8 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                       // Title
                       Text(
                         l10n.verifyPhoneNumber,
-                        style: AppTypography.display2.copyWith(
-                          height: 1.2,
-                          color: isDark
-                              ? AppColors.darkPrimaryText
-                              : AppColors.black,
-                        ),
+                        style: IntroPalette.headline(size: 28)
+                            .copyWith(height: 1.2),
                       ),
                       const SizedBox(height: 12),
 
@@ -324,47 +332,34 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                           FilteringTextInputFormatter.digitsOnly,
                           LengthLimitingTextInputFormatter(6),
                         ],
-                        style: AppTypography.heading3.copyWith(
+                        style: const TextStyle(
+                          fontFamily: IntroPalette.fontFamily,
+                          fontSize: 26,
+                          fontWeight: FontWeight.w800,
                           height: 1.0,
                           letterSpacing: 12,
-                          color: isDark
-                              ? AppColors.darkPrimaryText
-                              : AppColors.black,
+                          color: IntroPalette.ink,
                         ),
                         decoration: InputDecoration(
                           counterText: '',
                           filled: true,
-                          fillColor: isDark
-                              ? AppColors.darkCardBackground
-                              : AppColors.gray50,
+                          fillColor: IntroPalette.chipBg,
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 24,
                             vertical: 20,
                           ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide(
-                              color: isDark
-                                  ? AppColors.darkStandardBorder
-                                  : AppColors.standardBorder,
-                              width: 1.5,
-                            ),
+                            borderSide: BorderSide.none,
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide(
-                              color: isDark
-                                  ? AppColors.darkStandardBorder
-                                  : AppColors.standardBorder,
-                              width: 1.5,
-                            ),
+                            borderSide: BorderSide.none,
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide(
-                              color: isDark
-                                  ? AppColors.white
-                                  : AppColors.black,
+                            borderSide: const BorderSide(
+                              color: IntroPalette.gem,
                               width: 2,
                             ),
                           ),
@@ -456,17 +451,17 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                       ),
                     ],
                   ),
-                  child: PrimaryButton(
-                    text: l10n.verify,
-                    onPressed: _verifyOTP,
+                  child: IntroPrimaryButton(
+                    label: l10n.verify,
+                    onTap: _verifyOTP,
                     isLoading: _isLoading,
-                    isFullWidth: true,
                   ),
                 ),
               ],
             ),
           ),
         ),
+      ),
       ),
     );
   }

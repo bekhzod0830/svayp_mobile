@@ -14,6 +14,9 @@ class FeatureFlagService {
 
   static const String _guestLoginKey = 'feature.guest_login.enabled';
   static const String _smsOtpKey = 'feature.sms_otp_enabled';
+  // BACKEND TODO: flag not created yet — until then the app falls back to
+  // AppConstants.defaultSignupGiftCoins. Must match the real coin grant.
+  static const String _signupGiftKey = 'feature.signup_gift.coins';
 
   /// Pulls the latest flags and persists them. Never throws — on any failure
   /// the previously cached values are kept (so the app degrades gracefully).
@@ -37,6 +40,13 @@ class FeatureFlagService {
       if (flags.containsKey(_smsOtpKey)) {
         final enabled = _asBool(flags[_smsOtpKey]);
         await storage.setSmsOtpEnabled(enabled);
+      }
+
+      if (flags.containsKey(_signupGiftKey)) {
+        final coins = int.tryParse(flags[_signupGiftKey].toString());
+        if (coins != null && coins > 0) {
+          await storage.setSignupGiftCoins(coins);
+        }
       }
     } catch (_) {
       // Keep cached flags on failure — never block startup.

@@ -1,12 +1,15 @@
 import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:swipe/l10n/app_localizations.dart';
+import 'package:swipe/app/theme.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
+import 'package:swipe/features/onboarding/presentation/widgets/intro/intro_theme.dart';
 import 'package:swipe/core/utils/responsive_utils.dart';
 import 'package:swipe/core/utils/error_message_helper.dart';
 import 'package:swipe/core/utils/local_storage_helper.dart';
@@ -164,7 +167,7 @@ class _VerifyMethodScreenState extends State<VerifyMethodScreen> {
 
   /// Opens the support Telegram chat for users who can't sign in.
   Future<void> _openTelegramSupport() async {
-    final uri = Uri.parse('https://t.me/libasai_admin');
+    final uri = Uri.parse('https://telegram.me/libasai_admin');
     final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!ok && mounted) {
       SnackBarHelper.showError(context, 'Could not open Telegram.');
@@ -173,6 +176,14 @@ class _VerifyMethodScreenState extends State<VerifyMethodScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Force light to match the intro carousel / rest of the auth flow.
+    return Theme(
+      data: AppTheme.lightTheme,
+      child: Builder(builder: _buildContent),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final pad = ResponsiveUtils.getHorizontalPadding(context);
@@ -180,7 +191,9 @@ class _VerifyMethodScreenState extends State<VerifyMethodScreen> {
     final secondaryText =
         isDark ? AppColors.darkSecondaryText : AppColors.secondaryText;
 
-    return Scaffold(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark,
+      child: Scaffold(
       backgroundColor: isDark ? AppColors.darkMainBackground : AppColors.white,
       appBar: AppBar(
         elevation: 0,
@@ -232,15 +245,12 @@ class _VerifyMethodScreenState extends State<VerifyMethodScreen> {
                     : widget.isNew
                         ? l10n.createAccountTitle
                         : l10n.signInTitle,
-                style: AppTypography.display2.copyWith(
-                  height: 1.2,
-                  color: primaryText,
-                ),
+                style: IntroPalette.headline(size: 28).copyWith(height: 1.2),
               ),
               const SizedBox(height: 10),
               Text(
                 l10n.verifyMethodSubtitle,
-                style: AppTypography.body1.copyWith(color: secondaryText),
+                style: IntroPalette.subtitle(size: 16),
               ),
               const SizedBox(height: 20),
 
@@ -253,26 +263,23 @@ class _VerifyMethodScreenState extends State<VerifyMethodScreen> {
                     vertical: 12,
                   ),
                   decoration: BoxDecoration(
-                    color: isDark
-                        ? AppColors.darkCardBackground
-                        : AppColors.gray50,
+                    color: IntroPalette.chipBg,
                     borderRadius: BorderRadius.circular(9999),
-                    border: Border.all(
-                      color: isDark
-                          ? AppColors.darkStandardBorder
-                          : AppColors.standardBorder,
-                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.phone_outlined, size: 18, color: secondaryText),
+                      const Icon(
+                        Icons.phone_outlined,
+                        size: 18,
+                        color: IntroPalette.gray,
+                      ),
                       const SizedBox(width: 8),
                       Text(
                         _formatPhone(widget.phoneNumber),
-                        style: AppTypography.body1.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: primaryText,
+                        style: IntroPalette.label(
+                          size: 15,
+                          weight: FontWeight.w700,
                         ),
                       ),
                     ],
@@ -361,6 +368,7 @@ class _VerifyMethodScreenState extends State<VerifyMethodScreen> {
             ],
           ),
         ),
+      ),
       ),
     );
   }

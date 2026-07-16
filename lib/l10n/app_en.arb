@@ -1082,6 +1082,7 @@
   "errorGenericTitle": "Oops, something went wrong",
   "errorGenericSubtitle": "Please check your connection and try again.",
   "errorRetry": "Try Again",
+  "connectionErrorTitle": "No internet connection",
   "vsScanningImage": "Scanning image",
   "vsIdentifyingStyle": "Identifying style",
   "vsFindingMatches": "Finding matches",
@@ -1142,5 +1143,112 @@
   "linkAccountTitle": "Link your account",
   "selectCountry": "Select country",
   "searchCountry": "Search country or code",
-  "noResultsFound": "No results found"
+  "noResultsFound": "No results found",
+  "introSkip": "Skip",
+  "introNext": "Next",
+  "introStart": "Start",
+  "introSlide1Title": "Your entire wardrobe — in your phone",
+  "introSlide1Subtitle": "Collect your clothes, create outfits and try them on without opening the closet.",
+  "introSlide2Kicker": "Closet",
+  "introSlide2Title": "Create outfits from your own clothes",
+  "introSlide2Subtitle": "Upload your clothes, lay them out on a board and build looks like a stylist — drag, swap, combine.",
+  "introSlide3Kicker": "Try-on",
+  "introSlide3Title": "Try it on yourself or on a mannequin",
+  "introSlide3Subtitle": "Upload a full-body photo and see how the outfit looks on you.",
+  "introTryOnMannequin": "On a mannequin",
+  "introTryOnPhoto": "On my photo",
+  "introSlide4Kicker": "Calendar",
+  "introSlide4Title": "A ready outfit for every day",
+  "introSlide4Subtitle": "We'll put together looks for your whole week — all that's left is to get dressed.",
+  "introThisWeek": "This week",
+  "introSlide5Kicker": "Market",
+  "introSlide5Title": "Sell and find clothes",
+  "introSlide5Subtitle": "Pass on what didn't fit and buy outfits from other girls at a nice price.",
+  "introMarketItemTitle": "Silk blouse",
+  "introMarketItemMeta": "Size M · like new",
+  "introMarketItemPrice": "149 000 so'm",
+  "introMarketSellerName": "Aruzhan",
+  "introSlide6Kicker": "Diamonds",
+  "introSlide6Title": "Diamonds — your creative currency",
+  "introSlide6Subtitle": "Diamonds are the in-app currency. They power AI features like outfit generation, styling and virtual try-on. Adding your own clothes is always free!",
+  "introCoinRowUpload": "Upload clothes",
+  "introCoinFree": "Free",
+  "introDiamondUses": "Looks & try-ons",
+  "introDiamondFreeLabel": "Add clothes",
+  "introCoinRowOutfit": "Create an outfit",
+  "introCoinRowEnhance": "Enhance a photo",
+  "introCoinRowTryOn": "Try on",
+  "introSlide7Kicker": "Welcome gift",
+  "introSlide7Title": "Get {count} diamonds free",
+  "@introSlide7Title": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "introSlide7Subtitle": "Sign up and {count} diamonds are already yours.",
+  "@introSlide7Subtitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "introSlide7CoinsCaption": "coins as a gift",
+  "introSlide7Chip": "{count} diamonds on your balance",
+  "@introSlide7Chip": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "introShopKicker": "Shop",
+  "introShopTitle": "Swipe products from brands",
+  "introShopSubtitle": "Swipe right on what you like and order from our partner brands.",
+  "introShopItem1Title": "Women's sweatshirt",
+  "introShopItem1Size": "S, M, L",
+  "introShopItem1Price": "160,000 UZS",
+  "introShopItem2Title": "Knit suit with peplum",
+  "introShopItem2Size": "Size M",
+  "introShopItem2Price": "700,000 UZS",
+  "introShopItem3Title": "Elegant sleeveless dress",
+  "introShopItem3Size": "One size",
+  "introShopItem3Price": "400,000 UZS",
+  "introShopItem4Title": "Lace set",
+  "introShopItem4Size": "S M L XL",
+  "introShopItem4Price": "250,000 UZS",
+  "introMarketItem1Title": "Lion trousers",
+  "introMarketItem1Size": "48 (L)",
+  "introMarketItem1Price": "200,000 UZS",
+  "introMarketItem2Title": "Miu Miu slippers",
+  "introMarketItem2Size": "Size 40",
+  "introMarketItem2Price": "149,000 UZS",
+  "introMarketItem3Title": "T-shirt",
+  "introMarketItem3Size": "Oversize",
+  "introMarketItem3Price": "100,000 UZS",
+  "introMarketItem4Title": "Two-piece set",
+  "introMarketItem4Size": "44 (S)",
+  "introMarketItem4Price": "350,000 UZS",
+  "introMarketItem5Title": "YSL heels",
+  "introMarketItem5Size": "Size 37",
+  "introMarketItem5Price": "600,000 UZS",
+  "introMarketItem6Title": "Dress",
+  "introMarketItem6Size": "Size 44",
+  "introMarketItem6Price": "199,000 UZS",
+  "introMarketItem7Title": "Ensemble + veil",
+  "introMarketItem7Size": "46 (M)",
+  "introMarketItem7Price": "600,000 UZS",
+  "introSlide6FreeHighlight": "Adding your own clothes is always free!",
+  "welcomeGiftTitle": "Welcome!",
+  "welcomeGiftSubtitle": "Let's start creating new outfits! You've got {count} diamonds to begin.",
+  "@welcomeGiftSubtitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "welcomeGiftCta": "Start"
 }

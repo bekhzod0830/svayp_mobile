@@ -23,6 +23,7 @@ import 'package:swipe/core/services/badge_notifier.dart';
 import 'package:swipe/core/services/notification_service.dart';
 import 'package:swipe/features/discover/presentation/screens/discover_screen.dart';
 import 'package:swipe/features/discover/presentation/widgets/swipe_tutorial_overlay.dart';
+import 'package:swipe/features/main/presentation/widgets/welcome_gift_dialog.dart';
 import 'package:swipe/features/shop/presentation/screens/shop_screen.dart';
 import 'package:swipe/features/chat/presentation/screens/chat_list_screen.dart';
 
@@ -31,11 +32,15 @@ import 'package:swipe/features/chat/presentation/screens/chat_list_screen.dart';
 class MainScreen extends StatefulWidget {
   final int initialIndex;
 
+  /// Show the post-registration welcome gift dialog on first frame.
+  final bool showWelcomeGift;
+
   // Static global key to access MainScreen from anywhere
   static final GlobalKey<MainScreenState> globalKey =
       GlobalKey<MainScreenState>();
 
-  MainScreen({this.initialIndex = 0}) : super(key: globalKey);
+  MainScreen({this.initialIndex = 1, this.showWelcomeGift = false})
+      : super(key: globalKey);
 
   @override
   State<MainScreen> createState() => MainScreenState();
@@ -75,8 +80,8 @@ class MainScreenState extends State<MainScreen>
     _pillCtrl = AnimationController(
       vsync: this,
       lowerBound: -0.6,
-      upperBound: 5.6,
-      value: _currentIndex.toDouble(),
+      upperBound: 4.6,
+      value: _tabToNavSlot(_currentIndex),
     );
     _tabObservers = List.generate(
       6,
@@ -110,6 +115,23 @@ class MainScreenState extends State<MainScreen>
         (_) => _maybeShowDiscoverTutorial(),
       );
     }
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _maybeShowWelcomeGift(),
+    );
+  }
+
+  /// Post-registration welcome gift dialog. Fires exactly once: either via
+  /// the route argument (normal path) or via the pending-gift prefs flag
+  /// (process died between profile creation and the first /main frame).
+  Future<void> _maybeShowWelcomeGift() async {
+    final storage = await LocalStorageHelper.getInstance();
+    if (!widget.showWelcomeGift && !storage.isWelcomeGiftPending()) return;
+    await storage.setWelcomeGiftPending(false);
+    if (!mounted) return;
+    await showWelcomeGiftDialog(
+      context,
+      coins: storage.getSignupGiftCoins(),
+    );
   }
 
   void _connectWebSocket() {
@@ -188,7 +210,7 @@ class MainScreenState extends State<MainScreen>
   }
 
   void _onTabTapped(int index) async {
-    // Gate certain tabs for guest users (closet = 1, chat = 4). Feed (0) is public.
+    // Gate certain tabs for guest users (closet = 1, chat = 4).
     if (index == _closetTabIndex || index == _chatTabIndex) {
       final storage = await LocalStorageHelper.getInstance();
       if (storage.isGuestMode()) {
@@ -249,15 +271,28 @@ class MainScreenState extends State<MainScreen>
     if (index == _discoverTabIndex) _maybeShowDiscoverTutorial();
   }
 
-  /// Ordered navigator keys, one per tab (matches the nav-bar order:
-  /// Feed, Closet, Market, Shop, Chat, LIBΛS).
+  /// Ordered navigator keys, one per IndexedStack child (index = child index):
+  /// 0=Feed (hidden), 1=Closet, 2=Market, 3=Shop, 4=Chat, 5=LIBΛS.
   List<GlobalKey<NavigatorState>> get _tabKeys =>
       [_feedKey, _closetKey, _marketKey, _shopKey, _chatKey, _discoverKey];
 
-  /// Each tab now maps 1:1 to its visual nav-bar slot.
-  double _tabToNavSlot(int tabIndex) => tabIndex.toDouble();
+  /// Tab indices shown in the bottom nav bar, in visual left-to-right order.
+  /// Feed (0) is intentionally omitted — the Feed screen still lives in the
+  /// IndexedStack (and stays reachable via deep links / notifications) but is
+  /// disabled from the nav bar for this release. The Nth entry here occupies
+  /// visual slot N.
+  static const List<int> _visibleTabs = [1, 2, 3, 4, 5];
 
-  /// Tab index of the Closet (Гардероб) — second tab, after Feed.
+  /// Home tab — the first visible tab. Android back from any other tab returns
+  /// here; back from here backgrounds the app.
+  static const int _homeTabIndex = 1;
+
+  /// Maps a tab index to its visual nav-bar slot (0-based, left to right).
+  /// Returns -1 for hidden tabs (e.g. Feed), which never drive the pill.
+  double _tabToNavSlot(int tabIndex) =>
+      _visibleTabs.indexOf(tabIndex).toDouble();
+
+  /// Tab index of the Closet (Гардероб).
   static const int _closetTabIndex = 1;
 
   /// Tab index of the Chat feed.
@@ -360,11 +395,11 @@ class MainScreenState extends State<MainScreen>
         }
 
         // 3. Nothing left to go back to in this tab.
-        if (currentIndex != 0) {
-          // Not on the home (Feed) tab → go home, mirroring Android convention.
+        if (currentIndex != _homeTabIndex) {
+          // Not on the home (Closet) tab → go home, mirroring Android convention.
           final fromPos = _pillCtrl.value;
           setState(() {
-            _currentIndex = 0;
+            _currentIndex = _homeTabIndex;
           });
           _pillCtrl.animateWith(
             SpringSimulation(
@@ -374,7 +409,7 @@ class MainScreenState extends State<MainScreen>
                 damping: 22.0,
               ),
               fromPos,
-              0.0,
+              _tabToNavSlot(_homeTabIndex),
               0.0,
             ),
           );
@@ -526,7 +561,7 @@ class MainScreenState extends State<MainScreen>
                       ),
                       child: LayoutBuilder(
                         builder: (ctx, bc) {
-                          final itemW = bc.maxWidth / 6;
+                          final itemW = bc.maxWidth / _visibleTabs.length;
                           return Stack(
                             children: [
                               // ── Sliding indicator pill ──────
@@ -553,19 +588,10 @@ class MainScreenState extends State<MainScreen>
                                 ),
                               ),
                               // ── Nav item row ─────────────────
+                              // Feed (index 0) is intentionally hidden this
+                              // release — see [_visibleTabs].
                               Row(
                                 children: [
-                                  _buildNavItem(
-                                    context: context,
-                                    index: 0,
-                                    inactiveIcon:
-                                        Icons.home_outlined,
-                                    activeIcon: Icons.home,
-                                    label: l10n.feed,
-                                    isDark: isDark,
-                                    iconScale: iconScale,
-                                    fontScale: fontScale,
-                                  ),
                                   _buildNavItem(
                                     context: context,
                                     index: 1,

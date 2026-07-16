@@ -3,13 +3,20 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/core/constants/app_colors.dart';
-import 'package:swipe/core/constants/app_typography.dart';
+import 'package:swipe/core/di/service_locator.dart';
+import 'package:swipe/core/network/api_client.dart';
+import 'package:swipe/core/utils/local_storage_helper.dart';
 import 'package:swipe/core/utils/validators.dart';
 import 'package:swipe/core/utils/responsive_utils.dart';
 import 'package:swipe/shared/widgets/widgets.dart';
 import 'package:swipe/core/analytics/analytics_events.dart';
+import 'package:swipe/core/analytics/analytics_service.dart';
 import 'package:swipe/core/analytics/onboarding_analytics_mixin.dart';
 import 'package:swipe/features/onboarding/data/onboarding_data_manager.dart';
+import 'package:swipe/features/onboarding/presentation/widgets/intro/intro_buttons.dart';
+import 'package:swipe/features/onboarding/presentation/widgets/intro/intro_inputs.dart';
+import 'package:swipe/features/onboarding/presentation/widgets/intro/intro_theme.dart';
+import 'package:swipe/features/profile/data/services/profile_service.dart';
 
 /// Blocks digit input that would make the field value exceed [max].
 /// The [min] is only enforced once the text length reaches [fullLength]
@@ -203,33 +210,12 @@ class _BasicInfoScreenState extends State<BasicInfoScreen>
       ],
       validator: validator,
       onChanged: onChanged,
-      decoration: InputDecoration(
-        hintText: hint,
+      decoration: IntroInputs.decoration(hint: hint).copyWith(
         counterText: '',
-        hintStyle: AppTypography.body2.copyWith(color: AppColors.gray600),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.standardBorder),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.standardBorder),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.black, width: 1.5),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.red),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.red, width: 1.5),
-        ),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 8, vertical: 15),
       ),
-      style: AppTypography.body2.copyWith(fontWeight: FontWeight.w600),
+      style: IntroInputs.field,
     );
   }
 
@@ -250,19 +236,26 @@ class _BasicInfoScreenState extends State<BasicInfoScreen>
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(vertical: 16),
           decoration: BoxDecoration(
-            color: isSelected ? AppColors.black : AppColors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isSelected ? AppColors.black : AppColors.standardBorder,
-              width: isSelected ? 1.5 : 1,
-            ),
+            color: isSelected ? null : IntroPalette.chipBg,
+            gradient: isSelected ? IntroPalette.diamondGradient : null,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: IntroPalette.gem.withValues(alpha: 0.35),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                    ),
+                  ]
+                : null,
           ),
           child: Text(
             label,
             textAlign: TextAlign.center,
-            style: AppTypography.body2.copyWith(
-              fontWeight: FontWeight.w600,
-              color: isSelected ? AppColors.white : AppColors.black,
+            style: IntroPalette.label(
+              size: 15,
+              weight: FontWeight.w700,
+              color: isSelected ? Colors.white : IntroPalette.ink,
             ),
           ),
         ),
@@ -292,7 +285,7 @@ class _BasicInfoScreenState extends State<BasicInfoScreen>
     });
 
     try {
-      // Save basic info to onboarding manager
+      // Keep the manager in sync (other screens may read it later).
       final manager = context.read<OnboardingDataManager>();
       manager.setBasicInfo(
         fullName: _nameController.text.trim().isNotEmpty
@@ -305,20 +298,42 @@ class _BasicInfoScreenState extends State<BasicInfoScreen>
         dateOfBirth: _selectedDate!,
       );
 
+      // v2 registration: this is the only profile step — measurements and
+      // style preferences moved into the Libas AI guided flow (Closet tab).
+      final dob = '${_selectedYear!.toString().padLeft(4, '0')}-'
+          '${_selectedMonth!.toString().padLeft(2, '0')}-'
+          '${_selectedDay!.toString().padLeft(2, '0')}';
+      try {
+        await getIt<ProfileService>().createProfileV2(
+          fullName: _nameController.text.trim(),
+          dateOfBirth: dob,
+          gender: _selectedGender!.toUpperCase(),
+        );
+      } on ApiException catch (e) {
+        // 409 PROFILE_ALREADY_EXISTS — a previous attempt landed; proceed.
+        if (e.statusCode != 409) rethrow;
+      }
+
       if (!mounted) return;
 
       trackStepCompleted();
+      AnalyticsService.instance.logEvent(AnalyticsEvents.onboardingCompleted);
 
-      // Female users go through the modest-fashion steps (hijab, fit, style
-      // quiz). Male users skip those and go straight to height & sizes.
-      if (_selectedGender == 'male') {
-        Navigator.of(context).pushNamed('/size-profile');
-      } else {
-        Navigator.of(context).pushNamed(
-          '/hijab-preference',
-          arguments: {'gender': _selectedGender},
-        );
-      }
+      final storage = await LocalStorageHelper.getInstance();
+      // Survives process death between this POST and the first /main frame.
+      await storage.setWelcomeGiftPending(true);
+      // Covers users who reached auth without the carousel (deep links).
+      await storage.setSeenIntro(true);
+
+      if (!mounted) return;
+
+      // Land on the Closet tab: its WebView shows the "Welcome to Libas AI"
+      // guided flow (add items → outfit → try-on) on first open.
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        '/main',
+        (_) => false,
+        arguments: {'initialIndex': 1, 'showWelcomeGift': true},
+      );
     } catch (e) {
       if (!mounted) return;
       SnackBarHelper.showError(context, l10n.saveInfoError);
@@ -363,28 +378,21 @@ class _BasicInfoScreenState extends State<BasicInfoScreen>
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Progress Indicator
-                              const OnboardingProgressBar(
-                                currentStep: 1,
-                                totalSteps: 6,
-                              ),
-                              const SizedBox(height: 32),
+                              // Single-step registration — no progress bar.
+                              const SizedBox(height: 16),
 
                               // Title
                               Text(
                                 l10n.tellUsAboutYourself,
-                                style: AppTypography.display2.copyWith(
-                                  height: 1.2,
-                                ),
+                                style: IntroPalette.headline(size: 28)
+                                    .copyWith(height: 1.2),
                               ),
                               const SizedBox(height: 12),
 
                               // Subtitle
                               Text(
                                 l10n.personalizeExperience,
-                                style: AppTypography.body1.copyWith(
-                                  color: AppColors.secondaryText,
-                                ),
+                                style: IntroPalette.subtitle(size: 16),
                               ),
                               const SizedBox(height: 40),
 
@@ -399,12 +407,7 @@ class _BasicInfoScreenState extends State<BasicInfoScreen>
                               const SizedBox(height: 24),
 
                               // Date of Birth - Numeric input fields
-                              Text(
-                                l10n.dateOfBirth,
-                                style: AppTypography.body1.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
+                              Text(l10n.dateOfBirth, style: IntroInputs.label),
                               const SizedBox(height: 12),
                               Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -498,12 +501,7 @@ class _BasicInfoScreenState extends State<BasicInfoScreen>
                               const SizedBox(height: 24),
 
                               // Gender
-                              Text(
-                                l10n.gender,
-                                style: AppTypography.body1.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
+                              Text(l10n.gender, style: IntroInputs.label),
                               const SizedBox(height: 12),
                               Row(
                                 children: [
@@ -534,53 +532,16 @@ class _BasicInfoScreenState extends State<BasicInfoScreen>
                 width: double.infinity,
                 color: AppColors.white,
                 padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: SizedBox(
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed:
-                          (_nameController.text.isEmpty ||
-                              _selectedGender == null ||
-                              _selectedDay == null ||
-                              _selectedMonth == null ||
-                              _selectedYear == null ||
-                              _isLoading)
-                          ? null
-                          : _continue,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.black,
-                        foregroundColor: AppColors.white,
-                        disabledBackgroundColor: AppColors.gray300,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(28),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 32,
-                          vertical: 16,
-                        ),
-                        elevation: 0,
-                      ),
-                      child: _isLoading
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  AppColors.white,
-                                ),
-                              ),
-                            )
-                          : Text(
-                              l10n.continueButton,
-                              style: AppTypography.button.copyWith(
-                                color: AppColors.white,
-                                fontSize: 16,
-                              ),
-                            ),
-                    ),
-                  ),
+                child: IntroPrimaryButton(
+                  label: l10n.continueButton,
+                  isLoading: _isLoading,
+                  enabled:
+                      _nameController.text.isNotEmpty &&
+                      _selectedGender != null &&
+                      _selectedDay != null &&
+                      _selectedMonth != null &&
+                      _selectedYear != null,
+                  onTap: _continue,
                 ),
               ),
             ], // closes Column children

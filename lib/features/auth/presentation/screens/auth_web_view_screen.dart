@@ -13,6 +13,7 @@ import 'package:swipe/core/analytics/analytics_service.dart';
 import 'package:swipe/core/constants/web_urls.dart';
 import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/core/localization/services/language_service.dart';
+import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/core/network/api_client.dart';
 import 'package:swipe/core/network/api_config.dart';
 import 'package:swipe/core/services/notification_service.dart';
@@ -322,6 +323,7 @@ class _AuthWebViewScreenState extends State<AuthWebViewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
@@ -357,14 +359,14 @@ class _AuthWebViewScreenState extends State<AuthWebViewScreen> {
                     children: [
                       const Icon(Icons.wifi_off, size: 48, color: Colors.grey),
                       const SizedBox(height: 16),
-                      const Text(
-                        'No connection',
-                        style: TextStyle(color: Colors.grey),
+                      Text(
+                        l10n.connectionErrorTitle,
+                        style: const TextStyle(color: Colors.grey),
                       ),
                       const SizedBox(height: 16),
                       TextButton(
                         onPressed: _loadAuthUrl,
-                        child: const Text('Retry'),
+                        child: Text(l10n.retry),
                       ),
                     ],
                   ),

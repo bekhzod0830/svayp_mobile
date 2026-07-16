@@ -5668,6 +5668,12 @@ abstract class AppLocalizations {
   /// **'Try Again'**
   String get errorRetry;
 
+  /// No description provided for @connectionErrorTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No internet connection'**
+  String get connectionErrorTitle;
+
   /// No description provided for @vsScanningImage.
   ///
   /// In en, this message translates to:
@@ -5991,6 +5997,480 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No results found'**
   String get noResultsFound;
+
+  /// No description provided for @introSkip.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip'**
+  String get introSkip;
+
+  /// No description provided for @introNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Next'**
+  String get introNext;
+
+  /// No description provided for @introStart.
+  ///
+  /// In en, this message translates to:
+  /// **'Start'**
+  String get introStart;
+
+  /// No description provided for @introSlide1Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Your entire wardrobe — in your phone'**
+  String get introSlide1Title;
+
+  /// No description provided for @introSlide1Subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Collect your clothes, create outfits and try them on without opening the closet.'**
+  String get introSlide1Subtitle;
+
+  /// No description provided for @introSlide2Kicker.
+  ///
+  /// In en, this message translates to:
+  /// **'Closet'**
+  String get introSlide2Kicker;
+
+  /// No description provided for @introSlide2Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Create outfits from your own clothes'**
+  String get introSlide2Title;
+
+  /// No description provided for @introSlide2Subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload your clothes, lay them out on a board and build looks like a stylist — drag, swap, combine.'**
+  String get introSlide2Subtitle;
+
+  /// No description provided for @introSlide3Kicker.
+  ///
+  /// In en, this message translates to:
+  /// **'Try-on'**
+  String get introSlide3Kicker;
+
+  /// No description provided for @introSlide3Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Try it on yourself or on a mannequin'**
+  String get introSlide3Title;
+
+  /// No description provided for @introSlide3Subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload a full-body photo and see how the outfit looks on you.'**
+  String get introSlide3Subtitle;
+
+  /// No description provided for @introTryOnMannequin.
+  ///
+  /// In en, this message translates to:
+  /// **'On a mannequin'**
+  String get introTryOnMannequin;
+
+  /// No description provided for @introTryOnPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'On my photo'**
+  String get introTryOnPhoto;
+
+  /// No description provided for @introSlide4Kicker.
+  ///
+  /// In en, this message translates to:
+  /// **'Calendar'**
+  String get introSlide4Kicker;
+
+  /// No description provided for @introSlide4Title.
+  ///
+  /// In en, this message translates to:
+  /// **'A ready outfit for every day'**
+  String get introSlide4Title;
+
+  /// No description provided for @introSlide4Subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'We\'ll put together looks for your whole week — all that\'s left is to get dressed.'**
+  String get introSlide4Subtitle;
+
+  /// No description provided for @introThisWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'This week'**
+  String get introThisWeek;
+
+  /// No description provided for @introSlide5Kicker.
+  ///
+  /// In en, this message translates to:
+  /// **'Market'**
+  String get introSlide5Kicker;
+
+  /// No description provided for @introSlide5Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Sell and find clothes'**
+  String get introSlide5Title;
+
+  /// No description provided for @introSlide5Subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pass on what didn\'t fit and buy outfits from other girls at a nice price.'**
+  String get introSlide5Subtitle;
+
+  /// No description provided for @introMarketItemTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Silk blouse'**
+  String get introMarketItemTitle;
+
+  /// No description provided for @introMarketItemMeta.
+  ///
+  /// In en, this message translates to:
+  /// **'Size M · like new'**
+  String get introMarketItemMeta;
+
+  /// No description provided for @introMarketItemPrice.
+  ///
+  /// In en, this message translates to:
+  /// **'149 000 so\'m'**
+  String get introMarketItemPrice;
+
+  /// No description provided for @introMarketSellerName.
+  ///
+  /// In en, this message translates to:
+  /// **'Aruzhan'**
+  String get introMarketSellerName;
+
+  /// No description provided for @introSlide6Kicker.
+  ///
+  /// In en, this message translates to:
+  /// **'Diamonds'**
+  String get introSlide6Kicker;
+
+  /// No description provided for @introSlide6Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Diamonds — your creative currency'**
+  String get introSlide6Title;
+
+  /// No description provided for @introSlide6Subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Diamonds are the in-app currency. They power AI features like outfit generation, styling and virtual try-on. Adding your own clothes is always free!'**
+  String get introSlide6Subtitle;
+
+  /// No description provided for @introCoinRowUpload.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload clothes'**
+  String get introCoinRowUpload;
+
+  /// No description provided for @introCoinFree.
+  ///
+  /// In en, this message translates to:
+  /// **'Free'**
+  String get introCoinFree;
+
+  /// No description provided for @introDiamondUses.
+  ///
+  /// In en, this message translates to:
+  /// **'Looks & try-ons'**
+  String get introDiamondUses;
+
+  /// No description provided for @introDiamondFreeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Add clothes'**
+  String get introDiamondFreeLabel;
+
+  /// No description provided for @introCoinRowOutfit.
+  ///
+  /// In en, this message translates to:
+  /// **'Create an outfit'**
+  String get introCoinRowOutfit;
+
+  /// No description provided for @introCoinRowEnhance.
+  ///
+  /// In en, this message translates to:
+  /// **'Enhance a photo'**
+  String get introCoinRowEnhance;
+
+  /// No description provided for @introCoinRowTryOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Try on'**
+  String get introCoinRowTryOn;
+
+  /// No description provided for @introSlide7Kicker.
+  ///
+  /// In en, this message translates to:
+  /// **'Welcome gift'**
+  String get introSlide7Kicker;
+
+  /// No description provided for @introSlide7Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Get {count} diamonds free'**
+  String introSlide7Title(int count);
+
+  /// No description provided for @introSlide7Subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign up and {count} diamonds are already yours.'**
+  String introSlide7Subtitle(int count);
+
+  /// No description provided for @introSlide7CoinsCaption.
+  ///
+  /// In en, this message translates to:
+  /// **'coins as a gift'**
+  String get introSlide7CoinsCaption;
+
+  /// No description provided for @introSlide7Chip.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} diamonds on your balance'**
+  String introSlide7Chip(int count);
+
+  /// No description provided for @introShopKicker.
+  ///
+  /// In en, this message translates to:
+  /// **'Shop'**
+  String get introShopKicker;
+
+  /// No description provided for @introShopTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Swipe products from brands'**
+  String get introShopTitle;
+
+  /// No description provided for @introShopSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Swipe right on what you like and order from our partner brands.'**
+  String get introShopSubtitle;
+
+  /// No description provided for @introShopItem1Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Women\'s sweatshirt'**
+  String get introShopItem1Title;
+
+  /// No description provided for @introShopItem1Size.
+  ///
+  /// In en, this message translates to:
+  /// **'S, M, L'**
+  String get introShopItem1Size;
+
+  /// No description provided for @introShopItem1Price.
+  ///
+  /// In en, this message translates to:
+  /// **'160,000 UZS'**
+  String get introShopItem1Price;
+
+  /// No description provided for @introShopItem2Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Knit suit with peplum'**
+  String get introShopItem2Title;
+
+  /// No description provided for @introShopItem2Size.
+  ///
+  /// In en, this message translates to:
+  /// **'Size M'**
+  String get introShopItem2Size;
+
+  /// No description provided for @introShopItem2Price.
+  ///
+  /// In en, this message translates to:
+  /// **'700,000 UZS'**
+  String get introShopItem2Price;
+
+  /// No description provided for @introShopItem3Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Elegant sleeveless dress'**
+  String get introShopItem3Title;
+
+  /// No description provided for @introShopItem3Size.
+  ///
+  /// In en, this message translates to:
+  /// **'One size'**
+  String get introShopItem3Size;
+
+  /// No description provided for @introShopItem3Price.
+  ///
+  /// In en, this message translates to:
+  /// **'400,000 UZS'**
+  String get introShopItem3Price;
+
+  /// No description provided for @introShopItem4Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Lace set'**
+  String get introShopItem4Title;
+
+  /// No description provided for @introShopItem4Size.
+  ///
+  /// In en, this message translates to:
+  /// **'S M L XL'**
+  String get introShopItem4Size;
+
+  /// No description provided for @introShopItem4Price.
+  ///
+  /// In en, this message translates to:
+  /// **'250,000 UZS'**
+  String get introShopItem4Price;
+
+  /// No description provided for @introMarketItem1Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Lion trousers'**
+  String get introMarketItem1Title;
+
+  /// No description provided for @introMarketItem1Size.
+  ///
+  /// In en, this message translates to:
+  /// **'48 (L)'**
+  String get introMarketItem1Size;
+
+  /// No description provided for @introMarketItem1Price.
+  ///
+  /// In en, this message translates to:
+  /// **'200,000 UZS'**
+  String get introMarketItem1Price;
+
+  /// No description provided for @introMarketItem2Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Miu Miu slippers'**
+  String get introMarketItem2Title;
+
+  /// No description provided for @introMarketItem2Size.
+  ///
+  /// In en, this message translates to:
+  /// **'Size 40'**
+  String get introMarketItem2Size;
+
+  /// No description provided for @introMarketItem2Price.
+  ///
+  /// In en, this message translates to:
+  /// **'149,000 UZS'**
+  String get introMarketItem2Price;
+
+  /// No description provided for @introMarketItem3Title.
+  ///
+  /// In en, this message translates to:
+  /// **'T-shirt'**
+  String get introMarketItem3Title;
+
+  /// No description provided for @introMarketItem3Size.
+  ///
+  /// In en, this message translates to:
+  /// **'Oversize'**
+  String get introMarketItem3Size;
+
+  /// No description provided for @introMarketItem3Price.
+  ///
+  /// In en, this message translates to:
+  /// **'100,000 UZS'**
+  String get introMarketItem3Price;
+
+  /// No description provided for @introMarketItem4Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Two-piece set'**
+  String get introMarketItem4Title;
+
+  /// No description provided for @introMarketItem4Size.
+  ///
+  /// In en, this message translates to:
+  /// **'44 (S)'**
+  String get introMarketItem4Size;
+
+  /// No description provided for @introMarketItem4Price.
+  ///
+  /// In en, this message translates to:
+  /// **'350,000 UZS'**
+  String get introMarketItem4Price;
+
+  /// No description provided for @introMarketItem5Title.
+  ///
+  /// In en, this message translates to:
+  /// **'YSL heels'**
+  String get introMarketItem5Title;
+
+  /// No description provided for @introMarketItem5Size.
+  ///
+  /// In en, this message translates to:
+  /// **'Size 37'**
+  String get introMarketItem5Size;
+
+  /// No description provided for @introMarketItem5Price.
+  ///
+  /// In en, this message translates to:
+  /// **'600,000 UZS'**
+  String get introMarketItem5Price;
+
+  /// No description provided for @introMarketItem6Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Dress'**
+  String get introMarketItem6Title;
+
+  /// No description provided for @introMarketItem6Size.
+  ///
+  /// In en, this message translates to:
+  /// **'Size 44'**
+  String get introMarketItem6Size;
+
+  /// No description provided for @introMarketItem6Price.
+  ///
+  /// In en, this message translates to:
+  /// **'199,000 UZS'**
+  String get introMarketItem6Price;
+
+  /// No description provided for @introMarketItem7Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Ensemble + veil'**
+  String get introMarketItem7Title;
+
+  /// No description provided for @introMarketItem7Size.
+  ///
+  /// In en, this message translates to:
+  /// **'46 (M)'**
+  String get introMarketItem7Size;
+
+  /// No description provided for @introMarketItem7Price.
+  ///
+  /// In en, this message translates to:
+  /// **'600,000 UZS'**
+  String get introMarketItem7Price;
+
+  /// No description provided for @introSlide6FreeHighlight.
+  ///
+  /// In en, this message translates to:
+  /// **'Adding your own clothes is always free!'**
+  String get introSlide6FreeHighlight;
+
+  /// No description provided for @welcomeGiftTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Welcome!'**
+  String get welcomeGiftTitle;
+
+  /// No description provided for @welcomeGiftSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Let\'s start creating new outfits! You\'ve got {count} diamonds to begin.'**
+  String welcomeGiftSubtitle(int count);
+
+  /// No description provided for @welcomeGiftCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Start'**
+  String get welcomeGiftCta;
 }
 
 class _AppLocalizationsDelegate

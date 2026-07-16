@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:swipe/core/services/app_permissions.dart';
 import 'package:swipe/core/localization/services/language_service.dart';
+import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/core/utils/webview_settings_bridge.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -314,6 +315,61 @@ class _WebViewScreenState extends State<WebViewScreen> {
     return WebViewWidget(controller: _controller);
   }
 
+  /// Full-screen, opaque, localized "no connection" view shown in place of the
+  /// WebView when the main frame fails to load. Opaque background so the
+  /// browser's native error page never shows through.
+  Widget _buildErrorView(bool isDark) {
+    final l10n = AppLocalizations.of(context)!;
+    final bg = isDark ? const Color(0xFF111111) : Colors.white;
+    final fg = isDark ? Colors.white : Colors.black;
+    final subtle = isDark ? Colors.white70 : Colors.black54;
+
+    return Container(
+      color: bg,
+      alignment: Alignment.center,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.wifi_off_rounded, size: 48, color: subtle),
+            const SizedBox(height: 16),
+            Text(
+              l10n.connectionErrorTitle,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: fg,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              l10n.errorGenericSubtitle,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14, color: subtle),
+            ),
+            const SizedBox(height: 20),
+            FilledButton(
+              onPressed: () {
+                setState(() {
+                  _hasError = false;
+                  _isLoading = true;
+                });
+                _controller.reload();
+              },
+              style: FilledButton.styleFrom(
+                backgroundColor: isDark ? Colors.white : Colors.black,
+                foregroundColor: isDark ? Colors.black : Colors.white,
+              ),
+              child: Text(l10n.retry),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // Depend on Theme + Localizations so didChangeDependencies fires (and the
@@ -381,7 +437,11 @@ class _WebViewScreenState extends State<WebViewScreen> {
             padding: EdgeInsets.only(bottom: widget.bottomPadding),
             child: Stack(
               children: [
-                _buildWebViewWidget(),
+                // Hide the WebView entirely while an error is showing. Otherwise
+                // the platform browser's own technical error page (e.g. Android's
+                // "Webpage not available / net::ERR_CONNECTION_ABORTED") renders
+                // underneath and bleeds through around our overlay.
+                if (!_hasError) _buildWebViewWidget(),
                 if (_isLoading)
               const Center(
                 child: CircularProgressIndicator(
@@ -390,30 +450,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
                 ),
               ),
             if (_hasError && !_isLoading)
-              Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.wifi_off_rounded, size: 48),
-                    const SizedBox(height: 16),
-                    const Text('Failed to load page'),
-                    const SizedBox(height: 12),
-                    FilledButton(
-                      onPressed: () {
-                        setState(() {
-                          _hasError = false;
-                          _isLoading = true;
-                        });
-                        _controller.reload();
-                      },
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Colors.black,
-                      ),
-                      child: const Text('Retry'),
-                    ),
-                  ],
-                ),
-              ),
+              _buildErrorView(isDark),
             ],
             ),
           ),

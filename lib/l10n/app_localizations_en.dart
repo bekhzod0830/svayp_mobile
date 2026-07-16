@@ -2909,6 +2909,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get errorRetry => 'Try Again';
 
   @override
+  String get connectionErrorTitle => 'No internet connection';
+
+  @override
   String get vsScanningImage => 'Scanning image';
 
   @override
@@ -3077,4 +3080,257 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get noResultsFound => 'No results found';
+
+  @override
+  String get introSkip => 'Skip';
+
+  @override
+  String get introNext => 'Next';
+
+  @override
+  String get introStart => 'Start';
+
+  @override
+  String get introSlide1Title => 'Your entire wardrobe — in your phone';
+
+  @override
+  String get introSlide1Subtitle =>
+      'Collect your clothes, create outfits and try them on without opening the closet.';
+
+  @override
+  String get introSlide2Kicker => 'Closet';
+
+  @override
+  String get introSlide2Title => 'Create outfits from your own clothes';
+
+  @override
+  String get introSlide2Subtitle =>
+      'Upload your clothes, lay them out on a board and build looks like a stylist — drag, swap, combine.';
+
+  @override
+  String get introSlide3Kicker => 'Try-on';
+
+  @override
+  String get introSlide3Title => 'Try it on yourself or on a mannequin';
+
+  @override
+  String get introSlide3Subtitle =>
+      'Upload a full-body photo and see how the outfit looks on you.';
+
+  @override
+  String get introTryOnMannequin => 'On a mannequin';
+
+  @override
+  String get introTryOnPhoto => 'On my photo';
+
+  @override
+  String get introSlide4Kicker => 'Calendar';
+
+  @override
+  String get introSlide4Title => 'A ready outfit for every day';
+
+  @override
+  String get introSlide4Subtitle =>
+      'We\'ll put together looks for your whole week — all that\'s left is to get dressed.';
+
+  @override
+  String get introThisWeek => 'This week';
+
+  @override
+  String get introSlide5Kicker => 'Market';
+
+  @override
+  String get introSlide5Title => 'Sell and find clothes';
+
+  @override
+  String get introSlide5Subtitle =>
+      'Pass on what didn\'t fit and buy outfits from other girls at a nice price.';
+
+  @override
+  String get introMarketItemTitle => 'Silk blouse';
+
+  @override
+  String get introMarketItemMeta => 'Size M · like new';
+
+  @override
+  String get introMarketItemPrice => '149 000 so\'m';
+
+  @override
+  String get introMarketSellerName => 'Aruzhan';
+
+  @override
+  String get introSlide6Kicker => 'Diamonds';
+
+  @override
+  String get introSlide6Title => 'Diamonds — your creative currency';
+
+  @override
+  String get introSlide6Subtitle =>
+      'Diamonds are the in-app currency. They power AI features like outfit generation, styling and virtual try-on. Adding your own clothes is always free!';
+
+  @override
+  String get introCoinRowUpload => 'Upload clothes';
+
+  @override
+  String get introCoinFree => 'Free';
+
+  @override
+  String get introDiamondUses => 'Looks & try-ons';
+
+  @override
+  String get introDiamondFreeLabel => 'Add clothes';
+
+  @override
+  String get introCoinRowOutfit => 'Create an outfit';
+
+  @override
+  String get introCoinRowEnhance => 'Enhance a photo';
+
+  @override
+  String get introCoinRowTryOn => 'Try on';
+
+  @override
+  String get introSlide7Kicker => 'Welcome gift';
+
+  @override
+  String introSlide7Title(int count) {
+    return 'Get $count diamonds free';
+  }
+
+  @override
+  String introSlide7Subtitle(int count) {
+    return 'Sign up and $count diamonds are already yours.';
+  }
+
+  @override
+  String get introSlide7CoinsCaption => 'coins as a gift';
+
+  @override
+  String introSlide7Chip(int count) {
+    return '$count diamonds on your balance';
+  }
+
+  @override
+  String get introShopKicker => 'Shop';
+
+  @override
+  String get introShopTitle => 'Swipe products from brands';
+
+  @override
+  String get introShopSubtitle =>
+      'Swipe right on what you like and order from our partner brands.';
+
+  @override
+  String get introShopItem1Title => 'Women\'s sweatshirt';
+
+  @override
+  String get introShopItem1Size => 'S, M, L';
+
+  @override
+  String get introShopItem1Price => '160,000 UZS';
+
+  @override
+  String get introShopItem2Title => 'Knit suit with peplum';
+
+  @override
+  String get introShopItem2Size => 'Size M';
+
+  @override
+  String get introShopItem2Price => '700,000 UZS';
+
+  @override
+  String get introShopItem3Title => 'Elegant sleeveless dress';
+
+  @override
+  String get introShopItem3Size => 'One size';
+
+  @override
+  String get introShopItem3Price => '400,000 UZS';
+
+  @override
+  String get introShopItem4Title => 'Lace set';
+
+  @override
+  String get introShopItem4Size => 'S M L XL';
+
+  @override
+  String get introShopItem4Price => '250,000 UZS';
+
+  @override
+  String get introMarketItem1Title => 'Lion trousers';
+
+  @override
+  String get introMarketItem1Size => '48 (L)';
+
+  @override
+  String get introMarketItem1Price => '200,000 UZS';
+
+  @override
+  String get introMarketItem2Title => 'Miu Miu slippers';
+
+  @override
+  String get introMarketItem2Size => 'Size 40';
+
+  @override
+  String get introMarketItem2Price => '149,000 UZS';
+
+  @override
+  String get introMarketItem3Title => 'T-shirt';
+
+  @override
+  String get introMarketItem3Size => 'Oversize';
+
+  @override
+  String get introMarketItem3Price => '100,000 UZS';
+
+  @override
+  String get introMarketItem4Title => 'Two-piece set';
+
+  @override
+  String get introMarketItem4Size => '44 (S)';
+
+  @override
+  String get introMarketItem4Price => '350,000 UZS';
+
+  @override
+  String get introMarketItem5Title => 'YSL heels';
+
+  @override
+  String get introMarketItem5Size => 'Size 37';
+
+  @override
+  String get introMarketItem5Price => '600,000 UZS';
+
+  @override
+  String get introMarketItem6Title => 'Dress';
+
+  @override
+  String get introMarketItem6Size => 'Size 44';
+
+  @override
+  String get introMarketItem6Price => '199,000 UZS';
+
+  @override
+  String get introMarketItem7Title => 'Ensemble + veil';
+
+  @override
+  String get introMarketItem7Size => '46 (M)';
+
+  @override
+  String get introMarketItem7Price => '600,000 UZS';
+
+  @override
+  String get introSlide6FreeHighlight =>
+      'Adding your own clothes is always free!';
+
+  @override
+  String get welcomeGiftTitle => 'Welcome!';
+
+  @override
+  String welcomeGiftSubtitle(int count) {
+    return 'Let\'s start creating new outfits! You\'ve got $count diamonds to begin.';
+  }
+
+  @override
+  String get welcomeGiftCta => 'Start';
 }

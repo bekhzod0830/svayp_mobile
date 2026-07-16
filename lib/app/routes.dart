@@ -11,25 +11,29 @@ import 'package:swipe/features/auth/presentation/screens/auth_web_view_screen.da
 import 'package:swipe/features/auth/presentation/screens/partner_login_screen.dart'; // kept — not used in new flow
 import 'package:swipe/features/partner/presentation/screens/partner_main_screen.dart';
 import 'package:swipe/features/onboarding/presentation/screens/basic_info_screen.dart';
-import 'package:swipe/features/onboarding/presentation/screens/hijab_preference_screen.dart';
+import 'package:swipe/features/onboarding/presentation/screens/intro_onboarding_screen.dart';
+// DISABLED 2026-07: the post-registration preference funnel was replaced by
+// the /intro-onboarding carousel + a single /basic-info step (v2 profile).
+// Screen files are kept on disk for possible revival.
+// import 'package:swipe/features/onboarding/presentation/screens/hijab_preference_screen.dart'; // DISABLED 2026-07
 // import 'package:swipe/features/onboarding/presentation/screens/primary_objective_screen.dart'; // DISABLED
-import 'package:swipe/features/onboarding/presentation/screens/fit_preference_screen.dart';
-import 'package:swipe/features/onboarding/presentation/screens/modesty_level_screen.dart';
-import 'package:swipe/features/onboarding/presentation/screens/size_profile_screen.dart';
+// import 'package:swipe/features/onboarding/presentation/screens/fit_preference_screen.dart'; // DISABLED 2026-07
+// import 'package:swipe/features/onboarding/presentation/screens/modesty_level_screen.dart'; // DISABLED 2026-07
+// import 'package:swipe/features/onboarding/presentation/screens/size_profile_screen.dart'; // DISABLED 2026-07
 // import 'package:swipe/features/onboarding/presentation/screens/body_type_screen.dart'; // REMOVED FROM FLOW
 // import 'package:swipe/features/onboarding/presentation/screens/sizes_screen.dart'; // REMOVED FROM FLOW
 // import 'package:swipe/features/onboarding/presentation/screens/budget_preference_screen.dart'; // REMOVED FROM FLOW
-import 'package:swipe/features/onboarding/presentation/screens/style_quiz_screen.dart';
-import 'package:swipe/features/onboarding/presentation/screens/tutorial_screen.dart';
-import 'package:swipe/features/onboarding/presentation/screens/avoided_items_screen.dart';
-import 'package:swipe/features/onboarding/presentation/screens/avoided_shoes_screen.dart';
+// import 'package:swipe/features/onboarding/presentation/screens/style_quiz_screen.dart'; // DISABLED 2026-07
+// import 'package:swipe/features/onboarding/presentation/screens/tutorial_screen.dart'; // DISABLED 2026-07
+// import 'package:swipe/features/onboarding/presentation/screens/avoided_items_screen.dart'; // DISABLED 2026-07
+// import 'package:swipe/features/onboarding/presentation/screens/avoided_shoes_screen.dart'; // DISABLED 2026-07
 // import 'package:swipe/features/onboarding/presentation/screens/avoided_colors_screen.dart'; // DISABLED
-import 'package:swipe/features/onboarding/presentation/screens/avoided_prints_screen.dart';
+// import 'package:swipe/features/onboarding/presentation/screens/avoided_prints_screen.dart'; // DISABLED 2026-07
 // import 'package:swipe/features/onboarding/presentation/screens/budget_by_items_screen.dart'; // REMOVED FROM FLOW
 // import 'package:swipe/features/onboarding/presentation/screens/style_categories_screen.dart'; // REMOVED FROM FLOW
 // import 'package:swipe/features/onboarding/presentation/screens/brand_preferences_screen.dart'; // DISABLED
-import 'package:swipe/features/onboarding/presentation/screens/onboarding_completion_screen.dart';
-import 'package:swipe/features/onboarding/presentation/screens/section_intent_screen.dart';
+// import 'package:swipe/features/onboarding/presentation/screens/onboarding_completion_screen.dart'; // DISABLED 2026-07
+// import 'package:swipe/features/onboarding/presentation/screens/section_intent_screen.dart'; // DISABLED 2026-07
 import 'package:swipe/features/main/presentation/screens/main_screen.dart';
 import 'package:swipe/features/profile/presentation/screens/notifications_screen.dart';
 import 'package:swipe/features/profile/presentation/screens/notification_preferences_screen.dart';
@@ -45,6 +49,7 @@ class AppRoutes {
 
   // Route names
   static const String splash = '/';
+  static const String introOnboarding = '/intro-onboarding';
   static const String welcome = '/welcome';
   static const String phoneAuth = '/phone-auth';
   static const String verifyMethod = '/verify-method';
@@ -112,6 +117,9 @@ class AppRoutes {
           builder: (_) => const ServerMaintenanceScreen(),
         );
 
+      case introOnboarding:
+        return MaterialPageRoute(builder: (_) => const IntroOnboardingScreen());
+
       case welcome:
         return MaterialPageRoute(builder: (_) => const WelcomeScreen());
 
@@ -151,11 +159,11 @@ class AppRoutes {
           settings: settings,
         );
 
-      case hijabPreference:
-        return MaterialPageRoute(
-          builder: (_) => const HijabPreferenceScreen(),
-          settings: settings,
-        );
+      // case hijabPreference: // DISABLED 2026-07 — funnel replaced by /basic-info only
+      //   return MaterialPageRoute(
+      //     builder: (_) => const HijabPreferenceScreen(),
+      //     settings: settings,
+      //   );
 
       // case primaryObjective: // DISABLED
       //   return MaterialPageRoute(
@@ -163,23 +171,23 @@ class AppRoutes {
       //     settings: settings,
       //   );
 
-      case fitPreference:
-        return MaterialPageRoute(
-          builder: (_) => const FitPreferenceScreen(),
-          settings: settings,
-        );
+      // case fitPreference: // DISABLED 2026-07
+      //   return MaterialPageRoute(
+      //     builder: (_) => const FitPreferenceScreen(),
+      //     settings: settings,
+      //   );
 
-      case modestyLevel:
-        return MaterialPageRoute(
-          builder: (_) => const ModestyLevelScreen(),
-          settings: settings,
-        );
+      // case modestyLevel: // DISABLED 2026-07
+      //   return MaterialPageRoute(
+      //     builder: (_) => const ModestyLevelScreen(),
+      //     settings: settings,
+      //   );
 
-      case sizeProfile:
-        return MaterialPageRoute(
-          builder: (_) => const SizeProfileScreen(),
-          settings: settings,
-        );
+      // case sizeProfile: // DISABLED 2026-07
+      //   return MaterialPageRoute(
+      //     builder: (_) => const SizeProfileScreen(),
+      //     settings: settings,
+      //   );
 
       // case bodyType: // REMOVED FROM FLOW
       //   return MaterialPageRoute(
@@ -198,11 +206,11 @@ class AppRoutes {
       //     builder: (_) => const BudgetPreferenceScreen(),
       //   );
 
-      case styleQuiz:
-        return MaterialPageRoute(
-          builder: (_) => const StyleQuizScreen(),
-          settings: settings,
-        );
+      // case styleQuiz: // DISABLED 2026-07
+      //   return MaterialPageRoute(
+      //     builder: (_) => const StyleQuizScreen(),
+      //     settings: settings,
+      //   );
 
       // case styleCategories: // REMOVED FROM FLOW
       //   return MaterialPageRoute(builder: (_) => const StyleCategoriesScreen());
@@ -215,33 +223,33 @@ class AppRoutes {
       //     builder: (_) => const BrandPreferencesScreen(),
       //   );
 
-      case onboardingCompletion:
-        return MaterialPageRoute(
-          builder: (_) => const OnboardingCompletionScreen(),
-        );
+      // case onboardingCompletion: // DISABLED 2026-07
+      //   return MaterialPageRoute(
+      //     builder: (_) => const OnboardingCompletionScreen(),
+      //   );
 
-      case sectionIntent:
-        return MaterialPageRoute(
-          builder: (_) => const SectionIntentScreen(),
-        );
+      // case sectionIntent: // DISABLED 2026-07
+      //   return MaterialPageRoute(
+      //     builder: (_) => const SectionIntentScreen(),
+      //   );
 
-      case tutorial:
-        return MaterialPageRoute(
-          builder: (_) => const TutorialScreen(),
-          settings: settings,
-        );
+      // case tutorial: // DISABLED 2026-07
+      //   return MaterialPageRoute(
+      //     builder: (_) => const TutorialScreen(),
+      //     settings: settings,
+      //   );
 
-      case avoidedItems:
-        return MaterialPageRoute(builder: (_) => const AvoidedItemsScreen());
+      // case avoidedItems: // DISABLED 2026-07
+      //   return MaterialPageRoute(builder: (_) => const AvoidedItemsScreen());
 
-      case avoidedShoes:
-        return MaterialPageRoute(builder: (_) => const AvoidedShoesScreen());
+      // case avoidedShoes: // DISABLED 2026-07
+      //   return MaterialPageRoute(builder: (_) => const AvoidedShoesScreen());
 
       // case avoidedColors: // DISABLED
       //   return MaterialPageRoute(builder: (_) => const AvoidedColorsScreen());
 
-      case avoidedPrints:
-        return MaterialPageRoute(builder: (_) => const AvoidedPrintsScreen());
+      // case avoidedPrints: // DISABLED 2026-07
+      //   return MaterialPageRoute(builder: (_) => const AvoidedPrintsScreen());
 
       // case budgetByItems: // REMOVED FROM FLOW
       //   return MaterialPageRoute(builder: (_) => const BudgetByItemsScreen());
@@ -278,11 +286,17 @@ class AppRoutes {
 
       case main:
         final mainArgs = settings.arguments as Map<String, dynamic>?;
-        // Default landing tab = Feed (Лента, index 0) — see Feed plan: it is the
-        // first screen users see after registration/login to drive engagement.
-        final initialIndex = mainArgs?['initialIndex'] as int? ?? 0;
+        // Default landing tab = Closet (index 1). The Feed tab is disabled from
+        // the nav bar this release, so Closet is the first tab users land on;
+        // its WebView shows the "Welcome to Libas AI" guided flow on first open.
+        // Guests are routed to Discover (index 5) explicitly by their callers.
+        final initialIndex = mainArgs?['initialIndex'] as int? ?? 1;
+        final showWelcomeGift = mainArgs?['showWelcomeGift'] as bool? ?? false;
         return MaterialPageRoute(
-          builder: (_) => MainScreen(initialIndex: initialIndex),
+          builder: (_) => MainScreen(
+            initialIndex: initialIndex,
+            showWelcomeGift: showWelcomeGift,
+          ),
         );
 
       case orderDetail:

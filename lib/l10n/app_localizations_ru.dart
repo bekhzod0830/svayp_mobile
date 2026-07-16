@@ -2931,6 +2931,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get errorRetry => 'Повторить';
 
   @override
+  String get connectionErrorTitle => 'Нет подключения к интернету';
+
+  @override
   String get vsScanningImage => 'Сканирование фото';
 
   @override
@@ -3099,4 +3102,257 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get noResultsFound => 'Ничего не найдено';
+
+  @override
+  String get introSkip => 'Пропустить';
+
+  @override
+  String get introNext => 'Далее';
+
+  @override
+  String get introStart => 'Начать';
+
+  @override
+  String get introSlide1Title => 'Весь твой гардероб — в телефоне';
+
+  @override
+  String get introSlide1Subtitle =>
+      'Собирай вещи, создавай образы и примеряй их на себе — не открывая шкаф.';
+
+  @override
+  String get introSlide2Kicker => 'Гардероб';
+
+  @override
+  String get introSlide2Title => 'Создавай образы из своих вещей';
+
+  @override
+  String get introSlide2Subtitle =>
+      'Загрузи одежду, разложи её на доске и собирай образы как стилист: перетаскивай, меняй, комбинируй.';
+
+  @override
+  String get introSlide3Kicker => 'Примерка';
+
+  @override
+  String get introSlide3Title => 'Примерь на себе или на манекене';
+
+  @override
+  String get introSlide3Subtitle =>
+      'Загрузи фото в полный рост и посмотри, как наряд сидит именно на тебе.';
+
+  @override
+  String get introTryOnMannequin => 'На манекен';
+
+  @override
+  String get introTryOnPhoto => 'На своё фото';
+
+  @override
+  String get introSlide4Kicker => 'Календарь';
+
+  @override
+  String get introSlide4Title => 'Готовый образ на каждый день';
+
+  @override
+  String get introSlide4Subtitle =>
+      'Мы соберём образы на всю неделю — тебе останется только одеться.';
+
+  @override
+  String get introThisWeek => 'Эта неделя';
+
+  @override
+  String get introSlide5Kicker => 'Маркет';
+
+  @override
+  String get introSlide5Title => 'Продавай и покупай вещи';
+
+  @override
+  String get introSlide5Subtitle =>
+      'Отдавай то, что не подошло, и покупай наряды у других девушек по приятной цене.';
+
+  @override
+  String get introMarketItemTitle => 'Блуза шёлк';
+
+  @override
+  String get introMarketItemMeta => 'Размер M · как новое';
+
+  @override
+  String get introMarketItemPrice => '149 000 сум';
+
+  @override
+  String get introMarketSellerName => 'Аружан';
+
+  @override
+  String get introSlide6Kicker => 'Алмазы';
+
+  @override
+  String get introSlide6Title => 'Алмазы — валюта для творчества';
+
+  @override
+  String get introSlide6Subtitle =>
+      'Алмазы — внутренняя валюта приложения. Они нужны для ИИ-функций: подбора одежды, создания образов и виртуальной примерки. А добавлять свою одежду — всегда бесплатно!';
+
+  @override
+  String get introCoinRowUpload => 'Загрузить одежду';
+
+  @override
+  String get introCoinFree => 'Бесплатно';
+
+  @override
+  String get introDiamondUses => 'Образы и примерки';
+
+  @override
+  String get introDiamondFreeLabel => 'Добавить одежду';
+
+  @override
+  String get introCoinRowOutfit => 'Собрать образ';
+
+  @override
+  String get introCoinRowEnhance => 'Улучшить фото';
+
+  @override
+  String get introCoinRowTryOn => 'Примерить';
+
+  @override
+  String get introSlide7Kicker => 'Подарок на старт';
+
+  @override
+  String introSlide7Title(int count) {
+    return 'Дарим $count алмазов';
+  }
+
+  @override
+  String introSlide7Subtitle(int count) {
+    return 'Зарегистрируйся — и $count алмазов уже будут на балансе.';
+  }
+
+  @override
+  String get introSlide7CoinsCaption => 'монет в подарок';
+
+  @override
+  String introSlide7Chip(int count) {
+    return '$count алмазов уже на балансе';
+  }
+
+  @override
+  String get introShopKicker => 'Магазин';
+
+  @override
+  String get introShopTitle => 'Свайпай товары брендов';
+
+  @override
+  String get introShopSubtitle =>
+      'Смахивай вправо то, что понравилось, и заказывай напрямую у брендов-партнёров.';
+
+  @override
+  String get introShopItem1Title => 'Женский свитшот';
+
+  @override
+  String get introShopItem1Size => 'S, M, L';
+
+  @override
+  String get introShopItem1Price => '160 000 сум';
+
+  @override
+  String get introShopItem2Title => 'Вязаный костюм с баской';
+
+  @override
+  String get introShopItem2Size => 'Размер M';
+
+  @override
+  String get introShopItem2Price => '700 000 сум';
+
+  @override
+  String get introShopItem3Title => 'Элегантное платье без рукавов';
+
+  @override
+  String get introShopItem3Size => 'Единый размер';
+
+  @override
+  String get introShopItem3Price => '400 000 сум';
+
+  @override
+  String get introShopItem4Title => 'Кружевной комплект';
+
+  @override
+  String get introShopItem4Size => 'S M L XL';
+
+  @override
+  String get introShopItem4Price => '250 000 сум';
+
+  @override
+  String get introMarketItem1Title => 'Штаны Lion';
+
+  @override
+  String get introMarketItem1Size => '48 (L)';
+
+  @override
+  String get introMarketItem1Price => '200 000 сум';
+
+  @override
+  String get introMarketItem2Title => 'Тапочки Miu Miu';
+
+  @override
+  String get introMarketItem2Size => '40 размер';
+
+  @override
+  String get introMarketItem2Price => '149 000 сум';
+
+  @override
+  String get introMarketItem3Title => 'Футболка';
+
+  @override
+  String get introMarketItem3Size => 'Оверсайз';
+
+  @override
+  String get introMarketItem3Price => '100 000 сум';
+
+  @override
+  String get introMarketItem4Title => 'Двойка';
+
+  @override
+  String get introMarketItem4Size => '44 (S)';
+
+  @override
+  String get introMarketItem4Price => '350 000 сум';
+
+  @override
+  String get introMarketItem5Title => 'Туфли YSL';
+
+  @override
+  String get introMarketItem5Size => 'Размер 37';
+
+  @override
+  String get introMarketItem5Price => '600 000 сум';
+
+  @override
+  String get introMarketItem6Title => 'Платье';
+
+  @override
+  String get introMarketItem6Size => 'Размер 44';
+
+  @override
+  String get introMarketItem6Price => '199 000 сум';
+
+  @override
+  String get introMarketItem7Title => 'Ансамбль + фата';
+
+  @override
+  String get introMarketItem7Size => '46 (M)';
+
+  @override
+  String get introMarketItem7Price => '600 000 сум';
+
+  @override
+  String get introSlide6FreeHighlight =>
+      'добавлять свою одежду — всегда бесплатно!';
+
+  @override
+  String get welcomeGiftTitle => 'Добро пожаловать!';
+
+  @override
+  String welcomeGiftSubtitle(int count) {
+    return 'Давай создавать новые образы! На балансе $count алмазов.';
+  }
+
+  @override
+  String get welcomeGiftCta => 'Начать';
 }

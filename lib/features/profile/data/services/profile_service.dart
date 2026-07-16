@@ -45,6 +45,28 @@ class ProfileService {
     }
   }
 
+  /// Create user profile — v2 (simplified registration).
+  ///
+  /// POST /api/v2/users/profile with only name + date of birth + gender;
+  /// measurements and style preferences are no longer collected at
+  /// registration (they moved to the in-product Libas AI guided flow).
+  /// Returns 201 on success; a 409 PROFILE_ALREADY_EXISTS means the profile
+  /// was created earlier — callers should treat it as success (idempotent).
+  Future<void> createProfileV2({
+    required String fullName,
+    required String dateOfBirth, // YYYY-MM-DD
+    required String gender, // 'FEMALE' | 'MALE'
+  }) async {
+    await _apiClient.post(
+      ApiConfig.userProfileV2,
+      data: {
+        'fullName': fullName,
+        'dateOfBirth': dateOfBirth,
+        'gender': gender,
+      },
+    );
+  }
+
   /// Get user profile
   ///
   /// Retrieves the current user's complete profile from the backend

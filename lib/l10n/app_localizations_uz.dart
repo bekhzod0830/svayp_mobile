@@ -2949,6 +2949,9 @@ class AppLocalizationsUz extends AppLocalizations {
   String get errorRetry => 'Qayta urinish';
 
   @override
+  String get connectionErrorTitle => 'Internet aloqasi yo\'q';
+
+  @override
   String get vsScanningImage => 'Rasm skanlanmoqda';
 
   @override
@@ -3118,4 +3121,257 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get noResultsFound => 'Hech narsa topilmadi';
+
+  @override
+  String get introSkip => 'O\'tkazib yuborish';
+
+  @override
+  String get introNext => 'Keyingi';
+
+  @override
+  String get introStart => 'Boshlash';
+
+  @override
+  String get introSlide1Title => 'Butun garderobingiz — telefoningizda';
+
+  @override
+  String get introSlide1Subtitle =>
+      'Kiyimlaringizni yig\'ing, obraz yarating va shkafni ochmasdan kiyib ko\'ring.';
+
+  @override
+  String get introSlide2Kicker => 'Garderob';
+
+  @override
+  String get introSlide2Title => 'O\'z kiyimlaringizdan obrazlar yarating';
+
+  @override
+  String get introSlide2Subtitle =>
+      'Kiyimlaringizni yuklang, doskada terib chiqing va stilistdek obraz yig\'ing — suring, almashtiring, birlashtiring.';
+
+  @override
+  String get introSlide3Kicker => 'Kiyib ko\'rish';
+
+  @override
+  String get introSlide3Title => 'O\'zingizda yoki manekenda kiyib ko\'ring';
+
+  @override
+  String get introSlide3Subtitle =>
+      'To\'liq bo\'y suratingizni yuklang va libos sizga qanday yarashishini ko\'ring.';
+
+  @override
+  String get introTryOnMannequin => 'Manekenda';
+
+  @override
+  String get introTryOnPhoto => 'O\'z suratimda';
+
+  @override
+  String get introSlide4Kicker => 'Kalendar';
+
+  @override
+  String get introSlide4Title => 'Har kunga tayyor obraz';
+
+  @override
+  String get introSlide4Subtitle =>
+      'Butun haftaga obrazlarni o\'zimiz tayyorlab qo\'yamiz — sizga faqat kiyinish qoladi.';
+
+  @override
+  String get introThisWeek => 'Bu hafta';
+
+  @override
+  String get introSlide5Kicker => 'Market';
+
+  @override
+  String get introSlide5Title => 'Kiyim soting va sotib oling';
+
+  @override
+  String get introSlide5Subtitle =>
+      'O\'zingizga to\'g\'ri kelmagan kiyimni soting, boshqa qizlardan esa liboslarni arzon narxda sotib oling.';
+
+  @override
+  String get introMarketItemTitle => 'Ipak bluza';
+
+  @override
+  String get introMarketItemMeta => 'O\'lcham M · yangidek';
+
+  @override
+  String get introMarketItemPrice => '149 000 so\'m';
+
+  @override
+  String get introMarketSellerName => 'Aruzhan';
+
+  @override
+  String get introSlide6Kicker => 'Olmoslar';
+
+  @override
+  String get introSlide6Title => 'Olmoslar — sizning ijod valyutangiz';
+
+  @override
+  String get introSlide6Subtitle =>
+      'Olmoslar — ilovadagi maxsus valyuta. Ular sun\'iy intellekt yordamida kiyim tanlash, obraz yaratish va virtual kiyib ko\'rish uchun ishlatiladi. O\'z kiyimlaringizni qo\'shish har doim bepul!';
+
+  @override
+  String get introCoinRowUpload => 'Kiyim yuklash';
+
+  @override
+  String get introCoinFree => 'Bepul';
+
+  @override
+  String get introDiamondUses => 'Obraz va kiyib ko\'rish';
+
+  @override
+  String get introDiamondFreeLabel => 'Kiyim qo\'shish';
+
+  @override
+  String get introCoinRowOutfit => 'Obraz yig\'ish';
+
+  @override
+  String get introCoinRowEnhance => 'Suratni yaxshilash';
+
+  @override
+  String get introCoinRowTryOn => 'Kiyib ko\'rish';
+
+  @override
+  String get introSlide7Kicker => 'Boshlang\'ich sovg\'a';
+
+  @override
+  String introSlide7Title(int count) {
+    return '$count olmos sovg\'a qilamiz';
+  }
+
+  @override
+  String introSlide7Subtitle(int count) {
+    return 'Ro\'yxatdan o\'ting — $count olmos hisobingizda tayyor turadi.';
+  }
+
+  @override
+  String get introSlide7CoinsCaption => 'tanga sovg\'a';
+
+  @override
+  String introSlide7Chip(int count) {
+    return '$count olmos hisobingizda';
+  }
+
+  @override
+  String get introShopKicker => 'Do\'kon';
+
+  @override
+  String get introShopTitle => 'Brendlar mahsulotlarini svayp qiling';
+
+  @override
+  String get introShopSubtitle =>
+      'Yoqqan kiyimni o\'ngga suring va hamkor brendlardan to\'g\'ridan-to\'g\'ri buyurtma bering.';
+
+  @override
+  String get introShopItem1Title => 'Ayollar svitshoti';
+
+  @override
+  String get introShopItem1Size => 'S, M, L';
+
+  @override
+  String get introShopItem1Price => '160 000 so\'m';
+
+  @override
+  String get introShopItem2Title => 'To\'qima kostyum';
+
+  @override
+  String get introShopItem2Size => 'M o\'lcham';
+
+  @override
+  String get introShopItem2Price => '700 000 so\'m';
+
+  @override
+  String get introShopItem3Title => 'Yengsiz nafis ko\'ylak';
+
+  @override
+  String get introShopItem3Size => 'Yagona o\'lcham';
+
+  @override
+  String get introShopItem3Price => '400 000 so\'m';
+
+  @override
+  String get introShopItem4Title => 'Dantelli komplekt';
+
+  @override
+  String get introShopItem4Size => 'S M L XL';
+
+  @override
+  String get introShopItem4Price => '250 000 so\'m';
+
+  @override
+  String get introMarketItem1Title => 'Lion ishton';
+
+  @override
+  String get introMarketItem1Size => '48 (L)';
+
+  @override
+  String get introMarketItem1Price => '200 000 so\'m';
+
+  @override
+  String get introMarketItem2Title => 'Miu Miu shippagi';
+
+  @override
+  String get introMarketItem2Size => '40 o\'lcham';
+
+  @override
+  String get introMarketItem2Price => '149 000 so\'m';
+
+  @override
+  String get introMarketItem3Title => 'Futbolka';
+
+  @override
+  String get introMarketItem3Size => 'Oversayz';
+
+  @override
+  String get introMarketItem3Price => '100 000 so\'m';
+
+  @override
+  String get introMarketItem4Title => 'Ikkilik kostyum';
+
+  @override
+  String get introMarketItem4Size => '44 (S)';
+
+  @override
+  String get introMarketItem4Price => '350 000 so\'m';
+
+  @override
+  String get introMarketItem5Title => 'YSL tuflisi';
+
+  @override
+  String get introMarketItem5Size => '37 o\'lcham';
+
+  @override
+  String get introMarketItem5Price => '600 000 so\'m';
+
+  @override
+  String get introMarketItem6Title => 'Ko\'ylak';
+
+  @override
+  String get introMarketItem6Size => '44 o\'lcham';
+
+  @override
+  String get introMarketItem6Price => '199 000 so\'m';
+
+  @override
+  String get introMarketItem7Title => 'Ansambl + fata';
+
+  @override
+  String get introMarketItem7Size => '46 (M)';
+
+  @override
+  String get introMarketItem7Price => '600 000 so\'m';
+
+  @override
+  String get introSlide6FreeHighlight =>
+      'O\'z kiyimlaringizni qo\'shish har doim bepul!';
+
+  @override
+  String get welcomeGiftTitle => 'Xush kelibsiz!';
+
+  @override
+  String welcomeGiftSubtitle(int count) {
+    return 'Keling, yangi obrazlar yaratishni boshlaymiz! Hisobingizda $count olmos bor.';
+  }
+
+  @override
+  String get welcomeGiftCta => 'Boshlash';
 }
