@@ -539,13 +539,40 @@ class ApiClient {
       );
     }
 
+    // Coins paywall (402 INSUFFICIENT_COINS): backend body is
+    // { error: { code, message, details:[{field:"required"...},{field:"balance"...}] } }.
+    // Surface code + amounts so the UI can open the buy-coins flow.
+    String? errorCode;
+    int? requiredCoins;
+    int? balanceCoins;
+    try {
+      final data = response.data;
+      if (data is Map && data['error'] is Map) {
+        final err = data['error'] as Map;
+        errorCode = err['code']?.toString();
+        final details = err['details'];
+        if (details is List) {
+          for (final d in details) {
+            if (d is Map) {
+              final field = d['field']?.toString();
+              final raw = d['rejectedValue'];
+              final val = raw is int ? raw : int.tryParse('${raw ?? ''}');
+              if (field == 'required') requiredCoins = val;
+              if (field == 'balance') balanceCoins = val;
+            }
+          }
+        }
+      }
+    } catch (_) {/* ignore parse issues */}
+
     // For 4xx errors, try to extract a meaningful message from the response body
     try {
       if (response.data is Map) {
+        final err = response.data['error'];
         message =
             response.data['detail'] ??
             response.data['message'] ??
-            response.data['error'] ??
+            (err is Map ? err['message']?.toString() : (err is String ? err : null)) ??
             'An error occurred';
       } else {
         message = response.data?.toString() ?? 'An error occurred';
@@ -570,6 +597,11 @@ class ApiClient {
       case 404:
         message = 'Resource not found';
         break;
+      case 402:
+        message = message.isEmpty || message == 'An error occurred'
+            ? 'Not enough coins for this action.'
+            : message;
+        break;
       case 429:
         message = 'Too many requests. Please wait a moment and try again.';
         break;
@@ -579,6 +611,9 @@ class ApiClient {
       message: message,
       statusCode: statusCode,
       response: response,
+      code: errorCode,
+      requiredCoins: requiredCoins,
+      balanceCoins: balanceCoins,
     );
   }
 }
@@ -589,11 +624,27 @@ class ApiException implements Exception {
   final int statusCode;
   final Response? response;
 
+  /// Machine-readable error code from the backend body (e.g. INSUFFICIENT_COINS).
+  final String? code;
+
+  /// Coins paywall context (402 INSUFFICIENT_COINS) — how many coins were needed
+  /// and the current balance. Null for other errors.
+  final int? requiredCoins;
+  final int? balanceCoins;
+
   ApiException({
     required this.message,
     required this.statusCode,
     this.response,
+    this.code,
+    this.requiredCoins,
+    this.balanceCoins,
   });
+
+  /// True when the action failed because the user has too few coins — the UI
+  /// should open the buy-coins flow instead of showing a generic error.
+  bool get isInsufficientCoins =>
+      statusCode == 402 || code == 'INSUFFICIENT_COINS';
 
   @override
   String toString() => message;

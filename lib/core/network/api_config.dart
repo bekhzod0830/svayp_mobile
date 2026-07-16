@@ -118,6 +118,14 @@ class ApiConfig {
   // ==================== Upload Endpoints ====================
   static const String uploadImage = '/upload/image';
 
+  // ==================== Try-on Endpoints (примерка товаров) ====================
+  /// Submit a try-on job. Body: { productIds:[...], personImageKey?, idempotencyKey }.
+  static const String tryOn = '/outfits/try-on';
+  /// Poll job status: GET /outfits/try-on/{id}.
+  static const String tryOnDetail = '/outfits/try-on/{id}';
+  /// Presigned PUT URL for the user's own photo (person try-on mode).
+  static const String tryOnModelImageUrl = '/outfits/try-on/model-image-url';
+
   /// Build full URL
   static String buildUrl(String endpoint) {
     return '$apiBaseUrl$endpoint';

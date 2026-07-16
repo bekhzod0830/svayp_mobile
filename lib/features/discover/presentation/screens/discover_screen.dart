@@ -15,6 +15,7 @@ import 'package:swipe/features/discover/presentation/widgets/swipeable_product_c
 import 'package:swipe/features/cart/data/services/cart_service.dart';
 import 'package:swipe/features/liked/data/services/liked_service.dart';
 import 'package:swipe/features/product/presentation/screens/product_detail_screen.dart';
+import 'package:swipe/features/tryon/presentation/tryon_sheet.dart';
 import 'package:swipe/core/services/product_api_service.dart';
 import 'package:swipe/core/models/product.dart' as api_models;
 import 'package:swipe/core/services/recommendation_cache_service.dart';
@@ -931,6 +932,19 @@ class DiscoverScreenState extends State<DiscoverScreen> {
     }
   }
 
+  /// Открыть примерку текущего верхнего товара (Блок 6 — нативная примерка).
+  void _onTryOn() {
+    if (_currentCardIndex >= _products.length) return;
+    final product = _products[_currentCardIndex];
+    if (!product.catalogReady) return; // курируемый набор — только готовые товары
+    HapticFeedback.selectionClick();
+    showProductTryOnSheet(
+      context,
+      productId: product.id,
+      previewImage: product.images.isNotEmpty ? product.images.first : null,
+    );
+  }
+
   void _onUndo() {
     if (_swipeHistory.isEmpty) return;
 
@@ -1270,6 +1284,27 @@ class DiscoverScreenState extends State<DiscoverScreen> {
                   onPressed: _swipeHistory.isEmpty ? null : _onUndo,
                 ),
               ),
+              const SizedBox(width: 12),
+              // Try on — примерка товара (манекен / на своём фото). Курируемый
+              // набор (Вариант A): активна только для предобработанных товаров.
+              Builder(builder: (_) {
+                final ready = _currentCardIndex < _products.length &&
+                    _products[_currentCardIndex].catalogReady;
+                return SizedBox(
+                  width: 56,
+                  child: _ActionButton(
+                    icon: Icons.checkroom_rounded,
+                    color: Colors.white,
+                    backgroundColor: ready
+                        ? const Color(0xFFF370A7)
+                        : const Color(0xFFF370A7).withValues(alpha: 0.35),
+                    borderColor: Colors.transparent,
+                    size: 56,
+                    isCompact: true,
+                    onPressed: ready ? _onTryOn : null,
+                  ),
+                );
+              }),
               const SizedBox(width: 12),
               // Dislike — dark mode: dark-grey bg + white icon + subtle border | light mode: white bg + black icon
               Expanded(

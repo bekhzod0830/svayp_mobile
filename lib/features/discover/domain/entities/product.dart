@@ -25,6 +25,8 @@ class Product {
   final String? fitMatch; // AI fit indicator text
   final String? styleMatch; // AI style match text
   final bool inStock;
+  /// true = товар предобработан бэкфиллом (есть каноничная вещь) → доступна примерка.
+  final bool catalogReady;
   final String? productUrl; // External link to product
   final String? countryOfOrigin; // Country where product is made
   final Map<String, String> titleLocalized;
@@ -56,6 +58,7 @@ class Product {
     this.fitMatch,
     this.styleMatch,
     this.inStock = true,
+    this.catalogReady = false,
     this.productUrl,
     this.countryOfOrigin,
     this.titleLocalized = const {},
@@ -116,6 +119,7 @@ class Product {
       sellerId: json['seller_id'] as String? ?? json['sellerId'] as String?,
       isNew: json['is_new'] as bool? ?? false,
       isFeatured: json['is_featured'] as bool? ?? false,
+      catalogReady: json['catalog_ready'] as bool? ?? false,
       discountPercentage: json['discount_percentage'] as int?,
       originalPrice: json['original_price'] as int?,
       fitMatch: json['fit_match'] as String?,
