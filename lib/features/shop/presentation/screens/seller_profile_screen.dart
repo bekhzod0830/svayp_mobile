@@ -905,13 +905,13 @@ class _TikTokProductCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                  // Try-on pill (top-right) — label + diamond cost, same as the
-                  // discovery deck.
+                  // Try-on pill — bottom-right of the image (matches discovery).
                   Positioned(
-                    top: 8,
                     right: 8,
+                    bottom: 8,
                     child: TryOnPill(
                       compact: true,
+                      showCost: false,
                       onTap: () => _handleTryOn(context),
                     ),
                   ),

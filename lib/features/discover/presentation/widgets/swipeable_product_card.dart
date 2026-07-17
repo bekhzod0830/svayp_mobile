@@ -637,6 +637,17 @@ class SwipeableProductCardState extends State<SwipeableProductCard>
                             child: Center(child: _buildNavArrow(isLeft: false)),
                           ),
                       ],
+
+                      // Try-on pill — bottom-right of the image (top card only).
+                      if (widget.isTopCard && widget.onTryOn != null)
+                        Positioned(
+                          right: 12,
+                          bottom: 12,
+                          child: TryOnPill(
+                            onTap: widget.onTryOn,
+                            showCost: false,
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -664,15 +675,6 @@ class SwipeableProductCardState extends State<SwipeableProductCard>
             // ── Swipe direction overlay (full card) ──
             if (widget.isTopCard && _swipeDirection != null)
               Positioned.fill(child: _buildSwipeOverlay()),
-
-            // ── Try-on pill (top-right) — mirrors the web closet's top-right
-            // action pill: label + diamond cost. Shown on every top card.
-            if (widget.isTopCard && widget.onTryOn != null)
-              Positioned(
-                top: 12,
-                right: 12,
-                child: TryOnPill(onTap: widget.onTryOn),
-              ),
           ],
         ),
       ),

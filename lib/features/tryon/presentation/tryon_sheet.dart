@@ -189,19 +189,25 @@ class _TryOnSheetState extends State<_TryOnSheet> {
   Widget _body(bool isDark, Color ink, Color sub) {
     switch (_phase) {
       case _Phase.working:
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 48),
-          child: Column(children: [
-            const SizedBox(
-              width: 46, height: 46,
-              child: CircularProgressIndicator(color: _pink, strokeWidth: 3),
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: SizedBox(
+                height: 240,
+                width: double.infinity,
+                child: _MagicSweepImage(previewImage: widget.previewImage),
+              ),
             ),
             const SizedBox(height: 16),
             Text('Примеряем образ…',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: ink)),
+                style: TextStyle(
+                    fontSize: 15, fontWeight: FontWeight.w700, color: ink)),
             const SizedBox(height: 6),
-            Text('Это займёт до минуты', style: TextStyle(fontSize: 13, color: sub)),
-          ]),
+            Text('Это займёт до минуты',
+                style: TextStyle(fontSize: 13, color: sub)),
+          ],
         );
       case _Phase.result:
         return Column(children: [
@@ -236,10 +242,25 @@ class _TryOnSheetState extends State<_TryOnSheet> {
   }
 
   Widget _setup(bool isDark, Color ink, Color sub) {
+    final hasPreview =
+        widget.previewImage != null && widget.previewImage!.isNotEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 8),
+        // Animated product preview (Beautify-style magic sweep) so the sheet
+        // shows what you're about to try on the moment it opens.
+        if (hasPreview) ...[
+          ClipRRect(
+            borderRadius: BorderRadius.circular(18),
+            child: SizedBox(
+              height: 150,
+              width: double.infinity,
+              child: _MagicSweepImage(previewImage: widget.previewImage),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
         Row(children: [
           _modeCard(
             selected: _mode == _Mode.mannequin,
@@ -372,4 +393,130 @@ void _showNeedCoins(BuildContext context, int? required, int? balance) {
       ],
     ),
   );
+}
+
+/// Product preview with a looping "magic sweep" (pink light bar + sparkle),
+/// mirroring the closet Beautify intro. Fills its parent — wrap it in an
+/// AspectRatio or a fixed-height box. Used both in the setup sheet (so the pop-up
+/// is animated on open) and the processing state.
+class _MagicSweepImage extends StatefulWidget {
+  final String? previewImage;
+  const _MagicSweepImage({this.previewImage});
+
+  @override
+  State<_MagicSweepImage> createState() => _MagicSweepImageState();
+}
+
+class _MagicSweepImageState extends State<_MagicSweepImage>
+    with SingleTickerProviderStateMixin {
+  static const _pink = Color(0xFFF370A7);
+  late final AnimationController _c;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2200),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasPreview =
+        widget.previewImage != null && widget.previewImage!.isNotEmpty;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF2A2A2C) : const Color(0xFFF3EEF1);
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // Neutral backdrop so the contained (un-cropped) image sits cleanly
+        // instead of leaving transparent bands around it.
+        ColoredBox(color: bg),
+        if (hasPreview)
+          // contain (not cover) so the whole product stays visible — no crop.
+          Image.network(
+            widget.previewImage!,
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) => ColoredBox(color: bg),
+          ),
+
+        // Magic sweep — pink light bar + sparkle looping left→right.
+        AnimatedBuilder(
+          animation: _c,
+          builder: (context, _) {
+            final x = -1.35 + _c.value * 2.70;
+            return Align(
+              alignment: Alignment(x, 0),
+              child: SizedBox(
+                width: 64,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Container(
+                      width: 3,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Color(0x00F370A7),
+                            _pink,
+                            Color(0x00F370A7),
+                          ],
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: _pink.withValues(alpha: 0.6),
+                            blurRadius: 14,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.auto_awesome,
+                      size: 22,
+                      color: Colors.white,
+                      shadows: [Shadow(color: _pink, blurRadius: 10)],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+
+        // "AI" badge, echoing Beautify's "Beautified photo" tag.
+        Positioned(
+          top: 12,
+          right: 12,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: _pink,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.auto_awesome, size: 12, color: Colors.white),
+                SizedBox(width: 4),
+                Text('AI',
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white)),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }

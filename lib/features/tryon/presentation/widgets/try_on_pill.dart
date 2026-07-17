@@ -11,12 +11,21 @@ const int kTryOnCost = 5;
 /// Positioning (e.g. top-right of a card) is the caller's responsibility; this
 /// widget only draws the pill and forwards taps to [onTap].
 class TryOnPill extends StatelessWidget {
-  const TryOnPill({super.key, required this.onTap, this.compact = false});
+  const TryOnPill({
+    super.key,
+    required this.onTap,
+    this.compact = false,
+    this.showCost = true,
+  });
 
   final VoidCallback? onTap;
 
   /// Tighter sizing for dense grids (shop cards).
   final bool compact;
+
+  /// Whether to show the diamond-cost sub-pill. Off for the shop cards, where the
+  /// button sits inline next to the seller name.
+  final bool showCost;
 
   @override
   Widget build(BuildContext context) {
@@ -26,13 +35,14 @@ class TryOnPill extends StatelessWidget {
     final double diamondSize = compact ? 10 : 12;
     final double costSize = compact ? 10 : 11;
     final double subPillH = compact ? 18 : 22;
+    final double rightPad = showCost ? (compact ? 4 : 6) : (compact ? 9 : 12);
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Container(
         height: height,
-        padding: EdgeInsets.only(left: compact ? 9 : 12, right: compact ? 4 : 6),
+        padding: EdgeInsets.only(left: compact ? 9 : 12, right: rightPad),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
@@ -59,32 +69,34 @@ class TryOnPill extends StatelessWidget {
                 color: Colors.white,
               ),
             ),
-            SizedBox(width: compact ? 4 : 6),
-            // Diamond cost sub-pill
-            Container(
-              height: subPillH,
-              padding: EdgeInsets.symmetric(horizontal: compact ? 5 : 6),
-              decoration: BoxDecoration(
-                color: const Color(0x3DFFFFFF), // rgba(255,255,255,0.24)
-                borderRadius: BorderRadius.circular(subPillH / 2),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IntroDiamond(size: diamondSize),
-                  SizedBox(width: compact ? 2 : 3),
-                  Text(
-                    '$kTryOnCost',
-                    style: TextStyle(
-                      fontSize: costSize,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                      height: 1,
+            if (showCost) ...[
+              SizedBox(width: compact ? 4 : 6),
+              // Diamond cost sub-pill
+              Container(
+                height: subPillH,
+                padding: EdgeInsets.symmetric(horizontal: compact ? 5 : 6),
+                decoration: BoxDecoration(
+                  color: const Color(0x3DFFFFFF), // rgba(255,255,255,0.24)
+                  borderRadius: BorderRadius.circular(subPillH / 2),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IntroDiamond(size: diamondSize),
+                    SizedBox(width: compact ? 2 : 3),
+                    Text(
+                      '$kTryOnCost',
+                      style: TextStyle(
+                        fontSize: costSize,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                        height: 1,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
+            ],
           ],
         ),
       ),
