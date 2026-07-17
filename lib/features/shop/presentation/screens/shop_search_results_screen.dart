@@ -385,16 +385,10 @@ class _TikTokProductCard extends StatelessWidget {
     required this.onTap,
   });
 
-  /// Open the virtual try-on for prepared products; otherwise show a
-  /// "coming soon" note. Mirrors the discovery deck behaviour.
+  /// Open the virtual try-on for any product. Если каноничная вещь не готова,
+  /// бэкенд подставит фото товара как гармент. Mirrors the discovery deck.
   void _handleTryOn(BuildContext context) {
     HapticFeedback.selectionClick();
-    if (!product.catalogReady) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context)!.tryOnComingSoon)),
-      );
-      return;
-    }
     showProductTryOnSheet(
       context,
       productId: product.id,

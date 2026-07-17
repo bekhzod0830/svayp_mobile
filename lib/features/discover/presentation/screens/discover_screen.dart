@@ -1099,12 +1099,8 @@ class DiscoverScreenState extends State<DiscoverScreen> {
     if (_currentCardIndex >= _products.length) return;
     final product = _products[_currentCardIndex];
     HapticFeedback.selectionClick();
-    // Try-on needs a prepared (preprocessed) garment on the backend. Until then,
-    // show a "coming soon" note instead of the mannequin / own-photo sheet.
-    if (!product.catalogReady) {
-      _showToast(AppLocalizations.of(context)!.tryOnComingSoon);
-      return;
-    }
+    // Примерка доступна для любого товара: если каноничная вещь не подготовлена
+    // (бэкфилл), бэкенд подставит фото товара как гармент. Открываем sheet сразу.
     showProductTryOnSheet(
       context,
       productId: product.id,
