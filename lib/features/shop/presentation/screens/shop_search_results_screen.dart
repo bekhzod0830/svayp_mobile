@@ -3,6 +3,9 @@ import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
 import 'package:swipe/features/discover/domain/entities/product.dart';
+import 'package:flutter/services.dart';
+import 'package:swipe/features/tryon/presentation/tryon_sheet.dart';
+import 'package:swipe/features/tryon/presentation/widgets/try_on_pill.dart';
 import 'package:swipe/features/product/presentation/screens/product_detail_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:swipe/core/cache/image_cache_manager.dart';
@@ -382,6 +385,23 @@ class _TikTokProductCard extends StatelessWidget {
     required this.onTap,
   });
 
+  /// Open the virtual try-on for prepared products; otherwise show a
+  /// "coming soon" note. Mirrors the discovery deck behaviour.
+  void _handleTryOn(BuildContext context) {
+    HapticFeedback.selectionClick();
+    if (!product.catalogReady) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context)!.tryOnComingSoon)),
+      );
+      return;
+    }
+    showProductTryOnSheet(
+      context,
+      productId: product.id,
+      previewImage: product.images.isNotEmpty ? product.images.first : null,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final sellerName = product.seller ?? 'LIBAS';
@@ -488,6 +508,16 @@ class _TikTokProductCard extends StatelessWidget {
                         ),
                       ),
                     ),
+                  // Try-on pill (top-right) — label + diamond cost, same as the
+                  // discovery deck.
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: TryOnPill(
+                      compact: true,
+                      onTap: () => _handleTryOn(context),
+                    ),
+                  ),
                 ],
               ),
             ),

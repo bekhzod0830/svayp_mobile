@@ -15,15 +15,17 @@ import 'package:swipe/features/onboarding/presentation/screens/intro_onboarding_
 // DISABLED 2026-07: the post-registration preference funnel was replaced by
 // the /intro-onboarding carousel + a single /basic-info step (v2 profile).
 // Screen files are kept on disk for possible revival.
-// import 'package:swipe/features/onboarding/presentation/screens/hijab_preference_screen.dart'; // DISABLED 2026-07
+// Re-enabled 2026-07: optional Discovery preferences flow, launched from the
+// "personalize" banner on the Discover screen.
+import 'package:swipe/features/onboarding/presentation/screens/hijab_preference_screen.dart';
 // import 'package:swipe/features/onboarding/presentation/screens/primary_objective_screen.dart'; // DISABLED
-// import 'package:swipe/features/onboarding/presentation/screens/fit_preference_screen.dart'; // DISABLED 2026-07
-// import 'package:swipe/features/onboarding/presentation/screens/modesty_level_screen.dart'; // DISABLED 2026-07
-// import 'package:swipe/features/onboarding/presentation/screens/size_profile_screen.dart'; // DISABLED 2026-07
+import 'package:swipe/features/onboarding/presentation/screens/fit_preference_screen.dart';
+import 'package:swipe/features/onboarding/presentation/screens/modesty_level_screen.dart';
+import 'package:swipe/features/onboarding/presentation/screens/size_profile_screen.dart';
 // import 'package:swipe/features/onboarding/presentation/screens/body_type_screen.dart'; // REMOVED FROM FLOW
 // import 'package:swipe/features/onboarding/presentation/screens/sizes_screen.dart'; // REMOVED FROM FLOW
 // import 'package:swipe/features/onboarding/presentation/screens/budget_preference_screen.dart'; // REMOVED FROM FLOW
-// import 'package:swipe/features/onboarding/presentation/screens/style_quiz_screen.dart'; // DISABLED 2026-07
+import 'package:swipe/features/onboarding/presentation/screens/style_quiz_screen.dart';
 // import 'package:swipe/features/onboarding/presentation/screens/tutorial_screen.dart'; // DISABLED 2026-07
 // import 'package:swipe/features/onboarding/presentation/screens/avoided_items_screen.dart'; // DISABLED 2026-07
 // import 'package:swipe/features/onboarding/presentation/screens/avoided_shoes_screen.dart'; // DISABLED 2026-07
@@ -159,11 +161,12 @@ class AppRoutes {
           settings: settings,
         );
 
-      // case hijabPreference: // DISABLED 2026-07 — funnel replaced by /basic-info only
-      //   return MaterialPageRoute(
-      //     builder: (_) => const HijabPreferenceScreen(),
-      //     settings: settings,
-      //   );
+      // Re-enabled 2026-07 for the optional Discovery preferences flow.
+      case hijabPreference:
+        return MaterialPageRoute(
+          builder: (_) => const HijabPreferenceScreen(),
+          settings: settings,
+        );
 
       // case primaryObjective: // DISABLED
       //   return MaterialPageRoute(
@@ -171,23 +174,23 @@ class AppRoutes {
       //     settings: settings,
       //   );
 
-      // case fitPreference: // DISABLED 2026-07
-      //   return MaterialPageRoute(
-      //     builder: (_) => const FitPreferenceScreen(),
-      //     settings: settings,
-      //   );
+      case fitPreference:
+        return MaterialPageRoute(
+          builder: (_) => const FitPreferenceScreen(),
+          settings: settings,
+        );
 
-      // case modestyLevel: // DISABLED 2026-07
-      //   return MaterialPageRoute(
-      //     builder: (_) => const ModestyLevelScreen(),
-      //     settings: settings,
-      //   );
+      case modestyLevel:
+        return MaterialPageRoute(
+          builder: (_) => const ModestyLevelScreen(),
+          settings: settings,
+        );
 
-      // case sizeProfile: // DISABLED 2026-07
-      //   return MaterialPageRoute(
-      //     builder: (_) => const SizeProfileScreen(),
-      //     settings: settings,
-      //   );
+      case sizeProfile:
+        return MaterialPageRoute(
+          builder: (_) => const SizeProfileScreen(),
+          settings: settings,
+        );
 
       // case bodyType: // REMOVED FROM FLOW
       //   return MaterialPageRoute(
@@ -206,11 +209,11 @@ class AppRoutes {
       //     builder: (_) => const BudgetPreferenceScreen(),
       //   );
 
-      // case styleQuiz: // DISABLED 2026-07
-      //   return MaterialPageRoute(
-      //     builder: (_) => const StyleQuizScreen(),
-      //     settings: settings,
-      //   );
+      case styleQuiz:
+        return MaterialPageRoute(
+          builder: (_) => const StyleQuizScreen(),
+          settings: settings,
+        );
 
       // case styleCategories: // REMOVED FROM FLOW
       //   return MaterialPageRoute(builder: (_) => const StyleCategoriesScreen());

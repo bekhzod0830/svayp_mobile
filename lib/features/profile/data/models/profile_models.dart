@@ -289,7 +289,10 @@ class UserProfileResponse extends Equatable {
       braBandSize: json['bra_band_size'] as String?,
       braCupSize: json['bra_cup_size'] as String?,
       braSupportLevel: json['bra_support_level'] as String?,
-      hijabPreference: json['hijab_preference'] as String,
+      // Defaulted rather than required: a minimal v2 profile (basic-info only,
+      // before the Discovery preferences flow runs) omits these. Parsing them as
+      // non-null used to throw at startup and trip the maintenance screen.
+      hijabPreference: json['hijab_preference'] as String? ?? 'NOT_APPLICABLE',
       fitPreference: json['fit_preference'] != null
           ? List<String>.from(json['fit_preference'] as List)
           : null,
@@ -302,8 +305,10 @@ class UserProfileResponse extends Equatable {
       budgetType: json['budget_type'] as String?,
       budgetMin: json['budget_min'] as int?,
       budgetMax: json['budget_max'] as int?,
-      styleQuizCompleted: json['style_quiz_completed'] as bool,
-      createdAt: DateTime.parse(json['created_at'] as String),
+      styleQuizCompleted: json['style_quiz_completed'] as bool? ?? false,
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'] as String)
+          : DateTime.now(),
     );
   }
 

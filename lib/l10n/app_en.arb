@@ -258,6 +258,19 @@
   "error": "Error",
   "success": "Success",
   "tryAgain": "Try Again",
+  "tryItOn": "Try it on",
+  "@tryItOn": {
+    "description": "Label for the try-on button on the discovery product card"
+  },
+  "tryOnComingSoon": "Try-on for this item is coming soon",
+  "@tryOnComingSoon": {
+    "description": "Shown when a product has no prepared garment for virtual try-on yet"
+  },
+  "personalizeBannerTitle": "Personalize your feed",
+  "@personalizeBannerTitle": {
+    "description": "Title of the tappable banner on the Discovery screen that opens the style-preferences flow"
+  },
+  "personalizeBannerSubtitle": "Answer a few quick questions for recommendations made for you",
   "close": "Close",
   "dismiss": "Dismiss",
   "welcomeToSwipe": "Welcome to LIBAS",

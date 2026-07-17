@@ -28,6 +28,9 @@ import 'package:swipe/shared/widgets/main_top_bar.dart';
 import 'package:swipe/shared/widgets/swipe_feedback_banner.dart';
 import 'package:swipe/core/analytics/analytics_events.dart';
 import 'package:swipe/core/analytics/analytics_service.dart';
+import 'package:provider/provider.dart';
+import 'package:swipe/features/profile/data/services/profile_service.dart';
+import 'package:swipe/features/onboarding/data/onboarding_data_manager.dart';
 
 /// Helper function to format size label by removing SIZE_ prefix
 String _formatSizeLabel(String size) {
@@ -71,6 +74,10 @@ class DiscoverScreenState extends State<DiscoverScreen> {
   int _currentCardIndex = 0;
   String? _authToken;
   DateTime? _lastBackPressTime;
+  // "Personalize your feed" banner — offers the optional style-preferences flow
+  // to signed-in users who haven't completed it. Hidden once done.
+  bool _showPersonalizeBanner = false;
+  bool _personalizeInProgress = false;
 
   @override
   void initState() {
@@ -93,6 +100,10 @@ class DiscoverScreenState extends State<DiscoverScreen> {
   Future<void> _initializeScreen() async {
     // ── 1. Get the auth token synchronously – no network call needed ──
     _authToken = getIt<ApiClient>().getToken();
+
+    // Decide whether to offer the "personalize your feed" banner (signed-in
+    // users who haven't completed the preferences flow yet).
+    unawaited(_refreshPersonalizeBanner());
 
     // ── 2. Init Hive services in parallel (cart & liked are independent) ──
     await Future.wait([_cartService.init(), _likedService.init()]);
@@ -122,6 +133,154 @@ class DiscoverScreenState extends State<DiscoverScreen> {
     // making the tutorial appear over the closet tab on first launch.
   }
 
+  /// Show the "personalize your feed" banner to signed-in users whose profile
+  /// has no style preferences yet.
+  ///
+  /// The backend profile is the source of truth — deliberately NOT a local
+  /// "done" flag: that flag isn't per-account, so a different user signing in on
+  /// the same device would inherit the previous user's completed state and never
+  /// see the banner.
+  Future<void> _refreshPersonalizeBanner() async {
+    final signedIn = _authToken != null && _authToken!.isNotEmpty;
+    final show = signedIn && !(await _profileHasPreferences());
+    if (!mounted || show == _showPersonalizeBanner) return;
+    setState(() => _showPersonalizeBanner = show);
+  }
+
+  /// Whether the user's profile already holds style-preference signal, so the
+  /// personalize banner would be redundant. Best-effort — on any error we treat
+  /// it as "no preferences" so the banner still shows.
+  Future<bool> _profileHasPreferences() async {
+    try {
+      final profile = await getIt<ProfileService>().getProfile();
+      final hijab = profile.hijabPreference.toUpperCase();
+      final hasHijab = hijab.isNotEmpty && hijab != 'NOT_APPLICABLE';
+      final hasFit = profile.fitPreference?.isNotEmpty ?? false;
+      final hasStyle = profile.stylePreference?.isNotEmpty ?? false;
+      return profile.styleQuizCompleted || hasHijab || hasFit || hasStyle;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Launch the optional style-preferences flow from the banner. Reads gender
+  /// from the profile to drive the funnel, then — if the user completes it and
+  /// the profile is updated — hides the banner and reloads the feed so the deck
+  /// reflects the new preferences.
+  Future<void> _startPersonalization() async {
+    if (_personalizeInProgress) return;
+    _personalizeInProgress = true;
+    try {
+      final gender =
+          (await getIt<ProfileService>().getGender())?.toLowerCase();
+      if (!mounted) return;
+      if (gender == null || gender.isEmpty) {
+        _showToast(AppLocalizations.of(context)!.failedToLoadProducts);
+        return;
+      }
+
+      context.read<OnboardingDataManager>().startProfileUpdate(gender: gender);
+      await Navigator.of(context, rootNavigator: true).pushNamed(
+        '/hijab-preference',
+        arguments: {'gender': gender},
+      );
+
+      if (!mounted) return;
+      // Re-check the backend profile: if the flow saved preferences the banner
+      // goes away — then drop stale cached recs and refetch a personalized deck.
+      final hadBanner = _showPersonalizeBanner;
+      await _refreshPersonalizeBanner();
+      if (!mounted) return;
+      if (hadBanner && !_showPersonalizeBanner) {
+        await RecommendationCacheService.clearCache();
+        await _loadProducts(resetIndex: true);
+      }
+    } finally {
+      _personalizeInProgress = false;
+    }
+  }
+
+  /// Tappable "personalize your feed" banner shown above the card deck.
+  Widget _buildPersonalizeBanner() {
+    final l10n = AppLocalizations.of(context)!;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _startPersonalization,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: [Color(0xFFF370A7), Color(0xFFE0409A)],
+            ),
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x59F370A7), // rgba(243,112,167,0.35)
+                blurRadius: 16,
+                offset: Offset(0, 6),
+                spreadRadius: -2,
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: const BoxDecoration(
+                  color: Color(0x3DFFFFFF), // rgba(255,255,255,0.24)
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.auto_awesome_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      l10n.personalizeBannerTitle,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      l10n.personalizeBannerSubtitle,
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xE6FFFFFF), // white 90%
+                        height: 1.25,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: Colors.white,
+                size: 24,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   bool _depsInitialized = false;
 
   @override
@@ -141,6 +300,8 @@ class DiscoverScreenState extends State<DiscoverScreen> {
             _authToken = newToken;
           });
           await _loadProducts(resetIndex: true);
+          // Re-evaluate the personalize banner for the newly signed-in account.
+          unawaited(_refreshPersonalizeBanner());
         }
         // On first mount the cart count is already refreshed by
         // _initializeScreen — skip the duplicate GET /cart.
@@ -446,6 +607,7 @@ class DiscoverScreenState extends State<DiscoverScreen> {
       rating: apiProduct.rating ?? 4.5,
       reviewCount: apiProduct.reviewCount ?? 0,
       inStock: apiProduct.inStock,
+      catalogReady: apiProduct.catalogReady,
       isNew: apiProduct.isNew ?? false,
       isFeatured: false, // API doesn't have this field
       seller: apiProduct.seller,
@@ -936,8 +1098,13 @@ class DiscoverScreenState extends State<DiscoverScreen> {
   void _onTryOn() {
     if (_currentCardIndex >= _products.length) return;
     final product = _products[_currentCardIndex];
-    if (!product.catalogReady) return; // курируемый набор — только готовые товары
     HapticFeedback.selectionClick();
+    // Try-on needs a prepared (preprocessed) garment on the backend. Until then,
+    // show a "coming soon" note instead of the mannequin / own-photo sheet.
+    if (!product.catalogReady) {
+      _showToast(AppLocalizations.of(context)!.tryOnComingSoon);
+      return;
+    }
     showProductTryOnSheet(
       context,
       productId: product.id,
@@ -1114,6 +1281,8 @@ class DiscoverScreenState extends State<DiscoverScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
+                  // Personalize-your-feed banner (optional prefs flow)
+                  if (_showPersonalizeBanner) _buildPersonalizeBanner(),
                   // Content
                   Expanded(
                     child: _isLoading
@@ -1199,6 +1368,7 @@ class DiscoverScreenState extends State<DiscoverScreen> {
                               onSwipeRight: i == 0 ? _onSwipeRight : null,
                               onSwipeUp: i == 0 ? _onSwipeUp : null,
                               onTap: i == 0 ? _onCardTap : null,
+                              onTryOn: i == 0 ? _onTryOn : null,
                               // Pass drag progress notifier to top card and second card
                               dragProgressNotifier: (i == 0 || i == 1)
                                   ? _dragProgressNotifier
@@ -1285,27 +1455,8 @@ class DiscoverScreenState extends State<DiscoverScreen> {
                 ),
               ),
               const SizedBox(width: 12),
-              // Try on — примерка товара (манекен / на своём фото). Курируемый
-              // набор (Вариант A): активна только для предобработанных товаров.
-              Builder(builder: (_) {
-                final ready = _currentCardIndex < _products.length &&
-                    _products[_currentCardIndex].catalogReady;
-                return SizedBox(
-                  width: 56,
-                  child: _ActionButton(
-                    icon: Icons.checkroom_rounded,
-                    color: Colors.white,
-                    backgroundColor: ready
-                        ? const Color(0xFFF370A7)
-                        : const Color(0xFFF370A7).withValues(alpha: 0.35),
-                    borderColor: Colors.transparent,
-                    size: 56,
-                    isCompact: true,
-                    onPressed: ready ? _onTryOn : null,
-                  ),
-                );
-              }),
-              const SizedBox(width: 12),
+              // Try-on moved to the top-right pill on the card (label + diamond
+              // cost), mirroring the web closet. See SwipeableProductCard.
               // Dislike — dark mode: dark-grey bg + white icon + subtle border | light mode: white bg + black icon
               Expanded(
                 child: _ActionButton(

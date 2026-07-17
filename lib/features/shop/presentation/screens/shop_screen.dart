@@ -20,6 +20,9 @@ import 'dart:ui';
 import 'package:swipe/core/analytics/analytics_events.dart';
 import 'package:swipe/core/analytics/analytics_service.dart';
 import 'package:swipe/features/shop/presentation/utils/visual_search_launcher.dart';
+import 'package:flutter/services.dart';
+import 'package:swipe/features/tryon/presentation/tryon_sheet.dart';
+import 'package:swipe/features/tryon/presentation/widgets/try_on_pill.dart';
 
 // Pre-computed colors to avoid withOpacity() allocations during rebuilds
 const _kShadowBlack08 = Color(0x14000000); // black.withOpacity(0.08)
@@ -621,6 +624,7 @@ class _ShopScreenState extends State<ShopScreen>
       isNew: apiProduct.isNew ?? false,
       isFeatured: apiProduct.isFeatured ?? false,
       inStock: apiProduct.inStock,
+      catalogReady: apiProduct.catalogReady,
       seller: apiProduct.seller,
       sellerId: apiProduct.sellerId,
       discountPercentage: apiProduct.discountPercentage,
@@ -1214,6 +1218,23 @@ class _TikTokProductCard extends StatelessWidget {
     required this.onSellerTap,
   });
 
+  /// Open the virtual try-on for prepared products; otherwise show a
+  /// "coming soon" note. Mirrors the discovery deck behaviour.
+  void _handleTryOn(BuildContext context) {
+    HapticFeedback.selectionClick();
+    if (!product.catalogReady) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context)!.tryOnComingSoon)),
+      );
+      return;
+    }
+    showProductTryOnSheet(
+      context,
+      productId: product.id,
+      previewImage: product.images.isNotEmpty ? product.images.first : null,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -1352,6 +1373,17 @@ class _TikTokProductCard extends StatelessWidget {
                         ),
                       ),
                     ),
+                  // Try-on pill (top-right) — label + diamond cost, same as the
+                  // discovery deck. Tap is handled here so it doesn't open the
+                  // product page.
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: TryOnPill(
+                      compact: true,
+                      onTap: () => _handleTryOn(context),
+                    ),
+                  ),
                 ],
               ),
             ),

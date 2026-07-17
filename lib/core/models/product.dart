@@ -57,6 +57,9 @@ class Product {
   final List<ColorVariant>? colorVariants; // Color variants with images
   final int? stockQuantity;
   final bool inStock;
+  /// Whether the backend has a prepared (preprocessed) garment for this product,
+  /// so virtual try-on can run. When false, try-on is not yet available.
+  final bool catalogReady;
   final List<MaterialEnum>? material;
   final List<SeasonEnum>? season;
   final FitTypeEnum? fitType;
@@ -99,6 +102,7 @@ class Product {
     this.colorVariants,
     this.stockQuantity,
     required this.inStock,
+    this.catalogReady = false,
     this.material,
     this.season,
     this.fitType,
@@ -173,6 +177,7 @@ class Product {
           .toList(),
       stockQuantity: json['stock_quantity'] as int?,
       inStock: json['in_stock'] as bool? ?? true,
+      catalogReady: json['catalog_ready'] as bool? ?? false,
       material: EnumHelpers.parseMaterialList(
         json['material'] as List<dynamic>?,
       ),
@@ -246,6 +251,7 @@ class Product {
       'color_variants': colorVariants?.map((v) => v.toJson()).toList(),
       'stock_quantity': stockQuantity,
       'in_stock': inStock,
+      'catalog_ready': catalogReady,
       'material': EnumHelpers.materialListToJson(material),
       'season': EnumHelpers.seasonListToJson(season),
       'fit_type': fitType?.value,

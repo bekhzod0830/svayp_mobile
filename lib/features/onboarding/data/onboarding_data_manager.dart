@@ -81,6 +81,44 @@ class OnboardingDataManager extends ChangeNotifier {
   String? get budgetType => _budgetType;
   List<Map<String, dynamic>> get quizResults => _quizResults;
 
+  // When true the flow updates an existing profile (first-run Discovery
+  // preferences) instead of creating one during registration. Terminal screens
+  // read this to PATCH the profile rather than POST a new one.
+  bool _profileUpdateMode = false;
+  bool get profileUpdateMode => _profileUpdateMode;
+
+  /// Begin the first-run Discovery preferences flow for a user who already has
+  /// a profile. Seeds the gender (needed for the funnel's branching) and clears
+  /// any stale preference data from a previous pass.
+  void startProfileUpdate({required String gender}) {
+    reset();
+    _profileUpdateMode = true;
+    _gender = gender.toLowerCase();
+    notifyListeners();
+  }
+
+  /// camelCase PATCH payload for [profileUpdateMode], carrying only the fields
+  /// this flow collects (skips anything still null/empty). Mirrors the casing
+  /// and UPPERCASE value convention of [toProfileRequest].
+  Map<String, dynamic> toProfileUpdateJson() {
+    return {
+      if (_heightCm != null) 'heightCm': _heightCm,
+      if (_weightKg != null) 'weightKg': _weightKg,
+      if (_bodyType != null) 'bodyType': _bodyType!.toUpperCase(),
+      if (_topSize != null) 'topSize': _topSize!.toUpperCase(),
+      if (_bottomSize != null) 'bottomSize': _bottomSize,
+      if (_dressSize != null) 'dressSize': _dressSize!.toUpperCase(),
+      if (_jeanWaistSize != null) 'jeanWaistSize': _jeanWaistSize,
+      if (_shoeSize != null) 'shoeSize': _shoeSize,
+      if (_hijabPreference != null)
+        'hijabPreference': _hijabPreference!.toUpperCase(),
+      if (_fitPreference.isNotEmpty)
+        'fitPreference': _fitPreference.map((e) => e.toUpperCase()).toList(),
+      if (_stylePreference.isNotEmpty)
+        'stylePreference': _stylePreference.map((e) => e.toUpperCase()).toList(),
+    };
+  }
+
   // Setters
   void setBasicInfo({
     String? fullName,
@@ -301,6 +339,7 @@ class OnboardingDataManager extends ChangeNotifier {
     _avoidedItems = [];
     _budgetType = null;
     _quizResults = [];
+    _profileUpdateMode = false;
     notifyListeners();
   }
 

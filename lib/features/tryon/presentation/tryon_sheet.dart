@@ -17,6 +17,9 @@ Future<void> showProductTryOnSheet(
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
+    // Present above the root-level floating bottom navbar so it doesn't cover
+    // the sheet's action button.
+    useRootNavigator: true,
     backgroundColor: Colors.transparent,
     builder: (_) => _TryOnSheet(productId: productId, previewImage: previewImage),
   );

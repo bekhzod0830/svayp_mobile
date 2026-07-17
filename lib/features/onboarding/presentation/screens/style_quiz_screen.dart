@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import 'package:swipe/core/cache/image_cache_manager.dart';
 import 'package:swipe/features/onboarding/data/onboarding_data_manager.dart';
+import 'package:swipe/features/onboarding/data/discover_preferences_gate.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/constants/app_typography.dart';
@@ -344,6 +345,21 @@ class _StyleQuizScreenState extends State<StyleQuizScreen>
         return;
       }
 
+      // First-run Discovery preferences: PATCH the collected fields onto the
+      // existing profile and pop the flow back to Discovery (no profile create,
+      // no completion screen).
+      if (manager.profileUpdateMode) {
+        await getIt<ProfileService>().updateProfile(
+          manager.toProfileUpdateJson(),
+        );
+        await markDiscoverPreferencesCompleted();
+        manager.reset();
+        if (!mounted) return;
+        trackStepCompleted();
+        Navigator.of(context, rootNavigator: true).popUntil((r) => r.isFirst);
+        return;
+      }
+
       if (!manager.hasRequiredFields) {
         if (!mounted) return;
         setState(() {
@@ -395,7 +411,7 @@ class _StyleQuizScreenState extends State<StyleQuizScreen>
             // Progress Bar
             const Padding(
               padding: EdgeInsets.fromLTRB(20, 16, 20, 0),
-              child: OnboardingProgressBar(currentStep: 6, totalSteps: 6),
+              child: OnboardingProgressBar(currentStep: 5, totalSteps: 5),
             ),
             const SizedBox(height: 16),
             // Header

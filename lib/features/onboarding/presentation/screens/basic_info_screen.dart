@@ -310,8 +310,18 @@ class _BasicInfoScreenState extends State<BasicInfoScreen>
           gender: _selectedGender!.toUpperCase(),
         );
       } on ApiException catch (e) {
-        // 409 PROFILE_ALREADY_EXISTS — a previous attempt landed; proceed.
-        if (e.statusCode != 409) rethrow;
+        // 409 PROFILE_ALREADY_EXISTS — a profile was pre-created (e.g. Google/
+        // Apple sign-in seeds it with the OAuth account name). PATCH it so the
+        // name, DOB and gender the user actually typed here win instead.
+        if (e.statusCode == 409) {
+          await getIt<ProfileService>().updateProfile({
+            'fullName': _nameController.text.trim(),
+            'dateOfBirth': dob,
+            'gender': _selectedGender!.toUpperCase(),
+          });
+        } else {
+          rethrow;
+        }
       }
 
       if (!mounted) return;

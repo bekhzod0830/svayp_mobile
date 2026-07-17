@@ -791,6 +791,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tryAgain => 'Try Again';
 
   @override
+  String get tryItOn => 'Try it on';
+
+  @override
+  String get tryOnComingSoon => 'Try-on for this item is coming soon';
+
+  @override
+  String get personalizeBannerTitle => 'Personalize your feed';
+
+  @override
+  String get personalizeBannerSubtitle =>
+      'Answer a few quick questions for recommendations made for you';
+
+  @override
   String get close => 'Close';
 
   @override

@@ -8,6 +8,7 @@ import 'package:swipe/features/discover/domain/entities/product.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:swipe/core/cache/image_cache_manager.dart';
+import 'package:swipe/features/tryon/presentation/widgets/try_on_pill.dart';
 
 // Pre-computed colors to avoid withOpacity() allocations during drag/animation frames
 const _kShadowTop = BoxShadow(
@@ -42,6 +43,8 @@ class SwipeableProductCard extends StatefulWidget {
   final VoidCallback? onSwipeRight;
   final VoidCallback? onSwipeUp;
   final VoidCallback? onTap;
+  /// Tapping the top-right try-on pill (only shown for catalog-ready products).
+  final VoidCallback? onTryOn;
   final ValueNotifier<double>? dragProgressNotifier;
 
   const SwipeableProductCard({
@@ -53,6 +56,7 @@ class SwipeableProductCard extends StatefulWidget {
     this.onSwipeRight,
     this.onSwipeUp,
     this.onTap,
+    this.onTryOn,
     this.dragProgressNotifier,
   });
 
@@ -660,6 +664,15 @@ class SwipeableProductCardState extends State<SwipeableProductCard>
             // ── Swipe direction overlay (full card) ──
             if (widget.isTopCard && _swipeDirection != null)
               Positioned.fill(child: _buildSwipeOverlay()),
+
+            // ── Try-on pill (top-right) — mirrors the web closet's top-right
+            // action pill: label + diamond cost. Shown on every top card.
+            if (widget.isTopCard && widget.onTryOn != null)
+              Positioned(
+                top: 12,
+                right: 12,
+                child: TryOnPill(onTap: widget.onTryOn),
+              ),
           ],
         ),
       ),

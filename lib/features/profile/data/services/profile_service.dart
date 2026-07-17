@@ -89,6 +89,21 @@ class ProfileService {
     }
   }
 
+  /// Lightweight gender lookup that reads the raw profile JSON directly, without
+  /// the strict [UserProfileResponse.fromJson] parse (a minimal v2 profile may
+  /// omit preference fields the model requires as non-null, which would throw).
+  /// Returns null if the profile has no gender or the request fails.
+  Future<String?> getGender() async {
+    try {
+      final response = await _apiClient.get(ApiConfig.userProfile);
+      final data = response.data['data'] ?? response.data;
+      if (data is Map) return data['gender'] as String?;
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Update user profile
   ///
   /// Updates existing user profile with new information

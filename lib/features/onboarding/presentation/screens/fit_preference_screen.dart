@@ -169,7 +169,7 @@ class _FitPreferenceScreenState extends State<FitPreferenceScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Progress Indicator
-                    const OnboardingProgressBar(currentStep: 3, totalSteps: 6),
+                    const OnboardingProgressBar(currentStep: 2, totalSteps: 5),
                     const SizedBox(height: 32),
 
                     // Title

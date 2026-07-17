@@ -146,8 +146,8 @@ class _ModestyLevelScreenState extends State<ModestyLevelScreen>
                         children: [
                           // Progress indicator
                           const OnboardingProgressBar(
-                            currentStep: 4,
-                            totalSteps: 6,
+                            currentStep: 3,
+                            totalSteps: 5,
                           ),
                           const SizedBox(height: 20),
                           // Title

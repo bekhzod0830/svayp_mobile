@@ -9,6 +9,9 @@ import 'package:swipe/core/services/product_api_service.dart';
 import 'package:swipe/core/services/seller_cache_service.dart';
 import 'package:swipe/core/models/product.dart' as api_models;
 import 'package:swipe/features/discover/domain/entities/product.dart';
+import 'package:flutter/services.dart';
+import 'package:swipe/features/tryon/presentation/tryon_sheet.dart';
+import 'package:swipe/features/tryon/presentation/widgets/try_on_pill.dart';
 import 'package:swipe/features/product/presentation/screens/product_detail_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:swipe/core/cache/image_cache_manager.dart';
@@ -191,6 +194,7 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
       rating: p.rating ?? 4.5,
       reviewCount: p.reviewCount ?? 0,
       inStock: p.inStock,
+      catalogReady: p.catalogReady,
       isNew: p.isNew ?? false,
       isFeatured: p.isFeatured ?? false,
       seller: p.seller,
@@ -779,6 +783,23 @@ class _TikTokProductCard extends StatelessWidget {
     required this.onSellerTap,
   });
 
+  /// Open the virtual try-on for prepared products; otherwise show a
+  /// "coming soon" note. Mirrors the discovery deck behaviour.
+  void _handleTryOn(BuildContext context) {
+    HapticFeedback.selectionClick();
+    if (!product.catalogReady) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context)!.tryOnComingSoon)),
+      );
+      return;
+    }
+    showProductTryOnSheet(
+      context,
+      productId: product.id,
+      previewImage: product.images.isNotEmpty ? product.images.first : null,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -884,6 +905,16 @@ class _TikTokProductCard extends StatelessWidget {
                         ),
                       ),
                     ),
+                  // Try-on pill (top-right) — label + diamond cost, same as the
+                  // discovery deck.
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: TryOnPill(
+                      compact: true,
+                      onTap: () => _handleTryOn(context),
+                    ),
+                  ),
                 ],
               ),
             ),

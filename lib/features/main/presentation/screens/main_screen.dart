@@ -22,7 +22,6 @@ import 'package:swipe/features/chat/data/models/chat_model.dart';
 import 'package:swipe/core/services/badge_notifier.dart';
 import 'package:swipe/core/services/notification_service.dart';
 import 'package:swipe/features/discover/presentation/screens/discover_screen.dart';
-import 'package:swipe/features/discover/presentation/widgets/swipe_tutorial_overlay.dart';
 import 'package:swipe/features/main/presentation/widgets/welcome_gift_dialog.dart';
 import 'package:swipe/features/shop/presentation/screens/shop_screen.dart';
 import 'package:swipe/features/chat/presentation/screens/chat_list_screen.dart';
@@ -109,12 +108,6 @@ class MainScreenState extends State<MainScreen>
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => NotificationService.instance.flushPendingInitialNotification(),
     );
-    // Cover the case where the app launches straight onto the Discover tab.
-    if (_currentIndex == _discoverTabIndex) {
-      WidgetsBinding.instance.addPostFrameCallback(
-        (_) => _maybeShowDiscoverTutorial(),
-      );
-    }
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => _maybeShowWelcomeGift(),
     );
@@ -246,8 +239,6 @@ class MainScreenState extends State<MainScreen>
         0.0,
       ),
     );
-
-    if (index == _discoverTabIndex) _maybeShowDiscoverTutorial();
   }
 
   /// Method to navigate to a specific tab from child screens
@@ -267,8 +258,6 @@ class MainScreenState extends State<MainScreen>
         0.0,
       ),
     );
-
-    if (index == _discoverTabIndex) _maybeShowDiscoverTutorial();
   }
 
   /// Ordered navigator keys, one per IndexedStack child (index = child index):
@@ -307,17 +296,6 @@ class MainScreenState extends State<MainScreen>
   /// appears when the user actually navigates to Discover, not while the tab is
   /// still built off-screen inside the IndexedStack (which previously made it
   /// pop up over the closet tab on first launch).
-  Future<void> _maybeShowDiscoverTutorial() async {
-    final show = await shouldShowSwipeTutorial();
-    if (!mounted || !show) return;
-    await Navigator.of(context, rootNavigator: true).push(
-      MaterialPageRoute(
-        fullscreenDialog: true,
-        builder: (_) => const SwipeTutorialScreen(),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;

@@ -10,6 +10,7 @@ import 'package:swipe/core/analytics/onboarding_analytics_mixin.dart';
 import 'package:swipe/core/network/api_client.dart';
 import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/features/onboarding/data/onboarding_data_manager.dart';
+import 'package:swipe/features/onboarding/data/discover_preferences_gate.dart';
 import 'package:swipe/features/profile/data/services/profile_service.dart';
 
 /// Size Profile Screen - Second step of profile setup
@@ -96,6 +97,13 @@ class _SizeProfileScreenState extends State<SizeProfileScreen>
     OnboardingDataManager manager,
     AppLocalizations l10n,
   ) async {
+    // First-run Discovery preferences: the profile already exists, so PATCH the
+    // collected fields and return to Discovery instead of creating a profile.
+    if (manager.profileUpdateMode) {
+      await _finishProfileUpdate(manager, l10n);
+      return;
+    }
+
     final apiClient = getIt<ApiClient>();
     if (!apiClient.isAuthenticated()) {
       Navigator.of(
@@ -122,6 +130,27 @@ class _SizeProfileScreenState extends State<SizeProfileScreen>
     Navigator.of(context).pushNamed('/onboarding-completion');
   }
 
+  /// Terminal step for the first-run Discovery preferences flow (male users skip
+  /// the style quiz). PATCHes the collected fields onto the existing profile,
+  /// marks the flow complete, then pops the whole flow back to Discovery.
+  Future<void> _finishProfileUpdate(
+    OnboardingDataManager manager,
+    AppLocalizations l10n,
+  ) async {
+    try {
+      await getIt<ProfileService>().updateProfile(manager.toProfileUpdateJson());
+    } catch (e) {
+      if (!mounted) return;
+      SnackBarHelper.showError(context, l10n.saveInfoError);
+      return;
+    }
+    await markDiscoverPreferencesCompleted();
+    manager.reset();
+    if (!mounted) return;
+    trackStepCompleted();
+    Navigator.of(context, rootNavigator: true).popUntil((r) => r.isFirst);
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -141,7 +170,7 @@ class _SizeProfileScreenState extends State<SizeProfileScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Progress Indicator
-                    const OnboardingProgressBar(currentStep: 5, totalSteps: 6),
+                    const OnboardingProgressBar(currentStep: 4, totalSteps: 5),
                     const SizedBox(height: 32),
 
                     // Title

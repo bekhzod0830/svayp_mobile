@@ -799,6 +799,19 @@ class AppLocalizationsRu extends AppLocalizations {
   String get tryAgain => 'Попробовать снова';
 
   @override
+  String get tryItOn => 'Примерить';
+
+  @override
+  String get tryOnComingSoon => 'Примерка этого товара скоро появится';
+
+  @override
+  String get personalizeBannerTitle => 'Персонализируйте ленту';
+
+  @override
+  String get personalizeBannerSubtitle =>
+      'Ответьте на пару вопросов — подберём образы специально для вас';
+
+  @override
   String get close => 'Закрыть';
 
   @override

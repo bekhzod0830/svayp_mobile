@@ -1606,6 +1606,30 @@ abstract class AppLocalizations {
   /// **'Try Again'**
   String get tryAgain;
 
+  /// Label for the try-on button on the discovery product card
+  ///
+  /// In en, this message translates to:
+  /// **'Try it on'**
+  String get tryItOn;
+
+  /// Shown when a product has no prepared garment for virtual try-on yet
+  ///
+  /// In en, this message translates to:
+  /// **'Try-on for this item is coming soon'**
+  String get tryOnComingSoon;
+
+  /// Title of the tappable banner on the Discovery screen that opens the style-preferences flow
+  ///
+  /// In en, this message translates to:
+  /// **'Personalize your feed'**
+  String get personalizeBannerTitle;
+
+  /// No description provided for @personalizeBannerSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Answer a few quick questions for recommendations made for you'**
+  String get personalizeBannerSubtitle;
+
   /// No description provided for @close.
   ///
   /// In en, this message translates to:

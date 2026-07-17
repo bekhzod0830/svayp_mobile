@@ -803,6 +803,19 @@ class AppLocalizationsUz extends AppLocalizations {
   String get tryAgain => 'Qayta urinib ko\'ring';
 
   @override
+  String get tryItOn => 'Kiyib ko\'ring';
+
+  @override
+  String get tryOnComingSoon => 'Bu mahsulotni kiyib ko\'rish tez orada';
+
+  @override
+  String get personalizeBannerTitle => 'Tavsiyalarni moslang';
+
+  @override
+  String get personalizeBannerSubtitle =>
+      'Bir necha savolga javob bering — sizga mos tavsiyalar tayyorlaymiz';
+
+  @override
   String get close => 'Yopish';
 
   @override
