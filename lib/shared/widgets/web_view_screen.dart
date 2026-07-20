@@ -98,8 +98,15 @@ class _WebViewScreenState extends State<WebViewScreen> {
               return NavigationDecision.prevent;
             }
 
-            // t.me links (Telegram web redirect) must open externally
-            if (uri.host == 't.me' || uri.host.endsWith('.t.me')) {
+            // Telegram web links (t.me / telegram.me / telegram.dog) must open
+            // externally so the native Telegram app handles them instead of
+            // loading the web landing page inside the WebView.
+            final tgHost = uri.host == 't.me' ||
+                uri.host.endsWith('.t.me') ||
+                uri.host == 'telegram.me' ||
+                uri.host.endsWith('.telegram.me') ||
+                uri.host == 'telegram.dog';
+            if (tgHost) {
               if (await canLaunchUrl(uri)) {
                 await launchUrl(uri, mode: LaunchMode.externalApplication);
               }
