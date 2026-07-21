@@ -116,7 +116,11 @@ class _TryOnSheetState extends State<_TryOnSheet> {
         return;
       }
       setState(() {
-        _error = e.message;
+        // Подписочный лимит (тоже 402) — это НЕ нехватка монет: показываем понятный
+        // текст про лимит, а не ведём на экран покупки монет.
+        _error = e.isQuotaExceeded
+            ? 'Лимит примерок на этот месяц исчерпан. Оформите премиум для большего количества.'
+            : e.message;
         _phase = _Phase.failed;
       });
     } catch (_) {

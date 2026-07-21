@@ -643,8 +643,17 @@ class ApiException implements Exception {
 
   /// True when the action failed because the user has too few coins — the UI
   /// should open the buy-coins flow instead of showing a generic error.
+  ///
+  /// NB: не любой 402 = нехватка монет. Подписочный лимит (QUOTA_EXCEEDED) тоже
+  /// возвращает 402 — раньше он ложно открывал экран «Недостаточно монет» у
+  /// премиума. Опираемся на код (или на requiredCoins из details[] как фолбэк).
   bool get isInsufficientCoins =>
-      statusCode == 402 || code == 'INSUFFICIENT_COINS';
+      code == 'INSUFFICIENT_COINS' || (statusCode == 402 && requiredCoins != null);
+
+  /// True when a paid action was blocked by a subscription/quota limit
+  /// (например, месячный лимит примерок), а не нехваткой монет. Тоже 402 —
+  /// поэтому проверять ДО isInsufficientCoins нельзя, различаем по коду.
+  bool get isQuotaExceeded => code == 'QUOTA_EXCEEDED';
 
   @override
   String toString() => message;
