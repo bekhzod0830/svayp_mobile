@@ -3359,13 +3359,315 @@ class AppLocalizationsRu extends AppLocalizations {
       'добавлять свою одежду — всегда бесплатно!';
 
   @override
-  String get welcomeGiftTitle => 'Добро пожаловать!';
+  String get tryOnModeMannequin => 'На манекене';
 
   @override
-  String welcomeGiftSubtitle(int count) {
-    return 'Давай создавать новые образы! На балансе $count алмазов.';
+  String get tryOnModeSelf => 'На своём фото';
+
+  @override
+  String get tryOnUploadingPhoto => 'Загружаем фото…';
+
+  @override
+  String get tryOnPhotoReady => 'Фото готово — можно примерять';
+
+  @override
+  String get tryOnPickPhoto => 'Выберите своё фото в полный рост';
+
+  @override
+  String get tryOnPhotoUploadFailed =>
+      'Не удалось загрузить фото. Попробуйте другое.';
+
+  @override
+  String get tryOnProcessingTitle => 'Примеряем на вас…';
+
+  @override
+  String get tryOnProcessingSubtitle => 'ИИ подбирает идеальную посадку';
+
+  @override
+  String get tryOnFailedDefault => 'Примерка не удалась. Попробуйте ещё раз.';
+
+  @override
+  String get tryOnSomethingWrong => 'Что-то пошло не так. Попробуйте ещё раз.';
+
+  @override
+  String get tryOnNeedDiamondsTitle => 'Недостаточно алмазов';
+
+  @override
+  String tryOnNeedDiamondsBody(int cost, int balance) {
+    return 'Для примерки нужно $cost алмазов, у вас $balance. Пополните баланс в разделе «Гардероб».';
   }
 
   @override
-  String get welcomeGiftCta => 'Начать';
+  String get tryOnNeedDiamondsBodyShort =>
+      'Для примерки не хватает алмазов. Пополните баланс в разделе «Гардероб».';
+
+  @override
+  String get mirrorTab => 'Зеркало';
+
+  @override
+  String get mirrorIdleEyebrow => 'AI-стилист LIBAS';
+
+  @override
+  String get mirrorIdleTitle => 'Примерьте образ';
+
+  @override
+  String get mirrorIdleTitleAccent => 'за 30 секунд';
+
+  @override
+  String get mirrorCtaCreate => 'Создать образ';
+
+  @override
+  String get mirrorCtaCatalog => 'Посмотреть каталог';
+
+  @override
+  String get mirrorFree => 'Бесплатно';
+
+  @override
+  String get mirrorIntroEyebrow => 'Три шага';
+
+  @override
+  String get mirrorIntroTitle => 'Как это работает';
+
+  @override
+  String get mirrorStep1Title => 'Сфотографируйте лицо';
+
+  @override
+  String get mirrorStep1Text => 'Одно фото, прямо здесь';
+
+  @override
+  String get mirrorStep2Title => 'Ответьте на два вопроса';
+
+  @override
+  String get mirrorStep2Text => 'Пол и тип фигуры';
+
+  @override
+  String get mirrorStep3Title => 'Смотрите образ';
+
+  @override
+  String get mirrorStep3Text => 'Из вещей, которые есть в наличии';
+
+  @override
+  String get mirrorIntroCta => 'Начать';
+
+  @override
+  String get mirrorPrivacyLong =>
+      'Фото лица хранится 15 минут и удаляется автоматически. Лицо на картинке мы не показываем, продавцы фото не видят.';
+
+  @override
+  String get mirrorPrivacyShort => 'Фото удалится через 15 минут';
+
+  @override
+  String get mirrorCamAim => 'Поместите лицо в круг';
+
+  @override
+  String get mirrorCamLook => 'Смотрите прямо в камеру';
+
+  @override
+  String get mirrorCamDone => 'Хорошо получилось?';
+
+  @override
+  String get mirrorCamDoneHint => 'Лицо видно чётко, без теней';
+
+  @override
+  String get mirrorShoot => 'Снять';
+
+  @override
+  String get mirrorUpload => 'Загрузить фото';
+
+  @override
+  String get mirrorRetake => 'Переснять';
+
+  @override
+  String get mirrorDone => 'Готово';
+
+  @override
+  String get mirrorCamNoAccess => 'Нет доступа к камере. Позовите продавца';
+
+  @override
+  String get mirrorOpenSettings => 'Открыть настройки';
+
+  @override
+  String get mirrorFaceNotFound => 'Не вижу лицо. Встаньте ближе';
+
+  @override
+  String get mirrorFaceMultiple => 'В кадре несколько лиц';
+
+  @override
+  String get mirrorFaceCloser => 'Встаньте немного ближе';
+
+  @override
+  String get mirrorFaceTooDark => 'Темновато — станьте к свету';
+
+  @override
+  String get mirrorUploadFailed =>
+      'Не удалось отправить фото. Попробуйте ещё раз';
+
+  @override
+  String get mirrorBodyTitle => 'Расскажите о себе';
+
+  @override
+  String get mirrorBodySubtitle => 'Два ответа — и образ будет точно по вам.';
+
+  @override
+  String get mirrorGenderLabel => 'Пол';
+
+  @override
+  String get mirrorShapeLabel => 'Тип фигуры';
+
+  @override
+  String get mirrorFemale => 'Женский';
+
+  @override
+  String get mirrorMale => 'Мужской';
+
+  @override
+  String get mirrorDontKnow => 'Не знаю';
+
+  @override
+  String get mirrorNext => 'Дальше';
+
+  @override
+  String get mirrorStyleTitle => 'Какой стиль вам ближе?';
+
+  @override
+  String get mirrorStyleSubtitle => 'Можно выбрать несколько.';
+
+  @override
+  String get mirrorCatalogTitle => 'Весь зал';
+
+  @override
+  String get mirrorCatalogSubtitle =>
+      'Отметьте вещи, которые вам нравятся — примерим их на вас.';
+
+  @override
+  String get mirrorCatalogNext => 'Далее';
+
+  @override
+  String get mirrorPicked => 'Выбрано';
+
+  @override
+  String get mirrorCatalogEmpty => 'Пока нет товаров с фото';
+
+  @override
+  String get mirrorGenTitle => 'Собираем образ';
+
+  @override
+  String get mirrorGen1 => 'Разбираем черты лица';
+
+  @override
+  String get mirrorGen2 => 'Учитываем тип фигуры';
+
+  @override
+  String get mirrorGen3 => 'Подбираем вещи из зала';
+
+  @override
+  String get mirrorGen4 => 'Собираем образ';
+
+  @override
+  String get mirrorGenAlmost => 'Ещё немного, почти готово';
+
+  @override
+  String get mirrorGenFailed => 'Что-то пошло не так';
+
+  @override
+  String get mirrorGenRetry => 'Попробовать снова';
+
+  @override
+  String get mirrorGenContinueInApp => 'Или продолжите в приложении по QR';
+
+  @override
+  String get mirrorCancel => 'Отмена';
+
+  @override
+  String get mirrorLookUnavailable =>
+      'Из того, что сейчас в наличии, полный образ не собрать';
+
+  @override
+  String get mirrorResultTag => 'Ваш образ';
+
+  @override
+  String mirrorItemsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count вещей',
+      few: '$count вещи',
+      one: '$count вещь',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get mirrorQrTitle => 'Заберите образ в телефон';
+
+  @override
+  String get mirrorQrSubtitle =>
+      'Наведите камеру — фото, размеры и цены сохранятся в приложении LIBAS.';
+
+  @override
+  String get mirrorDownload => 'Скачать фото';
+
+  @override
+  String get mirrorDownloadHint =>
+      'Отсканируйте QR — фото сохранится в телефон';
+
+  @override
+  String get mirrorRegenerate => 'Пересобрать';
+
+  @override
+  String mirrorRegenerateLeft(int count) {
+    return 'Пересобрать · осталось $count';
+  }
+
+  @override
+  String get mirrorContinueInApp => 'Продолжите в приложении';
+
+  @override
+  String get mirrorCollect => 'Собрать на примерку';
+
+  @override
+  String get mirrorBuyTitle => 'Что на вас';
+
+  @override
+  String get mirrorBuySubtitle => 'Все вещи есть в наличии прямо сейчас.';
+
+  @override
+  String get mirrorTotal => 'Итого';
+
+  @override
+  String get mirrorSizeLabel => 'Размер';
+
+  @override
+  String get mirrorInStock => 'в наличии';
+
+  @override
+  String get mirrorCodeLabel =>
+      'Назовите этот код продавцу — он соберёт вещи на примерку';
+
+  @override
+  String get mirrorBackToLook => 'Вернуться к образу';
+
+  @override
+  String get mirrorBack => 'Назад';
+
+  @override
+  String get mirrorStillHere => 'Вы ещё здесь?';
+
+  @override
+  String mirrorStillHereHint(int seconds) {
+    return 'Сессия закроется через $seconds с';
+  }
+
+  @override
+  String get mirrorImHere => 'Я здесь';
+
+  @override
+  String get mirrorOfflineTitle => 'Нет связи';
+
+  @override
+  String get mirrorOfflineHint => 'Позовите, пожалуйста, продавца';
+
+  @override
+  String get mirrorDemoBadge =>
+      'Демо-режим · каталог настоящий, примерка имитирована';
 }

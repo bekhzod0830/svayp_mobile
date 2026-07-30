@@ -3378,13 +3378,311 @@ class AppLocalizationsUz extends AppLocalizations {
       'O\'z kiyimlaringizni qo\'shish har doim bepul!';
 
   @override
-  String get welcomeGiftTitle => 'Xush kelibsiz!';
+  String get tryOnModeMannequin => 'Manekenda';
 
   @override
-  String welcomeGiftSubtitle(int count) {
-    return 'Keling, yangi obrazlar yaratishni boshlaymiz! Hisobingizda $count olmos bor.';
+  String get tryOnModeSelf => 'O\'z suratingizda';
+
+  @override
+  String get tryOnUploadingPhoto => 'Surat yuklanmoqda…';
+
+  @override
+  String get tryOnPhotoReady => 'Surat tayyor — kiyib ko\'rsangiz bo\'ladi';
+
+  @override
+  String get tryOnPickPhoto => 'To\'liq bo\'yingizdagi suratni tanlang';
+
+  @override
+  String get tryOnPhotoUploadFailed =>
+      'Suratni yuklab bo\'lmadi. Boshqasini tanlang.';
+
+  @override
+  String get tryOnProcessingTitle => 'Sizga kiydiryapmiz…';
+
+  @override
+  String get tryOnProcessingSubtitle =>
+      'Sun\'iy intellekt mukammal o\'lchamni tanlayapti';
+
+  @override
+  String get tryOnFailedDefault =>
+      'Kiyib ko\'rish amalga oshmadi. Yana urinib ko\'ring.';
+
+  @override
+  String get tryOnSomethingWrong => 'Nimadir xato ketdi. Yana urinib ko\'ring.';
+
+  @override
+  String get tryOnNeedDiamondsTitle => 'Olmos yetarli emas';
+
+  @override
+  String tryOnNeedDiamondsBody(int cost, int balance) {
+    return 'Kiyib ko\'rish uchun $cost olmos kerak, sizda $balance ta. Balansni «Garderob» bo\'limida to\'ldiring.';
   }
 
   @override
-  String get welcomeGiftCta => 'Boshlash';
+  String get tryOnNeedDiamondsBodyShort =>
+      'Kiyib ko\'rish uchun olmos yetarli emas. Balansni «Garderob» bo\'limida to\'ldiring.';
+
+  @override
+  String get mirrorTab => 'Oyna';
+
+  @override
+  String get mirrorIdleEyebrow => 'LIBAS AI-stilisti';
+
+  @override
+  String get mirrorIdleTitle => 'Uslubni kiyib koʻring';
+
+  @override
+  String get mirrorIdleTitleAccent => '30 soniyada';
+
+  @override
+  String get mirrorCtaCreate => 'Uslub yaratish';
+
+  @override
+  String get mirrorCtaCatalog => 'Katalogni koʻrish';
+
+  @override
+  String get mirrorFree => 'Bepul';
+
+  @override
+  String get mirrorIntroEyebrow => 'Uch qadam';
+
+  @override
+  String get mirrorIntroTitle => 'Bu qanday ishlaydi';
+
+  @override
+  String get mirrorStep1Title => 'Yuzingizni suratga oling';
+
+  @override
+  String get mirrorStep1Text => 'Bitta surat, shu yerda';
+
+  @override
+  String get mirrorStep2Title => 'Ikki savolga javob bering';
+
+  @override
+  String get mirrorStep2Text => 'Jins va tana tuzilishi';
+
+  @override
+  String get mirrorStep3Title => 'Uslubni koʻring';
+
+  @override
+  String get mirrorStep3Text => 'Mavjud kiyimlardan';
+
+  @override
+  String get mirrorIntroCta => 'Boshlash';
+
+  @override
+  String get mirrorPrivacyLong =>
+      'Yuz surati 15 daqiqa saqlanadi va avtomatik oʻchiriladi. Rasmda yuz koʻrsatilmaydi, sotuvchilar suratni koʻrmaydi.';
+
+  @override
+  String get mirrorPrivacyShort => 'Surat 15 daqiqadan soʻng oʻchiriladi';
+
+  @override
+  String get mirrorCamAim => 'Yuzingizni doira ichiga joylang';
+
+  @override
+  String get mirrorCamLook => 'Toʻgʻridan-toʻgʻri kameraga qarang';
+
+  @override
+  String get mirrorCamDone => 'Yaxshi chiqdimi?';
+
+  @override
+  String get mirrorCamDoneHint => 'Yuz aniq koʻrinadi, soyasiz';
+
+  @override
+  String get mirrorShoot => 'Suratga olish';
+
+  @override
+  String get mirrorUpload => 'Surat yuklash';
+
+  @override
+  String get mirrorRetake => 'Qayta olish';
+
+  @override
+  String get mirrorDone => 'Tayyor';
+
+  @override
+  String get mirrorCamNoAccess => 'Kameraga ruxsat yoʻq. Sotuvchini chaqiring';
+
+  @override
+  String get mirrorOpenSettings => 'Sozlamalarni ochish';
+
+  @override
+  String get mirrorFaceNotFound => 'Yuzni koʻrmayapman. Yaqinroq turing';
+
+  @override
+  String get mirrorFaceMultiple => 'Kadrda bir nechta yuz bor';
+
+  @override
+  String get mirrorFaceCloser => 'Biroz yaqinroq turing';
+
+  @override
+  String get mirrorFaceTooDark => 'Qorongʻi — yorugʻroq joyga turing';
+
+  @override
+  String get mirrorUploadFailed =>
+      'Suratni yuborib boʻlmadi. Qayta urinib koʻring';
+
+  @override
+  String get mirrorBodyTitle => 'Oʻzingiz haqingizda';
+
+  @override
+  String get mirrorBodySubtitle =>
+      'Ikki javob — uslub aynan sizga mos boʻladi.';
+
+  @override
+  String get mirrorGenderLabel => 'Jins';
+
+  @override
+  String get mirrorShapeLabel => 'Tana tuzilishi';
+
+  @override
+  String get mirrorFemale => 'Ayol';
+
+  @override
+  String get mirrorMale => 'Erkak';
+
+  @override
+  String get mirrorDontKnow => 'Bilmayman';
+
+  @override
+  String get mirrorNext => 'Keyingisi';
+
+  @override
+  String get mirrorStyleTitle => 'Sizga qaysi uslub yaqin?';
+
+  @override
+  String get mirrorStyleSubtitle => 'Bir nechtasini tanlash mumkin.';
+
+  @override
+  String get mirrorCatalogTitle => 'Butun zal';
+
+  @override
+  String get mirrorCatalogSubtitle =>
+      'Yoqqan kiyimlarni belgilang — ularni sizga kiyib koʻramiz.';
+
+  @override
+  String get mirrorCatalogNext => 'Keyingisi';
+
+  @override
+  String get mirrorPicked => 'Tanlandi';
+
+  @override
+  String get mirrorCatalogEmpty => 'Hozircha suratli mahsulot yoʻq';
+
+  @override
+  String get mirrorGenTitle => 'Uslub yigʻilmoqda';
+
+  @override
+  String get mirrorGen1 => 'Yuz xususiyatlarini oʻrganyapmiz';
+
+  @override
+  String get mirrorGen2 => 'Tana tuzilishini hisobga olyapmiz';
+
+  @override
+  String get mirrorGen3 => 'Zaldan kiyim tanlayapmiz';
+
+  @override
+  String get mirrorGen4 => 'Uslubni yigʻyapmiz';
+
+  @override
+  String get mirrorGenAlmost => 'Ozgina qoldi, deyarli tayyor';
+
+  @override
+  String get mirrorGenFailed => 'Nimadir notoʻgʻri ketdi';
+
+  @override
+  String get mirrorGenRetry => 'Qayta urinib koʻrish';
+
+  @override
+  String get mirrorGenContinueInApp => 'Yoki QR orqali ilovada davom eting';
+
+  @override
+  String get mirrorCancel => 'Bekor qilish';
+
+  @override
+  String get mirrorLookUnavailable =>
+      'Hozir mavjud mahsulotlardan toʻliq uslub yigʻib boʻlmaydi';
+
+  @override
+  String get mirrorResultTag => 'Sizning uslubingiz';
+
+  @override
+  String mirrorItemsCount(int count) {
+    return '$count ta buyum';
+  }
+
+  @override
+  String get mirrorQrTitle => 'Uslubni telefonga oling';
+
+  @override
+  String get mirrorQrSubtitle =>
+      'Kamerani qarating — surat, oʻlchamlar va narxlar LIBAS ilovasida saqlanadi.';
+
+  @override
+  String get mirrorDownload => 'Suratni yuklash';
+
+  @override
+  String get mirrorDownloadHint =>
+      'QR-ni skanerlang — surat telefonga saqlanadi';
+
+  @override
+  String get mirrorRegenerate => 'Qayta yigʻish';
+
+  @override
+  String mirrorRegenerateLeft(int count) {
+    return 'Qayta yigʻish · $count qoldi';
+  }
+
+  @override
+  String get mirrorContinueInApp => 'Ilovada davom eting';
+
+  @override
+  String get mirrorCollect => 'Kiyib koʻrishga yigʻish';
+
+  @override
+  String get mirrorBuyTitle => 'Sizdagi kiyimlar';
+
+  @override
+  String get mirrorBuySubtitle => 'Barcha kiyimlar hozir mavjud.';
+
+  @override
+  String get mirrorTotal => 'Jami';
+
+  @override
+  String get mirrorSizeLabel => 'Oʻlcham';
+
+  @override
+  String get mirrorInStock => 'mavjud';
+
+  @override
+  String get mirrorCodeLabel =>
+      'Bu kodni sotuvchiga ayting — u kiyimlarni tayyorlaydi';
+
+  @override
+  String get mirrorBackToLook => 'Uslubga qaytish';
+
+  @override
+  String get mirrorBack => 'Orqaga';
+
+  @override
+  String get mirrorStillHere => 'Hali shu yerdamisiz?';
+
+  @override
+  String mirrorStillHereHint(int seconds) {
+    return 'Sessiya $seconds soniyadan soʻng yopiladi';
+  }
+
+  @override
+  String get mirrorImHere => 'Men shu yerdaman';
+
+  @override
+  String get mirrorOfflineTitle => 'Aloqa yoʻq';
+
+  @override
+  String get mirrorOfflineHint => 'Iltimos, sotuvchini chaqiring';
+
+  @override
+  String get mirrorDemoBadge =>
+      'Demo rejimi · katalog haqiqiy, kiyib koʻrish taqlid qilinadi';
 }

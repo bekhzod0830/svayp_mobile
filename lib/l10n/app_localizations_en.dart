@@ -3337,13 +3337,315 @@ class AppLocalizationsEn extends AppLocalizations {
       'Adding your own clothes is always free!';
 
   @override
-  String get welcomeGiftTitle => 'Welcome!';
+  String get tryOnModeMannequin => 'On a mannequin';
 
   @override
-  String welcomeGiftSubtitle(int count) {
-    return 'Let\'s start creating new outfits! You\'ve got $count diamonds to begin.';
+  String get tryOnModeSelf => 'On your photo';
+
+  @override
+  String get tryOnUploadingPhoto => 'Uploading photo…';
+
+  @override
+  String get tryOnPhotoReady => 'Photo ready — you can try it on';
+
+  @override
+  String get tryOnPickPhoto => 'Choose a full-length photo of yourself';
+
+  @override
+  String get tryOnPhotoUploadFailed =>
+      'Couldn\'t upload the photo. Try another one.';
+
+  @override
+  String get tryOnProcessingTitle => 'Trying it on you…';
+
+  @override
+  String get tryOnProcessingSubtitle => 'AI is finding the perfect fit';
+
+  @override
+  String get tryOnFailedDefault => 'The try-on didn\'t work. Please try again.';
+
+  @override
+  String get tryOnSomethingWrong => 'Something went wrong. Please try again.';
+
+  @override
+  String get tryOnNeedDiamondsTitle => 'Not enough diamonds';
+
+  @override
+  String tryOnNeedDiamondsBody(int cost, int balance) {
+    return 'A try-on needs $cost diamonds, you have $balance. Top up your balance in the Wardrobe section.';
   }
 
   @override
-  String get welcomeGiftCta => 'Start';
+  String get tryOnNeedDiamondsBodyShort =>
+      'You don\'t have enough diamonds for a try-on. Top up your balance in the Wardrobe section.';
+
+  @override
+  String get mirrorTab => 'Mirror';
+
+  @override
+  String get mirrorIdleEyebrow => 'LIBAS AI stylist';
+
+  @override
+  String get mirrorIdleTitle => 'Try on a look';
+
+  @override
+  String get mirrorIdleTitleAccent => 'in 30 seconds';
+
+  @override
+  String get mirrorCtaCreate => 'Create a look';
+
+  @override
+  String get mirrorCtaCatalog => 'Browse the catalog';
+
+  @override
+  String get mirrorFree => 'Free';
+
+  @override
+  String get mirrorIntroEyebrow => 'Three steps';
+
+  @override
+  String get mirrorIntroTitle => 'How it works';
+
+  @override
+  String get mirrorStep1Title => 'Take a photo of your face';
+
+  @override
+  String get mirrorStep1Text => 'One photo, right here';
+
+  @override
+  String get mirrorStep2Title => 'Answer two questions';
+
+  @override
+  String get mirrorStep2Text => 'Gender and body type';
+
+  @override
+  String get mirrorStep3Title => 'See your look';
+
+  @override
+  String get mirrorStep3Text => 'Made of items that are in stock';
+
+  @override
+  String get mirrorIntroCta => 'Start';
+
+  @override
+  String get mirrorPrivacyLong =>
+      'Your face photo is kept for 15 minutes and deleted automatically. We never show your face on the image and sellers never see the photo.';
+
+  @override
+  String get mirrorPrivacyShort => 'The photo is deleted after 15 minutes';
+
+  @override
+  String get mirrorCamAim => 'Place your face inside the circle';
+
+  @override
+  String get mirrorCamLook => 'Look straight into the camera';
+
+  @override
+  String get mirrorCamDone => 'Does it look good?';
+
+  @override
+  String get mirrorCamDoneHint => 'Face is clearly visible, no shadows';
+
+  @override
+  String get mirrorShoot => 'Snap';
+
+  @override
+  String get mirrorUpload => 'Upload photo';
+
+  @override
+  String get mirrorRetake => 'Retake';
+
+  @override
+  String get mirrorDone => 'Done';
+
+  @override
+  String get mirrorCamNoAccess =>
+      'No camera access. Please call a shop assistant';
+
+  @override
+  String get mirrorOpenSettings => 'Open Settings';
+
+  @override
+  String get mirrorFaceNotFound => 'I can\'t see a face. Step closer';
+
+  @override
+  String get mirrorFaceMultiple => 'There are several faces in the frame';
+
+  @override
+  String get mirrorFaceCloser => 'Step a little closer';
+
+  @override
+  String get mirrorFaceTooDark => 'Too dark — move towards the light';
+
+  @override
+  String get mirrorUploadFailed => 'Couldn\'t send the photo. Please try again';
+
+  @override
+  String get mirrorBodyTitle => 'Tell us about yourself';
+
+  @override
+  String get mirrorBodySubtitle =>
+      'Two answers — and the look will truly fit you.';
+
+  @override
+  String get mirrorGenderLabel => 'Gender';
+
+  @override
+  String get mirrorShapeLabel => 'Body type';
+
+  @override
+  String get mirrorFemale => 'Female';
+
+  @override
+  String get mirrorMale => 'Male';
+
+  @override
+  String get mirrorDontKnow => 'I don\'t know';
+
+  @override
+  String get mirrorNext => 'Next';
+
+  @override
+  String get mirrorStyleTitle => 'Which style feels like you?';
+
+  @override
+  String get mirrorStyleSubtitle => 'You can pick several.';
+
+  @override
+  String get mirrorCatalogTitle => 'The whole store';
+
+  @override
+  String get mirrorCatalogSubtitle =>
+      'Mark the pieces you like — we\'ll try them on you.';
+
+  @override
+  String get mirrorCatalogNext => 'Next';
+
+  @override
+  String get mirrorPicked => 'Selected';
+
+  @override
+  String get mirrorCatalogEmpty => 'No products with photos yet';
+
+  @override
+  String get mirrorGenTitle => 'Building your look';
+
+  @override
+  String get mirrorGen1 => 'Reading your facial features';
+
+  @override
+  String get mirrorGen2 => 'Considering your body type';
+
+  @override
+  String get mirrorGen3 => 'Picking pieces from the store';
+
+  @override
+  String get mirrorGen4 => 'Assembling the look';
+
+  @override
+  String get mirrorGenAlmost => 'Just a moment, almost ready';
+
+  @override
+  String get mirrorGenFailed => 'Something went wrong';
+
+  @override
+  String get mirrorGenRetry => 'Try again';
+
+  @override
+  String get mirrorGenContinueInApp => 'Or continue in the app via QR';
+
+  @override
+  String get mirrorCancel => 'Cancel';
+
+  @override
+  String get mirrorLookUnavailable =>
+      'We can\'t build a full look from what\'s in stock right now';
+
+  @override
+  String get mirrorResultTag => 'Your look';
+
+  @override
+  String mirrorItemsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count items',
+      one: '$count item',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get mirrorQrTitle => 'Take the look with you';
+
+  @override
+  String get mirrorQrSubtitle =>
+      'Point your camera — the photo, sizes and prices will be saved in the LIBAS app.';
+
+  @override
+  String get mirrorDownload => 'Save photo';
+
+  @override
+  String get mirrorDownloadHint =>
+      'Scan the QR — the photo will be saved to your phone';
+
+  @override
+  String get mirrorRegenerate => 'Regenerate';
+
+  @override
+  String mirrorRegenerateLeft(int count) {
+    return 'Regenerate · $count left';
+  }
+
+  @override
+  String get mirrorContinueInApp => 'Continue in the app';
+
+  @override
+  String get mirrorCollect => 'Collect for fitting';
+
+  @override
+  String get mirrorBuyTitle => 'What you\'re wearing';
+
+  @override
+  String get mirrorBuySubtitle => 'Every piece is in stock right now.';
+
+  @override
+  String get mirrorTotal => 'Total';
+
+  @override
+  String get mirrorSizeLabel => 'Size';
+
+  @override
+  String get mirrorInStock => 'in stock';
+
+  @override
+  String get mirrorCodeLabel =>
+      'Tell this code to a shop assistant — they will collect the pieces for your fitting';
+
+  @override
+  String get mirrorBackToLook => 'Back to the look';
+
+  @override
+  String get mirrorBack => 'Back';
+
+  @override
+  String get mirrorStillHere => 'Are you still here?';
+
+  @override
+  String mirrorStillHereHint(int seconds) {
+    return 'The session will close in $seconds s';
+  }
+
+  @override
+  String get mirrorImHere => 'I\'m here';
+
+  @override
+  String get mirrorOfflineTitle => 'No connection';
+
+  @override
+  String get mirrorOfflineHint => 'Please call a shop assistant';
+
+  @override
+  String get mirrorDemoBadge =>
+      'Demo mode · the catalog is real, the try-on is simulated';
 }

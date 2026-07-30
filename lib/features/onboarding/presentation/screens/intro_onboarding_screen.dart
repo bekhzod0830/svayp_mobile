@@ -95,14 +95,6 @@ class _IntroOnboardingScreenState extends State<IntroOnboardingScreen> {
     if (_isLast) _confetti.play();
   }
 
-  void _skip() {
-    AnalyticsService.instance.logEvent(
-      AnalyticsEvents.introSkipped,
-      parameters: {'from_slide': '${_index + 1}'},
-    );
-    _goTo(IntroOnboardingScreen.slideCount - 1);
-  }
-
   Future<void> _finish() async {
     AnalyticsService.instance.logEvent(AnalyticsEvents.introCompleted);
     final storage = await LocalStorageHelper.getInstance();
@@ -365,23 +357,6 @@ class _IntroOnboardingScreenState extends State<IntroOnboardingScreen> {
                             ),
                           ),
                         ),
-                      IntroFrostedButton(
-                        visible: !_isLast,
-                        onTap: _skip,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 15,
-                            vertical: 11,
-                          ),
-                          child: Text(
-                            l10n.introSkip,
-                            style: IntroPalette.label(
-                              size: 13,
-                              weight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ),
                     ],
                   ),
                 ),

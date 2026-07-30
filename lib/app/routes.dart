@@ -301,17 +301,13 @@ class AppRoutes {
         // its WebView shows the "Welcome to Libas AI" guided flow on first open.
         // Guests are routed to Discover (index 5) explicitly by their callers.
         final initialIndex = mainArgs?['initialIndex'] as int? ?? 1;
-        final showWelcomeGift = mainArgs?['showWelcomeGift'] as bool? ?? false;
         // settings обязателен: без него route.settings.name == null, и наблюдатель
         // навигации не обновляет текущий экран — во все последующие события уходит
         // предыдущий экран (обычно /otp-verification), из-за чего вся активность
         // в аналитике выглядела как раздел входа.
         return MaterialPageRoute(
           settings: settings,
-          builder: (_) => MainScreen(
-            initialIndex: initialIndex,
-            showWelcomeGift: showWelcomeGift,
-          ),
+          builder: (_) => MainScreen(initialIndex: initialIndex),
         );
 
       case orderDetail:

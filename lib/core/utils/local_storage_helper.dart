@@ -44,22 +44,6 @@ class LocalStorageHelper {
         false;
   }
 
-  /// Whether the welcome gift dialog still needs to be shown after
-  /// registration (survives process death between profile creation and the
-  /// first main-screen frame).
-  bool isWelcomeGiftPending() {
-    return _preferences?.getBool(AppConstants.pendingWelcomeGiftKey) ?? false;
-  }
-
-  /// Set/clear the pending welcome gift flag.
-  Future<bool> setWelcomeGiftPending(bool value) async {
-    return await _preferences?.setBool(
-          AppConstants.pendingWelcomeGiftKey,
-          value,
-        ) ??
-        false;
-  }
-
   // ============== User Authentication ==============
 
   /// Save user token

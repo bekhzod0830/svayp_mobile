@@ -47,9 +47,6 @@ abstract class AnalyticsEvents {
   /// "Start" tapped on the last slide — user proceeds to phone auth.
   static const String introCompleted = 'intro_completed';
 
-  /// Welcome gift dialog shown after registration.
-  static const String welcomeGiftPopupViewed = 'welcome_gift_popup_viewed';
-
   // ─── Onboarding ───────────────────────────────────────────────────────────
   /// All onboarding steps finished — user reached the completion screen.
   static const String onboardingCompleted = 'onboarding_completed';

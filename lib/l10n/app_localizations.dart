@@ -6478,23 +6478,581 @@ abstract class AppLocalizations {
   /// **'Adding your own clothes is always free!'**
   String get introSlide6FreeHighlight;
 
-  /// No description provided for @welcomeGiftTitle.
+  /// Try-on sheet: option to fit the garment on a mannequin
   ///
   /// In en, this message translates to:
-  /// **'Welcome!'**
-  String get welcomeGiftTitle;
+  /// **'On a mannequin'**
+  String get tryOnModeMannequin;
 
-  /// No description provided for @welcomeGiftSubtitle.
+  /// Try-on sheet: option to fit the garment on the user's own photo
   ///
   /// In en, this message translates to:
-  /// **'Let\'s start creating new outfits! You\'ve got {count} diamonds to begin.'**
-  String welcomeGiftSubtitle(int count);
+  /// **'On your photo'**
+  String get tryOnModeSelf;
 
-  /// No description provided for @welcomeGiftCta.
+  /// No description provided for @tryOnUploadingPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Uploading photo…'**
+  String get tryOnUploadingPhoto;
+
+  /// No description provided for @tryOnPhotoReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo ready — you can try it on'**
+  String get tryOnPhotoReady;
+
+  /// No description provided for @tryOnPickPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a full-length photo of yourself'**
+  String get tryOnPickPhoto;
+
+  /// No description provided for @tryOnPhotoUploadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t upload the photo. Try another one.'**
+  String get tryOnPhotoUploadFailed;
+
+  /// No description provided for @tryOnProcessingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Trying it on you…'**
+  String get tryOnProcessingTitle;
+
+  /// No description provided for @tryOnProcessingSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'AI is finding the perfect fit'**
+  String get tryOnProcessingSubtitle;
+
+  /// No description provided for @tryOnFailedDefault.
+  ///
+  /// In en, this message translates to:
+  /// **'The try-on didn\'t work. Please try again.'**
+  String get tryOnFailedDefault;
+
+  /// No description provided for @tryOnSomethingWrong.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong. Please try again.'**
+  String get tryOnSomethingWrong;
+
+  /// No description provided for @tryOnNeedDiamondsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Not enough diamonds'**
+  String get tryOnNeedDiamondsTitle;
+
+  /// Try-on: shown when the user lacks diamonds; cost and current balance
+  ///
+  /// In en, this message translates to:
+  /// **'A try-on needs {cost} diamonds, you have {balance}. Top up your balance in the Wardrobe section.'**
+  String tryOnNeedDiamondsBody(int cost, int balance);
+
+  /// No description provided for @tryOnNeedDiamondsBodyShort.
+  ///
+  /// In en, this message translates to:
+  /// **'You don\'t have enough diamonds for a try-on. Top up your balance in the Wardrobe section.'**
+  String get tryOnNeedDiamondsBodyShort;
+
+  /// No description provided for @mirrorTab.
+  ///
+  /// In en, this message translates to:
+  /// **'Mirror'**
+  String get mirrorTab;
+
+  /// No description provided for @mirrorIdleEyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'LIBAS AI stylist'**
+  String get mirrorIdleEyebrow;
+
+  /// No description provided for @mirrorIdleTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Try on a look'**
+  String get mirrorIdleTitle;
+
+  /// No description provided for @mirrorIdleTitleAccent.
+  ///
+  /// In en, this message translates to:
+  /// **'in 30 seconds'**
+  String get mirrorIdleTitleAccent;
+
+  /// No description provided for @mirrorCtaCreate.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a look'**
+  String get mirrorCtaCreate;
+
+  /// No description provided for @mirrorCtaCatalog.
+  ///
+  /// In en, this message translates to:
+  /// **'Browse the catalog'**
+  String get mirrorCtaCatalog;
+
+  /// No description provided for @mirrorFree.
+  ///
+  /// In en, this message translates to:
+  /// **'Free'**
+  String get mirrorFree;
+
+  /// No description provided for @mirrorIntroEyebrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Three steps'**
+  String get mirrorIntroEyebrow;
+
+  /// No description provided for @mirrorIntroTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'How it works'**
+  String get mirrorIntroTitle;
+
+  /// No description provided for @mirrorStep1Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Take a photo of your face'**
+  String get mirrorStep1Title;
+
+  /// No description provided for @mirrorStep1Text.
+  ///
+  /// In en, this message translates to:
+  /// **'One photo, right here'**
+  String get mirrorStep1Text;
+
+  /// No description provided for @mirrorStep2Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Answer two questions'**
+  String get mirrorStep2Title;
+
+  /// No description provided for @mirrorStep2Text.
+  ///
+  /// In en, this message translates to:
+  /// **'Gender and body type'**
+  String get mirrorStep2Text;
+
+  /// No description provided for @mirrorStep3Title.
+  ///
+  /// In en, this message translates to:
+  /// **'See your look'**
+  String get mirrorStep3Title;
+
+  /// No description provided for @mirrorStep3Text.
+  ///
+  /// In en, this message translates to:
+  /// **'Made of items that are in stock'**
+  String get mirrorStep3Text;
+
+  /// No description provided for @mirrorIntroCta.
   ///
   /// In en, this message translates to:
   /// **'Start'**
-  String get welcomeGiftCta;
+  String get mirrorIntroCta;
+
+  /// No description provided for @mirrorPrivacyLong.
+  ///
+  /// In en, this message translates to:
+  /// **'Your face photo is kept for 15 minutes and deleted automatically. We never show your face on the image and sellers never see the photo.'**
+  String get mirrorPrivacyLong;
+
+  /// No description provided for @mirrorPrivacyShort.
+  ///
+  /// In en, this message translates to:
+  /// **'The photo is deleted after 15 minutes'**
+  String get mirrorPrivacyShort;
+
+  /// No description provided for @mirrorCamAim.
+  ///
+  /// In en, this message translates to:
+  /// **'Place your face inside the circle'**
+  String get mirrorCamAim;
+
+  /// No description provided for @mirrorCamLook.
+  ///
+  /// In en, this message translates to:
+  /// **'Look straight into the camera'**
+  String get mirrorCamLook;
+
+  /// No description provided for @mirrorCamDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Does it look good?'**
+  String get mirrorCamDone;
+
+  /// No description provided for @mirrorCamDoneHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Face is clearly visible, no shadows'**
+  String get mirrorCamDoneHint;
+
+  /// No description provided for @mirrorShoot.
+  ///
+  /// In en, this message translates to:
+  /// **'Snap'**
+  String get mirrorShoot;
+
+  /// No description provided for @mirrorUpload.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload photo'**
+  String get mirrorUpload;
+
+  /// No description provided for @mirrorRetake.
+  ///
+  /// In en, this message translates to:
+  /// **'Retake'**
+  String get mirrorRetake;
+
+  /// No description provided for @mirrorDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get mirrorDone;
+
+  /// No description provided for @mirrorCamNoAccess.
+  ///
+  /// In en, this message translates to:
+  /// **'No camera access. Please call a shop assistant'**
+  String get mirrorCamNoAccess;
+
+  /// No description provided for @mirrorOpenSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Settings'**
+  String get mirrorOpenSettings;
+
+  /// No description provided for @mirrorFaceNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'I can\'t see a face. Step closer'**
+  String get mirrorFaceNotFound;
+
+  /// No description provided for @mirrorFaceMultiple.
+  ///
+  /// In en, this message translates to:
+  /// **'There are several faces in the frame'**
+  String get mirrorFaceMultiple;
+
+  /// No description provided for @mirrorFaceCloser.
+  ///
+  /// In en, this message translates to:
+  /// **'Step a little closer'**
+  String get mirrorFaceCloser;
+
+  /// No description provided for @mirrorFaceTooDark.
+  ///
+  /// In en, this message translates to:
+  /// **'Too dark — move towards the light'**
+  String get mirrorFaceTooDark;
+
+  /// No description provided for @mirrorUploadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t send the photo. Please try again'**
+  String get mirrorUploadFailed;
+
+  /// No description provided for @mirrorBodyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Tell us about yourself'**
+  String get mirrorBodyTitle;
+
+  /// No description provided for @mirrorBodySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Two answers — and the look will truly fit you.'**
+  String get mirrorBodySubtitle;
+
+  /// No description provided for @mirrorGenderLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Gender'**
+  String get mirrorGenderLabel;
+
+  /// No description provided for @mirrorShapeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Body type'**
+  String get mirrorShapeLabel;
+
+  /// No description provided for @mirrorFemale.
+  ///
+  /// In en, this message translates to:
+  /// **'Female'**
+  String get mirrorFemale;
+
+  /// No description provided for @mirrorMale.
+  ///
+  /// In en, this message translates to:
+  /// **'Male'**
+  String get mirrorMale;
+
+  /// No description provided for @mirrorDontKnow.
+  ///
+  /// In en, this message translates to:
+  /// **'I don\'t know'**
+  String get mirrorDontKnow;
+
+  /// No description provided for @mirrorNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Next'**
+  String get mirrorNext;
+
+  /// No description provided for @mirrorStyleTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Which style feels like you?'**
+  String get mirrorStyleTitle;
+
+  /// No description provided for @mirrorStyleSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'You can pick several.'**
+  String get mirrorStyleSubtitle;
+
+  /// No description provided for @mirrorCatalogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'The whole store'**
+  String get mirrorCatalogTitle;
+
+  /// No description provided for @mirrorCatalogSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark the pieces you like — we\'ll try them on you.'**
+  String get mirrorCatalogSubtitle;
+
+  /// No description provided for @mirrorCatalogNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Next'**
+  String get mirrorCatalogNext;
+
+  /// No description provided for @mirrorPicked.
+  ///
+  /// In en, this message translates to:
+  /// **'Selected'**
+  String get mirrorPicked;
+
+  /// No description provided for @mirrorCatalogEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No products with photos yet'**
+  String get mirrorCatalogEmpty;
+
+  /// No description provided for @mirrorGenTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Building your look'**
+  String get mirrorGenTitle;
+
+  /// No description provided for @mirrorGen1.
+  ///
+  /// In en, this message translates to:
+  /// **'Reading your facial features'**
+  String get mirrorGen1;
+
+  /// No description provided for @mirrorGen2.
+  ///
+  /// In en, this message translates to:
+  /// **'Considering your body type'**
+  String get mirrorGen2;
+
+  /// No description provided for @mirrorGen3.
+  ///
+  /// In en, this message translates to:
+  /// **'Picking pieces from the store'**
+  String get mirrorGen3;
+
+  /// No description provided for @mirrorGen4.
+  ///
+  /// In en, this message translates to:
+  /// **'Assembling the look'**
+  String get mirrorGen4;
+
+  /// No description provided for @mirrorGenAlmost.
+  ///
+  /// In en, this message translates to:
+  /// **'Just a moment, almost ready'**
+  String get mirrorGenAlmost;
+
+  /// No description provided for @mirrorGenFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong'**
+  String get mirrorGenFailed;
+
+  /// No description provided for @mirrorGenRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again'**
+  String get mirrorGenRetry;
+
+  /// No description provided for @mirrorGenContinueInApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Or continue in the app via QR'**
+  String get mirrorGenContinueInApp;
+
+  /// No description provided for @mirrorCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get mirrorCancel;
+
+  /// No description provided for @mirrorLookUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'We can\'t build a full look from what\'s in stock right now'**
+  String get mirrorLookUnavailable;
+
+  /// No description provided for @mirrorResultTag.
+  ///
+  /// In en, this message translates to:
+  /// **'Your look'**
+  String get mirrorResultTag;
+
+  /// Mirror kiosk: number of items in the generated look
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{{count} item} other{{count} items}}'**
+  String mirrorItemsCount(int count);
+
+  /// No description provided for @mirrorQrTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Take the look with you'**
+  String get mirrorQrTitle;
+
+  /// No description provided for @mirrorQrSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Point your camera — the photo, sizes and prices will be saved in the LIBAS app.'**
+  String get mirrorQrSubtitle;
+
+  /// No description provided for @mirrorDownload.
+  ///
+  /// In en, this message translates to:
+  /// **'Save photo'**
+  String get mirrorDownload;
+
+  /// No description provided for @mirrorDownloadHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan the QR — the photo will be saved to your phone'**
+  String get mirrorDownloadHint;
+
+  /// No description provided for @mirrorRegenerate.
+  ///
+  /// In en, this message translates to:
+  /// **'Regenerate'**
+  String get mirrorRegenerate;
+
+  /// Mirror kiosk: regenerate button with remaining attempts
+  ///
+  /// In en, this message translates to:
+  /// **'Regenerate · {count} left'**
+  String mirrorRegenerateLeft(int count);
+
+  /// No description provided for @mirrorContinueInApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue in the app'**
+  String get mirrorContinueInApp;
+
+  /// No description provided for @mirrorCollect.
+  ///
+  /// In en, this message translates to:
+  /// **'Collect for fitting'**
+  String get mirrorCollect;
+
+  /// No description provided for @mirrorBuyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'What you\'re wearing'**
+  String get mirrorBuyTitle;
+
+  /// No description provided for @mirrorBuySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Every piece is in stock right now.'**
+  String get mirrorBuySubtitle;
+
+  /// No description provided for @mirrorTotal.
+  ///
+  /// In en, this message translates to:
+  /// **'Total'**
+  String get mirrorTotal;
+
+  /// No description provided for @mirrorSizeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Size'**
+  String get mirrorSizeLabel;
+
+  /// No description provided for @mirrorInStock.
+  ///
+  /// In en, this message translates to:
+  /// **'in stock'**
+  String get mirrorInStock;
+
+  /// No description provided for @mirrorCodeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Tell this code to a shop assistant — they will collect the pieces for your fitting'**
+  String get mirrorCodeLabel;
+
+  /// No description provided for @mirrorBackToLook.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to the look'**
+  String get mirrorBackToLook;
+
+  /// No description provided for @mirrorBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get mirrorBack;
+
+  /// No description provided for @mirrorStillHere.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you still here?'**
+  String get mirrorStillHere;
+
+  /// Mirror kiosk: idle warning countdown
+  ///
+  /// In en, this message translates to:
+  /// **'The session will close in {seconds} s'**
+  String mirrorStillHereHint(int seconds);
+
+  /// No description provided for @mirrorImHere.
+  ///
+  /// In en, this message translates to:
+  /// **'I\'m here'**
+  String get mirrorImHere;
+
+  /// No description provided for @mirrorOfflineTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No connection'**
+  String get mirrorOfflineTitle;
+
+  /// No description provided for @mirrorOfflineHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Please call a shop assistant'**
+  String get mirrorOfflineHint;
+
+  /// No description provided for @mirrorDemoBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'Demo mode · the catalog is real, the try-on is simulated'**
+  String get mirrorDemoBadge;
 }
 
 class _AppLocalizationsDelegate
