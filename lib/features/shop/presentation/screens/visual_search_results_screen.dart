@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:swipe/core/analytics/analytics_events.dart';
+import 'package:swipe/core/analytics/analytics_service.dart';
 import 'package:swipe/core/models/product.dart' as api_models;
 import 'package:swipe/core/services/visual_search_api_service.dart';
 import 'package:swipe/core/cache/image_cache_manager.dart';
@@ -35,6 +37,12 @@ class _VisualSearchResultsScreenState extends State<VisualSearchResultsScreen> {
   void initState() {
     super.initState();
     _likedService.init();
+    // Показ результатов — это и есть использование визуального поиска. До сих пор
+    // экран не был инструментирован вовсе, поэтому функция выглядела мёртвой.
+    AnalyticsService.instance.logEvent(
+      AnalyticsEvents.visualSearchResults,
+      parameters: {'result_count': widget.results.length.toString()},
+    );
   }
 
   Product _toEntity(api_models.Product p) {

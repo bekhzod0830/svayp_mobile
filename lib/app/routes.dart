@@ -275,17 +275,24 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => const OrdersScreen());
 
       case chatList:
-        return MaterialPageRoute(builder: (_) => const ChatListScreen());
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const ChatListScreen(),
+        );
 
       case chatDetail:
         final args = settings.arguments;
         if (args is String) {
           return MaterialPageRoute(
+            settings: settings,
             builder: (_) =>
                 ChatDetailScreen(chatId: args, fromNotification: true),
           );
         }
-        return MaterialPageRoute(builder: (_) => const ChatListScreen());
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const ChatListScreen(),
+        );
 
       case main:
         final mainArgs = settings.arguments as Map<String, dynamic>?;
@@ -295,7 +302,12 @@ class AppRoutes {
         // Guests are routed to Discover (index 5) explicitly by their callers.
         final initialIndex = mainArgs?['initialIndex'] as int? ?? 1;
         final showWelcomeGift = mainArgs?['showWelcomeGift'] as bool? ?? false;
+        // settings обязателен: без него route.settings.name == null, и наблюдатель
+        // навигации не обновляет текущий экран — во все последующие события уходит
+        // предыдущий экран (обычно /otp-verification), из-за чего вся активность
+        // в аналитике выглядела как раздел входа.
         return MaterialPageRoute(
+          settings: settings,
           builder: (_) => MainScreen(
             initialIndex: initialIndex,
             showWelcomeGift: showWelcomeGift,
@@ -307,6 +319,7 @@ class AppRoutes {
         if (args is String) {
           final isPartner = getIt<ApiClient>().isPartnerLogin();
           return MaterialPageRoute(
+            settings: settings,
             builder: (_) =>
                 OrderDetailScreen(orderId: args, isPartner: isPartner),
           );

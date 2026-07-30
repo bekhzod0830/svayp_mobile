@@ -72,10 +72,43 @@ class MainScreenState extends State<MainScreen>
   StreamSubscription<({String chatId, ChatMessageResponse message})>?
   _badgeListSub;
 
+  /// Порядок вкладок нижней навигации — он же порядок Navigator'ов в IndexedStack.
+  static const List<String> _tabNames = [
+    'feed',
+    'closet',
+    'market',
+    'shop',
+    'chat',
+    'discover',
+  ];
+
+  /// Вкладки 0–2 — это вебвью: страница внутри присылает собственный screen_view,
+  /// поэтому здесь экран проставляется молча. Вкладки 3–5 нативные, и кроме нас
+  /// их просмотр зафиксировать некому.
+  static const int _lastWebViewTab = 2;
+
+  /// Проставляет экран текущей вкладки, чтобы события несли верный контекст.
+  void _applyTabScreen(int index) {
+    if (index < 0 || index >= _tabNames.length) {
+      return;
+    }
+    final screen = '/tab/${_tabNames[index]}';
+    if (index <= _lastWebViewTab) {
+      AnalyticsService.instance.setScreenSilent(screen);
+    } else {
+      AnalyticsService.instance.setScreen(screen);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
+    // Стартовая вкладка тоже должна попасть в аналитику: раньше первый экран
+    // после входа не фиксировался вовсе, и события уходили с предыдущим экраном.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _applyTabScreen(_currentIndex);
+    });
     _pillCtrl = AnimationController(
       vsync: this,
       lowerBound: -0.6,
@@ -221,11 +254,12 @@ class MainScreenState extends State<MainScreen>
     // Pop all sub-routes in the tab we are leaving so it resets to root.
     _popTabToRoot(_tabKeys[_currentIndex]);
 
-    const tabNames = ['feed', 'closet', 'market', 'shop', 'chat', 'discover'];
+    final tabName = _tabNames[index < _tabNames.length ? index : 0];
     AnalyticsService.instance.logEvent(
       AnalyticsEvents.tabSelected,
-      parameters: {AnalyticsEvents.paramTabName: tabNames[index < tabNames.length ? index : 0]},
+      parameters: {AnalyticsEvents.paramTabName: tabName},
     );
+    _applyTabScreen(index);
 
     final fromPos = _pillCtrl.value;
     setState(() {

@@ -182,6 +182,16 @@ class AnalyticsService {
     _enqueueBackend('screen_view', {'screen': screenName});
   }
 
+  /// Обновить текущий экран БЕЗ отправки screen_view.
+  ///
+  /// Нужно для вкладок-контейнеров, внутри которых живёт вебвью: оно присылает
+  /// собственный screen_view для той же страницы, и обычный setScreen удвоил бы
+  /// просмотры. При этом контекст экрана для остальных событий проставить надо —
+  /// иначе они уйдут со стухшим предыдущим экраном.
+  void setScreenSilent(String screenName) {
+    _currentScreen = screenName;
+  }
+
   Future<void> logScreen(String screenName) async {
     _currentScreen = screenName;
     await _firebase.logScreenView(screenName: screenName);

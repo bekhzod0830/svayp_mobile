@@ -102,6 +102,10 @@ abstract class AnalyticsEvents {
   static const String categoryFilterSelected = 'category_filter_selected';
   static const String sellerFilterApplied = 'seller_filter_applied';
   static const String visualSearchOpened = 'visual_search_opened';
+  // Использованием визуального поиска считается показ результатов, а не открытие
+  // камеры: открыл и передумал — это не поиск.
+  static const String visualSearchResults = 'visual_search_results';
+  static const String visualSearchFailed = 'visual_search_failed';
 
   // ─── Cart & Checkout ──────────────────────────────────────────────────────
   static const String cartOpened = 'cart_opened';
