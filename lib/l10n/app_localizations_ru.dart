@@ -3402,6 +3402,115 @@ class AppLocalizationsRu extends AppLocalizations {
       'Для примерки не хватает алмазов. Пополните баланс в разделе «Гардероб».';
 
   @override
+  String get tryOnQuotaExceeded =>
+      'Лимит примерок на этот месяц исчерпан. Оформите премиум для большего количества.';
+
+  @override
+  String get tryOnConfirmTitle => 'Примерить?';
+
+  @override
+  String get tryOnTargetMannequin => 'На манекен';
+
+  @override
+  String get tryOnTargetSelf => 'На своё фото';
+
+  @override
+  String get tryOnConfirm => 'Примерить';
+
+  @override
+  String get tryOnUploadPhoto => 'Загрузить фото';
+
+  @override
+  String get tryOnChangePhoto => 'Изменить фото';
+
+  @override
+  String get tryOnPhotoHint =>
+      'Фото в полный рост, хорошее освещение, лицом к камере';
+
+  @override
+  String get tryOnShare => 'Поделиться';
+
+  @override
+  String get tryOnMyOutfits => 'Мои образы';
+
+  @override
+  String get tryOnShareFailed =>
+      'Не удалось поделиться изображением. Попробуйте ещё раз.';
+
+  @override
+  String get tryOnFailedTitle => 'Примерка не удалась';
+
+  @override
+  String get tryOnFailedSafety =>
+      'Это фото не подошло — оно не прошло проверку безопасности контента. Попробуйте другое фото или образ.';
+
+  @override
+  String get tryOnFailedTimeout =>
+      'Это занимает больше времени, чем обычно. Пожалуйста, попробуйте ещё раз через минуту.';
+
+  @override
+  String get tryOnFailedBusy =>
+      'Наш ИИ сейчас перегружен. Пожалуйста, подождите немного и попробуйте ещё раз.';
+
+  @override
+  String get tryOnFailedGeneric =>
+      'Не удалось создать примерку. Пожалуйста, попробуйте ещё раз.';
+
+  @override
+  String get tryOnStarting => 'Запуск примерки...';
+
+  @override
+  String get tryOnPhase2 => 'Анализируем ваш наряд...';
+
+  @override
+  String get tryOnPhase3 => 'Рендерим ваш образ...';
+
+  @override
+  String get tryOnPhase4 => 'Добавляем финальные штрихи...';
+
+  @override
+  String get tryOnTimeEstimate => 'Обычно занимает 30–60 секунд';
+
+  @override
+  String get tryOnStyleTip => 'Совет по стилю';
+
+  @override
+  String get tryOnProTip => 'Профи-совет';
+
+  @override
+  String get tryOnDidYouKnow => 'Знали ли вы?';
+
+  @override
+  String get tryOnTip1 =>
+      'В вашем гардеробе могут скрываться десятки образов, которые вы ещё не пробовали.';
+
+  @override
+  String get tryOnTip2 =>
+      'Необязательно покупать новое, чтобы выглядеть по-новому.';
+
+  @override
+  String get tryOnTip3 =>
+      'Самые удачные образы часто строятся вокруг одной вещи.';
+
+  @override
+  String get tryOnTip4 =>
+      'Базовые цвета: белый, чёрный, серый, бежевый и тёмно-синий.';
+
+  @override
+  String get tryOnTip5 =>
+      'Большинство людей регулярно носят только 20% своего гардероба.';
+
+  @override
+  String get tryOnTip6 => 'Хороший стиль — это баланс, а не количество вещей.';
+
+  @override
+  String get tryOnTip7 => 'Контрастные цвета привлекают больше внимания.';
+
+  @override
+  String get tryOnTip8 =>
+      'Мода меняется, а хороший вкус остаётся актуальным всегда.';
+
+  @override
   String get mirrorTab => 'Зеркало';
 
   @override

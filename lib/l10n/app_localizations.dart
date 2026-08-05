@@ -6556,6 +6556,198 @@ abstract class AppLocalizations {
   /// **'You don\'t have enough diamonds for a try-on. Top up your balance in the Wardrobe section.'**
   String get tryOnNeedDiamondsBodyShort;
 
+  /// No description provided for @tryOnQuotaExceeded.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'ve used all your try-ons for this month. Upgrade to premium for more.'**
+  String get tryOnQuotaExceeded;
+
+  /// No description provided for @tryOnConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Try It On?'**
+  String get tryOnConfirmTitle;
+
+  /// No description provided for @tryOnTargetMannequin.
+  ///
+  /// In en, this message translates to:
+  /// **'On a mannequin'**
+  String get tryOnTargetMannequin;
+
+  /// No description provided for @tryOnTargetSelf.
+  ///
+  /// In en, this message translates to:
+  /// **'On my photo'**
+  String get tryOnTargetSelf;
+
+  /// No description provided for @tryOnConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Try It On'**
+  String get tryOnConfirm;
+
+  /// No description provided for @tryOnUploadPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload photo'**
+  String get tryOnUploadPhoto;
+
+  /// No description provided for @tryOnChangePhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Change photo'**
+  String get tryOnChangePhoto;
+
+  /// No description provided for @tryOnPhotoHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Full-length photo, good lighting, facing the camera'**
+  String get tryOnPhotoHint;
+
+  /// No description provided for @tryOnShare.
+  ///
+  /// In en, this message translates to:
+  /// **'Share'**
+  String get tryOnShare;
+
+  /// No description provided for @tryOnMyOutfits.
+  ///
+  /// In en, this message translates to:
+  /// **'My outfits'**
+  String get tryOnMyOutfits;
+
+  /// No description provided for @tryOnShareFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t share the image. Please try again.'**
+  String get tryOnShareFailed;
+
+  /// Heading of the try-on failure state. The body below it is one of the tryOnFailed* messages, never the raw backend reason.
+  ///
+  /// In en, this message translates to:
+  /// **'Try-on failed'**
+  String get tryOnFailedTitle;
+
+  /// No description provided for @tryOnFailedSafety.
+  ///
+  /// In en, this message translates to:
+  /// **'This photo couldn\'t be used — it didn\'t pass our content safety checks. Please try a different photo or outfit.'**
+  String get tryOnFailedSafety;
+
+  /// No description provided for @tryOnFailedTimeout.
+  ///
+  /// In en, this message translates to:
+  /// **'This is taking longer than expected. Please try again in a moment.'**
+  String get tryOnFailedTimeout;
+
+  /// No description provided for @tryOnFailedBusy.
+  ///
+  /// In en, this message translates to:
+  /// **'Our AI is busy right now. Please wait a moment and try again.'**
+  String get tryOnFailedBusy;
+
+  /// No description provided for @tryOnFailedGeneric.
+  ///
+  /// In en, this message translates to:
+  /// **'We couldn\'t create your try-on. Please try again.'**
+  String get tryOnFailedGeneric;
+
+  /// No description provided for @tryOnStarting.
+  ///
+  /// In en, this message translates to:
+  /// **'Starting try-on...'**
+  String get tryOnStarting;
+
+  /// No description provided for @tryOnPhase2.
+  ///
+  /// In en, this message translates to:
+  /// **'Analyzing your outfit...'**
+  String get tryOnPhase2;
+
+  /// No description provided for @tryOnPhase3.
+  ///
+  /// In en, this message translates to:
+  /// **'Rendering your look...'**
+  String get tryOnPhase3;
+
+  /// No description provided for @tryOnPhase4.
+  ///
+  /// In en, this message translates to:
+  /// **'Adding finishing touches...'**
+  String get tryOnPhase4;
+
+  /// No description provided for @tryOnTimeEstimate.
+  ///
+  /// In en, this message translates to:
+  /// **'Usually takes 30–60 seconds'**
+  String get tryOnTimeEstimate;
+
+  /// No description provided for @tryOnStyleTip.
+  ///
+  /// In en, this message translates to:
+  /// **'Style Tip'**
+  String get tryOnStyleTip;
+
+  /// No description provided for @tryOnProTip.
+  ///
+  /// In en, this message translates to:
+  /// **'Pro Tip'**
+  String get tryOnProTip;
+
+  /// No description provided for @tryOnDidYouKnow.
+  ///
+  /// In en, this message translates to:
+  /// **'Did you know?'**
+  String get tryOnDidYouKnow;
+
+  /// No description provided for @tryOnTip1.
+  ///
+  /// In en, this message translates to:
+  /// **'Your wardrobe may be hiding dozens of outfits you have never tried.'**
+  String get tryOnTip1;
+
+  /// No description provided for @tryOnTip2.
+  ///
+  /// In en, this message translates to:
+  /// **'You do not always need to buy something new to look new.'**
+  String get tryOnTip2;
+
+  /// No description provided for @tryOnTip3.
+  ///
+  /// In en, this message translates to:
+  /// **'The best outfits are often built around one key piece.'**
+  String get tryOnTip3;
+
+  /// No description provided for @tryOnTip4.
+  ///
+  /// In en, this message translates to:
+  /// **'Core colors: white, black, grey, beige, and navy.'**
+  String get tryOnTip4;
+
+  /// No description provided for @tryOnTip5.
+  ///
+  /// In en, this message translates to:
+  /// **'Most people regularly wear only 20% of their wardrobe.'**
+  String get tryOnTip5;
+
+  /// No description provided for @tryOnTip6.
+  ///
+  /// In en, this message translates to:
+  /// **'Good style is balance, not quantity.'**
+  String get tryOnTip6;
+
+  /// No description provided for @tryOnTip7.
+  ///
+  /// In en, this message translates to:
+  /// **'Contrasting colors attract more attention.'**
+  String get tryOnTip7;
+
+  /// No description provided for @tryOnTip8.
+  ///
+  /// In en, this message translates to:
+  /// **'Fashion changes, but good taste stays relevant.'**
+  String get tryOnTip8;
+
   /// No description provided for @mirrorTab.
   ///
   /// In en, this message translates to:
