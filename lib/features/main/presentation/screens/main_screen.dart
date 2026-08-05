@@ -272,6 +272,27 @@ class MainScreenState extends State<MainScreen>
     );
   }
 
+  /// Switch to the Closet tab and point its WebView at [path] — a web-app path
+  /// such as `/closet?tab=outfits`.
+  ///
+  /// Used by native screens that finish on something the closet owns (the
+  /// try-on sheet's "My outfits"). The load is a plain same-origin navigation,
+  /// so the tokens the WebView stored on its first load still apply — no need
+  /// to re-append auth params.
+  Future<void> openClosetPath(String path) async {
+    // The closet tab may be sitting on a pushed sub-route; land on its root
+    // WebView, not on top of whatever was open.
+    _popTabToRoot(_closetKey);
+    navigateToTab(_closetTabIndex);
+
+    // Absent only if the tab has never been built. The IndexedStack builds all
+    // tabs up front, so this is a defensive branch: the WebView will come up on
+    // the closet root by itself.
+    final controller = _webControllers[_closetTabIndex];
+    if (controller == null) return;
+    await controller.loadRequest(Uri.parse(WebUrls.resolve(path)));
+  }
+
   /// Ordered navigator keys, one per IndexedStack child (index = child index):
   /// 0=Feed (hidden), 1=Closet, 2=Market, 3=Shop, 4=Chat, 5=LIBΛS.
   List<GlobalKey<NavigatorState>> get _tabKeys =>

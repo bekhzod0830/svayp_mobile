@@ -1281,6 +1281,46 @@
   },
   "tryOnNeedDiamondsBodyShort": "You don't have enough diamonds for a try-on. Top up your balance in the Wardrobe section.",
 
+  "tryOnQuotaExceeded": "You've used all your try-ons for this month. Upgrade to premium for more.",
+
+  "tryOnConfirmTitle": "Try It On?",
+  "tryOnTargetMannequin": "On a mannequin",
+  "tryOnTargetSelf": "On my photo",
+  "tryOnConfirm": "Try It On",
+  "tryOnUploadPhoto": "Upload photo",
+  "tryOnChangePhoto": "Change photo",
+  "tryOnPhotoHint": "Full-length photo, good lighting, facing the camera",
+
+  "tryOnShare": "Share",
+  "tryOnMyOutfits": "My outfits",
+  "tryOnShareFailed": "Couldn't share the image. Please try again.",
+
+  "tryOnFailedTitle": "Try-on failed",
+  "@tryOnFailedTitle": {
+    "description": "Heading of the try-on failure state. The body below it is one of the tryOnFailed* messages, never the raw backend reason."
+  },
+  "tryOnFailedSafety": "This photo couldn't be used — it didn't pass our content safety checks. Please try a different photo or outfit.",
+  "tryOnFailedTimeout": "This is taking longer than expected. Please try again in a moment.",
+  "tryOnFailedBusy": "Our AI is busy right now. Please wait a moment and try again.",
+  "tryOnFailedGeneric": "We couldn't create your try-on. Please try again.",
+
+  "tryOnStarting": "Starting try-on...",
+  "tryOnPhase2": "Analyzing your outfit...",
+  "tryOnPhase3": "Rendering your look...",
+  "tryOnPhase4": "Adding finishing touches...",
+  "tryOnTimeEstimate": "Usually takes 30–60 seconds",
+  "tryOnStyleTip": "Style Tip",
+  "tryOnProTip": "Pro Tip",
+  "tryOnDidYouKnow": "Did you know?",
+  "tryOnTip1": "Your wardrobe may be hiding dozens of outfits you have never tried.",
+  "tryOnTip2": "You do not always need to buy something new to look new.",
+  "tryOnTip3": "The best outfits are often built around one key piece.",
+  "tryOnTip4": "Core colors: white, black, grey, beige, and navy.",
+  "tryOnTip5": "Most people regularly wear only 20% of their wardrobe.",
+  "tryOnTip6": "Good style is balance, not quantity.",
+  "tryOnTip7": "Contrasting colors attract more attention.",
+  "tryOnTip8": "Fashion changes, but good taste stays relevant.",
+
   "mirrorTab": "Mirror",
   "mirrorIdleEyebrow": "LIBAS AI stylist",
   "mirrorIdleTitle": "Try on a look",

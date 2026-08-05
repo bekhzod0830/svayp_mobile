@@ -3380,6 +3380,112 @@ class AppLocalizationsEn extends AppLocalizations {
       'You don\'t have enough diamonds for a try-on. Top up your balance in the Wardrobe section.';
 
   @override
+  String get tryOnQuotaExceeded =>
+      'You\'ve used all your try-ons for this month. Upgrade to premium for more.';
+
+  @override
+  String get tryOnConfirmTitle => 'Try It On?';
+
+  @override
+  String get tryOnTargetMannequin => 'On a mannequin';
+
+  @override
+  String get tryOnTargetSelf => 'On my photo';
+
+  @override
+  String get tryOnConfirm => 'Try It On';
+
+  @override
+  String get tryOnUploadPhoto => 'Upload photo';
+
+  @override
+  String get tryOnChangePhoto => 'Change photo';
+
+  @override
+  String get tryOnPhotoHint =>
+      'Full-length photo, good lighting, facing the camera';
+
+  @override
+  String get tryOnShare => 'Share';
+
+  @override
+  String get tryOnMyOutfits => 'My outfits';
+
+  @override
+  String get tryOnShareFailed => 'Couldn\'t share the image. Please try again.';
+
+  @override
+  String get tryOnFailedTitle => 'Try-on failed';
+
+  @override
+  String get tryOnFailedSafety =>
+      'This photo couldn\'t be used — it didn\'t pass our content safety checks. Please try a different photo or outfit.';
+
+  @override
+  String get tryOnFailedTimeout =>
+      'This is taking longer than expected. Please try again in a moment.';
+
+  @override
+  String get tryOnFailedBusy =>
+      'Our AI is busy right now. Please wait a moment and try again.';
+
+  @override
+  String get tryOnFailedGeneric =>
+      'We couldn\'t create your try-on. Please try again.';
+
+  @override
+  String get tryOnStarting => 'Starting try-on...';
+
+  @override
+  String get tryOnPhase2 => 'Analyzing your outfit...';
+
+  @override
+  String get tryOnPhase3 => 'Rendering your look...';
+
+  @override
+  String get tryOnPhase4 => 'Adding finishing touches...';
+
+  @override
+  String get tryOnTimeEstimate => 'Usually takes 30–60 seconds';
+
+  @override
+  String get tryOnStyleTip => 'Style Tip';
+
+  @override
+  String get tryOnProTip => 'Pro Tip';
+
+  @override
+  String get tryOnDidYouKnow => 'Did you know?';
+
+  @override
+  String get tryOnTip1 =>
+      'Your wardrobe may be hiding dozens of outfits you have never tried.';
+
+  @override
+  String get tryOnTip2 =>
+      'You do not always need to buy something new to look new.';
+
+  @override
+  String get tryOnTip3 =>
+      'The best outfits are often built around one key piece.';
+
+  @override
+  String get tryOnTip4 => 'Core colors: white, black, grey, beige, and navy.';
+
+  @override
+  String get tryOnTip5 =>
+      'Most people regularly wear only 20% of their wardrobe.';
+
+  @override
+  String get tryOnTip6 => 'Good style is balance, not quantity.';
+
+  @override
+  String get tryOnTip7 => 'Contrasting colors attract more attention.';
+
+  @override
+  String get tryOnTip8 => 'Fashion changes, but good taste stays relevant.';
+
+  @override
   String get mirrorTab => 'Mirror';
 
   @override

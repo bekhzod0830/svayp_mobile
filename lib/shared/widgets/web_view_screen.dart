@@ -185,6 +185,14 @@ class _WebViewScreenState extends State<WebViewScreen> {
       final androidController = _controller.platform
           as AndroidWebViewController;
       androidController.setOnShowFileSelector(_handleFileSelector);
+      // Android multiplies every font size in the WebView by the system font
+      // scale, on top of whatever the page's CSS asks for, and the page cannot
+      // override it from CSS. At "Largest" that is ~130%, which ran the closet
+      // setup screen's headings and buttons off the edge of a small display —
+      // while the Flutter chrome right below them stayed put, because the app
+      // already pins `TextScaler.noScaling` for the whole native UI (see
+      // app.dart). Pin the WebView to match: one app, one text scale.
+      androidController.setTextZoom(100);
     }
 
     // Hand the controller to the parent so it can drive web-history back

@@ -3423,6 +3423,114 @@ class AppLocalizationsUz extends AppLocalizations {
       'Kiyib ko\'rish uchun olmos yetarli emas. Balansni «Garderob» bo\'limida to\'ldiring.';
 
   @override
+  String get tryOnQuotaExceeded =>
+      'Bu oy uchun kiyib ko\'rishlar limiti tugadi. Ko\'proq uchun premium rasmiylashtiring.';
+
+  @override
+  String get tryOnConfirmTitle => 'Kiyib ko\'rish?';
+
+  @override
+  String get tryOnTargetMannequin => 'Manekenga';
+
+  @override
+  String get tryOnTargetSelf => 'O\'z suratimga';
+
+  @override
+  String get tryOnConfirm => 'Kiyib ko\'rish';
+
+  @override
+  String get tryOnUploadPhoto => 'Surat yuklash';
+
+  @override
+  String get tryOnChangePhoto => 'Suratni o\'zgartirish';
+
+  @override
+  String get tryOnPhotoHint =>
+      'To\'liq bo\'yli surat, yaxshi yorug\'lik, kameraga qarab';
+
+  @override
+  String get tryOnShare => 'Ulashish';
+
+  @override
+  String get tryOnMyOutfits => 'Obrazlarim';
+
+  @override
+  String get tryOnShareFailed =>
+      'Rasmni ulashib bo\'lmadi. Qayta urinib ko\'ring.';
+
+  @override
+  String get tryOnFailedTitle => 'Kiyib ko\'rish amalga oshmadi';
+
+  @override
+  String get tryOnFailedSafety =>
+      'Bu surat ishlatib bo\'lmadi — u kontent xavfsizligi tekshiruvidan o\'tmadi. Boshqa surat yoki kiyimni sinab ko\'ring.';
+
+  @override
+  String get tryOnFailedTimeout =>
+      'Bu kutilganidan ko\'proq vaqt olmoqda. Iltimos, biroz o\'tib qayta urinib ko\'ring.';
+
+  @override
+  String get tryOnFailedBusy =>
+      'AI hozir band. Iltimos, biroz kuting va qayta urinib ko\'ring.';
+
+  @override
+  String get tryOnFailedGeneric =>
+      'Kiyib ko\'rishni yaratib bo\'lmadi. Iltimos, qayta urinib ko\'ring.';
+
+  @override
+  String get tryOnStarting => 'Kiyib ko\'rish boshlanmoqda...';
+
+  @override
+  String get tryOnPhase2 => 'Obrazingiz tahlil qilinmoqda...';
+
+  @override
+  String get tryOnPhase3 => 'Ko\'rinishingiz renderlanmoqda...';
+
+  @override
+  String get tryOnPhase4 => 'Yakuniy bezaklar qo\'shilmoqda...';
+
+  @override
+  String get tryOnTimeEstimate => 'Odatda 30–60 soniya davom etadi';
+
+  @override
+  String get tryOnStyleTip => 'Stil maslahati';
+
+  @override
+  String get tryOnProTip => 'Pro maslahat';
+
+  @override
+  String get tryOnDidYouKnow => 'Bilasizmi?';
+
+  @override
+  String get tryOnTip1 =>
+      'Garderobingizda hali foydalanilmagan o\'nlab obrazlar yashiringan bo\'lishi mumkin.';
+
+  @override
+  String get tryOnTip2 =>
+      'Yangicha ko\'rinish uchun har doim yangi kiyim sotib olish shart emas.';
+
+  @override
+  String get tryOnTip3 =>
+      'Eng yaxshi obrazlar ko\'pincha bitta asosiy kiyim atrofida quriladi.';
+
+  @override
+  String get tryOnTip4 =>
+      'Bazaviy ranglar: oq, qora, kulrang, bej va to\'q ko\'k.';
+
+  @override
+  String get tryOnTip5 =>
+      'Odamlarning aksariyati garderobining faqat 20 foizini muntazam kiyadi.';
+
+  @override
+  String get tryOnTip6 => 'Yaxshi uslub ko\'p kiyim emas, muvozanatdir.';
+
+  @override
+  String get tryOnTip7 => 'Kontrast ranglar ko\'proq e\'tibor tortadi.';
+
+  @override
+  String get tryOnTip8 => 'Moda o\'zgaradi, yaxshi did esa doimo dolzarb.';
+
+  @override
   String get mirrorTab => 'Oyna';
 
   @override
