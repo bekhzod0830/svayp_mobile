@@ -6,6 +6,7 @@ import 'package:gal/gal.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:swipe/app/app.dart';
 import 'package:swipe/core/globals.dart';
 import 'package:swipe/core/localization/services/language_service.dart';
@@ -39,6 +40,27 @@ Future<bool> applyWebViewSetting(
       context
           .findAncestorStateOfType<SwipeAppState>()
           ?.setLocale(Locale(code));
+      return true;
+
+    // Открыть ссылку СИСТЕМОЙ, а не внутри WebView. Нужно для оплаты: WLCM отдаёт
+    // настоящие адреса провайдеров (checkout.paycom.uz, my.click.uz), а приложения
+    // Payme и Click регистрируют эти домены как App Links. Внутри WebView App Links
+    // не срабатывают — ссылку обязана открыть ОС, иначе пользователь остаётся на
+    // веб-странице провайдера вместо его приложения.
+    //
+    // Запускаем без предварительного canLaunchUrl: на Android 11+ он отвечает false
+    // для схем и пакетов, не объявленных в <queries>, хотя сам запуск разрешён.
+    case 'open_external':
+      final raw = map['url'] as String?;
+      if (raw == null || raw.isEmpty) return true;
+      final uri = Uri.tryParse(raw);
+      if (uri == null) return true;
+      try {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } catch (_) {
+        // Ни приложения, ни браузера — молча остаёмся в вебвью: оно уже ушло
+        // на экран ожидания оплаты и покажет статус опросом.
+      }
       return true;
 
     case 'set_theme':

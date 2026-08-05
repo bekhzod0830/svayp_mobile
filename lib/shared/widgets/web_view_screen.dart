@@ -90,10 +90,22 @@ class _WebViewScreenState extends State<WebViewScreen> {
             if (uri == null) return NavigationDecision.prevent;
 
             // Non-http(s) schemes must always be handed to the OS
-            // (tg://, mailto:, tel:, intent:, etc.)
+            // (tg://, mailto:, tel:, intent:, payme://, click:// etc.)
+            //
+            // We launch FIRST and only fall back to canLaunchUrl on failure.
+            // On Android 11+ package visibility makes canLaunchUrl return false
+            // for any scheme not listed in <queries>, even though starting the
+            // activity is still allowed — visibility restricts *querying*, not
+            // launching. Gating on canLaunchUrl therefore swallowed payment
+            // deep links silently: the user taps "pay with Payme" and nothing
+            // happens. Listing every provider scheme would mean guessing them;
+            // trying the launch works for all of them.
             if (uri.scheme != 'http' && uri.scheme != 'https') {
-              if (await canLaunchUrl(uri)) {
+              try {
                 await launchUrl(uri, mode: LaunchMode.externalApplication);
+              } catch (_) {
+                // App not installed — stay on the provider's web page, which
+                // offers a card form as a fallback.
               }
               return NavigationDecision.prevent;
             }
