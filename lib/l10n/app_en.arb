@@ -1254,14 +1254,132 @@
   "introMarketItem7Size": "46 (M)",
   "introMarketItem7Price": "600,000 UZS",
   "introSlide6FreeHighlight": "Adding your own clothes is always free!",
-  "welcomeGiftTitle": "Welcome!",
-  "welcomeGiftSubtitle": "Let's start creating new outfits! You've got {count} diamonds to begin.",
-  "@welcomeGiftSubtitle": {
+  "tryOnModeMannequin": "On a mannequin",
+  "@tryOnModeMannequin": {
+    "description": "Try-on sheet: option to fit the garment on a mannequin"
+  },
+  "tryOnModeSelf": "On your photo",
+  "@tryOnModeSelf": {
+    "description": "Try-on sheet: option to fit the garment on the user's own photo"
+  },
+  "tryOnUploadingPhoto": "Uploading photo…",
+  "tryOnPhotoReady": "Photo ready — you can try it on",
+  "tryOnPickPhoto": "Choose a full-length photo of yourself",
+  "tryOnPhotoUploadFailed": "Couldn't upload the photo. Try another one.",
+  "tryOnProcessingTitle": "Trying it on you…",
+  "tryOnProcessingSubtitle": "AI is finding the perfect fit",
+  "tryOnFailedDefault": "The try-on didn't work. Please try again.",
+  "tryOnSomethingWrong": "Something went wrong. Please try again.",
+  "tryOnNeedDiamondsTitle": "Not enough diamonds",
+  "tryOnNeedDiamondsBody": "A try-on needs {cost} diamonds, you have {balance}. Top up your balance in the Wardrobe section.",
+  "@tryOnNeedDiamondsBody": {
+    "description": "Try-on: shown when the user lacks diamonds; cost and current balance",
     "placeholders": {
-      "count": {
-        "type": "int"
-      }
+      "cost": { "type": "int" },
+      "balance": { "type": "int" }
     }
   },
-  "welcomeGiftCta": "Start"
+  "tryOnNeedDiamondsBodyShort": "You don't have enough diamonds for a try-on. Top up your balance in the Wardrobe section.",
+
+  "mirrorTab": "Mirror",
+  "mirrorIdleEyebrow": "LIBAS AI stylist",
+  "mirrorIdleTitle": "Try on a look",
+  "mirrorIdleTitleAccent": "in 30 seconds",
+  "mirrorCtaCreate": "Create a look",
+  "mirrorCtaCatalog": "Browse the catalog",
+  "mirrorFree": "Free",
+  "mirrorIntroEyebrow": "Three steps",
+  "mirrorIntroTitle": "How it works",
+  "mirrorStep1Title": "Take a photo of your face",
+  "mirrorStep1Text": "One photo, right here",
+  "mirrorStep2Title": "Answer two questions",
+  "mirrorStep2Text": "Gender and body type",
+  "mirrorStep3Title": "See your look",
+  "mirrorStep3Text": "Made of items that are in stock",
+  "mirrorIntroCta": "Start",
+  "mirrorPrivacyLong": "Your face photo is kept for 15 minutes and deleted automatically. We never show your face on the image and sellers never see the photo.",
+  "mirrorPrivacyShort": "The photo is deleted after 15 minutes",
+  "mirrorCamAim": "Place your face inside the circle",
+  "mirrorCamLook": "Look straight into the camera",
+  "mirrorCamDone": "Does it look good?",
+  "mirrorCamDoneHint": "Face is clearly visible, no shadows",
+  "mirrorShoot": "Snap",
+  "mirrorUpload": "Upload photo",
+  "mirrorRetake": "Retake",
+  "mirrorDone": "Done",
+  "mirrorCamNoAccess": "No camera access. Please call a shop assistant",
+  "mirrorOpenSettings": "Open Settings",
+  "mirrorFaceNotFound": "I can't see a face. Step closer",
+  "mirrorFaceMultiple": "There are several faces in the frame",
+  "mirrorFaceCloser": "Step a little closer",
+  "mirrorFaceTooDark": "Too dark — move towards the light",
+  "mirrorUploadFailed": "Couldn't send the photo. Please try again",
+  "mirrorBodyTitle": "Tell us about yourself",
+  "mirrorBodySubtitle": "Two answers — and the look will truly fit you.",
+  "mirrorGenderLabel": "Gender",
+  "mirrorShapeLabel": "Body type",
+  "mirrorFemale": "Female",
+  "mirrorMale": "Male",
+  "mirrorDontKnow": "I don't know",
+  "mirrorNext": "Next",
+  "mirrorStyleTitle": "Which style feels like you?",
+  "mirrorStyleSubtitle": "You can pick several.",
+  "mirrorCatalogTitle": "The whole store",
+  "mirrorCatalogSubtitle": "Mark the pieces you like — we'll try them on you.",
+  "mirrorCatalogNext": "Next",
+  "mirrorPicked": "Selected",
+  "mirrorCatalogEmpty": "No products with photos yet",
+  "mirrorGenTitle": "Building your look",
+  "mirrorGen1": "Reading your facial features",
+  "mirrorGen2": "Considering your body type",
+  "mirrorGen3": "Picking pieces from the store",
+  "mirrorGen4": "Assembling the look",
+  "mirrorGenAlmost": "Just a moment, almost ready",
+  "mirrorGenFailed": "Something went wrong",
+  "mirrorGenRetry": "Try again",
+  "mirrorGenContinueInApp": "Or continue in the app via QR",
+  "mirrorCancel": "Cancel",
+  "mirrorLookUnavailable": "We can't build a full look from what's in stock right now",
+  "mirrorResultTag": "Your look",
+  "mirrorItemsCount": "{count, plural, one{{count} item} other{{count} items}}",
+  "@mirrorItemsCount": {
+    "description": "Mirror kiosk: number of items in the generated look",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "mirrorQrTitle": "Take the look with you",
+  "mirrorQrSubtitle": "Point your camera — the photo, sizes and prices will be saved in the LIBAS app.",
+  "mirrorDownload": "Save photo",
+  "mirrorDownloadHint": "Scan the QR — the photo will be saved to your phone",
+  "mirrorRegenerate": "Regenerate",
+  "mirrorRegenerateLeft": "Regenerate · {count} left",
+  "@mirrorRegenerateLeft": {
+    "description": "Mirror kiosk: regenerate button with remaining attempts",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "mirrorContinueInApp": "Continue in the app",
+  "mirrorCollect": "Collect for fitting",
+  "mirrorBuyTitle": "What you're wearing",
+  "mirrorBuySubtitle": "Every piece is in stock right now.",
+  "mirrorTotal": "Total",
+  "mirrorSizeLabel": "Size",
+  "mirrorInStock": "in stock",
+  "mirrorCodeLabel": "Tell this code to a shop assistant — they will collect the pieces for your fitting",
+  "mirrorBackToLook": "Back to the look",
+  "mirrorBack": "Back",
+  "mirrorStillHere": "Are you still here?",
+  "mirrorStillHereHint": "The session will close in {seconds} s",
+  "@mirrorStillHereHint": {
+    "description": "Mirror kiosk: idle warning countdown",
+    "placeholders": {
+      "seconds": { "type": "int" }
+    }
+  },
+  "mirrorImHere": "I'm here",
+  "mirrorOfflineTitle": "No connection",
+  "mirrorOfflineHint": "Please call a shop assistant",
+  "mirrorDemoBadge": "Demo mode · the catalog is real, the try-on is simulated"
 }

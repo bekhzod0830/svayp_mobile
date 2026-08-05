@@ -330,8 +330,6 @@ class _BasicInfoScreenState extends State<BasicInfoScreen>
       AnalyticsService.instance.logEvent(AnalyticsEvents.onboardingCompleted);
 
       final storage = await LocalStorageHelper.getInstance();
-      // Survives process death between this POST and the first /main frame.
-      await storage.setWelcomeGiftPending(true);
       // Covers users who reached auth without the carousel (deep links).
       await storage.setSeenIntro(true);
 
@@ -342,7 +340,7 @@ class _BasicInfoScreenState extends State<BasicInfoScreen>
       Navigator.of(context).pushNamedAndRemoveUntil(
         '/main',
         (_) => false,
-        arguments: {'initialIndex': 1, 'showWelcomeGift': true},
+        arguments: {'initialIndex': 1},
       );
     } catch (e) {
       if (!mounted) return;

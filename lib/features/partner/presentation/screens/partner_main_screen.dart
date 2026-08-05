@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:swipe/core/constants/app_colors.dart';
 import 'package:swipe/core/utils/responsive_utils.dart';
+import 'package:swipe/features/mirror/presentation/mirror_tab.dart';
 import 'package:swipe/features/partner/presentation/screens/partner_cashback_screen.dart';
 import 'package:swipe/features/orders/presentation/screens/orders_screen.dart';
 import 'package:swipe/features/chat/presentation/screens/chat_list_screen.dart';
@@ -17,7 +18,8 @@ import 'package:swipe/features/chat/data/models/chat_model.dart';
 
 /// Partner Main Screen
 /// Bottom navigation for partners (sellers, admins, managers, etc.)
-/// Shows: Cashback | Orders | Profile
+/// Shows: Mirror | Cashback | Orders | Chat | Profile
+/// Mirror (the in-store Magic Mirror kiosk) is the default landing tab.
 /// Hides the consumer tabs: Discover, Liked, Shop, Cart.
 class PartnerMainScreen extends StatefulWidget {
   const PartnerMainScreen({super.key});
@@ -42,7 +44,7 @@ class _PartnerMainScreenState extends State<PartnerMainScreen>
     // the first listener — prevents double-counting (same logic as main_screen).
     final wsService = getIt<ChatWebSocketService>();
     _badgeListSub = wsService.listMessageStream.listen((event) {
-      if (_currentIndex != 2) {
+      if (_currentIndex != 3) {
         wsService.unreadCountNotifier.value += 1;
       }
     });
@@ -92,9 +94,14 @@ class _PartnerMainScreenState extends State<PartnerMainScreen>
     }
   }
 
-  static const int _tabCount = 4;
+  static const int _tabCount = 5;
+
+  /// Киоск «Зеркало» в полноэкранном режиме — нижняя навигация скрыта,
+  /// чтобы покупатель у планшета не попал во вкладки продавца.
+  bool _mirrorFullscreen = false;
 
   final List<GlobalKey<NavigatorState>> _navKeys = [
+    GlobalKey<NavigatorState>(),
     GlobalKey<NavigatorState>(),
     GlobalKey<NavigatorState>(),
     GlobalKey<NavigatorState>(),
@@ -110,7 +117,7 @@ class _PartnerMainScreenState extends State<PartnerMainScreen>
   void _onTabTapped(int index) {
     setState(() => _currentIndex = index);
     // Refresh chat list so newly created conversations appear immediately
-    if (index == 2) {
+    if (index == 3) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _chatListScreenKey.currentState?.refresh();
       });
@@ -151,50 +158,64 @@ class _PartnerMainScreenState extends State<PartnerMainScreen>
       child: Scaffold(
         body: Stack(
           children: [
-            // 0 – Cashback
+            // 0 – Mirror (Magic Mirror kiosk). No inner Navigator: the kiosk
+            // drives its own screen switcher so a session reset can never
+            // leave stale routes behind.
             _buildTab(
               0,
+              MirrorTab(
+                isActive: _safeIndex == 0,
+                onFullscreenChanged: (fullscreen) =>
+                    setState(() => _mirrorFullscreen = fullscreen),
+              ),
+            ),
+
+            // 1 – Cashback
+            _buildTab(
+              1,
               Navigator(
-                key: _navKeys[0],
+                key: _navKeys[1],
                 onGenerateRoute: (_) => MaterialPageRoute(
                   builder: (_) => const PartnerCashbackScreen(),
                 ),
               ),
             ),
 
-            // 1 – Orders
+            // 2 – Orders
             _buildTab(
-              1,
+              2,
               Navigator(
-                key: _navKeys[1],
+                key: _navKeys[2],
                 onGenerateRoute: (_) =>
                     MaterialPageRoute(builder: (_) => const OrdersScreen()),
               ),
             ),
 
-            // 2 – Chat
+            // 3 – Chat
             _buildTab(
-              2,
+              3,
               Navigator(
-                key: _navKeys[2],
+                key: _navKeys[3],
                 onGenerateRoute: (_) => MaterialPageRoute(
                   builder: (_) => ChatListScreen(key: _chatListScreenKey),
                 ),
               ),
             ),
 
-            // 3 – Profile
+            // 4 – Profile
             _buildTab(
-              3,
+              4,
               Navigator(
-                key: _navKeys[3],
+                key: _navKeys[4],
                 onGenerateRoute: (_) =>
                     MaterialPageRoute(builder: (_) => const ProfileScreen()),
               ),
             ),
           ],
         ),
-        bottomNavigationBar: ListenableBuilder(
+        bottomNavigationBar: _mirrorFullscreen
+            ? null
+            : ListenableBuilder(
           listenable: getIt<ChatWebSocketService>().unreadCountNotifier,
           builder: (context, _) {
             final unread =
@@ -238,6 +259,11 @@ class _PartnerMainScreenState extends State<PartnerMainScreen>
                 iconSize: 24 * iconScale,
                 elevation: 8,
                 items: [
+                  BottomNavigationBarItem(
+                    icon: const Icon(Icons.auto_awesome_outlined),
+                    activeIcon: const Icon(Icons.auto_awesome),
+                    label: l10n.mirrorTab,
+                  ),
                   BottomNavigationBarItem(
                     icon: const Icon(Icons.qr_code_scanner_outlined),
                     activeIcon: const Icon(Icons.qr_code_scanner),

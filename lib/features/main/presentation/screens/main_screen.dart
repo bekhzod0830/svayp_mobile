@@ -22,7 +22,6 @@ import 'package:swipe/features/chat/data/models/chat_model.dart';
 import 'package:swipe/core/services/badge_notifier.dart';
 import 'package:swipe/core/services/notification_service.dart';
 import 'package:swipe/features/discover/presentation/screens/discover_screen.dart';
-import 'package:swipe/features/main/presentation/widgets/welcome_gift_dialog.dart';
 import 'package:swipe/features/shop/presentation/screens/shop_screen.dart';
 import 'package:swipe/features/chat/presentation/screens/chat_list_screen.dart';
 
@@ -31,15 +30,11 @@ import 'package:swipe/features/chat/presentation/screens/chat_list_screen.dart';
 class MainScreen extends StatefulWidget {
   final int initialIndex;
 
-  /// Show the post-registration welcome gift dialog on first frame.
-  final bool showWelcomeGift;
-
   // Static global key to access MainScreen from anywhere
   static final GlobalKey<MainScreenState> globalKey =
       GlobalKey<MainScreenState>();
 
-  MainScreen({this.initialIndex = 1, this.showWelcomeGift = false})
-      : super(key: globalKey);
+  MainScreen({this.initialIndex = 1}) : super(key: globalKey);
 
   @override
   State<MainScreen> createState() => MainScreenState();
@@ -140,23 +135,6 @@ class MainScreenState extends State<MainScreen>
     // popup/deep-link lands here instead of on the to-be-replaced splash route.
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => NotificationService.instance.flushPendingInitialNotification(),
-    );
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _maybeShowWelcomeGift(),
-    );
-  }
-
-  /// Post-registration welcome gift dialog. Fires exactly once: either via
-  /// the route argument (normal path) or via the pending-gift prefs flag
-  /// (process died between profile creation and the first /main frame).
-  Future<void> _maybeShowWelcomeGift() async {
-    final storage = await LocalStorageHelper.getInstance();
-    if (!widget.showWelcomeGift && !storage.isWelcomeGiftPending()) return;
-    await storage.setWelcomeGiftPending(false);
-    if (!mounted) return;
-    await showWelcomeGiftDialog(
-      context,
-      coins: storage.getSignupGiftCoins(),
     );
   }
 
@@ -304,7 +282,7 @@ class MainScreenState extends State<MainScreen>
   /// IndexedStack (and stays reachable via deep links / notifications) but is
   /// disabled from the nav bar for this release. The Nth entry here occupies
   /// visual slot N.
-  static const List<int> _visibleTabs = [1, 2, 3, 4, 5];
+  static const List<int> _visibleTabs = [1, 5, 2, 3, 4];
 
   /// Home tab — the first visible tab. Android back from any other tab returns
   /// here; back from here backgrounds the app.
@@ -617,38 +595,6 @@ class MainScreenState extends State<MainScreen>
                                   ),
                                   _buildNavItem(
                                     context: context,
-                                    index: 2,
-                                    inactiveIcon:
-                                        Icons.storefront_outlined,
-                                    activeIcon: Icons.storefront,
-                                    label: l10n.market,
-                                    isDark: isDark,
-                                    iconScale: iconScale,
-                                    fontScale: fontScale,
-                                  ),
-                                  _buildNavItem(
-                                    context: context,
-                                    index: 3,
-                                    inactiveIcon: Icons.search,
-                                    activeIcon: Icons.search,
-                                    label: l10n.shop,
-                                    isDark: isDark,
-                                    iconScale: iconScale,
-                                    fontScale: fontScale,
-                                  ),
-                                  _buildNavItem(
-                                    context: context,
-                                    index: 4,
-                                    inactiveIcon: Icons.send_outlined,
-                                    activeIcon: Icons.send,
-                                    label: l10n.chat,
-                                    isDark: isDark,
-                                    iconScale: iconScale,
-                                    fontScale: fontScale,
-                                    badge: unread > 0 ? unread : null,
-                                  ),
-                                  _buildNavItem(
-                                    context: context,
                                     index: 5,
                                     inactiveIcon:
                                         Icons.explore_outlined,
@@ -681,6 +627,38 @@ class MainScreenState extends State<MainScreen>
                                         ],
                                       ),
                                     ),                                  ),
+                                  _buildNavItem(
+                                    context: context,
+                                    index: 2,
+                                    inactiveIcon:
+                                        Icons.storefront_outlined,
+                                    activeIcon: Icons.storefront,
+                                    label: l10n.market,
+                                    isDark: isDark,
+                                    iconScale: iconScale,
+                                    fontScale: fontScale,
+                                  ),
+                                  _buildNavItem(
+                                    context: context,
+                                    index: 3,
+                                    inactiveIcon: Icons.search,
+                                    activeIcon: Icons.search,
+                                    label: l10n.shop,
+                                    isDark: isDark,
+                                    iconScale: iconScale,
+                                    fontScale: fontScale,
+                                  ),
+                                  _buildNavItem(
+                                    context: context,
+                                    index: 4,
+                                    inactiveIcon: Icons.send_outlined,
+                                    activeIcon: Icons.send,
+                                    label: l10n.chat,
+                                    isDark: isDark,
+                                    iconScale: iconScale,
+                                    fontScale: fontScale,
+                                    badge: unread > 0 ? unread : null,
+                                  ),
                                 ],
                               ),
                             ],

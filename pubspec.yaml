@@ -115,6 +115,12 @@ dependencies:
   
   # Screen Brightness
   screen_brightness: ^1.0.1
+
+  # Keep the screen awake while the Magic Mirror kiosk tab is active
+  wakelock_plus: ^1.2.8
+
+  # Magic Mirror poster video (kiosk idle screen)
+  video_player: ^2.9.2
   
   # Permissions
   permission_handler: ^11.3.1
@@ -196,6 +202,7 @@ flutter:
     - assets/onboarding/shop/
     - lib/img/
     - lib/img/body_type/
+    - lib/video/kiosk_poster/
     - lib/img/brands/
     - lib/img/fit_preference/covered/
     - lib/img/fit_preference/uncovered/

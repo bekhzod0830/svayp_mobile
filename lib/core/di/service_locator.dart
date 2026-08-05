@@ -7,6 +7,8 @@ import 'package:swipe/features/auth/data/services/auth_service.dart';
 import 'package:swipe/features/auth/data/services/social_auth_service.dart';
 import 'package:swipe/features/chat/data/services/chat_websocket_service.dart';
 import 'package:swipe/features/closet/data/services/closet_service.dart';
+import 'package:swipe/features/mirror/data/kiosk_api.dart';
+import 'package:swipe/features/mirror/data/kiosk_demo.dart';
 import 'package:swipe/features/profile/data/services/profile_service.dart';
 
 final getIt = GetIt.instance;
@@ -46,6 +48,14 @@ Future<void> initializeDependencies() async {
 
   // Closet service (local Hive-backed wardrobe)
   getIt.registerLazySingleton<ClosetService>(() => ClosetService());
+
+  // Magic Mirror kiosk (seller module): anonymous /kiosk/* client + demo fallback
+  getIt.registerLazySingleton<KioskApi>(
+    () => KioskApi(getIt<SharedPreferences>()),
+  );
+  getIt.registerLazySingleton<KioskDemoService>(
+    () => KioskDemoService(getIt<KioskApi>(), getIt<SharedPreferences>()),
+  );
 
   // Analytics service (Firebase Analytics + backend app_events dispatcher)
   getIt.registerSingleton<AnalyticsService>(AnalyticsService.instance);

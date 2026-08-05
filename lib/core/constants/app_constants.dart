@@ -22,8 +22,6 @@ class AppConstants {
   // Pre-auth intro carousel. Distinct from isOnboardedKey (legacy profile
   // funnel completion) — reusing it would skip the carousel for legacy users.
   static const String hasSeenIntroKey = 'has_seen_intro';
-  // Set after profile creation, cleared once the welcome gift dialog is shown.
-  static const String pendingWelcomeGiftKey = 'pending_welcome_gift';
 
   // Onboarding
   static const int styleQuizItemCount = 20;

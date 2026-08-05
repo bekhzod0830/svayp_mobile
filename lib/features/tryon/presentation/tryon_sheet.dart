@@ -1,10 +1,15 @@
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:swipe/l10n/app_localizations.dart';
+import 'package:swipe/features/onboarding/presentation/widgets/intro/intro_diamond.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../shared/widgets/body_scan_visual.dart';
 import '../data/tryon_service.dart';
+import 'widgets/try_on_pill.dart' show kTryOnCost;
 
 /// Открыть примерку товара (манекен / на своём фото). Гармент берётся из
 /// каноничной вещи товара на бэке (бэкфилл). Строки — RU (рынок RU-first);
@@ -80,7 +85,7 @@ class _TryOnSheetState extends State<_TryOnSheet> {
         _uploading = false;
         _photo = null;
       });
-      _toast('Не удалось загрузить фото. Попробуйте другое.');
+      _toast(AppLocalizations.of(context)!.tryOnPhotoUploadFailed);
     }
   }
 
@@ -104,7 +109,7 @@ class _TryOnSheetState extends State<_TryOnSheet> {
         });
       } else {
         setState(() {
-          _error = done.failureReason ?? 'Примерка не удалась. Попробуйте ещё раз.';
+          _error = done.failureReason ?? AppLocalizations.of(context)!.tryOnFailedDefault;
           _phase = _Phase.failed;
         });
       }
@@ -126,7 +131,7 @@ class _TryOnSheetState extends State<_TryOnSheet> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = 'Что-то пошло не так. Попробуйте ещё раз.';
+        _error = AppLocalizations.of(context)!.tryOnSomethingWrong;
         _phase = _Phase.failed;
       });
     }
@@ -138,6 +143,7 @@ class _TryOnSheetState extends State<_TryOnSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final surface = isDark ? const Color(0xFF1C1C1E) : Colors.white;
     final ink = isDark ? Colors.white : const Color(0xFF141118);
@@ -171,7 +177,7 @@ class _TryOnSheetState extends State<_TryOnSheet> {
                 const SizedBox(height: 14),
                 Row(
                   children: [
-                    Text('Примерить',
+                    Text(l10n.tryItOn,
                         style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: ink)),
                     const Spacer(),
                     IconButton(
@@ -191,28 +197,10 @@ class _TryOnSheetState extends State<_TryOnSheet> {
   }
 
   Widget _body(bool isDark, Color ink, Color sub) {
+    final l10n = AppLocalizations.of(context)!;
     switch (_phase) {
       case _Phase.working:
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(18),
-              child: SizedBox(
-                height: 240,
-                width: double.infinity,
-                child: _MagicSweepImage(previewImage: widget.previewImage),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text('Примеряем образ…',
-                style: TextStyle(
-                    fontSize: 15, fontWeight: FontWeight.w700, color: ink)),
-            const SizedBox(height: 6),
-            Text('Это займёт до минуты',
-                style: TextStyle(fontSize: 13, color: sub)),
-          ],
-        );
+        return _TryOnProcessing(ink: ink, sub: sub);
       case _Phase.result:
         return Column(children: [
           ClipRRect(
@@ -225,7 +213,7 @@ class _TryOnSheetState extends State<_TryOnSheet> {
             ),
           ),
           const SizedBox(height: 16),
-          _primaryButton('Готово', () => Navigator.of(context).pop()),
+          _primaryButton(l10n.done, () => Navigator.of(context).pop()),
         ]);
       case _Phase.failed:
         return Padding(
@@ -233,11 +221,11 @@ class _TryOnSheetState extends State<_TryOnSheet> {
           child: Column(children: [
             const Icon(Icons.error_outline, color: _pink, size: 40),
             const SizedBox(height: 12),
-            Text(_error ?? 'Ошибка',
+            Text(_error ?? l10n.error,
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: ink)),
             const SizedBox(height: 16),
-            _primaryButton('Попробовать снова', () => setState(() => _phase = _Phase.setup)),
+            _primaryButton(l10n.tryAgain, () => setState(() => _phase = _Phase.setup)),
           ]),
         );
       case _Phase.setup:
@@ -246,30 +234,31 @@ class _TryOnSheetState extends State<_TryOnSheet> {
   }
 
   Widget _setup(bool isDark, Color ink, Color sub) {
-    final hasPreview =
-        widget.previewImage != null && widget.previewImage!.isNotEmpty;
+    final l10n = AppLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 8),
-        // Animated product preview (Beautify-style magic sweep) so the sheet
-        // shows what you're about to try on the moment it opens.
-        if (hasPreview) ...[
-          ClipRRect(
+        // Body-scan animation preview + the diamond cost of a try-on, shown the
+        // moment the sheet opens.
+        Container(
+          height: 235,
+          width: double.infinity,
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
-            child: SizedBox(
-              height: 150,
-              width: double.infinity,
-              child: _MagicSweepImage(previewImage: widget.previewImage),
+            border: Border.all(
+              color: isDark ? const Color(0xFF2A2A2C) : const Color(0xFFF3E6EE),
             ),
           ),
-          const SizedBox(height: 16),
-        ],
+          child: BodyScanVisual(badge: _diamondCostBadge()),
+        ),
+        const SizedBox(height: 16),
         Row(children: [
           _modeCard(
             selected: _mode == _Mode.mannequin,
             icon: Icons.accessibility_new_rounded,
-            label: 'На манекене',
+            label: l10n.tryOnModeMannequin,
             onTap: () => setState(() => _mode = _Mode.mannequin),
             isDark: isDark, ink: ink,
           ),
@@ -277,7 +266,7 @@ class _TryOnSheetState extends State<_TryOnSheet> {
           _modeCard(
             selected: _mode == _Mode.self,
             icon: Icons.person_rounded,
-            label: 'На своём фото',
+            label: l10n.tryOnModeSelf,
             onTap: () => setState(() => _mode = _Mode.self),
             isDark: isDark, ink: ink,
           ),
@@ -308,10 +297,10 @@ class _TryOnSheetState extends State<_TryOnSheet> {
                 Expanded(
                   child: Text(
                     _uploading
-                        ? 'Загружаем фото…'
+                        ? l10n.tryOnUploadingPhoto
                         : _personKey != null
-                            ? 'Фото готово — можно примерять'
-                            : 'Выберите своё фото в полный рост',
+                            ? l10n.tryOnPhotoReady
+                            : l10n.tryOnPickPhoto,
                     style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: ink),
                   ),
                 ),
@@ -326,7 +315,7 @@ class _TryOnSheetState extends State<_TryOnSheet> {
           ),
         ],
         const SizedBox(height: 20),
-        _primaryButton('Примерить', _canStart ? _start : null),
+        _primaryButton(l10n.tryItOn, _canStart ? _start : null),
       ],
     );
   }
@@ -378,147 +367,156 @@ class _TryOnSheetState extends State<_TryOnSheet> {
   }
 }
 
-/// Диалог нехватки монет (402). Монеты пополняются в разделе «Гардероб» (WebView).
+/// Диалог нехватки алмазов (402). Баланс пополняется в разделе «Гардероб» (WebView).
 void _showNeedCoins(BuildContext context, int? required, int? balance) {
+  final l10n = AppLocalizations.of(context)!;
   showDialog<void>(
     context: context,
     builder: (ctx) => AlertDialog(
-      title: const Text('Недостаточно монет'),
+      title: Text(l10n.tryOnNeedDiamondsTitle),
       content: Text(
         required != null && balance != null
-            ? 'Для примерки нужно $required монет, у вас $balance. Пополните баланс в разделе «Гардероб».'
-            : 'Для примерки не хватает монет. Пополните баланс в разделе «Гардероб».',
+            ? l10n.tryOnNeedDiamondsBody(required, balance)
+            : l10n.tryOnNeedDiamondsBodyShort,
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(ctx).pop(),
-          child: const Text('Понятно'),
+          child: Text(l10n.gotIt),
         ),
       ],
     ),
   );
 }
 
-/// Product preview with a looping "magic sweep" (pink light bar + sparkle),
-/// mirroring the closet Beautify intro. Fills its parent — wrap it in an
-/// AspectRatio or a fixed-height box. Used both in the setup sheet (so the pop-up
-/// is animated on open) and the processing state.
-class _MagicSweepImage extends StatefulWidget {
-  final String? previewImage;
-  const _MagicSweepImage({this.previewImage});
-
-  @override
-  State<_MagicSweepImage> createState() => _MagicSweepImageState();
+/// Brand diamond-cost badge — the faceted LIBAS gem (same [IntroDiamond] used on
+/// the closet/try-on pill) plus how many diamonds a try-on costs. Shown on the
+/// body-scan visual both in setup and while the try-on is processing; the gem
+/// replaces the old "✨ AI" chip so the paid action reads consistently.
+Widget _diamondCostBadge() {
+  return Container(
+    padding: const EdgeInsets.fromLTRB(7, 4, 9, 4),
+    decoration: BoxDecoration(
+      color: const Color(0xFFF370A7),
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const IntroDiamond(size: 13),
+        const SizedBox(width: 4),
+        Text('$kTryOnCost',
+            style: const TextStyle(
+                fontSize: 11, fontWeight: FontWeight.w800, color: Colors.white)),
+      ],
+    ),
+  );
 }
 
-class _MagicSweepImageState extends State<_MagicSweepImage>
+/// Try-on processing view — a body-scan animation (glowing pink rings sweeping
+/// over the product) plus a 30s progress bar with a percentage. Brand-coloured
+/// take on the reference "Примеряем на вас…" screen.
+class _TryOnProcessing extends StatefulWidget {
+  final Color ink;
+  final Color sub;
+  const _TryOnProcessing({required this.ink, required this.sub});
+
+  @override
+  State<_TryOnProcessing> createState() => _TryOnProcessingState();
+}
+
+class _TryOnProcessingState extends State<_TryOnProcessing>
     with SingleTickerProviderStateMixin {
   static const _pink = Color(0xFFF370A7);
-  late final AnimationController _c;
+  late final AnimationController _progress; // 30s fill
 
   @override
   void initState() {
     super.initState();
-    _c = AnimationController(
+    _progress = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2200),
-    )..repeat();
+      duration: const Duration(seconds: 30),
+    )..forward();
   }
 
   @override
   void dispose() {
-    _c.dispose();
+    _progress.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final hasPreview =
-        widget.previewImage != null && widget.previewImage!.isNotEmpty;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? const Color(0xFF2A2A2C) : const Color(0xFFF3EEF1);
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        // Neutral backdrop so the contained (un-cropped) image sits cleanly
-        // instead of leaving transparent bands around it.
-        ColoredBox(color: bg),
-        if (hasPreview)
-          // contain (not cover) so the whole product stays visible — no crop.
-          Image.network(
-            widget.previewImage!,
-            fit: BoxFit.contain,
-            errorBuilder: (_, __, ___) => ColoredBox(color: bg),
-          ),
+    final trackColor = isDark ? const Color(0xFF3A2E36) : const Color(0xFFF0E0EA);
 
-        // Magic sweep — pink light bar + sparkle looping left→right.
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Full-bleed stage: no card frame, so the figure floats directly on the
+        // sheet surface like the reference screen.
+        SizedBox(
+          height: math.min(MediaQuery.of(context).size.height * 0.52, 470),
+          width: double.infinity,
+          child: BodyScanVisual(badge: _diamondCostBadge()),
+        ),
+        const SizedBox(height: 20),
+        Text(AppLocalizations.of(context)!.tryOnProcessingTitle,
+            style: TextStyle(
+                fontSize: 17, fontWeight: FontWeight.w800, color: widget.ink)),
+        const SizedBox(height: 6),
+        Text(AppLocalizations.of(context)!.tryOnProcessingSubtitle,
+            style: TextStyle(fontSize: 13, color: widget.sub)),
+        const SizedBox(height: 18),
+        // 30s progress bar with a percentage read-out.
         AnimatedBuilder(
-          animation: _c,
+          animation: _progress,
           builder: (context, _) {
-            final x = -1.35 + _c.value * 2.70;
-            return Align(
-              alignment: Alignment(x, 0),
-              child: SizedBox(
-                width: 64,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Container(
-                      width: 3,
+            final v = Curves.easeOut.transform(_progress.value);
+            final pct = math.min(99, (v * 100).round());
+            return Row(
+              children: [
+                Expanded(
+                  // Track + fill as explicitly-sized boxes. (An earlier Stack of
+                  // childless ColoredBox/DecoratedBox collapsed to 0 height under
+                  // the default StackFit.loose, so the bar was invisible.)
+                  child: LayoutBuilder(
+                    builder: (context, c) => Container(
+                      height: 8,
+                      alignment: Alignment.centerLeft,
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Color(0x00F370A7),
-                            _pink,
-                            Color(0x00F370A7),
-                          ],
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: _pink.withValues(alpha: 0.6),
-                            blurRadius: 14,
+                        color: trackColor,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Container(
+                        height: 8,
+                        width: c.maxWidth * v.clamp(0.03, 1.0),
+                        decoration: const BoxDecoration(
+                          borderRadius: BorderRadius.all(Radius.circular(6)),
+                          gradient: LinearGradient(
+                            colors: [Color(0xFFF9A9CB), _pink],
                           ),
-                        ],
+                        ),
                       ),
                     ),
-                    const Icon(
-                      Icons.auto_awesome,
-                      size: 22,
-                      color: Colors.white,
-                      shadows: [Shadow(color: _pink, blurRadius: 10)],
-                    ),
-                  ],
+                  ),
                 ),
-              ),
+                const SizedBox(width: 12),
+                SizedBox(
+                  width: 42,
+                  child: Text(
+                    '$pct%',
+                    textAlign: TextAlign.right,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: _pink,
+                    ),
+                  ),
+                ),
+              ],
             );
           },
-        ),
-
-        // "AI" badge, echoing Beautify's "Beautified photo" tag.
-        Positioned(
-          top: 12,
-          right: 12,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: _pink,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.auto_awesome, size: 12, color: Colors.white),
-                SizedBox(width: 4),
-                Text('AI',
-                    style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white)),
-              ],
-            ),
-          ),
         ),
       ],
     );
