@@ -8,5 +8,12 @@
 	<array>
 		<string>Default</string>
 	</array>
+	<!-- Возврат с оплаты: без этого iOS открывает return_url провайдера в Safari,
+	     и человек остаётся вне приложения, хотя оплата прошла. Проверяется по
+	     https://web.svaypai.com/.well-known/apple-app-site-association -->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:web.svaypai.com</string>
+	</array>
 </dict>
 </plist>

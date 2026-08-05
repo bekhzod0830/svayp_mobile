@@ -79,6 +79,22 @@
                     android:host="app1194732191-login.tg.dev"
                     android:pathPrefix="/tglogin"/>
             </intent-filter>
+            <!-- Возврат с оплаты. Провайдер (Payme/Click/Paylov) после оплаты
+                 перенаправляет на return_url — обычную https-ссылку. Без этой привязки
+                 система открывает её в браузере, и человек остаётся вне приложения,
+                 хотя оплата прошла. Проверка идёт по
+                 https://web.svaypai.com/.well-known/assetlinks.json.
+                 Путь узкий — только /pay/return, остальные адреса вебвью
+                 по-прежнему остаются за браузером. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data
+                    android:scheme="https"
+                    android:host="web.svaypai.com"
+                    android:pathPrefix="/pay/return"/>
+            </intent-filter>
         </activity>
         <!-- Google Maps API Key -->
         <meta-data
