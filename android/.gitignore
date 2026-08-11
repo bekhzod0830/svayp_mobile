@@ -12,3 +12,7 @@ GeneratedPluginRegistrant.java
 key.properties
 **/*.keystore
 **/*.jks
+# Shared debug keystore is deliberately committed: every developer must sign
+# debug builds with the same key, because its fingerprint is listed in
+# web.svaypai.com/.well-known/assetlinks.json (App Links → /pay/return).
+!/debug.keystore

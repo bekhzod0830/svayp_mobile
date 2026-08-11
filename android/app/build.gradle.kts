@@ -67,6 +67,17 @@ android {
                 storePassword = keystoreProperties["storePassword"] as String
             }
         }
+        // Debug builds use the SHARED keystore from the repo, not the per-machine
+        // ~/.android/debug.keystore. App Link verification of /pay/return (payment
+        // redirect) checks the APK's signing cert against assetlinks.json on
+        // web.svaypai.com — with per-machine keys it only works on the machine
+        // whose fingerprint happens to be listed.
+        getByName("debug") {
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+            storeFile = rootProject.file("debug.keystore")
+            storePassword = "android"
+        }
     }
 
     buildTypes {
