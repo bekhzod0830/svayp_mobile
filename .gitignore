@@ -52,3 +52,9 @@ android/app/google-services.json
 
 # Environment variables — contains API keys, must not be committed
 .env
+
+# Артефакты Next.js: в этот репозиторий когда-то заехал статический экспорт
+# (out/ на 87 файлов + next-env.d.ts). К Flutter-сборке отношения не имеет.
+/out/
+/.next/
+next-env.d.ts

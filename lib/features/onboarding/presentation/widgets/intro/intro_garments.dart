@@ -18,7 +18,9 @@ class IntroGarments {
   /// Ordered set used to fill garment grids / tiles.
   static const List<String> all = [top, skirt, dress, romol, bag];
 
-  static const String tryOnFlat = 'assets/onboarding/try_it_on/try_on.png';
+  /// Тот же файл, что и [dress]: try_it_on/try_on.png был его побайтовой копией,
+  /// дубликат удалён из ассетов.
+  static const String tryOnFlat = dress;
   static const String tryOnMannequin =
       'assets/onboarding/try_it_on/on_mannequin.png';
   static const String tryOnPhoto = 'assets/onboarding/try_it_on/on_my_photo.png';
