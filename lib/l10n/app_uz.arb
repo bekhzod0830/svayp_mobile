@@ -1348,5 +1348,24 @@
   "mirrorImHere": "Men shu yerdaman",
   "mirrorOfflineTitle": "Aloqa yoʻq",
   "mirrorOfflineHint": "Iltimos, sotuvchini chaqiring",
-  "mirrorDemoBadge": "Demo rejimi · katalog haqiqiy, kiyib koʻrish taqlid qilinadi"
+  "mirrorDemoBadge": "Demo rejimi · katalog haqiqiy, kiyib koʻrish taqlid qilinadi",
+
+  "promoCode": "Promokod",
+  "promoHint": "Bloger bergan kodni kiriting.",
+  "promoApply": "Qo'llash",
+  "promoSkip": "O'tkazib yuborish",
+  "promoOnboardingTitle": "Blogerdan promokodingiz bormi?",
+  "promoAlreadyAttached": "Hisobingizga allaqachon promokod biriktirilgan.",
+  "promoDiscountActive": "Birinchi xaridga −{percent}% chegirma",
+  "promoDiscountUsed": "Chegirma allaqachon ishlatilgan.",
+  "promoSuccessTitle": "Promokod qo'llandi",
+  "promoSuccessBonus": "Balansingizga +{count} olmos",
+  "promoSuccessDiscount": "Birinchi xaridga −{percent}% chegirma",
+  "promoSuccessOk": "Ajoyib",
+  "promoErrNotFound": "Bunday promokod mavjud emas",
+  "promoErrExpired": "Promokod muddati tugagan",
+  "promoErrLimit": "Promokod endi amal qilmaydi",
+  "promoErrAlready": "Siz allaqachon promokod faollashtirgansiz",
+  "promoErrTooManyAttempts": "Juda ko'p urinish. Keyinroq qayta urinib ko'ring.",
+  "promoErrGeneric": "Promokodni qo'llab bo'lmadi. Qayta urinib ko'ring."
 }

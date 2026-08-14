@@ -3754,4 +3754,67 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get mirrorDemoBadge =>
       'Demo mode · the catalog is real, the try-on is simulated';
+
+  @override
+  String get promoCode => 'Promo code';
+
+  @override
+  String get promoHint => 'Enter the code your blogger gave you.';
+
+  @override
+  String get promoApply => 'Apply';
+
+  @override
+  String get promoSkip => 'Skip';
+
+  @override
+  String get promoOnboardingTitle => 'Got a promo code from a blogger?';
+
+  @override
+  String get promoAlreadyAttached =>
+      'A promo code is already linked to your account.';
+
+  @override
+  String promoDiscountActive(int percent) {
+    return '−$percent% off your first purchase';
+  }
+
+  @override
+  String get promoDiscountUsed => 'The discount has already been used.';
+
+  @override
+  String get promoSuccessTitle => 'Promo code applied';
+
+  @override
+  String promoSuccessBonus(int count) {
+    return '+$count diamonds on your balance';
+  }
+
+  @override
+  String promoSuccessDiscount(int percent) {
+    return '−$percent% off your first purchase';
+  }
+
+  @override
+  String get promoSuccessOk => 'Great';
+
+  @override
+  String get promoErrNotFound => 'No such promo code';
+
+  @override
+  String get promoErrExpired => 'This promo code has expired';
+
+  @override
+  String get promoErrLimit => 'This promo code is no longer valid';
+
+  @override
+  String get promoErrAlready => 'You have already activated a promo code';
+
+  @override
+  String get promoErrTooManyAttempts =>
+      'Too many attempts. Please try again later.';
+
+  @override
+  String get promoErrGeneric =>
+      'Could not apply the promo code. Please try again.';
 }

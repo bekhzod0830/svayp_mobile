@@ -13,6 +13,19 @@ class ErrorMessageHelper {
   ) {
     final l10n = AppLocalizations.of(context)!;
 
+    // Machine-readable код важнее статуса: у промокодов все ошибки — 400, но тексты
+    // разные, а серверное сообщение приходит только по-русски.
+    switch (exception.code) {
+      case 'PROMO_NOT_FOUND':
+        return l10n.promoErrNotFound;
+      case 'PROMO_EXPIRED':
+        return l10n.promoErrExpired;
+      case 'PROMO_LIMIT_REACHED':
+        return l10n.promoErrLimit;
+      case 'PROMO_ALREADY_HAS':
+        return l10n.promoErrAlready;
+    }
+
     // Map status codes to localized messages
     switch (exception.statusCode) {
       case 502:

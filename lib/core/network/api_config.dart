@@ -126,6 +126,13 @@ class ApiConfig {
   /// Presigned PUT URL for the user's own photo (person try-on mode).
   static const String tryOnModelImageUrl = '/outfits/try-on/model-image-url';
 
+  // ─── Промокоды блогеров ──────────────────────────────────────────────────
+  /// POST: применить промокод. Ошибки: PROMO_NOT_FOUND / PROMO_EXPIRED /
+  /// PROMO_LIMIT_REACHED / PROMO_ALREADY_HAS (400), RATE_LIMITED (429).
+  static const String promoApply = '/promo/apply';
+  /// GET: промокод текущего пользователя (null, если не активирован).
+  static const String promoMe = '/promo/me';
+
   /// Build full URL
   static String buildUrl(String endpoint) {
     return '$apiBaseUrl$endpoint';

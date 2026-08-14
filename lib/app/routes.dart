@@ -44,6 +44,7 @@ import 'package:swipe/core/network/api_client.dart';
 import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/features/chat/presentation/screens/chat_list_screen.dart';
 import 'package:swipe/features/chat/presentation/screens/chat_detail_screen.dart';
+import 'package:swipe/features/promo/presentation/screens/promo_code_screen.dart';
 
 /// App Routes
 class AppRoutes {
@@ -58,6 +59,9 @@ class AppRoutes {
   static const String authWebView = '/auth-webview';
   static const String otpVerification = '/otp-verification';
   static const String basicInfo = '/basic-info';
+  /// Шаг «Есть промокод от блогера?» — ПОСЛЕ подтверждения телефона:
+  /// код закрепляется за аккаунтом, до авторизации применять его не к чему.
+  static const String promoOnboarding = '/promo-onboarding';
   static const String hijabPreference = '/hijab-preference';
   static const String primaryObjective = '/primary-objective';
   static const String fitPreference = '/fit-preference';
@@ -158,6 +162,21 @@ class AppRoutes {
       case basicInfo:
         return MaterialPageRoute(
           builder: (_) => const BasicInfoScreen(),
+          settings: settings,
+        );
+
+      case promoOnboarding:
+        return MaterialPageRoute(
+          builder: (context) => PromoCodeScreen(
+            showSkip: true,
+            // Шаг не блокирует регистрацию: и «Применить», и «Пропустить» ведут дальше —
+            // на вкладку Гардероба, где WebView показывает вводный флоу.
+            onDone: () => Navigator.of(context).pushNamedAndRemoveUntil(
+              main,
+              (_) => false,
+              arguments: {'initialIndex': 1},
+            ),
+          ),
           settings: settings,
         );
 

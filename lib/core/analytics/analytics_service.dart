@@ -42,6 +42,10 @@ class AnalyticsService {
   String? _userId;
   String? _currentScreen;
 
+  /// Стабильный анонимный id устройства (SharedPreferences, ключ analytics_anon_id).
+  /// Открыт наружу для анти-фрода промокодов: сервер лимитирует активации по нему.
+  String? get anonId => _anonId;
+
   // ─── Initialisation ────────────────────────────────────────────────────────
 
   /// Call once from main() after Firebase is ready.

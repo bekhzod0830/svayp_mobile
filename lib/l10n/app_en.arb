@@ -1421,5 +1421,36 @@
   "mirrorImHere": "I'm here",
   "mirrorOfflineTitle": "No connection",
   "mirrorOfflineHint": "Please call a shop assistant",
-  "mirrorDemoBadge": "Demo mode · the catalog is real, the try-on is simulated"
+  "mirrorDemoBadge": "Demo mode · the catalog is real, the try-on is simulated",
+
+  "promoCode": "Promo code",
+  "promoHint": "Enter the code your blogger gave you.",
+  "promoApply": "Apply",
+  "promoSkip": "Skip",
+  "promoOnboardingTitle": "Got a promo code from a blogger?",
+  "promoAlreadyAttached": "A promo code is already linked to your account.",
+  "promoDiscountActive": "−{percent}% off your first purchase",
+  "@promoDiscountActive": {
+    "description": "Promo: discount still available",
+    "placeholders": { "percent": { "type": "int" } }
+  },
+  "promoDiscountUsed": "The discount has already been used.",
+  "promoSuccessTitle": "Promo code applied",
+  "promoSuccessBonus": "+{count} diamonds on your balance",
+  "@promoSuccessBonus": {
+    "description": "Promo: bonus coins granted",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "promoSuccessDiscount": "−{percent}% off your first purchase",
+  "@promoSuccessDiscount": {
+    "description": "Promo: percent discount granted",
+    "placeholders": { "percent": { "type": "int" } }
+  },
+  "promoSuccessOk": "Great",
+  "promoErrNotFound": "No such promo code",
+  "promoErrExpired": "This promo code has expired",
+  "promoErrLimit": "This promo code is no longer valid",
+  "promoErrAlready": "You have already activated a promo code",
+  "promoErrTooManyAttempts": "Too many attempts. Please try again later.",
+  "promoErrGeneric": "Could not apply the promo code. Please try again."
 }

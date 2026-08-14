@@ -10,6 +10,7 @@ import 'package:swipe/features/closet/data/services/closet_service.dart';
 import 'package:swipe/features/mirror/data/kiosk_api.dart';
 import 'package:swipe/features/mirror/data/kiosk_demo.dart';
 import 'package:swipe/features/profile/data/services/profile_service.dart';
+import 'package:swipe/features/promo/data/services/promo_service.dart';
 
 final getIt = GetIt.instance;
 
@@ -36,6 +37,10 @@ Future<void> initializeDependencies() async {
 
   getIt.registerLazySingleton<ProfileService>(
     () => ProfileService(getIt<ApiClient>()),
+  );
+
+  getIt.registerLazySingleton<PromoService>(
+    () => PromoService(getIt<ApiClient>()),
   );
 
   // Notification preferences (persisted toggles per type)

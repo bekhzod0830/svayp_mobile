@@ -1348,5 +1348,24 @@
   "mirrorImHere": "Я здесь",
   "mirrorOfflineTitle": "Нет связи",
   "mirrorOfflineHint": "Позовите, пожалуйста, продавца",
-  "mirrorDemoBadge": "Демо-режим · каталог настоящий, примерка имитирована"
+  "mirrorDemoBadge": "Демо-режим · каталог настоящий, примерка имитирована",
+
+  "promoCode": "Промокод",
+  "promoHint": "Введите код, который дал вам блогер.",
+  "promoApply": "Применить",
+  "promoSkip": "Пропустить",
+  "promoOnboardingTitle": "Есть промокод от блогера?",
+  "promoAlreadyAttached": "К вашему аккаунту уже привязан промокод.",
+  "promoDiscountActive": "−{percent}% на первую покупку",
+  "promoDiscountUsed": "Скидка уже использована.",
+  "promoSuccessTitle": "Промокод применён",
+  "promoSuccessBonus": "+{count} алмазов на баланс",
+  "promoSuccessDiscount": "−{percent}% на первую покупку",
+  "promoSuccessOk": "Отлично",
+  "promoErrNotFound": "Такого промокода не существует",
+  "promoErrExpired": "Срок действия промокода истёк",
+  "promoErrLimit": "Промокод больше не действует",
+  "promoErrAlready": "Вы уже активировали промокод",
+  "promoErrTooManyAttempts": "Слишком много попыток. Попробуйте позже.",
+  "promoErrGeneric": "Не удалось применить промокод. Попробуйте ещё раз."
 }

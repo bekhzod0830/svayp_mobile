@@ -3793,4 +3793,67 @@ class AppLocalizationsUz extends AppLocalizations {
   @override
   String get mirrorDemoBadge =>
       'Demo rejimi · katalog haqiqiy, kiyib koʻrish taqlid qilinadi';
+
+  @override
+  String get promoCode => 'Promokod';
+
+  @override
+  String get promoHint => 'Bloger bergan kodni kiriting.';
+
+  @override
+  String get promoApply => 'Qo\'llash';
+
+  @override
+  String get promoSkip => 'O\'tkazib yuborish';
+
+  @override
+  String get promoOnboardingTitle => 'Blogerdan promokodingiz bormi?';
+
+  @override
+  String get promoAlreadyAttached =>
+      'Hisobingizga allaqachon promokod biriktirilgan.';
+
+  @override
+  String promoDiscountActive(int percent) {
+    return 'Birinchi xaridga −$percent% chegirma';
+  }
+
+  @override
+  String get promoDiscountUsed => 'Chegirma allaqachon ishlatilgan.';
+
+  @override
+  String get promoSuccessTitle => 'Promokod qo\'llandi';
+
+  @override
+  String promoSuccessBonus(int count) {
+    return 'Balansingizga +$count olmos';
+  }
+
+  @override
+  String promoSuccessDiscount(int percent) {
+    return 'Birinchi xaridga −$percent% chegirma';
+  }
+
+  @override
+  String get promoSuccessOk => 'Ajoyib';
+
+  @override
+  String get promoErrNotFound => 'Bunday promokod mavjud emas';
+
+  @override
+  String get promoErrExpired => 'Promokod muddati tugagan';
+
+  @override
+  String get promoErrLimit => 'Promokod endi amal qilmaydi';
+
+  @override
+  String get promoErrAlready => 'Siz allaqachon promokod faollashtirgansiz';
+
+  @override
+  String get promoErrTooManyAttempts =>
+      'Juda ko\'p urinish. Keyinroq qayta urinib ko\'ring.';
+
+  @override
+  String get promoErrGeneric =>
+      'Promokodni qo\'llab bo\'lmadi. Qayta urinib ko\'ring.';
 }

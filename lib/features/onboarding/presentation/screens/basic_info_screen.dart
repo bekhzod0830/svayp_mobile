@@ -335,12 +335,12 @@ class _BasicInfoScreenState extends State<BasicInfoScreen>
 
       if (!mounted) return;
 
-      // Land on the Closet tab: its WebView shows the "Welcome to Libas AI"
-      // guided flow (add items → outfit → try-on) on first open.
+      // Последний шаг онбординга — промокод блогера. Он не блокирует регистрацию:
+      // и «Применить», и «Пропустить» дальше ведут на вкладку Гардероба, где WebView
+      // показывает вводный флоу «Welcome to Libas AI» (добавить вещи → образ → примерка).
       Navigator.of(context).pushNamedAndRemoveUntil(
-        '/main',
+        '/promo-onboarding',
         (_) => false,
-        arguments: {'initialIndex': 1},
       );
     } catch (e) {
       if (!mounted) return;

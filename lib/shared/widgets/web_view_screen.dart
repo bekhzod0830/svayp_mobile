@@ -11,6 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
+import 'package:swipe/shared/widgets/web_view_bridge.dart';
 
 /// Generic full-screen WebView widget used by all web-backed screens.
 ///
@@ -53,6 +54,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
   @override
   void initState() {
     super.initState();
+    WebViewBridge.coinsRefreshTick.addListener(_onCoinsRefreshRequested);
 
     late final PlatformWebViewControllerCreationParams params;
     if (Platform.isIOS) {
@@ -257,6 +259,22 @@ class _WebViewScreenState extends State<WebViewScreen> {
     // native theme or locale changes, so we can push the change into the live
     // web page without a reload.
     _syncSettingsToWeb();
+  }
+
+  @override
+  void dispose() {
+    WebViewBridge.coinsRefreshTick.removeListener(_onCoinsRefreshRequested);
+    super.dispose();
+  }
+
+  /// Промокод применяется в НАТИВНОМ экране профиля, а баланс живёт в состоянии
+  /// React внутри этого вебвью, который сидит в IndexedStack и не перемонтируется.
+  /// Без этого пинка человек применил бы бонусный код и не увидел бы алмазов.
+  void _onCoinsRefreshRequested() {
+    if (!_pageLoaded || !mounted) return;
+    _controller.runJavaScript(
+      'window.__svaypRefreshCoins && window.__svaypRefreshCoins();',
+    );
   }
 
   /// Inject the current native theme/language into the already-loaded web page

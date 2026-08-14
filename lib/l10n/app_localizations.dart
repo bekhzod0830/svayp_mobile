@@ -7245,6 +7245,114 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Demo mode · the catalog is real, the try-on is simulated'**
   String get mirrorDemoBadge;
+
+  /// No description provided for @promoCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Promo code'**
+  String get promoCode;
+
+  /// No description provided for @promoHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the code your blogger gave you.'**
+  String get promoHint;
+
+  /// No description provided for @promoApply.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply'**
+  String get promoApply;
+
+  /// No description provided for @promoSkip.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip'**
+  String get promoSkip;
+
+  /// No description provided for @promoOnboardingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Got a promo code from a blogger?'**
+  String get promoOnboardingTitle;
+
+  /// No description provided for @promoAlreadyAttached.
+  ///
+  /// In en, this message translates to:
+  /// **'A promo code is already linked to your account.'**
+  String get promoAlreadyAttached;
+
+  /// Promo: discount still available
+  ///
+  /// In en, this message translates to:
+  /// **'−{percent}% off your first purchase'**
+  String promoDiscountActive(int percent);
+
+  /// No description provided for @promoDiscountUsed.
+  ///
+  /// In en, this message translates to:
+  /// **'The discount has already been used.'**
+  String get promoDiscountUsed;
+
+  /// No description provided for @promoSuccessTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Promo code applied'**
+  String get promoSuccessTitle;
+
+  /// Promo: bonus coins granted
+  ///
+  /// In en, this message translates to:
+  /// **'+{count} diamonds on your balance'**
+  String promoSuccessBonus(int count);
+
+  /// Promo: percent discount granted
+  ///
+  /// In en, this message translates to:
+  /// **'−{percent}% off your first purchase'**
+  String promoSuccessDiscount(int percent);
+
+  /// No description provided for @promoSuccessOk.
+  ///
+  /// In en, this message translates to:
+  /// **'Great'**
+  String get promoSuccessOk;
+
+  /// No description provided for @promoErrNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No such promo code'**
+  String get promoErrNotFound;
+
+  /// No description provided for @promoErrExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'This promo code has expired'**
+  String get promoErrExpired;
+
+  /// No description provided for @promoErrLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'This promo code is no longer valid'**
+  String get promoErrLimit;
+
+  /// No description provided for @promoErrAlready.
+  ///
+  /// In en, this message translates to:
+  /// **'You have already activated a promo code'**
+  String get promoErrAlready;
+
+  /// No description provided for @promoErrTooManyAttempts.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many attempts. Please try again later.'**
+  String get promoErrTooManyAttempts;
+
+  /// No description provided for @promoErrGeneric.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not apply the promo code. Please try again.'**
+  String get promoErrGeneric;
 }
 
 class _AppLocalizationsDelegate

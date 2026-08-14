@@ -3779,4 +3779,66 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get mirrorDemoBadge =>
       'Демо-режим · каталог настоящий, примерка имитирована';
+
+  @override
+  String get promoCode => 'Промокод';
+
+  @override
+  String get promoHint => 'Введите код, который дал вам блогер.';
+
+  @override
+  String get promoApply => 'Применить';
+
+  @override
+  String get promoSkip => 'Пропустить';
+
+  @override
+  String get promoOnboardingTitle => 'Есть промокод от блогера?';
+
+  @override
+  String get promoAlreadyAttached => 'К вашему аккаунту уже привязан промокод.';
+
+  @override
+  String promoDiscountActive(int percent) {
+    return '−$percent% на первую покупку';
+  }
+
+  @override
+  String get promoDiscountUsed => 'Скидка уже использована.';
+
+  @override
+  String get promoSuccessTitle => 'Промокод применён';
+
+  @override
+  String promoSuccessBonus(int count) {
+    return '+$count алмазов на баланс';
+  }
+
+  @override
+  String promoSuccessDiscount(int percent) {
+    return '−$percent% на первую покупку';
+  }
+
+  @override
+  String get promoSuccessOk => 'Отлично';
+
+  @override
+  String get promoErrNotFound => 'Такого промокода не существует';
+
+  @override
+  String get promoErrExpired => 'Срок действия промокода истёк';
+
+  @override
+  String get promoErrLimit => 'Промокод больше не действует';
+
+  @override
+  String get promoErrAlready => 'Вы уже активировали промокод';
+
+  @override
+  String get promoErrTooManyAttempts =>
+      'Слишком много попыток. Попробуйте позже.';
+
+  @override
+  String get promoErrGeneric =>
+      'Не удалось применить промокод. Попробуйте ещё раз.';
 }

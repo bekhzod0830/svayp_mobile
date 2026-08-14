@@ -39,6 +39,7 @@ import 'package:swipe/shared/widgets/main_top_bar.dart';
 import 'package:swipe/core/services/badge_notifier.dart';
 import 'package:swipe/features/profile/presentation/screens/notifications_screen.dart';
 import 'dart:ui';
+import 'package:swipe/features/promo/presentation/screens/promo_code_screen.dart';
 
 /// Profile Screen - User profile and settings
 class ProfileScreen extends StatefulWidget {
@@ -691,6 +692,21 @@ class _ProfileScreenState extends State<ProfileScreen>
                                       _buildSection(
                                         title: l10n.account,
                                         items: [
+                                          _ProfileMenuItem(
+                                            icon: Icons.card_giftcard_outlined,
+                                            title: l10n.promoCode,
+                                            onTap: () {
+                                              Navigator.of(
+                                                context,
+                                                rootNavigator: true,
+                                              ).push(
+                                                MaterialPageRoute(
+                                                  builder: (_) =>
+                                                      const PromoCodeScreen(),
+                                                ),
+                                              );
+                                            },
+                                          ),
                                           _ProfileMenuItem(
                                             icon: Icons.shopping_bag_outlined,
                                             title: l10n.myOrders,
