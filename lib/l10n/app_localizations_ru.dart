@@ -3832,7 +3832,20 @@ class AppLocalizationsRu extends AppLocalizations {
   String get promoErrLimit => 'Промокод больше не действует';
 
   @override
-  String get promoErrAlready => 'Вы уже активировали промокод';
+  String get promoErrAlready =>
+      'Сначала используйте текущую скидку — коды не суммируются';
+
+  @override
+  String get promoErrAlreadyUsed => 'Этот промокод вы уже применяли';
+
+  @override
+  String get promoHaveAnother =>
+      'Скидка израсходована. Можно ввести другой промокод.';
+
+  @override
+  String promoYourCode(Object code) {
+    return 'Ваш промокод: $code';
+  }
 
   @override
   String get promoErrTooManyAttempts =>

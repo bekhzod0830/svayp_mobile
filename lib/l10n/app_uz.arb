@@ -1365,7 +1365,10 @@
   "promoErrNotFound": "Bunday promokod mavjud emas",
   "promoErrExpired": "Promokod muddati tugagan",
   "promoErrLimit": "Promokod endi amal qilmaydi",
-  "promoErrAlready": "Siz allaqachon promokod faollashtirgansiz",
+  "promoErrAlready": "Avval joriy chegirmadan foydalaning \u2014 kodlar qo\u2018shilmaydi",
+  "promoErrAlreadyUsed": "Bu promokodni siz allaqachon ishlatgansiz",
+  "promoHaveAnother": "Chegirma ishlatilgan. Boshqa promokod kiritishingiz mumkin.",
+  "promoYourCode": "Sizning promokodingiz: {code}",
   "promoErrTooManyAttempts": "Juda ko'p urinish. Keyinroq qayta urinib ko'ring.",
   "promoErrGeneric": "Promokodni qo'llab bo'lmadi. Qayta urinib ko'ring."
 }

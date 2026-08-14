@@ -7339,8 +7339,26 @@ abstract class AppLocalizations {
   /// No description provided for @promoErrAlready.
   ///
   /// In en, this message translates to:
-  /// **'You have already activated a promo code'**
+  /// **'Use your current discount first — codes don\'t stack'**
   String get promoErrAlready;
+
+  /// No description provided for @promoErrAlreadyUsed.
+  ///
+  /// In en, this message translates to:
+  /// **'You have already used this promo code'**
+  String get promoErrAlreadyUsed;
+
+  /// No description provided for @promoHaveAnother.
+  ///
+  /// In en, this message translates to:
+  /// **'The discount is spent. You can enter another promo code.'**
+  String get promoHaveAnother;
+
+  /// No description provided for @promoYourCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Your promo code: {code}'**
+  String promoYourCode(Object code);
 
   /// No description provided for @promoErrTooManyAttempts.
   ///

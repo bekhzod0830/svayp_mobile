@@ -1450,7 +1450,10 @@
   "promoErrNotFound": "No such promo code",
   "promoErrExpired": "This promo code has expired",
   "promoErrLimit": "This promo code is no longer valid",
-  "promoErrAlready": "You have already activated a promo code",
+  "promoErrAlready": "Use your current discount first \u2014 codes don't stack",
+  "promoErrAlreadyUsed": "You have already used this promo code",
+  "promoHaveAnother": "The discount is spent. You can enter another promo code.",
+  "promoYourCode": "Your promo code: {code}",
   "promoErrTooManyAttempts": "Too many attempts. Please try again later.",
   "promoErrGeneric": "Could not apply the promo code. Please try again."
 }

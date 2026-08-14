@@ -3847,7 +3847,20 @@ class AppLocalizationsUz extends AppLocalizations {
   String get promoErrLimit => 'Promokod endi amal qilmaydi';
 
   @override
-  String get promoErrAlready => 'Siz allaqachon promokod faollashtirgansiz';
+  String get promoErrAlready =>
+      'Avval joriy chegirmadan foydalaning — kodlar qo‘shilmaydi';
+
+  @override
+  String get promoErrAlreadyUsed => 'Bu promokodni siz allaqachon ishlatgansiz';
+
+  @override
+  String get promoHaveAnother =>
+      'Chegirma ishlatilgan. Boshqa promokod kiritishingiz mumkin.';
+
+  @override
+  String promoYourCode(Object code) {
+    return 'Sizning promokodingiz: $code';
+  }
 
   @override
   String get promoErrTooManyAttempts =>

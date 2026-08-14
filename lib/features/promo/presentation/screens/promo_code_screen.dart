@@ -74,6 +74,8 @@ class _PromoCodeScreenState extends State<PromoCodeScreen> {
         return l10n.promoErrLimit;
       case 'PROMO_ALREADY_HAS':
         return l10n.promoErrAlready;
+      case 'PROMO_ALREADY_USED':
+        return l10n.promoErrAlreadyUsed;
       case 'RATE_LIMITED':
         return l10n.promoErrTooManyAttempts;
       default:
@@ -134,6 +136,13 @@ class _PromoCodeScreenState extends State<PromoCodeScreen> {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
 
+    // Поле ввода закрывает ЖИВАЯ скидка, а не сам факт применённого кода: коды не
+    // суммируются, но как только скидка потрачена или сгорела — можно ввести следующий.
+    // Раньше здесь стояло `_existing != null`, и после покупки экран навсегда превращался
+    // в табличку «скидка использована» без единого способа ввести новый код.
+    final hasLiveDiscount =
+        _existing != null && _existing!.discountActive && _existing!.discountPercent != null;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.promoCode),
@@ -159,16 +168,28 @@ class _PromoCodeScreenState extends State<PromoCodeScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      _existing != null ? l10n.promoAlreadyAttached : l10n.promoHint,
+                      hasLiveDiscount
+                          ? l10n.promoAlreadyAttached
+                          : _existing != null
+                              ? l10n.promoHaveAnother
+                              : l10n.promoHint,
                       style: theme.textTheme.bodyMedium?.copyWith(color: theme.hintColor),
                     ),
                     const SizedBox(height: 24),
-                    if (_existing != null)
+                    if (hasLiveDiscount)
                       _AttachedCode(promo: _existing!)
                     else ...[
+                      // Прежний код никуда не делся — покупки по-прежнему засчитываются блогеру.
+                      if (_existing != null) ...[
+                        Text(
+                          l10n.promoYourCode(_existing!.code),
+                          style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
                       CustomTextField(
                         controller: _controller,
-                        hintText: 'MALIKA',
+                        hintText: '',
                         errorText: _errorText,
                         textCapitalization: TextCapitalization.characters,
                         textInputAction: TextInputAction.done,
