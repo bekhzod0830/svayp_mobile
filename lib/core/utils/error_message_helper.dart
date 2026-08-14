@@ -22,8 +22,6 @@ class ErrorMessageHelper {
         return l10n.promoErrExpired;
       case 'PROMO_LIMIT_REACHED':
         return l10n.promoErrLimit;
-      case 'PROMO_ALREADY_HAS':
-        return l10n.promoErrAlready;
       case 'PROMO_ALREADY_USED':
         return l10n.promoErrAlreadyUsed;
     }

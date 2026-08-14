@@ -3808,10 +3808,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get promoErrLimit => 'This promo code is no longer valid';
 
   @override
-  String get promoErrAlready =>
-      'Use your current discount first — codes don\'t stack';
-
-  @override
   String get promoErrAlreadyUsed => 'You have already used this promo code';
 
   @override

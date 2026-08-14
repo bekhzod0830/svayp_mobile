@@ -7336,12 +7336,6 @@ abstract class AppLocalizations {
   /// **'This promo code is no longer valid'**
   String get promoErrLimit;
 
-  /// No description provided for @promoErrAlready.
-  ///
-  /// In en, this message translates to:
-  /// **'Use your current discount first — codes don\'t stack'**
-  String get promoErrAlready;
-
   /// No description provided for @promoErrAlreadyUsed.
   ///
   /// In en, this message translates to:

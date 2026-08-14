@@ -13,8 +13,9 @@ import 'package:swipe/shared/widgets/web_view_bridge.dart';
 
 /// Профиль → «Промокод» (пункт 6.1 ТЗ).
 ///
-/// Если код уже привязан, поле ввода не показывается вовсе: второй код применить нельзя,
-/// и предлагать ввод было бы обманом. Вместо него — какой код активирован.
+/// Поле ввода доступно ВСЕГДА: новый скидочный код заменяет прежнее неизрасходованное
+/// право. Если запирать экран применённым кодом, человек застревает навсегда — например,
+/// с кодом, который действует от 100 алмазов, купив 10.
 ///
 /// Ошибки разбираются по machine-readable коду из тела ответа ([ApiException.code]),
 /// а не по тексту: тексты локализованы на трёх языках, сравнивать их нельзя.
@@ -72,8 +73,6 @@ class _PromoCodeScreenState extends State<PromoCodeScreen> {
         return l10n.promoErrExpired;
       case 'PROMO_LIMIT_REACHED':
         return l10n.promoErrLimit;
-      case 'PROMO_ALREADY_HAS':
-        return l10n.promoErrAlready;
       case 'PROMO_ALREADY_USED':
         return l10n.promoErrAlreadyUsed;
       case 'RATE_LIMITED':
@@ -136,10 +135,9 @@ class _PromoCodeScreenState extends State<PromoCodeScreen> {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
 
-    // Поле ввода закрывает ЖИВАЯ скидка, а не сам факт применённого кода: коды не
-    // суммируются, но как только скидка потрачена или сгорела — можно ввести следующий.
-    // Раньше здесь стояло `_existing != null`, и после покупки экран навсегда превращался
-    // в табличку «скидка использована» без единого способа ввести новый код.
+    // Живая скидка показывается карточкой НАД полем ввода, а не вместо него: коды не
+    // суммируются, но новый код заменяет прежний. Раньше здесь стояло `_existing != null`,
+    // и экран навсегда превращался в табличку без единого способа ввести другой код.
     final hasLiveDiscount =
         _existing != null && _existing!.discountActive && _existing!.discountPercent != null;
 
@@ -176,17 +174,18 @@ class _PromoCodeScreenState extends State<PromoCodeScreen> {
                       style: theme.textTheme.bodyMedium?.copyWith(color: theme.hintColor),
                     ),
                     const SizedBox(height: 24),
-                    if (hasLiveDiscount)
-                      _AttachedCode(promo: _existing!)
-                    else ...[
+                    if (hasLiveDiscount) ...[
+                      _AttachedCode(promo: _existing!),
+                      const SizedBox(height: 20),
+                    ] else if (_existing != null) ...[
                       // Прежний код никуда не делся — покупки по-прежнему засчитываются блогеру.
-                      if (_existing != null) ...[
-                        Text(
-                          l10n.promoYourCode(_existing!.code),
-                          style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
-                        ),
-                        const SizedBox(height: 12),
-                      ],
+                      Text(
+                        l10n.promoYourCode(_existing!.code),
+                        style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    ...[
                       CustomTextField(
                         controller: _controller,
                         hintText: '',
