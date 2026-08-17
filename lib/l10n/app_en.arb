@@ -1208,7 +1208,7 @@
       }
     }
   },
-  "introSlide7CoinsCaption": "coins as a gift",
+  "introSlide7CoinsCaption": "diamonds as a gift",
   "introSlide7Chip": "{count} diamonds on your balance",
   "@introSlide7Chip": {
     "placeholders": {

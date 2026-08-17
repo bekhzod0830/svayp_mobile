@@ -3257,7 +3257,7 @@ class AppLocalizationsUz extends AppLocalizations {
   }
 
   @override
-  String get introSlide7CoinsCaption => 'tanga sovg\'a';
+  String get introSlide7CoinsCaption => 'olmos sovg\'a';
 
   @override
   String introSlide7Chip(int count) {

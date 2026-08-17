@@ -3216,7 +3216,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get introSlide7CoinsCaption => 'coins as a gift';
+  String get introSlide7CoinsCaption => 'diamonds as a gift';
 
   @override
   String introSlide7Chip(int count) {

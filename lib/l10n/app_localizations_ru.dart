@@ -3238,7 +3238,7 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get introSlide7CoinsCaption => 'монет в подарок';
+  String get introSlide7CoinsCaption => 'алмазов в подарок';
 
   @override
   String introSlide7Chip(int count) {
