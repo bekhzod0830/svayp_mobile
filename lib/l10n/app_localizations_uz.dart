@@ -3822,6 +3822,17 @@ class AppLocalizationsUz extends AppLocalizations {
   String get promoDiscountUsed => 'Chegirma allaqachon ishlatilgan.';
 
   @override
+  String get promoAlreadyTitle => 'Promokod allaqachon faol';
+
+  @override
+  String promoAlreadyActive(int percent) {
+    return '$percent% chegirma hali ham amal qiladi';
+  }
+
+  @override
+  String get promoAlreadyUsedInfo => 'Bu kod allaqachon ishlatilgan';
+
+  @override
   String get promoSuccessTitle => 'Promokod qo\'llandi';
 
   @override

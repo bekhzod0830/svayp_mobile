@@ -11,9 +11,15 @@ Future<void> showPromoSuccessSheet(BuildContext context, PromoApplied result) {
   final theme = Theme.of(context);
   final isDark = theme.brightness == Brightness.dark;
 
-  final detail = result.type == PromoType.bonusCoins
-      ? l10n.promoSuccessBonus(result.value)
-      : l10n.promoSuccessDiscount(result.value);
+  // Повторный ввод ничего не начисляет — писать «зачислено N алмазов» второй раз значит
+  // врать. Показываем текущее состояние: скидка ещё жива или уже потрачена.
+  final detail = result.alreadyActivated
+      ? (result.discountActive
+          ? l10n.promoAlreadyActive(result.value)
+          : l10n.promoAlreadyUsedInfo)
+      : result.type == PromoType.bonusCoins
+          ? l10n.promoSuccessBonus(result.value)
+          : l10n.promoSuccessDiscount(result.value);
 
   return showModalBottomSheet<void>(
     context: context,
@@ -43,7 +49,7 @@ Future<void> showPromoSuccessSheet(BuildContext context, PromoApplied result) {
             const Icon(Icons.diamond_rounded, size: 52, color: Color(0xFFF370A7)),
             const SizedBox(height: 12),
             Text(
-              l10n.promoSuccessTitle,
+              result.alreadyActivated ? l10n.promoAlreadyTitle : l10n.promoSuccessTitle,
               textAlign: TextAlign.center,
               style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
             ),

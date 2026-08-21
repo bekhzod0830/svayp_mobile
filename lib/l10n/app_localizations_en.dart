@@ -3783,6 +3783,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get promoDiscountUsed => 'The discount has already been used.';
 
   @override
+  String get promoAlreadyTitle => 'Promo code is already active';
+
+  @override
+  String promoAlreadyActive(int percent) {
+    return 'Your $percent% discount is still available';
+  }
+
+  @override
+  String get promoAlreadyUsedInfo => 'This code has already been used';
+
+  @override
   String get promoSuccessTitle => 'Promo code applied';
 
   @override

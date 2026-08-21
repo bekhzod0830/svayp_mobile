@@ -3807,6 +3807,17 @@ class AppLocalizationsRu extends AppLocalizations {
   String get promoDiscountUsed => 'Скидка уже использована.';
 
   @override
+  String get promoAlreadyTitle => 'Промокод уже активирован';
+
+  @override
+  String promoAlreadyActive(int percent) {
+    return 'Скидка $percent% всё ещё действует';
+  }
+
+  @override
+  String get promoAlreadyUsedInfo => 'Этот код уже был использован';
+
+  @override
   String get promoSuccessTitle => 'Промокод применён';
 
   @override

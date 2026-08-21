@@ -26,11 +26,22 @@ class PromoApplied {
   final int value;
   final int balanceAfter;
 
+  /// Код уже был активирован раньше — повторный ввод ничего не начислил.
+  ///
+  /// Раньше сервер отвечал на это ошибкой «промокод уже использован», и человек читал её
+  /// как «код сгорел», хотя скидка была жива. Поле опционально: старый бэкенд его не шлёт.
+  final bool alreadyActivated;
+
+  /// Живо ли право на скидку прямо сейчас.
+  final bool discountActive;
+
   const PromoApplied({
     required this.code,
     required this.type,
     required this.value,
     required this.balanceAfter,
+    this.alreadyActivated = false,
+    this.discountActive = false,
   });
 
   factory PromoApplied.fromJson(Map<String, dynamic> json) => PromoApplied(
@@ -38,6 +49,8 @@ class PromoApplied {
         type: _parseType(json['type'] as String?),
         value: (json['value'] as num?)?.toInt() ?? 0,
         balanceAfter: (json['balanceAfter'] as num?)?.toInt() ?? 0,
+        alreadyActivated: json['alreadyActivated'] as bool? ?? false,
+        discountActive: json['discountActive'] as bool? ?? false,
       );
 }
 

@@ -7294,6 +7294,24 @@ abstract class AppLocalizations {
   /// **'The discount has already been used.'**
   String get promoDiscountUsed;
 
+  /// No description provided for @promoAlreadyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Promo code is already active'**
+  String get promoAlreadyTitle;
+
+  /// No description provided for @promoAlreadyActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Your {percent}% discount is still available'**
+  String promoAlreadyActive(int percent);
+
+  /// No description provided for @promoAlreadyUsedInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'This code has already been used'**
+  String get promoAlreadyUsedInfo;
+
   /// No description provided for @promoSuccessTitle.
   ///
   /// In en, this message translates to:

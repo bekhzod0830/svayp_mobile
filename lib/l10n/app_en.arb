@@ -1435,6 +1435,10 @@
     "placeholders": { "percent": { "type": "int" } }
   },
   "promoDiscountUsed": "The discount has already been used.",
+  "promoAlreadyTitle": "Promo code is already active",
+  "promoAlreadyActive": "Your {percent}% discount is still available",
+  "@promoAlreadyActive": {"placeholders": {"percent": {"type": "int"}}},
+  "promoAlreadyUsedInfo": "This code has already been used",
   "promoSuccessTitle": "Promo code applied",
   "promoSuccessBonus": "+{count} diamonds on your balance",
   "@promoSuccessBonus": {
