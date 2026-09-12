@@ -736,11 +736,12 @@ class _ShopScreenState extends State<ShopScreen>
             // Main Content
             Column(
               children: [
-                // Glass Header with title
+                // Glass Header with title. Shop is pushed from the Discover
+                // header's search icon now (no longer a tab), so it gets a
+                // back button.
                 MainTopBar(
                   title: l10n.shop,
-                  extraActions: const [],
-                  showBackButton: false,
+                  showBackButton: true,
                 ),
 
                 // Filter row: Categories (left) + Shops (right)

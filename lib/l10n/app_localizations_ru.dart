@@ -812,6 +812,21 @@ class AppLocalizationsRu extends AppLocalizations {
       'Ответьте на пару вопросов — подберём образы специально для вас';
 
   @override
+  String get personalizeCardEyebrow => '5 вопросов · 1 минута';
+
+  @override
+  String get personalizeCardTitle => 'Какой стиль вам ближе?';
+
+  @override
+  String get personalizeCardSubtitle => 'Выберите — лента подстроится сразу';
+
+  @override
+  String get personalizeCardLater => 'Позже';
+
+  @override
+  String get personalizeCardStart => 'Настроить ленту';
+
+  @override
   String get close => 'Закрыть';
 
   @override
@@ -927,6 +942,9 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get feed => 'Лента';
+
+  @override
+  String get aiStylist => 'AI-стилист';
 
   @override
   String get marketComingSoon => 'Скоро здесь вы сможете продавать свои вещи';

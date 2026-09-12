@@ -11,6 +11,7 @@ import 'package:swipe/app/app.dart';
 import 'package:swipe/core/globals.dart';
 import 'package:swipe/core/localization/services/language_service.dart';
 import 'package:swipe/core/services/theme_service.dart';
+import 'package:swipe/features/chat/presentation/open_chat_list.dart';
 import 'package:swipe/features/chat/presentation/screens/chat_detail_screen.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/shared/widgets/widgets.dart';
@@ -95,6 +96,14 @@ Future<bool> applyWebViewSetting(
           ),
         );
       }
+      return true;
+
+    case 'open_chat_list':
+      // The web headers (closet / feed / market) show the paper-plane icon,
+      // but the chat list is native — open it on the root navigator like
+      // `open_chat`. Guest-gated inside openChatList (Market is browsable as
+      // a guest).
+      if (context.mounted) await openChatList(context);
       return true;
 
     default:

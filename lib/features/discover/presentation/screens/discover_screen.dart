@@ -11,10 +11,12 @@ import 'package:swipe/core/network/api_client.dart';
 import 'package:swipe/core/services/badge_notifier.dart';
 import 'package:swipe/core/services/cart_badge_service.dart';
 import 'package:swipe/features/discover/domain/entities/product.dart';
+import 'package:swipe/features/discover/presentation/widgets/personalize_question_card.dart';
 import 'package:swipe/features/discover/presentation/widgets/swipeable_product_card.dart';
 import 'package:swipe/features/cart/data/services/cart_service.dart';
 import 'package:swipe/features/liked/data/services/liked_service.dart';
 import 'package:swipe/features/product/presentation/screens/product_detail_screen.dart';
+import 'package:swipe/features/shop/presentation/screens/shop_screen.dart';
 import 'package:swipe/features/tryon/presentation/tryon_sheet.dart';
 import 'package:swipe/core/services/product_api_service.dart';
 import 'package:swipe/core/models/product.dart' as api_models;
@@ -74,10 +76,29 @@ class DiscoverScreenState extends State<DiscoverScreen> {
   int _currentCardIndex = 0;
   String? _authToken;
   DateTime? _lastBackPressTime;
-  // "Personalize your feed" banner — offers the optional style-preferences flow
-  // to signed-in users who haven't completed it. Hidden once done.
-  bool _showPersonalizeBanner = false;
+  // Personalization prompt — offers the optional style-preferences flow to
+  // signed-in users who haven't completed it. It used to be a pink banner
+  // pinned above the deck; that shape reads as an ad and got skipped, so the
+  // ask now arrives as a card inside the deck itself (see
+  // [PersonalizeQuestionCard]) once the user has swiped a few products.
+  bool _personalizeEligible = false;
+  bool _showPersonalizeCard = false;
   bool _personalizeInProgress = false;
+  String? _personalizeGender;
+  int _swipesSinceLaunch = 0;
+
+  /// Swipe count at which the card comes back. Pushed forward every time the
+  /// card leaves the deck without preferences being saved.
+  int _personalizeNextShowAtSwipe = _personalizeAfterSwipes;
+
+  /// Swipes to let the user take before the prompt first appears. Asking on the
+  /// very first card is asking before the feed has shown it's worth tuning.
+  static const int _personalizeAfterSwipes = 4;
+
+  /// «Keyinroq» (or a fling, or abandoning the funnel) doesn't retire the
+  /// prompt — it returns this many swipes later, and keeps returning until the
+  /// profile actually holds preferences.
+  static const int _personalizeRepeatAfterSwipes = 5;
 
   @override
   void initState() {
@@ -101,9 +122,10 @@ class DiscoverScreenState extends State<DiscoverScreen> {
     // ── 1. Get the auth token synchronously – no network call needed ──
     _authToken = getIt<ApiClient>().getToken();
 
-    // Decide whether to offer the "personalize your feed" banner (signed-in
-    // users who haven't completed the preferences flow yet).
-    unawaited(_refreshPersonalizeBanner());
+    // Decide whether to offer the personalization prompt (signed-in users who
+    // haven't completed the preferences flow yet). The card itself only appears
+    // after a few swipes — see [_maybeShowPersonalizeCard].
+    unawaited(_refreshPersonalizeEligibility());
 
     // ── 2. Init Hive services in parallel (cart & liked are independent) ──
     await Future.wait([_cartService.init(), _likedService.init()]);
@@ -133,26 +155,47 @@ class DiscoverScreenState extends State<DiscoverScreen> {
     // making the tutorial appear over the closet tab on first launch.
   }
 
-  /// Show the "personalize your feed" banner to signed-in users whose profile
-  /// has no style preferences yet.
+  /// Decide whether the personalization prompt applies to this user: signed in
+  /// and no style preferences on the profile yet.
   ///
-  /// The backend profile is the source of truth — deliberately NOT a local
-  /// "done" flag: that flag isn't per-account, so a different user signing in on
-  /// the same device would inherit the previous user's completed state and never
-  /// see the banner.
-  Future<void> _refreshPersonalizeBanner() async {
+  /// Completing the flow is the ONLY thing that retires the prompt, and the
+  /// backend profile is the source of truth for that — deliberately NOT a local
+  /// flag: that flag isn't per-account, so a different user signing in on the
+  /// same device would inherit the previous user's completed state and never
+  /// see the prompt.
+  Future<void> _refreshPersonalizeEligibility() async {
     final signedIn = _authToken != null && _authToken!.isNotEmpty;
-    final show = signedIn && !(await _profileHasPreferences());
-    if (!mounted || show == _showPersonalizeBanner) return;
-    setState(() => _showPersonalizeBanner = show);
+    final eligible = signedIn && !(await _profileHasPreferences());
+
+    // getProfile() casts `gender` as non-null and throws on a minimal v2
+    // profile — exactly the users this prompt targets. Fall back to the raw
+    // JSON read so the card still asks the right question.
+    if (eligible && (_personalizeGender?.isEmpty ?? true)) {
+      try {
+        _personalizeGender = (await getIt<ProfileService>().getGender())
+            ?.toLowerCase();
+      } catch (_) {
+        // Generic variant it is.
+      }
+    }
+
+    if (!mounted) return;
+    if (eligible == _personalizeEligible) return;
+    setState(() {
+      _personalizeEligible = eligible;
+      // Preferences just landed (or the account changed) — retire the card.
+      if (!eligible) _showPersonalizeCard = false;
+    });
   }
 
   /// Whether the user's profile already holds style-preference signal, so the
-  /// personalize banner would be redundant. Best-effort — on any error we treat
-  /// it as "no preferences" so the banner still shows.
+  /// prompt would be redundant. Best-effort — on any error we treat it as "no
+  /// preferences" so the prompt still shows. Also caches the profile's gender,
+  /// which decides which question the card asks.
   Future<bool> _profileHasPreferences() async {
     try {
       final profile = await getIt<ProfileService>().getProfile();
+      _personalizeGender = profile.gender.toLowerCase();
       final hijab = profile.hijabPreference.toUpperCase();
       final hasHijab = hijab.isNotEmpty && hijab != 'NOT_APPLICABLE';
       final hasFit = profile.fitPreference?.isNotEmpty ?? false;
@@ -163,122 +206,110 @@ class DiscoverScreenState extends State<DiscoverScreen> {
     }
   }
 
-  /// Launch the optional style-preferences flow from the banner. Reads gender
-  /// from the profile to drive the funnel, then — if the user completes it and
-  /// the profile is updated — hides the banner and reloads the feed so the deck
-  /// reflects the new preferences.
+  /// Called after every swipe: once the user has swiped enough, slide the
+  /// question card in on top of the deck.
+  void _maybeShowPersonalizeCard() {
+    if (_showPersonalizeCard || !_personalizeEligible) return;
+    if (_swipesSinceLaunch < _personalizeNextShowAtSwipe) return;
+    // Nothing to sit on top of — wait until the next deck arrives.
+    if (_currentCardIndex >= _products.length) return;
+
+    setState(() => _showPersonalizeCard = true);
+    AnalyticsService.instance.logEvent('personalize_card_shown');
+  }
+
+  /// Take the card off the deck and queue its next appearance. Every exit that
+  /// isn't a completed flow comes back through here, so «Keyinroq», a fling and
+  /// an abandoned funnel all just postpone the ask by
+  /// [_personalizeRepeatAfterSwipes] swipes. Only preferences actually landing
+  /// on the profile stops it — see [_refreshPersonalizeEligibility].
+  void _hidePersonalizeCard() {
+    setState(() {
+      _showPersonalizeCard = false;
+      _personalizeNextShowAtSwipe =
+          _swipesSinceLaunch + _personalizeRepeatAfterSwipes;
+    });
+  }
+
+  /// «Keyinroq», or the card flung off the deck — it comes back a few swipes
+  /// later.
+  void _dismissPersonalizeCard() {
+    if (!_showPersonalizeCard) return;
+    _hidePersonalizeCard();
+    AnalyticsService.instance.logEvent('personalize_card_dismissed');
+  }
+
+  /// A tap on one of the two photos answers the flow's *first* step, so the
+  /// funnel resumes at step 2 instead of asking the same thing again.
+  Future<void> _answerPersonalize(String hijabPreference) async {
+    if (_personalizeInProgress) return;
+    AnalyticsService.instance.logEvent(
+      'personalize_card_answered',
+      parameters: {'hijab_preference': hijabPreference},
+    );
+    // Queued rather than retired: if the user backs out of the funnel before
+    // saving, the ask returns a few swipes later.
+    _hidePersonalizeCard();
+
+    final gender = _personalizeGender?.isNotEmpty == true
+        ? _personalizeGender!
+        : 'female';
+    final manager = context.read<OnboardingDataManager>();
+    manager.startProfileUpdate(gender: gender);
+    manager.setHijabPreference(hijabPreference);
+
+    await _runPersonalizationFlow(
+      '/fit-preference',
+      {'gender': gender, 'hijabPreference': hijabPreference},
+    );
+  }
+
+  /// Open the flow from its first step — used by the variant of the card that
+  /// doesn't show the covered/uncovered choice.
   Future<void> _startPersonalization() async {
     if (_personalizeInProgress) return;
+    AnalyticsService.instance.logEvent('personalize_card_started');
+    _hidePersonalizeCard();
+
+    final gender =
+        (_personalizeGender?.isNotEmpty == true
+        ? _personalizeGender
+        : (await getIt<ProfileService>().getGender())?.toLowerCase());
+    if (!mounted) return;
+    if (gender == null || gender.isEmpty) {
+      _showToast(AppLocalizations.of(context)!.failedToLoadProducts);
+      return;
+    }
+
+    context.read<OnboardingDataManager>().startProfileUpdate(gender: gender);
+    await _runPersonalizationFlow('/hijab-preference', {'gender': gender});
+  }
+
+  /// Push the preferences funnel and, once it returns, re-check the profile: if
+  /// the flow saved preferences the prompt retires — then drop stale cached recs
+  /// and refetch so the deck actually reflects the answers.
+  Future<void> _runPersonalizationFlow(
+    String route,
+    Map<String, dynamic> arguments,
+  ) async {
     _personalizeInProgress = true;
     try {
-      final gender =
-          (await getIt<ProfileService>().getGender())?.toLowerCase();
-      if (!mounted) return;
-      if (gender == null || gender.isEmpty) {
-        _showToast(AppLocalizations.of(context)!.failedToLoadProducts);
-        return;
-      }
-
-      context.read<OnboardingDataManager>().startProfileUpdate(gender: gender);
-      await Navigator.of(context, rootNavigator: true).pushNamed(
-        '/hijab-preference',
-        arguments: {'gender': gender},
-      );
+      await Navigator.of(
+        context,
+        rootNavigator: true,
+      ).pushNamed(route, arguments: arguments);
 
       if (!mounted) return;
-      // Re-check the backend profile: if the flow saved preferences the banner
-      // goes away — then drop stale cached recs and refetch a personalized deck.
-      final hadBanner = _showPersonalizeBanner;
-      await _refreshPersonalizeBanner();
+      final wasEligible = _personalizeEligible;
+      await _refreshPersonalizeEligibility();
       if (!mounted) return;
-      if (hadBanner && !_showPersonalizeBanner) {
+      if (wasEligible && !_personalizeEligible) {
         await RecommendationCacheService.clearCache();
         await _loadProducts(resetIndex: true);
       }
     } finally {
       _personalizeInProgress = false;
     }
-  }
-
-  /// Tappable "personalize your feed" banner shown above the card deck.
-  Widget _buildPersonalizeBanner() {
-    final l10n = AppLocalizations.of(context)!;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: _startPersonalization,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-              colors: [Color(0xFFF370A7), Color(0xFFE0409A)],
-            ),
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x59F370A7), // rgba(243,112,167,0.35)
-                blurRadius: 16,
-                offset: Offset(0, 6),
-                spreadRadius: -2,
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: const BoxDecoration(
-                  color: Color(0x3DFFFFFF), // rgba(255,255,255,0.24)
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.auto_awesome_rounded,
-                  color: Colors.white,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      l10n.personalizeBannerTitle,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      l10n.personalizeBannerSubtitle,
-                      style: const TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xE6FFFFFF), // white 90%
-                        height: 1.25,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: Colors.white,
-                size: 24,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   bool _depsInitialized = false;
@@ -300,8 +331,12 @@ class DiscoverScreenState extends State<DiscoverScreen> {
             _authToken = newToken;
           });
           await _loadProducts(resetIndex: true);
-          // Re-evaluate the personalize banner for the newly signed-in account.
-          unawaited(_refreshPersonalizeBanner());
+          // Re-evaluate the personalize prompt for the newly signed-in account,
+          // from a clean swipe count.
+          _swipesSinceLaunch = 0;
+          _personalizeNextShowAtSwipe = _personalizeAfterSwipes;
+          _personalizeGender = null;
+          unawaited(_refreshPersonalizeEligibility());
         }
         // On first mount the cart count is already refreshed by
         // _initializeScreen — skip the duplicate GET /cart.
@@ -639,6 +674,8 @@ class DiscoverScreenState extends State<DiscoverScreen> {
     // Persist seen ID and pre-fetch next batch if running low
     unawaited(SeenProductsService.addSeenIds([swipedProduct.id]));
     _checkAndLoadMore();
+    _swipesSinceLaunch++;
+    _maybeShowPersonalizeCard();
 
     // Track dislike event
     AnalyticsService.instance.logEvent(
@@ -689,6 +726,8 @@ class DiscoverScreenState extends State<DiscoverScreen> {
     // Persist seen ID and pre-fetch next batch if running low
     unawaited(SeenProductsService.addSeenIds([swipedProduct.id]));
     _checkAndLoadMore();
+    _swipesSinceLaunch++;
+    _maybeShowPersonalizeCard();
 
     // Add to liked items in background (don't block UI)
     _likedService.addLike(swipedProduct);
@@ -1048,6 +1087,8 @@ class DiscoverScreenState extends State<DiscoverScreen> {
     // Persist seen ID and pre-fetch next batch if running low
     unawaited(SeenProductsService.addSeenIds([swipedProduct.id]));
     _checkAndLoadMore();
+    _swipesSinceLaunch++;
+    _maybeShowPersonalizeCard();
     if (!mounted) return;
     SwipeFeedbackBanner.show(context, SwipeFeedbackType.addedToCart);
     unawaited(SoundService.instance.playTing());
@@ -1261,13 +1302,35 @@ class DiscoverScreenState extends State<DiscoverScreen> {
                   MainTopBar(
                     title: 'LIBΛS',
                     showBackButton: false,
+                    extraActions: [
+                      // Shop (catalogue, sellers, visual search) left the
+                      // bottom bar — it is the search icon here now. Pushed
+                      // INSIDE this tab's navigator so the bar stays visible
+                      // and Back returns to the deck.
+                      TopBarAction(
+                        icon: Icons.search,
+                        color: isDark ? Colors.white : Colors.black,
+                        tooltip: AppLocalizations.of(context)!.search,
+                        onPressed: () {
+                          AnalyticsService.instance.logEvent(
+                            AnalyticsEvents.tabSelected,
+                            parameters: {
+                              AnalyticsEvents.paramTabName: 'shop',
+                            },
+                          );
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const ShopScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
                     titleChild: RichText(
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       text: TextSpan(
-                        style: AppTypography.heading2.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: isDark ? Colors.white : Colors.black,
-                          letterSpacing: -0.5,
-                        ),
+                        style: MainTopBar.titleStyle(isDark),
                         children: const [
                           TextSpan(text: 'LIB'),
                           TextSpan(text: 'Λ', style: TextStyle(color: Color(0xFFF370A7))),
@@ -1277,8 +1340,8 @@ class DiscoverScreenState extends State<DiscoverScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  // Personalize-your-feed banner (optional prefs flow)
-                  if (_showPersonalizeBanner) _buildPersonalizeBanner(),
+                  // The personalization prompt is no longer a banner here — it
+                  // rides inside the deck itself (see _buildCardStack).
                   // Content
                   Expanded(
                     child: _isLoading
@@ -1354,17 +1417,21 @@ class DiscoverScreenState extends State<DiscoverScreen> {
                                 ? (_cardKeys[product.id] ??=
                                       GlobalKey<SwipeableProductCardState>())
                                 : null;
+                            // While the personalization card covers the deck the
+                            // product beneath keeps its place but stops taking
+                            // gestures, so a drag can't reach through it.
+                            final isTop = i == 0 && !_showPersonalizeCard;
 
                             return SwipeableProductCard(
                               key: cardKey ?? ValueKey('card_${product.id}'),
                               product: product,
-                              isTopCard: i == 0,
+                              isTopCard: isTop,
                               stackIndex: i,
-                              onSwipeLeft: i == 0 ? _onSwipeLeft : null,
-                              onSwipeRight: i == 0 ? _onSwipeRight : null,
-                              onSwipeUp: i == 0 ? _onSwipeUp : null,
-                              onTap: i == 0 ? _onCardTap : null,
-                              onTryOn: i == 0 ? _onTryOn : null,
+                              onSwipeLeft: isTop ? _onSwipeLeft : null,
+                              onSwipeRight: isTop ? _onSwipeRight : null,
+                              onSwipeUp: isTop ? _onSwipeUp : null,
+                              onTap: isTop ? _onCardTap : null,
+                              onTryOn: isTop ? _onTryOn : null,
                               // Pass drag progress notifier to top card and second card
                               dragProgressNotifier: (i == 0 || i == 1)
                                   ? _dragProgressNotifier
@@ -1372,6 +1439,19 @@ class DiscoverScreenState extends State<DiscoverScreen> {
                             );
                           },
                         ),
+
+                    // Personalization prompt — dealt on top of the deck once
+                    // the user has swiped a few products.
+                    if (_showPersonalizeCard)
+                      PersonalizeQuestionCard(
+                        // The covered/uncovered question is the flow's first
+                        // step and is asked of women; everyone else gets the
+                        // same card with a plain CTA into the flow.
+                        showStyleChoice: _personalizeGender == 'female',
+                        onAnswer: _answerPersonalize,
+                        onStart: _startPersonalization,
+                        onDismiss: _dismissPersonalizeCard,
+                      ),
                   ],
                 ),
               ),
@@ -1379,10 +1459,20 @@ class DiscoverScreenState extends State<DiscoverScreen> {
 
             // Gap between card and floating button bar
             const SizedBox(height: 12),
-            // Action Buttons — floating glass pill, same width as card
+            // Action Buttons — floating glass pill, same width as card.
+            // Faded out (but still occupying its space, so nothing jumps) while
+            // the personalization card is up: like/dislike would otherwise act
+            // on the product hidden behind it.
             SizedBox(
               width: ResponsiveUtils.getCardWidth(context),
-              child: _buildActionButtons(),
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 200),
+                opacity: _showPersonalizeCard ? 0.0 : 1.0,
+                child: IgnorePointer(
+                  ignoring: _showPersonalizeCard,
+                  child: _buildActionButtons(),
+                ),
+              ),
             ),
             // Spacer so buttons clear the floating navbar
             SizedBox(

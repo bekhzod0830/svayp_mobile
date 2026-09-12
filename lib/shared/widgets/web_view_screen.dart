@@ -11,6 +11,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
+import 'package:swipe/core/di/service_locator.dart';
+import 'package:swipe/features/chat/data/services/chat_websocket_service.dart';
 import 'package:swipe/shared/widgets/web_view_bridge.dart';
 
 /// Generic full-screen WebView widget used by all web-backed screens.
@@ -55,6 +57,9 @@ class _WebViewScreenState extends State<WebViewScreen> {
   void initState() {
     super.initState();
     WebViewBridge.coinsRefreshTick.addListener(_onCoinsRefreshRequested);
+    getIt<ChatWebSocketService>()
+        .unreadCountNotifier
+        .addListener(_syncChatUnreadToWeb);
 
     late final PlatformWebViewControllerCreationParams params;
     if (Platform.isIOS) {
@@ -142,6 +147,7 @@ class _WebViewScreenState extends State<WebViewScreen> {
             // The page may have loaded with stale params if the user changed
             // theme/language mid-load — reconcile now.
             _syncSettingsToWeb();
+            _syncChatUnreadToWeb();
             if (mounted) setState(() => _isLoading = false);
           },
           onWebResourceError: (WebResourceError error) {
@@ -264,7 +270,24 @@ class _WebViewScreenState extends State<WebViewScreen> {
   @override
   void dispose() {
     WebViewBridge.coinsRefreshTick.removeListener(_onCoinsRefreshRequested);
+    getIt<ChatWebSocketService>()
+        .unreadCountNotifier
+        .removeListener(_syncChatUnreadToWeb);
     super.dispose();
+  }
+
+  /// The chat list is native, so the web headers (closet / feed / market)
+  /// can't compute their unread badge — the shell pushes it, on page load and
+  /// on every change. `__svaypChatUnread` is written too, so a page whose
+  /// React effect registers the setter AFTER this injection still reads the
+  /// latest value.
+  void _syncChatUnreadToWeb() {
+    if (!_pageLoaded || !mounted) return;
+    final n = getIt<ChatWebSocketService>().unreadCountNotifier.value;
+    _controller.runJavaScript(
+      'window.__svaypChatUnread=$n;'
+      'window.__svaypSetChatUnread&&window.__svaypSetChatUnread($n);',
+    );
   }
 
   /// Промокод применяется в НАТИВНОМ экране профиля, а баланс живёт в состоянии

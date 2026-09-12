@@ -804,6 +804,22 @@ class AppLocalizationsEn extends AppLocalizations {
       'Answer a few quick questions for recommendations made for you';
 
   @override
+  String get personalizeCardEyebrow => '5 questions · 1 minute';
+
+  @override
+  String get personalizeCardTitle => 'Which style is closer to you?';
+
+  @override
+  String get personalizeCardSubtitle =>
+      'Pick one — your feed adjusts right away';
+
+  @override
+  String get personalizeCardLater => 'Later';
+
+  @override
+  String get personalizeCardStart => 'Set up my feed';
+
+  @override
   String get close => 'Close';
 
   @override
@@ -917,6 +933,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get feed => 'Feed';
+
+  @override
+  String get aiStylist => 'AI Stylist';
 
   @override
   String get marketComingSoon =>

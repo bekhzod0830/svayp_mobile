@@ -315,9 +315,8 @@ class AppRoutes {
 
       case main:
         final mainArgs = settings.arguments as Map<String, dynamic>?;
-        // Default landing tab = Closet (index 1). The Feed tab is disabled from
-        // the nav bar this release, so Closet is the first tab users land on;
-        // its WebView shows the "Welcome to Libas AI" guided flow on first open.
+        // Default landing tab = Closet (index 1), the home tab and the first
+        // slot of the bar (Garderob · Lenta · Nur · LIBΛS · Bozor).
         // Guests are routed to Discover (index 5) explicitly by their callers.
         final initialIndex = mainArgs?['initialIndex'] as int? ?? 1;
         // settings обязателен: без него route.settings.name == null, и наблюдатель

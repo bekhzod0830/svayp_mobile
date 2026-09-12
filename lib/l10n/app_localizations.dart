@@ -1630,6 +1630,36 @@ abstract class AppLocalizations {
   /// **'Answer a few quick questions for recommendations made for you'**
   String get personalizeBannerSubtitle;
 
+  /// Small label on the in-deck personalization card that bounds how long the flow takes
+  ///
+  /// In en, this message translates to:
+  /// **'5 questions · 1 minute'**
+  String get personalizeCardEyebrow;
+
+  /// Question asked by the personalization card inside the swipe deck
+  ///
+  /// In en, this message translates to:
+  /// **'Which style is closer to you?'**
+  String get personalizeCardTitle;
+
+  /// Subtitle under the personalization card question
+  ///
+  /// In en, this message translates to:
+  /// **'Pick one — your feed adjusts right away'**
+  String get personalizeCardSubtitle;
+
+  /// Dismisses the personalization card in the swipe deck
+  ///
+  /// In en, this message translates to:
+  /// **'Later'**
+  String get personalizeCardLater;
+
+  /// Button on the personalization card for users who are not shown the covered/uncovered choice
+  ///
+  /// In en, this message translates to:
+  /// **'Set up my feed'**
+  String get personalizeCardStart;
+
   /// No description provided for @close.
   ///
   /// In en, this message translates to:
@@ -1851,6 +1881,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Feed'**
   String get feed;
+
+  /// No description provided for @aiStylist.
+  ///
+  /// In en, this message translates to:
+  /// **'AI Stylist'**
+  String get aiStylist;
 
   /// No description provided for @marketComingSoon.
   ///
@@ -6247,7 +6283,7 @@ abstract class AppLocalizations {
   /// No description provided for @introSlide7CoinsCaption.
   ///
   /// In en, this message translates to:
-  /// **'coins as a gift'**
+  /// **'diamonds as a gift'**
   String get introSlide7CoinsCaption;
 
   /// No description provided for @introSlide7Chip.

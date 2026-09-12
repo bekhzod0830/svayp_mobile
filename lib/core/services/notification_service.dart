@@ -490,26 +490,34 @@ class NotificationService {
     );
   }
 
-  /// Bottom-nav tab names, in nav-bar order. Index = tab index used by
-  /// [MainScreenState.navigateToTab].
-  static const List<String> _tabNames = [
-    'feed',
-    'closet',
-    'market',
-    'shop',
-    'chat',
-    'discover',
-  ];
+  /// Alternative spellings accepted for a `tab` value, so a payload written by
+  /// hand — or written against the tab's visible label rather than its internal
+  /// name — still lands. Keys are normalised the same way as the incoming
+  /// value: lower-cased, with spaces and hyphens collapsed to underscores.
+  static const Map<String, String> _tabAliases = {
+    'ai_stylist': 'nur', // also matches "AI Stylist" and "ai-stylist"
+    'aistylist': 'nur',
+    'stylist': 'nur',
+  };
 
-  /// Resolves a notification `tab` value to a bottom-nav tab index.
-  /// Accepts a tab name ('feed', 'closet', 'market', 'shop', 'chat',
-  /// 'discover') or a numeric string ('0'–'5'). Returns null if no match.
+  /// Resolves a notification `tab` value to a tab index.
+  ///
+  /// Accepts a name from [MainScreen.tabNames] ('feed', 'closet', 'market',
+  /// 'shop', 'chat', 'discover', 'nur'), any alias in [_tabAliases]
+  /// ('ai_stylist', 'AI Stylist', 'stylist' → the AI Stylist tab), or the index
+  /// as a string ('0'–'6'). Returns null if no match, in which case the payload
+  /// falls through to its `route` / `url` / type-based routing.
   static int? _tabIndexFromValue(String? tab) {
-    if (tab == null || tab.isEmpty) return null;
-    final byName = _tabNames.indexOf(tab.toLowerCase());
+    if (tab == null) return null;
+    final raw = tab.trim().toLowerCase().replaceAll(RegExp(r'[\s\-]+'), '_');
+    if (raw.isEmpty) return null;
+    final name = _tabAliases[raw] ?? raw;
+    final byName = MainScreen.tabNames.indexOf(name);
     if (byName != -1) return byName;
-    final byNumber = int.tryParse(tab);
-    if (byNumber != null && byNumber >= 0 && byNumber < _tabNames.length) {
+    final byNumber = int.tryParse(raw);
+    if (byNumber != null &&
+        byNumber >= 0 &&
+        byNumber < MainScreen.tabNames.length) {
       return byNumber;
     }
     return null;
@@ -608,7 +616,7 @@ class NotificationService {
       case NotificationType.feedComment:
         // Feed lives in a WebView tab — open it. No-op if MainScreen isn't mounted.
         MainScreen.globalKey.currentState
-            ?.navigateToTab(_tabNames.indexOf('feed'));
+            ?.navigateToTab(MainScreen.tabNames.indexOf('feed'));
       case NotificationType.system:
         _showSystemMessage(
           title: title ?? '',

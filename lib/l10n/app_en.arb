@@ -271,6 +271,26 @@
     "description": "Title of the tappable banner on the Discovery screen that opens the style-preferences flow"
   },
   "personalizeBannerSubtitle": "Answer a few quick questions for recommendations made for you",
+  "personalizeCardEyebrow": "5 questions · 1 minute",
+  "@personalizeCardEyebrow": {
+    "description": "Small label on the in-deck personalization card that bounds how long the flow takes"
+  },
+  "personalizeCardTitle": "Which style is closer to you?",
+  "@personalizeCardTitle": {
+    "description": "Question asked by the personalization card inside the swipe deck"
+  },
+  "personalizeCardSubtitle": "Pick one — your feed adjusts right away",
+  "@personalizeCardSubtitle": {
+    "description": "Subtitle under the personalization card question"
+  },
+  "personalizeCardLater": "Later",
+  "@personalizeCardLater": {
+    "description": "Dismisses the personalization card in the swipe deck"
+  },
+  "personalizeCardStart": "Set up my feed",
+  "@personalizeCardStart": {
+    "description": "Button on the personalization card for users who are not shown the covered/uncovered choice"
+  },
   "close": "Close",
   "dismiss": "Dismiss",
   "welcomeToSwipe": "Welcome to LIBAS",
@@ -315,6 +335,7 @@
   "shop": "Shop",
   "market": "Market",
   "feed": "Feed",
+  "aiStylist": "AI Stylist",
   "marketComingSoon": "Soon, the place where you can sell your things",
   "visualSearch": "Visual Search",
   "categories": "Categories",

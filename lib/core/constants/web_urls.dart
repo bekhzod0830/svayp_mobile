@@ -15,9 +15,15 @@ class WebUrls {
   static const String discover = '$_base/discover';
   static const String shop = '$_base/shop';
   static const String chat = '$_base/chat';
-  static const String closet = '$_base/closet';
-  static const String feed = '$_base/feed';
-  static const String market = '$_base/market';
+  // `nav=tab` tells the page it is a bottom-bar tab of the native shell (not a
+  // pushed page or a browser): it hides in-page nav that duplicates the bar,
+  // drops back arrows that would leave the tab, and traps Android back. The
+  // web persists the marker per WebView, so later in-page navigations keep it
+  // (see the web app's isShellTab()).
+  static const String closet = '$_base/closet?nav=tab';
+  static const String feed = '$_base/feed?nav=tab';
+  static const String market = '$_base/market?nav=tab';
+  static const String stylist = '$_base/stylist?nav=tab';
 
   // ── Pushed screens ─────────────────────────────────────────────────────────
   static const String liked = '$_base/liked';

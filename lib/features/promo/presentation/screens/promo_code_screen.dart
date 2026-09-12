@@ -152,65 +152,86 @@ class _PromoCodeScreenState extends State<PromoCodeScreen> {
             ),
         ],
       ),
+      // Клавиатура поджимает низ, и «Применить» едет над ней вместе с футером —
+      // так же, как «Продолжить» на предыдущем шаге регистрации (BasicInfoScreen).
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
         child: _loading
             ? const Center(child: CircularProgressIndicator())
-            : Padding(
-                padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+            : GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => FocusScope.of(context).unfocus(),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text(
-                      widget.showSkip ? l10n.promoOnboardingTitle : l10n.promoCode,
-                      style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      hasLiveDiscount
-                          ? l10n.promoAlreadyAttached
-                          : _existing != null
-                              ? l10n.promoHaveAnother
-                              : l10n.promoHint,
-                      style: theme.textTheme.bodyMedium?.copyWith(color: theme.hintColor),
-                    ),
-                    const SizedBox(height: 24),
-                    if (hasLiveDiscount) ...[
-                      _AttachedCode(promo: _existing!),
-                      const SizedBox(height: 20),
-                    ] else if (_existing != null) ...[
-                      // Прежний код никуда не делся — покупки по-прежнему засчитываются блогеру.
-                      Text(
-                        l10n.promoYourCode(_existing!.code),
-                        style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
+                    // Контент прокручивается — на маленьком экране с открытой
+                    // клавиатурой поле не выдавливает кнопку за пределы экрана.
+                    Expanded(
+                      child: SingleChildScrollView(
+                        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                        padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              widget.showSkip ? l10n.promoOnboardingTitle : l10n.promoCode,
+                              style: theme.textTheme.headlineSmall
+                                  ?.copyWith(fontWeight: FontWeight.w700),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              hasLiveDiscount
+                                  ? l10n.promoAlreadyAttached
+                                  : _existing != null
+                                      ? l10n.promoHaveAnother
+                                      : l10n.promoHint,
+                              style: theme.textTheme.bodyMedium?.copyWith(color: theme.hintColor),
+                            ),
+                            const SizedBox(height: 24),
+                            if (hasLiveDiscount) ...[
+                              _AttachedCode(promo: _existing!),
+                              const SizedBox(height: 20),
+                            ] else if (_existing != null) ...[
+                              // Прежний код никуда не делся — покупки по-прежнему засчитываются блогеру.
+                              Text(
+                                l10n.promoYourCode(_existing!.code),
+                                style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
+                              ),
+                              const SizedBox(height: 12),
+                            ],
+                            CustomTextField(
+                              controller: _controller,
+                              hintText: '',
+                              errorText: _errorText,
+                              textCapitalization: TextCapitalization.characters,
+                              textInputAction: TextInputAction.done,
+                              maxLength: 20,
+                              // Авто-UPPERCASE и обрезка пробелов прямо во вводе: сервер всё равно
+                              // нормализует, но человек должен видеть код таким, каким его дали.
+                              inputFormatters: [
+                                FilteringTextInputFormatter.deny(RegExp(r'\s')),
+                                _UpperCaseFormatter(),
+                              ],
+                              onChanged: (_) {
+                                if (_errorText != null) setState(() => _errorText = null);
+                              },
+                              onSubmitted: (_) => _submit(),
+                            ),
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 12),
-                    ],
-                    ...[
-                      CustomTextField(
-                        controller: _controller,
-                        hintText: '',
-                        errorText: _errorText,
-                        textCapitalization: TextCapitalization.characters,
-                        textInputAction: TextInputAction.done,
-                        maxLength: 20,
-                        // Авто-UPPERCASE и обрезка пробелов прямо во вводе: сервер всё равно
-                        // нормализует, но человек должен видеть код таким, каким его дали.
-                        inputFormatters: [
-                          FilteringTextInputFormatter.deny(RegExp(r'\s')),
-                          _UpperCaseFormatter(),
-                        ],
-                        onChanged: (_) {
-                          if (_errorText != null) setState(() => _errorText = null);
-                        },
-                        onSubmitted: (_) => _submit(),
-                      ),
-                      const SizedBox(height: 20),
-                      PrimaryButton(
+                    ),
+                    // Футер с основным действием — прижат к низу экрана.
+                    Container(
+                      width: double.infinity,
+                      color: theme.scaffoldBackgroundColor,
+                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                      child: PrimaryButton(
                         text: l10n.promoApply,
                         isLoading: _submitting,
+                        isFullWidth: true,
                         onPressed: _submit,
                       ),
-                    ],
+                    ),
                   ],
                 ),
               ),

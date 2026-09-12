@@ -816,6 +816,22 @@ class AppLocalizationsUz extends AppLocalizations {
       'Bir necha savolga javob bering — sizga mos tavsiyalar tayyorlaymiz';
 
   @override
+  String get personalizeCardEyebrow => '5 ta savol · 1 daqiqa';
+
+  @override
+  String get personalizeCardTitle => 'Qaysi uslub sizga yaqinroq?';
+
+  @override
+  String get personalizeCardSubtitle =>
+      'Birini tanlang — lenta darhol moslashadi';
+
+  @override
+  String get personalizeCardLater => 'Keyinroq';
+
+  @override
+  String get personalizeCardStart => 'Lentani sozlash';
+
+  @override
   String get close => 'Yopish';
 
   @override
@@ -931,6 +947,9 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get feed => 'Lenta';
+
+  @override
+  String get aiStylist => 'AI stilist';
 
   @override
   String get marketComingSoon =>

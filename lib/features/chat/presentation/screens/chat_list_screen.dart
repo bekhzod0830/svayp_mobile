@@ -72,7 +72,13 @@ class ChatListScreenState extends State<ChatListScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _listMessageSub?.cancel();
-    getIt<ChatWebSocketService>().closeList();
+    // For regular users this screen is a pushed route now (Chat left the bottom
+    // bar) and the list-mode STOMP subscriptions are owned by
+    // MainScreen._initBadge(), which feeds the header unread badge. Closing
+    // them here would silence the badge after the first pop until the next
+    // (throttled) resume resync. The partner shell still hosts this screen as
+    // a tab root and keeps the old lifecycle.
+    if (_isAdmin) getIt<ChatWebSocketService>().closeList();
     super.dispose();
   }
 
@@ -234,8 +240,13 @@ class ChatListScreenState extends State<ChatListScreen>
         body: SafeArea(
           child: Column(
             children: [
-              // Glass Header
-              MainTopBar(title: l10n.chat, showBackButton: false),
+              // Glass Header. Regular users arrive by push (back button); the
+              // partner shell keeps this screen as a non-poppable tab root.
+              MainTopBar(
+                title: l10n.chat,
+                showBackButton: !_isAdmin,
+                showChatButton: false,
+              ),
               // Content
               Expanded(
                 child: _isLoading
