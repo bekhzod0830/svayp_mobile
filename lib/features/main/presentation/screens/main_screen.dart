@@ -312,19 +312,33 @@ class MainScreenState extends State<MainScreen>
   /// such as `/closet?tab=outfits`.
   ///
   /// Used by native screens that finish on something the closet owns (the
-  /// try-on sheet's "My outfits"). The load is a plain same-origin navigation,
-  /// so the tokens the WebView stored on its first load still apply — no need
-  /// to re-append auth params.
-  Future<void> openClosetPath(String path) async {
-    // The closet tab may be sitting on a pushed sub-route; land on its root
-    // WebView, not on top of whatever was open.
-    _popTabToRoot(_closetKey);
-    navigateToTab(_closetTabIndex);
+  /// try-on sheet's "My outfits").
+  Future<void> openClosetPath(String path) =>
+      openTabPath(_closetTabIndex, path);
 
-    // Absent only if the tab has never been built. The IndexedStack builds all
-    // tabs up front, so this is a defensive branch: the WebView will come up on
-    // the closet root by itself.
-    final controller = _webControllers[_closetTabIndex];
+  /// Show tab [index] and, when [path] is given, point that tab's WebView at
+  /// it — a web-app path such as `/feed/me`.
+  ///
+  /// This is the ONLY way a web page may reach another section. Each tab is a
+  /// long-lived WebView in the IndexedStack, so a `router.push` inside one of
+  /// them navigates *that* tab and leaves it there: publishing a post from the
+  /// closet used to turn the closet tab into the feed until the app restarted.
+  ///
+  /// The load is a plain same-origin navigation, so the tokens the WebView
+  /// stored on its first load still apply — no need to re-append auth params.
+  Future<void> openTabPath(int index, [String? path]) async {
+    if (!_visibleTabs.contains(index)) return;
+
+    // The target tab may be sitting on a pushed sub-route; land on its root
+    // WebView, not on top of whatever was open.
+    _popTabToRoot(_tabKeys[index]);
+    navigateToTab(index);
+    if (path == null || path.isEmpty) return;
+
+    // Absent only if the tab has never been built (Nur builds on first visit),
+    // in which case it comes up on its own root — which is where a pathless
+    // switch would have landed anyway.
+    final controller = _webControllers[index];
     if (controller == null) return;
     await controller.loadRequest(Uri.parse(WebUrls.resolve(path)));
   }

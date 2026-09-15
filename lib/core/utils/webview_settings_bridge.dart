@@ -13,6 +13,7 @@ import 'package:swipe/core/localization/services/language_service.dart';
 import 'package:swipe/core/services/theme_service.dart';
 import 'package:swipe/features/chat/presentation/open_chat_list.dart';
 import 'package:swipe/features/chat/presentation/screens/chat_detail_screen.dart';
+import 'package:swipe/features/main/presentation/screens/main_screen.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 import 'package:swipe/shared/widgets/widgets.dart';
 
@@ -104,6 +105,21 @@ Future<bool> applyWebViewSetting(
       // `open_chat`. Guest-gated inside openChatList (Market is browsable as
       // a guest).
       if (context.mounted) await openChatList(context);
+      return true;
+
+    case 'open_tab':
+      // A tab's WebView asked the shell to show ANOTHER tab, optionally on a
+      // deeper page (`path`). Without this the web page can only router.push,
+      // which navigates the CURRENT tab's WebView — that is how publishing a
+      // post from the closet left the closet tab showing the feed until the
+      // app was restarted. Unknown names are ignored: the web falls back to
+      // its own navigation when the message goes unanswered.
+      final tab = (map['tab'] as String?)?.trim() ?? '';
+      final index = MainScreen.tabNames.indexOf(tab);
+      if (index >= 0) {
+        final path = (map['path'] as String?)?.trim();
+        await MainScreen.globalKey.currentState?.openTabPath(index, path);
+      }
       return true;
 
     default:
