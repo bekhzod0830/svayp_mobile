@@ -295,7 +295,9 @@ class _TryOnSheetState extends State<_TryOnSheet> {
           ClipRRect(
             borderRadius: BorderRadius.circular(18),
             child: AspectRatio(
-              aspectRatio: 3 / 4,
+              // Примерка на своём фото приходит вертикальной (1024x1536, 2:3);
+              // в 3:4 с cover у неё срезало бы макушку и обувь. Манекен — квадрат.
+              aspectRatio: _personKey != null ? 2 / 3 : 3 / 4,
               child: _resultUrl == null
                   ? const SizedBox()
                   : Image.network(_resultUrl!, fit: BoxFit.cover),
