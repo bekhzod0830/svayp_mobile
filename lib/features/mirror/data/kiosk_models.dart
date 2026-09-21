@@ -26,16 +26,24 @@ class KioskSession {
   final String storeLabel;
   final int catalogSize;
 
+  /// Собирается ли в зале мужской образ. Нет — киоск прячет кнопку «Мужчина».
+  /// Старый бэкенд поля не шлёт: тогда ведём себя как раньше (кнопка есть).
+  final bool menswearAvailable;
+
   const KioskSession({
     required this.sessionId,
     required this.storeLabel,
     required this.catalogSize,
+    this.menswearAvailable = true,
   });
 
   factory KioskSession.fromJson(Map data) => KioskSession(
         sessionId: (data['sessionId'] ?? '').toString(),
         storeLabel: (data['storeLabel'] ?? '').toString(),
         catalogSize: (data['catalogSize'] as num?)?.toInt() ?? 0,
+        menswearAvailable: data['menswearAvailable'] is bool
+            ? data['menswearAvailable'] as bool
+            : true,
       );
 }
 

@@ -3670,6 +3670,9 @@ class AppLocalizationsUz extends AppLocalizations {
   String get mirrorMale => 'Erkak';
 
   @override
+  String get mirrorWomenOnly => 'Hozir zalda ayollar kolleksiyasi';
+
+  @override
   String get mirrorDontKnow => 'Bilmayman';
 
   @override

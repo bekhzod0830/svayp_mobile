@@ -7018,6 +7018,12 @@ abstract class AppLocalizations {
   /// **'Male'**
   String get mirrorMale;
 
+  /// No description provided for @mirrorWomenOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'The store currently carries the women’s collection'**
+  String get mirrorWomenOnly;
+
   /// No description provided for @mirrorDontKnow.
   ///
   /// In en, this message translates to:

@@ -66,6 +66,9 @@ class MirrorSessionController extends ChangeNotifier {
 
   String? sessionId;
   String? _storeLabel;
+
+  /// Показывать ли кнопку «Мужчина»: мужская одежда в зале есть не всегда.
+  bool menswearAvailable = true;
   bool demoActive = false;
 
   String? gender;
@@ -154,6 +157,16 @@ class MirrorSessionController extends ChangeNotifier {
     }
   }
 
+  /// Бэкенд отдаёт коды с префиксом (`KIOSK_LOOK_UNAVAILABLE`), старые места
+  /// сравнивали без него — и отказ «нет образа» уходил в демо с фото вместо
+  /// образа.
+  static bool isLookUnavailable(String? reason) =>
+      reason == 'KIOSK_LOOK_UNAVAILABLE' || reason == 'LOOK_UNAVAILABLE';
+
+  /// Осмысленный отказ бэкенда (наличие, лимиты), а не сбой пайплайна.
+  static bool isBusinessRefusal(String? reason) =>
+      isLookUnavailable(reason) || (reason?.startsWith('KIOSK_') ?? false);
+
   void _notify() {
     if (!_disposed) notifyListeners();
   }
@@ -189,6 +202,7 @@ class MirrorSessionController extends ChangeNotifier {
         _demo.disableAuto();
         demoActive = false;
         sessionId = session.sessionId;
+        menswearAvailable = session.menswearAvailable;
         if (session.storeLabel.isNotEmpty) {
           _storeLabel = session.storeLabel;
           _prefs.setString(_storeLabelKey, session.storeLabel);
@@ -492,12 +506,13 @@ class MirrorSessionController extends ChangeNotifier {
     // (например, сломан cv2 на бэкенде), тихо пересобираем образ в
     // демо-режиме — с честным бейджем. Покупатель у зеркала не должен
     // читать технические трейсы. Исключения: TIMEOUT/NETWORK (это про
-    // связь, не про пайплайн) и LOOK_UNAVAILABLE (честный ответ про
-    // наличие — демо здесь соврало бы про склад).
+    // связь, не про пайплайн) и бизнес-отказы бэкенда KIOSK_* — нет образа
+    // в наличии, лимиты. Демо там соврало бы: оно выдаёт снятое фото за
+    // готовый образ.
     final serverSide = !demoActive &&
         reason != 'TIMEOUT' &&
         reason != 'NETWORK' &&
-        reason != 'LOOK_UNAVAILABLE';
+        !isBusinessRefusal(reason);
     if (serverSide && !_demoFallbackUsed) {
       _demoFallbackUsed = true;
       _demo.enableAuto();
@@ -694,6 +709,7 @@ class MirrorSessionController extends ChangeNotifier {
     _demo.resetLook();
 
     sessionId = null;
+    menswearAvailable = true;
     demoActive = false;
     gender = null;
     bodyShape = null;

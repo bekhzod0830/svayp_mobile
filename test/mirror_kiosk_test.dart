@@ -1,8 +1,39 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:swipe/features/mirror/data/kiosk_models.dart';
 import 'package:swipe/features/mirror/data/kiosk_taxonomy.dart';
+import 'package:swipe/features/mirror/presentation/mirror_session_controller.dart';
 
 void main() {
+  group('KioskSession.menswearAvailable', () {
+    test('бэкенд сказал «мужского нет» — кнопку прячем', () {
+      final s = KioskSession.fromJson({'sessionId': 'x', 'menswearAvailable': false});
+      expect(s.menswearAvailable, isFalse);
+    });
+
+    test('старый бэкенд без поля — ведём себя как раньше', () {
+      expect(KioskSession.fromJson({'sessionId': 'x'}).menswearAvailable, isTrue);
+    });
+  });
+
+  group('отказы бэкенда не уходят в демо', () {
+    test('KIOSK_LOOK_UNAVAILABLE — это «нет образа», а не сбой пайплайна', () {
+      // Бэкенд шлёт код с префиксом; раньше сравнивали без него, и отказ
+      // уходил в демо, которое показывает снятое фото вместо образа.
+      expect(MirrorSessionController.isLookUnavailable('KIOSK_LOOK_UNAVAILABLE'), isTrue);
+      expect(MirrorSessionController.isBusinessRefusal('KIOSK_LOOK_UNAVAILABLE'), isTrue);
+    });
+
+    test('лимиты — тоже честный отказ', () {
+      expect(MirrorSessionController.isBusinessRefusal('KIOSK_REGENERATE_LIMIT'), isTrue);
+      expect(MirrorSessionController.isBusinessRefusal('KIOSK_RATE_LIMIT'), isTrue);
+    });
+
+    test('сбой генерации по-прежнему может уйти в демо', () {
+      expect(MirrorSessionController.isBusinessRefusal('FAILED'), isFalse);
+      expect(MirrorSessionController.isBusinessRefusal(null), isFalse);
+    });
+  });
+
   group('kioskMoney', () {
     test('groups digits by three with spaces, ценник style', () {
       expect(kioskMoney(1250000, 'ru'), '1 250 000 сум');

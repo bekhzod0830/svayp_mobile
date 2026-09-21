@@ -208,7 +208,7 @@ class _MirrorGeneratingScreenState extends State<MirrorGeneratingScreen> {
   Widget _buildFailure(BuildContext context, AppLocalizations l10n, double s) {
     final c = widget.controller;
     final reason = c.genReason;
-    final reasonText = reason == 'LOOK_UNAVAILABLE'
+    final reasonText = MirrorSessionController.isLookUnavailable(reason)
         ? l10n.mirrorLookUnavailable
         : null;
 

@@ -1381,6 +1381,7 @@
   "mirrorShapeLabel": "Body type",
   "mirrorFemale": "Female",
   "mirrorMale": "Male",
+  "mirrorWomenOnly": "The store currently carries the women’s collection",
   "mirrorDontKnow": "I don't know",
   "mirrorNext": "Next",
   "mirrorStyleTitle": "Which style feels like you?",

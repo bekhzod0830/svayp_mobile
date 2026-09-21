@@ -1311,6 +1311,7 @@
   "mirrorShapeLabel": "Тип фигуры",
   "mirrorFemale": "Женский",
   "mirrorMale": "Мужской",
+  "mirrorWomenOnly": "Сейчас в зале женская коллекция",
   "mirrorDontKnow": "Не знаю",
   "mirrorNext": "Дальше",
   "mirrorStyleTitle": "Какой стиль вам ближе?",

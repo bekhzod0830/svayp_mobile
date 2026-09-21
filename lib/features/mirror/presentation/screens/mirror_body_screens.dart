@@ -42,7 +42,9 @@ class MirrorGenderScreen extends StatelessWidget {
           MirrorFadeIn(
             delayMs: 110,
             child: Text(
-              l10n.mirrorBodySubtitle,
+              controller.menswearAvailable
+                  ? l10n.mirrorBodySubtitle
+                  : l10n.mirrorWomenOnly,
               style: MirrorTheme.subtitle(16 * s),
             ),
           ),
@@ -71,18 +73,22 @@ class MirrorGenderScreen extends StatelessWidget {
                             ),
                           ),
                         ),
-                        SizedBox(width: 16 * s),
-                        Expanded(
-                          child: MirrorFadeIn(
-                            delayMs: 250,
-                            child: _GenderCard(
-                              icon: Icons.male_rounded,
-                              label: l10n.mirrorMale,
-                              selected: controller.gender == 'MALE',
-                              onTap: () => controller.setGender('MALE'),
+                        // Мужская одежда в зале есть не всегда: без неё мужчина
+                        // снял бы фото и ждал генерацию ради пустого результата.
+                        if (controller.menswearAvailable) ...[
+                          SizedBox(width: 16 * s),
+                          Expanded(
+                            child: MirrorFadeIn(
+                              delayMs: 250,
+                              child: _GenderCard(
+                                icon: Icons.male_rounded,
+                                label: l10n.mirrorMale,
+                                selected: controller.gender == 'MALE',
+                                onTap: () => controller.setGender('MALE'),
+                              ),
                             ),
                           ),
-                        ),
+                        ],
                       ],
                     ),
                   ),

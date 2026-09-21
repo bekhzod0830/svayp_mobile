@@ -3625,6 +3625,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mirrorMale => 'Male';
 
   @override
+  String get mirrorWomenOnly =>
+      'The store currently carries the women’s collection';
+
+  @override
   String get mirrorDontKnow => 'I don\'t know';
 
   @override

@@ -3648,6 +3648,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get mirrorMale => 'Мужской';
 
   @override
+  String get mirrorWomenOnly => 'Сейчас в зале женская коллекция';
+
+  @override
   String get mirrorDontKnow => 'Не знаю';
 
   @override
