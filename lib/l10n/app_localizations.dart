@@ -6802,41 +6802,17 @@ abstract class AppLocalizations {
   /// **'Choose from the collection'**
   String get mirrorCtaCatalog;
 
-  /// No description provided for @mirrorCoverSubtitle.
+  /// No description provided for @mirrorCoverKicker.
   ///
   /// In en, this message translates to:
-  /// **'Made from what\'s in the store today. About thirty seconds.'**
-  String get mirrorCoverSubtitle;
+  /// **'Magic mirror'**
+  String get mirrorCoverKicker;
 
   /// No description provided for @mirrorCoverLookKicker.
   ///
   /// In en, this message translates to:
   /// **'Look of the moment'**
   String get mirrorCoverLookKicker;
-
-  /// No description provided for @mirrorIntroTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'How it works'**
-  String get mirrorIntroTitle;
-
-  /// No description provided for @mirrorHow1.
-  ///
-  /// In en, this message translates to:
-  /// **'Photo'**
-  String get mirrorHow1;
-
-  /// No description provided for @mirrorHow2.
-  ///
-  /// In en, this message translates to:
-  /// **'Two answers'**
-  String get mirrorHow2;
-
-  /// No description provided for @mirrorHow3.
-  ///
-  /// In en, this message translates to:
-  /// **'Your look'**
-  String get mirrorHow3;
 
   /// No description provided for @mirrorPrivacyLong.
   ///
@@ -7119,12 +7095,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Take the look with you'**
   String get mirrorQrTitle;
-
-  /// No description provided for @mirrorQrSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Point your camera — the photo, sizes and prices will be saved in the LIBAS app.'**
-  String get mirrorQrSubtitle;
 
   /// No description provided for @mirrorDownload.
   ///

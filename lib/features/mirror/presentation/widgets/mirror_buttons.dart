@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:swipe/features/onboarding/presentation/widgets/intro/intro_slide.dart';
 
 import '../mirror_theme.dart';
 
 /// Основная CTA киоска: сплошная заливка цветом бренда, углы из токенов,
 /// подпись капсом с разрядкой (если бренд так ставит кнопки) и лёгкое
-/// «нажатие» масштабом вместо свечения. Опциональная вторая строка — сумма
-/// на «Отложить на примерку».
+/// «нажатие» масштабом. Опциональная вторая строка — сумма; опциональный
+/// бегущий блик — для главной кнопки экрана.
 class MirrorPrimaryButton extends StatefulWidget {
   const MirrorPrimaryButton({
     super.key,
@@ -15,6 +16,7 @@ class MirrorPrimaryButton extends StatefulWidget {
     this.height,
     this.enabled = true,
     this.isLoading = false,
+    this.gleam = false,
   });
 
   final String label;
@@ -23,6 +25,10 @@ class MirrorPrimaryButton extends StatefulWidget {
   final double? height;
   final bool enabled;
   final bool isLoading;
+
+  /// Бегущий блик по кнопке — для главной CTA экрана, которая должна
+  /// притягивать взгляд (постер, результат). Остальным кнопкам он не нужен.
+  final bool gleam;
 
   @override
   State<MirrorPrimaryButton> createState() => _MirrorPrimaryButtonState();
@@ -38,6 +44,37 @@ class _MirrorPrimaryButtonState extends State<MirrorPrimaryButton> {
     final h = widget.height ?? 60 * s;
     final active =
         widget.enabled && !widget.isLoading && widget.onTap != null;
+
+    final Widget content = widget.isLoading
+        ? SizedBox(
+            width: 22 * s,
+            height: 22 * s,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation<Color>(t.onPrimary),
+            ),
+          )
+        : Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                t.ctaCase(widget.label),
+                textAlign: TextAlign.center,
+                style: t.cta(15 * s),
+              ),
+              if (widget.subLabel != null) ...[
+                SizedBox(height: 4 * s),
+                Text(
+                  widget.subLabel!,
+                  style: t.label(
+                    12.5 * s,
+                    weight: FontWeight.w600,
+                    color: t.onPrimary.withValues(alpha: 0.85),
+                  ),
+                ),
+              ],
+            ],
+          );
 
     return AnimatedScale(
       scale: _pressed ? 0.98 : 1.0,
@@ -60,38 +97,21 @@ class _MirrorPrimaryButtonState extends State<MirrorPrimaryButton> {
               onHighlightChanged: (v) => setState(() => _pressed = v && active),
               splashColor: t.onPrimary.withValues(alpha: 0.12),
               highlightColor: t.onPrimary.withValues(alpha: 0.06),
-              child: Center(
-                child: widget.isLoading
-                    ? SizedBox(
-                        width: 22 * s,
-                        height: 22 * s,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(t.onPrimary),
-                        ),
-                      )
-                    : Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            t.ctaCase(widget.label),
-                            textAlign: TextAlign.center,
-                            style: t.cta(15 * s),
-                          ),
-                          if (widget.subLabel != null) ...[
-                            SizedBox(height: 4 * s),
-                            Text(
-                              widget.subLabel!,
-                              style: t.label(
-                                12.5 * s,
-                                weight: FontWeight.w600,
-                                color: t.onPrimary.withValues(alpha: 0.85),
-                              ),
-                            ),
-                          ],
-                        ],
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  if (widget.gleam && active)
+                    const Positioned.fill(
+                      child: Gleam(
+                        durationMs: 4200,
+                        travelFraction: 0.45,
+                        widthFraction: 0.32,
+                        opacity: 0.22,
+                        initialDelayMs: 1600,
                       ),
+                    ),
+                  content,
+                ],
               ),
             ),
           ),

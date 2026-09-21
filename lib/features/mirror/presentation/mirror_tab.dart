@@ -270,6 +270,10 @@ class _MirrorTabState extends State<MirrorTab> with WidgetsBindingObserver {
                   // Переключатель языка — на первом внутреннем шаге любой
                   // ветки; дальше человек уже читает на своём языке.
                   final showLang = !isIdle && _controller.stepIndex == 0;
+                  // Постер и результат — полноэкранные: у них своя шапка
+                  // поверх сцены/фото, планка киоска им не нужна.
+                  final showChrome =
+                      !isIdle && screen != MirrorScreen.result;
 
                   return Listener(
                     behavior: HitTestBehavior.translucent,
@@ -285,7 +289,7 @@ class _MirrorTabState extends State<MirrorTab> with WidgetsBindingObserver {
                             Positioned.fill(
                               child: Column(
                                 children: [
-                                  if (!isIdle)
+                                  if (showChrome)
                                     SafeArea(
                                       bottom: false,
                                       child: Column(

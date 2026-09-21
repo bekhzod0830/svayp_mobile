@@ -9,11 +9,13 @@ import 'package:swipe/features/mirror/data/kiosk_demo.dart';
 import 'package:swipe/features/mirror/data/kiosk_models.dart';
 import 'package:swipe/features/mirror/presentation/mirror_session_controller.dart';
 import 'package:swipe/features/mirror/presentation/screens/mirror_cover_screen.dart';
-import 'package:swipe/features/mirror/presentation/widgets/mirror_cover_look_card.dart';
+import 'package:swipe/features/mirror/presentation/widgets/mirror_cover_stage.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 
-/// Постер Magic Mirror в оформлении Lacoste: знак бренда, живой образ из
-/// каталога (или типографский герой без него) и CTA, ведущая сразу на камеру.
+/// Постер Magic Mirror в оформлении Lacoste: сцена-примерочная с вещами зала
+/// (или типографскими карточками без каталога), знак бренда и CTA, ведущая
+/// сразу на камеру. Блока «Как это работает» и строки про удаление фото на
+/// постере нет.
 Future<MirrorSessionController> _controller() async {
   // Принудительное демо: касание CTA не должно ходить в сеть.
   SharedPreferences.setMockInitialValues({'kiosk_demo_forced': true});
@@ -33,7 +35,8 @@ Widget _harness(MirrorSessionController c) => MaterialApp(
       supportedLocales: AppLocalizations.supportedLocales,
       locale: const Locale('ru'),
       // Размер экрана — настоящий (из tester.view), чтобы масштаб киоска
-      // совпадал с раскладкой; выключаем только анимации.
+      // совпадал с раскладкой; выключаем только анимации: сцена тогда сразу
+      // показывает собранный образ.
       home: Builder(
         builder: (context) => MediaQuery(
           data: MediaQuery.of(context).copyWith(disableAnimations: true),
@@ -78,31 +81,48 @@ Future<void> _loadFonts() async {
 void main() {
   setUpAll(() async {
     await _loadFonts();
-    MirrorCoverLookCard.debugImageBuilder =
+    MirrorCoverStage.debugImageBuilder =
         (_) => const ColoredBox(color: Color(0xFFDDDDDD));
   });
 
-  tearDownAll(() => MirrorCoverLookCard.debugImageBuilder = null);
+  tearDownAll(() => MirrorCoverStage.debugImageBuilder = null);
 
-  testWidgets('без каталога — типографский герой, знак бренда и обе CTA',
+  testWidgets('без каталога — сцена с типографскими карточками и обе CTA',
       (tester) async {
     _tabletSurface(tester);
     final c = await _controller();
     await tester.pumpWidget(_harness(c));
     await tester.pump();
 
-    expect(find.text('LACOSTE'), findsWidgets);
-    expect(find.byType(MirrorCoverLookCard), findsNothing);
+    expect(find.text('LACOSTE'), findsOneWidget);
+    expect(find.byType(MirrorCoverStage), findsOneWidget);
+    expect(find.text('ВОЛШЕБНОЕ ЗЕРКАЛО'), findsOneWidget);
+    // Вместо фото — подписи категорий бренда.
+    expect(find.text('Поло и верх'), findsOneWidget);
+    expect(find.text('Брюки и шорты'), findsOneWidget);
     expect(find.text('СОЗДАТЬ МОЙ ОБРАЗ'), findsOneWidget);
     expect(find.text('Выбрать из коллекции'), findsOneWidget);
-    expect(find.text('Как это работает'.toUpperCase()), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     await tester.pumpWidget(const SizedBox.shrink());
     c.dispose();
   });
 
-  testWidgets('с каталогом зала — карточка образа с ценой и кикером',
+  testWidgets('на постере нет «Как это работает» и строки про удаление фото',
+      (tester) async {
+    _tabletSurface(tester);
+    final c = await _controller();
+    await tester.pumpWidget(_harness(c));
+    await tester.pump();
+
+    expect(find.textContaining('КАК ЭТО РАБОТАЕТ'), findsNothing);
+    expect(find.textContaining('15 минут'), findsNothing);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    c.dispose();
+  });
+
+  testWidgets('с каталогом зала — образ в зеркале с ярлыком и суммой',
       (tester) async {
     _tabletSurface(tester);
     final c = await _controller();
@@ -114,9 +134,11 @@ void main() {
     await tester.pumpWidget(_harness(c));
     await tester.pump();
 
-    expect(find.byType(MirrorCoverLookCard), findsOneWidget);
+    expect(find.byType(MirrorCoverStage), findsOneWidget);
     expect(find.text('ОБРАЗ МОМЕНТА'), findsOneWidget);
     expect(find.text('1 500 000 сум'), findsOneWidget);
+    // Фото вместо типографских карточек.
+    expect(find.text('Поло и верх'), findsNothing);
     expect(tester.takeException(), isNull);
 
     await tester.pumpWidget(const SizedBox.shrink());
@@ -151,6 +173,50 @@ void main() {
     await tester.tap(find.text('OʻZ'));
     await tester.pump();
     expect(c.shopperLang, 'uz');
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    c.dispose();
+  });
+
+  testWidgets('с анимациями сцена проигрывает цикл и меняет образ',
+      (tester) async {
+    _tabletSurface(tester);
+    final c = await _controller();
+    c.seedCatalogForTest([
+      _item('t1', 'TOPWEAR'),
+      _item('t2', 'TOPWEAR'),
+      _item('b1', 'BOTTOMWEAR'),
+      _item('b2', 'BOTTOMWEAR'),
+    ]);
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('ru'),
+        home: MirrorBrandScope(
+          brand: lacosteBrand,
+          child: Scaffold(
+            body: MirrorCoverScreen(controller: c, onOpenSetup: () {}),
+          ),
+        ),
+      ),
+    );
+
+    final first = tester
+        .widget<MirrorCoverStage>(find.byType(MirrorCoverStage))
+        .look;
+    // Полный цикл — 6.8 с: после него на сцене следующий образ.
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pump(const Duration(milliseconds: 100));
+    final second = tester
+        .widget<MirrorCoverStage>(find.byType(MirrorCoverStage))
+        .look;
+
+    expect(first, isNotNull);
+    expect(second, isNotNull);
+    expect(identical(first, second), isFalse);
+    expect(tester.takeException(), isNull);
 
     await tester.pumpWidget(const SizedBox.shrink());
     c.dispose();

@@ -3538,23 +3538,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get mirrorCtaCatalog => 'Выбрать из коллекции';
 
   @override
-  String get mirrorCoverSubtitle =>
-      'Из того, что есть в зале сегодня. Около тридцати секунд.';
+  String get mirrorCoverKicker => 'Волшебное зеркало';
 
   @override
   String get mirrorCoverLookKicker => 'Образ момента';
-
-  @override
-  String get mirrorIntroTitle => 'Как это работает';
-
-  @override
-  String get mirrorHow1 => 'Фото';
-
-  @override
-  String get mirrorHow2 => 'Два ответа';
-
-  @override
-  String get mirrorHow3 => 'Ваш образ';
 
   @override
   String get mirrorPrivacyLong =>
@@ -3709,10 +3696,6 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get mirrorQrTitle => 'Заберите образ в телефон';
-
-  @override
-  String get mirrorQrSubtitle =>
-      'Наведите камеру — фото, размеры и цены сохранятся в приложении LIBAS.';
 
   @override
   String get mirrorDownload => 'Скачать фото';

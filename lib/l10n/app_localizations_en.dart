@@ -3514,23 +3514,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mirrorCtaCatalog => 'Choose from the collection';
 
   @override
-  String get mirrorCoverSubtitle =>
-      'Made from what\'s in the store today. About thirty seconds.';
+  String get mirrorCoverKicker => 'Magic mirror';
 
   @override
   String get mirrorCoverLookKicker => 'Look of the moment';
-
-  @override
-  String get mirrorIntroTitle => 'How it works';
-
-  @override
-  String get mirrorHow1 => 'Photo';
-
-  @override
-  String get mirrorHow2 => 'Two answers';
-
-  @override
-  String get mirrorHow3 => 'Your look';
 
   @override
   String get mirrorPrivacyLong =>
@@ -3686,10 +3673,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get mirrorQrTitle => 'Take the look with you';
-
-  @override
-  String get mirrorQrSubtitle =>
-      'Point your camera — the photo, sizes and prices will be saved in the LIBAS app.';
 
   @override
   String get mirrorDownload => 'Save photo';

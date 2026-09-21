@@ -3559,23 +3559,10 @@ class AppLocalizationsUz extends AppLocalizations {
   String get mirrorCtaCatalog => 'Kolleksiyadan tanlash';
 
   @override
-  String get mirrorCoverSubtitle =>
-      'Bugun zalda bor kiyimlardan. Taxminan oʻttiz soniya.';
+  String get mirrorCoverKicker => 'Sehrli oyna';
 
   @override
   String get mirrorCoverLookKicker => 'Kun uslubi';
-
-  @override
-  String get mirrorIntroTitle => 'Bu qanday ishlaydi';
-
-  @override
-  String get mirrorHow1 => 'Surat';
-
-  @override
-  String get mirrorHow2 => 'Ikki javob';
-
-  @override
-  String get mirrorHow3 => 'Sizning uslubingiz';
 
   @override
   String get mirrorPrivacyLong =>
@@ -3724,10 +3711,6 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get mirrorQrTitle => 'Uslubni telefonga oling';
-
-  @override
-  String get mirrorQrSubtitle =>
-      'Kamerani qarating — surat, oʻlchamlar va narxlar LIBAS ilovasida saqlanadi.';
 
   @override
   String get mirrorDownload => 'Suratni yuklash';

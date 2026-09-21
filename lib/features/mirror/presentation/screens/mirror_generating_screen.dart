@@ -76,6 +76,7 @@ class _MirrorGeneratingScreenState extends State<MirrorGeneratingScreen> {
                 Positioned.fill(
                   child: BodyScanVisual(
                     accent: t.primary,
+                    figureFilter: t.figureDuotone,
                     badge: Container(
                       padding: EdgeInsets.symmetric(
                         horizontal: 12 * s,

@@ -4,8 +4,10 @@ import 'dart:ui' show ImageFilter;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:swipe/features/onboarding/presentation/widgets/intro/intro_slide.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 
 import '../../data/kiosk_models.dart';
@@ -13,10 +15,14 @@ import '../../data/kiosk_taxonomy.dart';
 import '../mirror_session_controller.dart';
 import '../mirror_theme.dart';
 import '../widgets/mirror_buttons.dart';
+import '../widgets/mirror_chrome.dart';
 
-/// Экран результата: образ во всю доступную высоту (проявляется из
-/// размытия), лента вещей образа, карточка QR, «Пересобрать» (лимит 3) и
-/// «Отложить на примерку».
+/// Экран результата — «момент у зеркала», без верхней планки киоска. Фон —
+/// размытая копия образа во весь экран; резкий образ виден ЦЕЛИКОМ в рамке
+/// над панелью (обувь и низ не прячутся), проявляется из размытия, по нему
+/// пробегает блик. Поверх — матовая кнопка «назад» и знак бренда, парящая
+/// карточка QR справа; снизу — матовая панель: заголовок, сумма со счётчиком,
+/// лента вещей и два действия. Входы каскадные, как у онбординга.
 class MirrorResultScreen extends StatefulWidget {
   const MirrorResultScreen({super.key, required this.controller});
 
@@ -26,13 +32,39 @@ class MirrorResultScreen extends StatefulWidget {
   State<MirrorResultScreen> createState() => _MirrorResultScreenState();
 }
 
-class _MirrorResultScreenState extends State<MirrorResultScreen> {
+class _MirrorResultScreenState extends State<MirrorResultScreen>
+    with SingleTickerProviderStateMixin {
+  /// Каскадный вход (таймлайн 1.2с, как у слайдов онбординга).
+  late final AnimationController _entrance;
+  bool _started = false;
+
   bool _qrPulse = false;
   Timer? _pulseTimer;
 
   @override
+  void initState() {
+    super.initState();
+    _entrance = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _entrance.value = 1;
+    } else if (!_started) {
+      _started = true;
+      _entrance.forward();
+    }
+  }
+
+  @override
   void dispose() {
     _pulseTimer?.cancel();
+    _entrance.dispose();
     super.dispose();
   }
 
@@ -56,131 +88,264 @@ class _MirrorResultScreenState extends State<MirrorResultScreen> {
     if (look == null) return const SizedBox.shrink();
 
     final lang = c.shopperLang;
-    final total = kioskMoney(look.totalPrice, lang);
+    final pad = MediaQuery.paddingOf(context);
+    final image = _lookImage(look);
 
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 24 * s),
-      child: Column(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: ColoredBox(
+        color: t.primaryDeep,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Фон — тот же образ, размытый и притемнённый: экран залит
+            // целиком, а резкое фото остаётся видно полностью.
+            _Backdrop(image: image),
+
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: pad.top + 130 * s,
+              child: const _Scrim(strength: 0.4),
+            ),
+
+            Column(
+              children: [
+                // Образ целиком (contain) — ноги и обувь не уходят под панель.
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      16 * s,
+                      pad.top + 12 * s,
+                      16 * s,
+                      12 * s,
+                    ),
+                    child: Center(child: _RevealImage(image: image)),
+                  ),
+                ),
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    16 * s,
+                    0,
+                    16 * s,
+                    pad.bottom + 16 * s,
+                  ),
+                  child: Entrance(
+                    parent: _entrance,
+                    kind: IntroEntranceKind.riseCard,
+                    delay: 0.22,
+                    duration: 0.7,
+                    child: _Panel(
+                      look: look,
+                      lang: lang,
+                      entrance: _entrance,
+                      regenerateLabel: c.canRegenerate
+                          ? l10n.mirrorRegenerateLeft(c.regenerationsLeft)
+                          : l10n.mirrorContinueInApp,
+                      canRegenerate: c.canRegenerate,
+                      onRegenerate: c.regenerate,
+                      // Сессия не должна закончиться без QR или кода: пока
+                      // finish не прошёл, «Отложить» подождёт (ensureShare
+                      // ретраится сам).
+                      canCollect: c.sellerCode != null,
+                      onCollect: c.openBuy,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            // Кнопка «назад» на углу фото.
+            Positioned(
+              top: pad.top + 24 * s,
+              left: 28 * s,
+              right: 28 * s,
+              child: Entrance(
+                parent: _entrance,
+                kind: IntroEntranceKind.rise,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: _GlassButton(
+                    icon: Icons.arrow_back_ios_new_rounded,
+                    size: 44 * s,
+                    onTap: c.goBack,
+                  ),
+                ),
+              ),
+            ),
+
+            // Искры у карточки QR.
+            Positioned(
+              top: pad.top + 14 * s,
+              right: 146 * s,
+              child: Twinkle(color: Colors.white, size: 14 * s),
+            ),
+            Positioned(
+              top: pad.top + 204 * s,
+              right: 18 * s,
+              child: Twinkle(
+                color: t.accent,
+                size: 12 * s,
+                delaySeconds: 0.9,
+              ),
+            ),
+
+            // Парящая карточка QR.
+            Positioned(
+              top: pad.top + 24 * s,
+              right: 28 * s,
+              child: Entrance(
+                parent: _entrance,
+                kind: IntroEntranceKind.flyR,
+                delay: 0.45,
+                child: Floaty(
+                  variant: 2,
+                  child: _QrCard(
+                    shareUrl: c.shareUrl,
+                    pulse: _qrPulse,
+                    onTap: _onDownloadTap,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Источник картинки результата: файл в демо-режиме, иначе сеть через тот же
+/// провайдер, которым экран генерации её уже прогрел.
+ImageProvider? _lookImage(KioskLook look) {
+  final localPath = look.localResultPath;
+  if (localPath != null) return FileImage(File(localPath));
+  final url = look.resultImageUrl;
+  if (url != null && url.startsWith('http')) {
+    return CachedNetworkImageProvider(url);
+  }
+  return null;
+}
+
+/// Размытая, притемнённая копия образа во весь экран.
+class _Backdrop extends StatelessWidget {
+  const _Backdrop({required this.image});
+
+  final ImageProvider? image;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = MirrorTheme.of(context);
+    final provider = image;
+    if (provider == null) return ColoredBox(color: t.primaryDeep);
+
+    return ClipRect(
+      child: Stack(
+        fit: StackFit.expand,
         children: [
-          Expanded(
-            child: _RevealImage(
-              look: look,
-              s: s,
-              meta: _ImageMeta(
-                tag: t.kickerCase(l10n.mirrorResultTag),
-                line: '${l10n.mirrorItemsCount(look.items.length)} · $total',
+          // Масштаб прячет светлую кайму, которую размытие даёт по краям.
+          Transform.scale(
+            scale: 1.15,
+            child: ImageFiltered(
+              imageFilter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+              child: Image(
+                image: provider,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) =>
+                    ColoredBox(color: t.primaryDeep),
               ),
             ),
           ),
-          if (look.items.isNotEmpty) ...[
-            SizedBox(height: 12 * s),
-            _LookItemsStrip(items: look.items, lang: lang, s: s),
-          ],
-          SizedBox(height: 12 * s),
-          _QrCard(
-            shareUrl: c.shareUrl,
-            pulse: _qrPulse,
-            onDownloadTap: _onDownloadTap,
-          ),
-          SizedBox(height: 14 * s),
-          Row(
-            children: [
-              Expanded(
-                flex: 100,
-                child: MirrorGhostButton(
-                  label: c.canRegenerate
-                      ? l10n.mirrorRegenerateLeft(c.regenerationsLeft)
-                      : l10n.mirrorContinueInApp,
-                  height: 64 * s,
-                  enabled: c.canRegenerate,
-                  onTap: c.regenerate,
-                ),
-              ),
-              SizedBox(width: 14 * s),
-              Expanded(
-                flex: 145,
-                child: MirrorPrimaryButton(
-                  label: l10n.mirrorCollect,
-                  subLabel: total,
-                  height: 64 * s,
-                  // Сессия не должна закончиться без QR или кода: пока finish
-                  // не прошёл, «Отложить» подождёт (ensureShare сам ретраится).
-                  enabled: c.sellerCode != null,
-                  onTap: c.openBuy,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 24 * s),
+          ColoredBox(color: Colors.black.withValues(alpha: 0.30)),
         ],
       ),
     );
   }
 }
 
-class _ImageMeta {
-  final String tag;
-  final String line;
-  const _ImageMeta({required this.tag, required this.line});
-}
-
-/// Картинка результата с проявлением из размытия (sigma 24→0, scale 1.05→1).
+/// Резкий образ в рамке со скруглением: виден целиком, проявляется из
+/// размытия (sigma 24→0, scale 1.05→1), по нему пробегает блик — зеркало, а
+/// не просто картинка. Свободные ограничения Center дают рамке размер самой
+/// картинки, поэтому скругление ложится по её краям, а не по пустым полям.
 class _RevealImage extends StatelessWidget {
-  const _RevealImage({required this.look, required this.s, required this.meta});
+  const _RevealImage({required this.image});
 
-  final KioskLook look;
-  final double s;
-  final _ImageMeta meta;
-
-  Widget _image(BoxFit fit, MirrorTheme t) {
-    final url = look.resultImageUrl;
-    final localPath = look.localResultPath;
-    if (localPath != null) {
-      return Image.file(File(localPath), fit: fit);
-    }
-    if (url != null && url.startsWith('http')) {
-      return CachedNetworkImage(
-        imageUrl: url,
-        fit: fit,
-        placeholder: (_, __) => ColoredBox(color: t.surface),
-        errorWidget: (_, __, ___) => ColoredBox(
-          color: t.surface,
-          child: Icon(Icons.image_not_supported_outlined, color: t.muted),
-        ),
-      );
-    }
-    return ColoredBox(color: t.surface);
-  }
+  final ImageProvider? image;
 
   @override
   Widget build(BuildContext context) {
     final t = MirrorTheme.of(context);
+    final s = MirrorTheme.scale(context);
+    final provider = image;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final radius = BorderRadius.circular(t.rCard + 4);
 
-    // Образ показываем ЦЕЛИКОМ (contain) — cover срезал бы голову у
-    // вертикальной генерации. Пустых полей нет: фоном — размытая копия
-    // той же картинки.
-    final image = Stack(
-      fit: StackFit.expand,
-      children: [
-        ImageFiltered(
-          imageFilter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-          child: _image(BoxFit.cover, t),
+    final Widget picture = provider == null
+        ? AspectRatio(
+            aspectRatio: 2 / 3,
+            child: ColoredBox(
+              color: t.primary,
+              child: Center(
+                child: MirrorBrandMark(height: 18 * s, color: t.onPrimary),
+              ),
+            ),
+          )
+        : Image(
+            image: provider,
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) => AspectRatio(
+              aspectRatio: 2 / 3,
+              child: ColoredBox(
+                color: t.primary,
+                child: Icon(
+                  Icons.image_not_supported_outlined,
+                  color: t.onPrimary.withValues(alpha: 0.6),
+                  size: 40 * s,
+                ),
+              ),
+            ),
+          );
+
+    final framed = DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: radius,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.45),
+            blurRadius: 50,
+            spreadRadius: -14,
+            offset: const Offset(0, 26),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: radius,
+        child: Stack(
+          children: [
+            picture,
+            const Positioned.fill(
+              child: Gleam(
+                durationMs: 6400,
+                travelFraction: 0.35,
+                widthFraction: 0.34,
+                opacity: 0.2,
+                initialDelayMs: 1500,
+              ),
+            ),
+          ],
         ),
-        ColoredBox(color: Colors.black.withValues(alpha: 0.12)),
-        _image(BoxFit.contain, t),
-      ],
+      ),
     );
-
-    final reduceMotion = MediaQuery.of(context).disableAnimations;
 
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: reduceMotion ? 1 : 0, end: 1),
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 900),
       curve: Curves.easeOutCubic,
       builder: (context, v, child) {
         final sigma = 24.0 * (1 - v);
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(t.rCard),
+        return Opacity(
+          opacity: (v * 1.6).clamp(0.0, 1.0),
           child: Transform.scale(
             scale: 1.05 - 0.05 * v,
             child: sigma < 0.5
@@ -193,139 +358,65 @@ class _RevealImage extends StatelessWidget {
           ),
         );
       },
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          image,
-          // Мягкий низовой скрим под мету.
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: Container(
-              height: 120 * s,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    Colors.black.withValues(alpha: 0.55),
-                  ],
-                ),
-              ),
-            ),
+      child: framed,
+    );
+  }
+}
+
+class _Scrim extends StatelessWidget {
+  const _Scrim({required this.strength});
+
+  final double strength;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.black.withValues(alpha: strength),
+              Colors.transparent,
+            ],
           ),
-          Positioned(
-            top: 16 * s,
-            left: 16 * s,
-            child: Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: 12 * s,
-                vertical: 8 * s,
-              ),
-              decoration: BoxDecoration(
-                color: t.primary,
-                borderRadius: BorderRadius.circular(t.rChip),
-              ),
-              child: Text(
-                meta.tag,
-                style: t.kicker(s * 0.9, color: t.onPrimary),
-              ),
-            ),
-          ),
-          Positioned(
-            left: 18 * s,
-            bottom: 16 * s,
-            right: 18 * s,
-            child: Text(
-              meta.line,
-              style: t.label(16 * s, color: Colors.white),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
-/// Лента вещей образа: что именно на человеке — ещё до экрана примерки.
-class _LookItemsStrip extends StatelessWidget {
-  const _LookItemsStrip({
-    required this.items,
-    required this.lang,
-    required this.s,
+/// Матовая квадратная кнопка поверх фото.
+class _GlassButton extends StatelessWidget {
+  const _GlassButton({
+    required this.icon,
+    required this.size,
+    required this.onTap,
   });
 
-  final List<KioskLookItem> items;
-  final String lang;
-  final double s;
+  final IconData icon;
+  final double size;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final t = MirrorTheme.of(context);
-    return SizedBox(
-      height: 56 * s,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        itemCount: items.length,
-        separatorBuilder: (_, __) => SizedBox(width: 10 * s),
-        itemBuilder: (context, i) {
-          final item = items[i];
-          return Container(
-            padding: EdgeInsets.all(6 * s),
-            decoration: BoxDecoration(
-              color: t.surface,
-              borderRadius: BorderRadius.circular(t.rCard),
-              border: Border.all(color: t.hairline),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(t.rButton + 2),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Material(
+          color: Colors.white.withValues(alpha: 0.2),
+          child: InkWell(
+            onTap: onTap,
+            child: SizedBox(
+              width: size,
+              height: size,
+              child: Icon(icon, color: Colors.white, size: size * 0.42),
             ),
-            child: Row(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(t.rImage),
-                  child: SizedBox(
-                    width: 34 * s,
-                    height: 44 * s,
-                    child: ColoredBox(
-                      color: Colors.white,
-                      child: item.imageUrl != null
-                          ? CachedNetworkImage(
-                              imageUrl: item.imageUrl!,
-                              fit: BoxFit.cover,
-                              placeholder: (_, __) =>
-                                  ColoredBox(color: t.surface),
-                              errorWidget: (_, __, ___) =>
-                                  ColoredBox(color: t.surface),
-                            )
-                          : null,
-                    ),
-                  ),
-                ),
-                SizedBox(width: 10 * s),
-                ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: 150 * s),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: t.label(12.5 * s, weight: FontWeight.w600),
-                      ),
-                      SizedBox(height: 3 * s),
-                      Text(
-                        item.price != null ? kioskMoney(item.price!, lang) : '—',
-                        style: t.price(11.5 * s, color: t.muted),
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(width: 6 * s),
-              ],
-            ),
-          );
-        },
+          ),
+        ),
       ),
     );
   }
@@ -337,12 +428,12 @@ class _QrCard extends StatelessWidget {
   const _QrCard({
     required this.shareUrl,
     required this.pulse,
-    required this.onDownloadTap,
+    required this.onTap,
   });
 
   final String? shareUrl;
   final bool pulse;
-  final VoidCallback onDownloadTap;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -350,102 +441,336 @@ class _QrCard extends StatelessWidget {
     final t = MirrorTheme.of(context);
     final s = MirrorTheme.scale(context);
     final url = shareUrl;
+    final qrSize = 92 * s;
 
-    return Container(
-      padding: EdgeInsets.all(14 * s),
-      decoration: BoxDecoration(
-        color: t.surface,
-        borderRadius: BorderRadius.circular(t.rCard),
-        border: Border.all(color: t.hairline),
-      ),
-      child: Row(
-        children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            padding: EdgeInsets.all(8 * s),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(t.rImage),
-              border: Border.all(
-                color: pulse ? t.primary : t.hairline,
-                width: pulse ? 2.5 : 1,
-              ),
-              boxShadow: pulse
-                  ? [
-                      BoxShadow(
-                        color: t.primary.withValues(alpha: 0.3),
-                        blurRadius: 18,
-                      ),
-                    ]
-                  : null,
-            ),
-            child: url != null
-                ? QrImageView(
-                    data: url,
-                    size: 92 * s,
-                    padding: EdgeInsets.zero,
-                    backgroundColor: Colors.white,
-                    eyeStyle: const QrEyeStyle(
-                      eyeShape: QrEyeShape.square,
-                      color: Color(0xFF111111),
-                    ),
-                    dataModuleStyle: const QrDataModuleStyle(
-                      dataModuleShape: QrDataModuleShape.square,
-                      color: Color(0xFF111111),
-                    ),
-                  )
-                : Shimmer.fromColors(
-                    baseColor: t.hairline,
-                    highlightColor: t.surface,
-                    child: Container(
-                      width: 92 * s,
-                      height: 92 * s,
-                      color: t.hairline,
-                    ),
-                  ),
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        width: qrSize + 20 * s,
+        padding: EdgeInsets.all(10 * s),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(t.rCard),
+          border: Border.all(
+            color: pulse ? t.primary : Colors.white,
+            width: 2.5,
           ),
-          SizedBox(width: 16 * s),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(l10n.mirrorQrTitle, style: t.label(16 * s)),
-                SizedBox(height: 6 * s),
-                Text(
-                  pulse ? l10n.mirrorDownloadHint : l10n.mirrorQrSubtitle,
-                  style: t.subtitle(12.5 * s),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.3),
+              blurRadius: 28,
+              spreadRadius: -10,
+              offset: const Offset(0, 14),
+            ),
+            if (pulse)
+              BoxShadow(
+                color: t.primaryBright.withValues(alpha: 0.55),
+                blurRadius: 24,
+              ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (url != null)
+              QrImageView(
+                data: url,
+                size: qrSize,
+                padding: EdgeInsets.zero,
+                backgroundColor: Colors.white,
+                eyeStyle: const QrEyeStyle(
+                  eyeShape: QrEyeShape.square,
+                  color: Color(0xFF111111),
                 ),
-                SizedBox(height: 10 * s),
-                GestureDetector(
-                  onTap: onDownloadTap,
-                  child: Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 12 * s,
-                      vertical: 7 * s,
+                dataModuleStyle: const QrDataModuleStyle(
+                  dataModuleShape: QrDataModuleShape.square,
+                  color: Color(0xFF111111),
+                ),
+              )
+            else
+              Shimmer.fromColors(
+                baseColor: t.hairline,
+                highlightColor: Colors.white,
+                child: Container(
+                  width: qrSize,
+                  height: qrSize,
+                  color: t.hairline,
+                ),
+              ),
+            SizedBox(height: 8 * s),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              child: Text(
+                pulse ? l10n.mirrorDownloadHint : l10n.mirrorQrTitle,
+                key: ValueKey(pulse),
+                textAlign: TextAlign.center,
+                maxLines: 4,
+                style: t
+                    .label(10.5 * s, weight: FontWeight.w600)
+                    .copyWith(height: 1.25),
+              ),
+            ),
+            SizedBox(height: 6 * s),
+            Text(
+              l10n.mirrorDownload,
+              style: t
+                  .label(10.5 * s, weight: FontWeight.w600, color: t.primary)
+                  .copyWith(
+                    decoration: TextDecoration.underline,
+                    decorationColor: t.primary.withValues(alpha: 0.45),
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Матовая панель снизу: заголовок и сумма со счётчиком, лента вещей, действия.
+class _Panel extends StatelessWidget {
+  const _Panel({
+    required this.look,
+    required this.lang,
+    required this.entrance,
+    required this.regenerateLabel,
+    required this.canRegenerate,
+    required this.onRegenerate,
+    required this.canCollect,
+    required this.onCollect,
+  });
+
+  final KioskLook look;
+  final String lang;
+  final Animation<double> entrance;
+  final String regenerateLabel;
+  final bool canRegenerate;
+  final VoidCallback onRegenerate;
+  final bool canCollect;
+  final VoidCallback onCollect;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final t = MirrorTheme.of(context);
+    final s = MirrorTheme.scale(context);
+    final radius = BorderRadius.circular(t.rCard + 6);
+
+    return ClipRRect(
+      borderRadius: radius,
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: t.bg.withValues(alpha: 0.88),
+            borderRadius: radius,
+            border: Border.all(color: Colors.white.withValues(alpha: 0.55)),
+          ),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(16 * s, 14 * s, 16 * s, 14 * s),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Подпись бренда — как на ярлыке вещи.
+                          MirrorBrandMark(
+                            height: 10.5 * s,
+                            color: t.primaryBright,
+                          ),
+                          SizedBox(height: 6 * s),
+                          Text(
+                            l10n.mirrorResultTag,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: t.display(25 * s),
+                          ),
+                          SizedBox(height: 3 * s),
+                          Text(
+                            l10n.mirrorItemsCount(look.items.length),
+                            style: t.subtitle(13 * s),
+                          ),
+                        ],
+                      ),
                     ),
-                    decoration: BoxDecoration(
-                      color: t.bg,
-                      borderRadius: BorderRadius.circular(t.rChip),
-                      border: Border.all(color: t.hairline),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.file_download_outlined,
-                            size: 15 * s, color: t.ink),
-                        SizedBox(width: 6 * s),
-                        Text(
-                          l10n.mirrorDownload,
-                          style: t.label(12.5 * s, weight: FontWeight.w600),
+                    SizedBox(width: 12 * s),
+                    _CountUpPrice(total: look.totalPrice, lang: lang),
+                  ],
+                ),
+                if (look.items.isNotEmpty) ...[
+                  SizedBox(height: 12 * s),
+                  _LookItemsStrip(
+                    items: look.items,
+                    lang: lang,
+                    entrance: entrance,
+                  ),
+                ],
+                SizedBox(height: 12 * s),
+                Entrance(
+                  parent: entrance,
+                  kind: IntroEntranceKind.rise,
+                  delay: 0.7,
+                  duration: 0.5,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        flex: 100,
+                        child: MirrorGhostButton(
+                          label: regenerateLabel,
+                          height: 56 * s,
+                          enabled: canRegenerate,
+                          onTap: onRegenerate,
                         ),
-                      ],
-                    ),
+                      ),
+                      SizedBox(width: 12 * s),
+                      Expanded(
+                        flex: 145,
+                        child: MirrorPrimaryButton(
+                          label: l10n.mirrorCollect,
+                          height: 56 * s,
+                          enabled: canCollect,
+                          gleam: true,
+                          onTap: onCollect,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
-        ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Сумма образа, «набегающая» от нуля — маленькая радость в конце пути.
+class _CountUpPrice extends StatelessWidget {
+  const _CountUpPrice({required this.total, required this.lang});
+
+  final int total;
+  final String lang;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = MirrorTheme.of(context);
+    final s = MirrorTheme.scale(context);
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+
+    return TweenAnimationBuilder<double>(
+      tween: Tween(
+        begin: reduceMotion ? total.toDouble() : 0,
+        end: total.toDouble(),
+      ),
+      duration: const Duration(milliseconds: 1300),
+      curve: Curves.easeOutCubic,
+      builder: (context, v, _) => Text(
+        kioskMoney(v.round(), lang),
+        style: t.price(19 * s, color: t.primaryDeep),
+      ),
+    );
+  }
+}
+
+/// Лента вещей образа: что именно на человеке — ещё до экрана примерки.
+/// Чипы влетают справа по очереди.
+class _LookItemsStrip extends StatelessWidget {
+  const _LookItemsStrip({
+    required this.items,
+    required this.lang,
+    required this.entrance,
+  });
+
+  final List<KioskLookItem> items;
+  final String lang;
+  final Animation<double> entrance;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = MirrorTheme.of(context);
+    final s = MirrorTheme.scale(context);
+
+    return SizedBox(
+      height: 54 * s,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        clipBehavior: Clip.none,
+        physics: const BouncingScrollPhysics(),
+        itemCount: items.length,
+        separatorBuilder: (_, __) => SizedBox(width: 10 * s),
+        itemBuilder: (context, i) {
+          final item = items[i];
+          return Entrance(
+            parent: entrance,
+            kind: IntroEntranceKind.flyR,
+            delay: (0.5 + 0.08 * i).clamp(0.5, 0.74),
+            duration: 0.46,
+            child: Container(
+              padding: EdgeInsets.all(6 * s),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(t.rCard),
+                border: Border.all(color: t.hairline),
+              ),
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(t.rImage),
+                    child: SizedBox(
+                      width: 33 * s,
+                      height: 42 * s,
+                      child: ColoredBox(
+                        color: t.surface,
+                        child: item.imageUrl != null
+                            ? CachedNetworkImage(
+                                imageUrl: item.imageUrl!,
+                                fit: BoxFit.cover,
+                                placeholder: (_, __) =>
+                                    ColoredBox(color: t.surface),
+                                errorWidget: (_, __, ___) =>
+                                    ColoredBox(color: t.surface),
+                              )
+                            : null,
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 10 * s),
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: 150 * s),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: t.label(12.5 * s, weight: FontWeight.w600),
+                        ),
+                        SizedBox(height: 3 * s),
+                        Text(
+                          item.price != null
+                              ? kioskMoney(item.price!, lang)
+                              : '—',
+                          style: t.price(11.5 * s, color: t.muted),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(width: 6 * s),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -473,17 +798,24 @@ class MirrorBuyScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(height: 20 * s),
-          Text(l10n.mirrorBuyTitle, style: t.headline(34 * s)),
+          MirrorFadeIn(
+            child: Text(l10n.mirrorBuyTitle, style: t.headline(34 * s)),
+          ),
           SizedBox(height: 6 * s),
-          Text(l10n.mirrorBuySubtitle, style: t.subtitle(15 * s)),
+          MirrorFadeIn(
+            delayMs: 60,
+            child: Text(l10n.mirrorBuySubtitle, style: t.subtitle(15 * s)),
+          ),
           SizedBox(height: 16 * s),
           Expanded(
             child: ListView.separated(
               physics: const BouncingScrollPhysics(),
               itemCount: look.items.length,
               separatorBuilder: (_, __) => Divider(color: t.hairline, height: 1),
-              itemBuilder: (context, i) =>
-                  _LookItemRow(item: look.items[i], lang: lang),
+              itemBuilder: (context, i) => MirrorFadeIn(
+                delayMs: 120 + 70 * i,
+                child: _LookItemRow(item: look.items[i], lang: lang),
+              ),
             ),
           ),
           Container(
@@ -497,37 +829,41 @@ class MirrorBuyScreen extends StatelessWidget {
                 const Spacer(),
                 Text(
                   kioskMoney(look.totalPrice, lang),
-                  style: t.headline(26 * s),
+                  style: t.price(22 * s, color: t.primaryDeep),
                 ),
               ],
             ),
           ),
-          Container(
-            width: double.infinity,
-            padding: EdgeInsets.all(20 * s),
-            decoration: BoxDecoration(
-              color: t.primaryDeep,
-              borderRadius: BorderRadius.circular(t.rCard),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    l10n.mirrorCodeLabel,
-                    style: t.subtitle(
-                      13.5 * s,
-                      color: t.onPrimary.withValues(alpha: 0.85),
+          MirrorFadeIn(
+            delayMs: 260,
+            rise: 24,
+            child: Container(
+              width: double.infinity,
+              padding: EdgeInsets.all(20 * s),
+              decoration: BoxDecoration(
+                color: t.primaryDeep,
+                borderRadius: BorderRadius.circular(t.rCard),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      l10n.mirrorCodeLabel,
+                      style: t.subtitle(
+                        13.5 * s,
+                        color: t.onPrimary.withValues(alpha: 0.85),
+                      ),
                     ),
                   ),
-                ),
-                SizedBox(width: 16 * s),
-                Text(
-                  c.sellerCode ?? '· · ·',
-                  style: t
-                      .display(32 * s, color: t.onPrimary)
-                      .copyWith(letterSpacing: 3 * s),
-                ),
-              ],
+                  SizedBox(width: 16 * s),
+                  Text(
+                    c.sellerCode ?? '· · ·',
+                    style: t
+                        .price(30 * s, color: t.onPrimary)
+                        .copyWith(letterSpacing: 3 * s),
+                  ),
+                ],
+              ),
             ),
           ),
           SizedBox(height: 16 * s),

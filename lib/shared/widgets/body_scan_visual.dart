@@ -14,10 +14,15 @@ class BodyScanVisual extends StatefulWidget {
   /// Magic Mirror passes its brand colour.
   final Color accent;
 
+  /// Optional recolouring of the figure illustration (it is drawn in pink).
+  /// The Magic Mirror passes a brand duotone; null keeps the original art.
+  final ColorFilter? figureFilter;
+
   const BodyScanVisual({
     super.key,
     required this.badge,
     this.accent = const Color(0xFFF370A7),
+    this.figureFilter,
   });
 
   @override
@@ -27,6 +32,11 @@ class BodyScanVisual extends StatefulWidget {
 class _BodyScanVisualState extends State<BodyScanVisual>
     with SingleTickerProviderStateMixin {
   late final AnimationController _anim;
+
+  static const Widget _figure = Image(
+    image: AssetImage('assets/images/tryon_silhouette.png'),
+    fit: BoxFit.contain,
+  );
 
   @override
   void initState() {
@@ -71,12 +81,14 @@ class _BodyScanVisualState extends State<BodyScanVisual>
             scale: 1 + 0.012 * math.sin(_anim.value * 2 * math.pi),
             child: child,
           ),
-          child: const Padding(
-            padding: EdgeInsets.symmetric(vertical: 14),
-            child: Image(
-              image: AssetImage('assets/images/tryon_silhouette.png'),
-              fit: BoxFit.contain,
-            ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            child: widget.figureFilter == null
+                ? _figure
+                : ColorFiltered(
+                    colorFilter: widget.figureFilter!,
+                    child: _figure,
+                  ),
           ),
         ),
         AnimatedBuilder(
