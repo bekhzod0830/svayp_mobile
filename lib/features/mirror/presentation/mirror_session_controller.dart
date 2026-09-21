@@ -49,8 +49,10 @@ class MirrorSessionController extends ChangeNotifier {
   static const idleTimeout = Duration(seconds: 45);
   static const idleGraceSeconds = 10;
   static const maxRegenerations = 3;
-  static const int reassureAfterSec = 25;
-  static const int failAfterSec = 40;
+  // Киоск генерирует на quality=medium: замер 45–60 c. Бюджет ML — 90 c, наш порог
+  // чуть выше, чтобы первым пришёл честный отказ сервера, а не клиентский таймаут.
+  static const int reassureAfterSec = 60;
+  static const int failAfterSec = 95;
 
   final KioskApi _api;
   final KioskDemoService _demo;
@@ -523,6 +525,7 @@ class MirrorSessionController extends ChangeNotifier {
 
     genFailed = true;
     genReason = reason;
+    _armIdleTimer();
     // Даже провал должен вести в приложение: пробуем получить QR (мягко —
     // не получится, экран покажет текстовую подсказку).
     ensureShare();
@@ -647,6 +650,9 @@ class MirrorSessionController extends ChangeNotifier {
     _idleTimer?.cancel();
     _idleTimer = null;
     if (screen == MirrorScreen.idle || !_active) return;
+    // Генерация идёт около минуты, и человек экран не трогает: без паузы «вы ещё
+    // здесь?» всплывало посреди ожидания и сбрасывало сессию. На ошибке таймер нужен.
+    if (screen == MirrorScreen.generating && !genFailed) return;
     _idleTimer = Timer(idleTimeout, _onIdleTimeout);
   }
 
