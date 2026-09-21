@@ -7,15 +7,17 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/analytics/analytics_service.dart';
+import '../brand/mirror_brands.dart';
 import '../data/kiosk_api.dart';
+import '../data/kiosk_cover_looks.dart';
 import '../data/kiosk_demo.dart';
 import '../data/kiosk_models.dart';
 
 /// Экраны киоска. Пол и фигура — два отдельных экрана (решение владельца),
-/// но делят один сегмент прогресса.
+/// но делят один сегмент прогресса. «Как это работает» живёт на постере,
+/// поэтому ветка «создать» начинается сразу с камеры.
 enum MirrorScreen {
   idle,
-  intro,
   camera,
   gender,
   shape,
@@ -39,10 +41,14 @@ class MirrorSessionController extends ChangeNotifier {
     required KioskApi api,
     required KioskDemoService demo,
     required SharedPreferences prefs,
+    this.brand = kMirrorBrand,
+    void Function(String event, Map<String, String> params)? analytics,
   })  : _api = api,
         _demo = demo,
-        _prefs = prefs {
+        _prefs = prefs,
+        _sink = analytics {
     _storeLabel = _prefs.getString(_storeLabelKey);
+    shopperLang = brand.defaultLang;
   }
 
   static const _storeLabelKey = 'kiosk_store_label';
@@ -52,17 +58,26 @@ class MirrorSessionController extends ChangeNotifier {
   static const int reassureAfterSec = 25;
   static const int failAfterSec = 40;
 
+  /// Как часто постер освежает каталог зала, пока киоск стоит без дела.
+  static const coverRefreshInterval = Duration(minutes: 15);
+
   final KioskApi _api;
   final KioskDemoService _demo;
   final SharedPreferences _prefs;
-  final AnalyticsService _analytics = AnalyticsService.instance;
+
+  /// Куда уходят события киоска. null — общая аналитика приложения (лениво:
+  /// Firebase не трогаем при создании); в тестах подставляется заглушка.
+  final void Function(String event, Map<String, String> params)? _sink;
+
+  /// Оформление киоска: язык по умолчанию, подписи справочников.
+  final MirrorBrand brand;
 
   // ── Состояние ──────────────────────────────────────────────────────────────
   MirrorScreen screen = MirrorScreen.idle;
   MirrorPath path = MirrorPath.create;
 
   /// Язык покупателя — локален для киоска, не трогает язык приложения продавца.
-  String shopperLang = 'ru';
+  late String shopperLang;
 
   String? sessionId;
   String? _storeLabel;
@@ -84,9 +99,22 @@ class MirrorSessionController extends ChangeNotifier {
   /// Полный каталог зала, закэшированный на время работы приложения.
   /// Товары не персональные, поэтому кэш переживает hardReset — следующий
   /// покупатель видит витрину мгновенно; свежесть обеспечивает фоновое
-  /// обновление при каждом входе в каталог.
+  /// обновление на постере и при каждом входе в каталог.
   List<KioskCatalogItem> _catalogAllCache = [];
   bool _catalogFetchInFlight = false;
+
+  /// Откуда кэш: из киоск-API зала или из демо (`/products/all` — весь
+  /// маркетплейс). Постер бренда не должен показывать чужие вещи, поэтому
+  /// при смене источника кэш сбрасывается.
+  bool _catalogCacheIsDemo = false;
+  DateTime? _catalogWarmedAt;
+  Timer? _coverRefreshTimer;
+
+  /// «Образы момента» для постера, пересобираются при каждом обновлении кэша.
+  List<KioskCoverLook> _coverLooks = const [];
+
+  /// Зерно ротации: внутри дня порядок стабилен, назавтра — другой.
+  final int _coverSeed = DateTime.now().day;
 
   File? capturedPhoto;
   String? photoBlobKey;
@@ -123,6 +151,10 @@ class MirrorSessionController extends ChangeNotifier {
   KioskApi get api => _api;
   KioskDemoService get demoService => _demo;
 
+  List<KioskCoverLook> get coverLooks => _coverLooks;
+  List<KioskCatalogItem> get catalogPreview =>
+      List.unmodifiable(_catalogAllCache);
+
   int get regenerationsLeft =>
       (maxRegenerations - attempt).clamp(0, maxRegenerations);
 
@@ -133,26 +165,34 @@ class MirrorSessionController extends ChangeNotifier {
   int get stepIndex {
     if (path == MirrorPath.create) {
       switch (screen) {
+        case MirrorScreen.idle:
         case MirrorScreen.camera:
+        case MirrorScreen.catalog:
           return 0;
         case MirrorScreen.gender:
         case MirrorScreen.shape:
           return 1;
         case MirrorScreen.style:
           return 2;
-        default:
+        case MirrorScreen.generating:
+        case MirrorScreen.result:
+        case MirrorScreen.buy:
           return 3;
       }
     }
     switch (screen) {
+      case MirrorScreen.idle:
       case MirrorScreen.catalog:
         return 0;
       case MirrorScreen.camera:
         return 1;
       case MirrorScreen.gender:
       case MirrorScreen.shape:
+      case MirrorScreen.style:
         return 2;
-      default:
+      case MirrorScreen.generating:
+      case MirrorScreen.result:
+      case MirrorScreen.buy:
         return 3;
     }
   }
@@ -172,11 +212,20 @@ class MirrorSessionController extends ChangeNotifier {
   }
 
   void _track(String event, [Map<String, String>? params]) {
-    _analytics.logEvent(event, parameters: {
+    final payload = <String, String>{
       if (sessionId != null) 'kiosk_session_id': sessionId!,
       'demo': demoActive.toString(),
       ...?params,
-    });
+    };
+    final sink = _sink;
+    if (sink != null) {
+      sink(event, payload);
+      return;
+    }
+    // Аналитика не должна валить киоск: Firebase может быть не поднят.
+    try {
+      AnalyticsService.instance.logEvent(event, parameters: payload);
+    } catch (_) {}
   }
 
   // ── Старт сессии ───────────────────────────────────────────────────────────
@@ -191,6 +240,8 @@ class MirrorSessionController extends ChangeNotifier {
     if (_beginning || screen != MirrorScreen.idle) return;
     _beginning = true;
     path = p;
+    _coverRefreshTimer?.cancel();
+    _coverRefreshTimer = null;
     touch();
 
     if (_demo.forced) {
@@ -220,7 +271,7 @@ class MirrorSessionController extends ChangeNotifier {
 
     _beginning = false;
     if (p == MirrorPath.create) {
-      _go(MirrorScreen.intro);
+      _go(MirrorScreen.camera);
     } else {
       _go(MirrorScreen.catalog);
       loadCatalog();
@@ -241,6 +292,12 @@ class MirrorSessionController extends ChangeNotifier {
           ? List.of(all)
           : all.where((i) => i.category == category).toList();
 
+  void _setCatalogCache(List<KioskCatalogItem> items, {required bool demo}) {
+    _catalogAllCache = List.of(items);
+    _catalogCacheIsDemo = demo;
+    _coverLooks = composeCoverLooks(_catalogAllCache, seed: _coverSeed);
+  }
+
   /// Смена категории — мгновенный локальный фильтр по кэшу, без сети.
   void selectCategory(String? code) {
     category = code;
@@ -249,8 +306,42 @@ class MirrorSessionController extends ChangeNotifier {
     _notify();
   }
 
-  /// Загрузка/освежение ПОЛНОГО каталога зала. Кэш показывается сразу,
-  /// сеть докатывает свежие страницы в фоне (остатки меняются часто).
+  /// Общая докачка полного каталога: каждая страница сразу попадает в кэш
+  /// (и в витрину, если она открыта). Ошибки сети глотаются — живём на том,
+  /// что успело прийти.
+  Future<void> _refreshCatalogCache({
+    required bool demo,
+    required bool Function() cancelled,
+  }) async {
+    if (_catalogFetchInFlight) return;
+    _catalogFetchInFlight = true;
+
+    void onPage(List<KioskCatalogItem> items) {
+      if (_disposed || cancelled()) return;
+      _setCatalogCache(items, demo: demo);
+      if (screen == MirrorScreen.catalog) {
+        catalog = _applyCategory(_catalogAllCache);
+      }
+      _notify();
+    }
+
+    try {
+      if (demo) {
+        await _demo.catalog(onPage: onPage, cancelled: cancelled);
+      } else {
+        await _api.fetchWholeCatalog(onPage, cancelled: cancelled);
+      }
+      if (!cancelled()) _catalogWarmedAt = DateTime.now();
+    } catch (_) {
+      // Сеть моргнула — показываем кэш/то, что успело прийти; пустое
+      // состояние экран отрисует сам.
+    } finally {
+      _catalogFetchInFlight = false;
+    }
+  }
+
+  /// Загрузка/освежение ПОЛНОГО каталога зала для витрины. Кэш показывается
+  /// сразу, сеть докатывает свежие страницы в фоне (остатки меняются часто).
   Future<void> loadCatalog() async {
     touch();
     final token = ++_catalogRequestToken;
@@ -266,31 +357,50 @@ class MirrorSessionController extends ChangeNotifier {
     _notify();
 
     if (_catalogFetchInFlight) return;
-    _catalogFetchInFlight = true;
+    await _refreshCatalogCache(demo: demoActive, cancelled: cancelled);
+    if (!_disposed) {
+      catalogLoading = false;
+      _notify();
+    }
+  }
 
-    void onPage(List<KioskCatalogItem> items) {
-      if (_disposed) return;
-      _catalogAllCache = List.of(items);
-      catalog = _applyCategory(_catalogAllCache);
+  /// Прогрев каталога для постера — без сессии: `/kiosk/catalog` нужен только
+  /// ключ устройства. Демо-каталог (весь маркетплейс) берём лишь когда демо
+  /// включено принудительно (показ партнёру); молча подменять каталог бренда
+  /// чужими вещами нельзя — при ошибке постер покажет типографский герой.
+  Future<void> warmCatalog({bool force = false}) async {
+    if (_disposed || screen != MirrorScreen.idle || !_active || offline) return;
+
+    final wantDemo = _demo.forced;
+    if (_catalogCacheIsDemo != wantDemo && _catalogAllCache.isNotEmpty) {
+      _setCatalogCache(const [], demo: wantDemo);
+      _catalogWarmedAt = null;
       _notify();
     }
 
-    try {
-      if (demoActive) {
-        await _demo.catalog(onPage: onPage, cancelled: cancelled);
-      } else {
-        await _api.fetchWholeCatalog(onPage, cancelled: cancelled);
-      }
-    } catch (_) {
-      // Сеть моргнула — показываем кэш/то, что успело прийти; пустое
-      // состояние экран отрисует сам.
-    } finally {
-      _catalogFetchInFlight = false;
-      if (!_disposed) {
-        catalogLoading = false;
-        _notify();
-      }
-    }
+    final warmedAt = _catalogWarmedAt;
+    final fresh = warmedAt != null &&
+        DateTime.now().difference(warmedAt) < coverRefreshInterval &&
+        _catalogAllCache.isNotEmpty;
+    if (!force && fresh) return;
+
+    await _refreshCatalogCache(demo: wantDemo, cancelled: () => _disposed);
+  }
+
+  void _armCoverRefresh() {
+    _coverRefreshTimer?.cancel();
+    _coverRefreshTimer = null;
+    if (_disposed || screen != MirrorScreen.idle || !_active) return;
+    _coverRefreshTimer =
+        Timer.periodic(coverRefreshInterval, (_) => warmCatalog());
+  }
+
+  /// Подсадить каталог в тестах, минуя сеть.
+  @visibleForTesting
+  void seedCatalogForTest(List<KioskCatalogItem> items, {bool demo = false}) {
+    _setCatalogCache(items, demo: demo);
+    _catalogWarmedAt = DateTime.now();
+    _notify();
   }
 
   void toggleProduct(String id) {
@@ -312,9 +422,6 @@ class MirrorSessionController extends ChangeNotifier {
   }
 
   // ── Камера ─────────────────────────────────────────────────────────────────
-
-  /// «Начать» с интро-экрана.
-  void proceedToCamera() => _go(MirrorScreen.camera);
 
   void onCameraOpened() => _track('kiosk_camera_opened');
 
@@ -608,13 +715,18 @@ class MirrorSessionController extends ChangeNotifier {
 
   void goBack() {
     switch (screen) {
-      case MirrorScreen.intro:
+      case MirrorScreen.idle:
       case MirrorScreen.catalog:
         hardReset('manual');
       case MirrorScreen.generating:
         cancelGeneration();
       case MirrorScreen.camera:
-        _go(path == MirrorPath.create ? MirrorScreen.intro : MirrorScreen.catalog);
+        // Ветка «создать» начинается с камеры: назад — это на постер.
+        if (path == MirrorPath.create) {
+          hardReset('manual');
+        } else {
+          _go(MirrorScreen.catalog);
+        }
       case MirrorScreen.gender:
         _go(MirrorScreen.camera);
       case MirrorScreen.shape:
@@ -625,8 +737,6 @@ class MirrorSessionController extends ChangeNotifier {
         _go(path == MirrorPath.create ? MirrorScreen.style : MirrorScreen.catalog);
       case MirrorScreen.buy:
         _go(MirrorScreen.result);
-      default:
-        hardReset('manual');
     }
   }
 
@@ -671,9 +781,13 @@ class MirrorSessionController extends ChangeNotifier {
     _active = active;
     if (active) {
       _armIdleTimer();
+      _armCoverRefresh();
+      warmCatalog();
     } else {
       _idleTimer?.cancel();
       _idleTimer = null;
+      _coverRefreshTimer?.cancel();
+      _coverRefreshTimer = null;
     }
   }
 
@@ -735,10 +849,14 @@ class MirrorSessionController extends ChangeNotifier {
     idleWarning = false;
     idleLeft = idleGraceSeconds;
     // Новый покупатель не должен наследовать язык предыдущего.
-    shopperLang = 'ru';
+    shopperLang = brand.defaultLang;
 
     screen = MirrorScreen.idle;
     _notify();
+
+    // Постер снова на витрине: освежаем каталог зала для «образов момента».
+    _armCoverRefresh();
+    warmCatalog();
   }
 
   Future<void> _deletePhotoFile(File photo) async {
@@ -768,6 +886,10 @@ class MirrorSessionController extends ChangeNotifier {
     if (offline == value) return;
     offline = value;
     _notify();
+    if (!value) {
+      _armCoverRefresh();
+      warmCatalog();
+    }
   }
 
   void setShopperLang(String code) {
@@ -783,6 +905,7 @@ class MirrorSessionController extends ChangeNotifier {
     _idleTimer?.cancel();
     _graceTicker?.cancel();
     _shareRetryTimer?.cancel();
+    _coverRefreshTimer?.cancel();
     final photo = capturedPhoto;
     if (photo != null) {
       // ignore: discarded_futures

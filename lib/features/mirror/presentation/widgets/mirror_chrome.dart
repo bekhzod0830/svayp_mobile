@@ -1,41 +1,55 @@
-import 'dart:ui' show ImageFilter;
-
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../mirror_theme.dart';
 
-/// Словесный знак LIBΛS — ровно тот же, что на экране входа приложения:
-/// системный шрифт w700, плотный трекинг, розовая «Λ» (#F370A7).
-class MirrorWordmark extends StatelessWidget {
-  const MirrorWordmark({super.key, this.size = 18, this.color = MirrorTheme.ink});
+/// Знак бренда: файл логотипа, если бренд его дал, иначе словесный знак
+/// акцидентным шрифтом. [color] тонирует SVG/PNG (монохромная версия на
+/// цветном блоке); без него растровый логотип показывается как есть.
+class MirrorBrandMark extends StatelessWidget {
+  const MirrorBrandMark({super.key, this.height = 18, this.color});
 
-  final double size;
-  final Color color;
+  final double height;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
-    // Пропорции логотипа заданы в auth (48px / letterSpacing -1).
-    final style = TextStyle(
-      fontSize: size,
-      fontWeight: FontWeight.w700,
-      letterSpacing: -size / 48,
-      color: color,
-      height: 1.0,
-    );
-    return RichText(
-      text: TextSpan(
-        style: style,
-        children: const [
-          TextSpan(text: 'LIB'),
-          TextSpan(text: 'Λ', style: TextStyle(color: Color(0xFFF370A7))),
-          TextSpan(text: 'S'),
-        ],
-      ),
+    final t = MirrorTheme.of(context);
+    final brand = t.brand;
+    final asset = brand.logoAsset;
+    final tint = color;
+
+    if (asset != null) {
+      if (asset.toLowerCase().endsWith('.svg')) {
+        return SvgPicture.asset(
+          asset,
+          height: height,
+          colorFilter:
+              tint == null ? null : ColorFilter.mode(tint, BlendMode.srcIn),
+          semanticsLabel: brand.wordmark,
+        );
+      }
+      return Image.asset(
+        asset,
+        height: height,
+        color: tint,
+        semanticLabel: brand.wordmark,
+      );
+    }
+
+    return Text(
+      brand.wordmark,
+      maxLines: 1,
+      style: t.display(height, color: tint ?? t.ink).copyWith(
+            letterSpacing: height * 0.2,
+            height: 1.0,
+          ),
     );
   }
 }
 
-/// Переключатель языка покупателя РУ / OʻZ (киоск говорит только на двух).
+/// Сегментный переключатель языка покупателя по списку бренда.
+/// [light] — поверх цветного блока (рамка и текст цветом onPrimary).
 class MirrorLangToggle extends StatelessWidget {
   const MirrorLangToggle({
     super.key,
@@ -50,51 +64,56 @@ class MirrorLangToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = MirrorTheme.of(context);
     final s = MirrorTheme.scale(context);
-    final fg = light ? Colors.white : MirrorTheme.ink;
+    final languages = t.brand.languages;
+    if (languages.length < 2) return const SizedBox.shrink();
 
-    Widget segment(String code, String label) {
-      final selected = langCode == code;
-      return GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => onChanged(code),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding:
-              EdgeInsets.symmetric(horizontal: 14 * s, vertical: 8 * s),
-          decoration: BoxDecoration(
-            color: selected
-                ? (light ? Colors.white : MirrorTheme.ink)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(999),
-          ),
-          child: Text(
-            label,
-            style: MirrorTheme.label(
-              12.5 * s,
-              color: selected ? (light ? MirrorTheme.ink : Colors.white) : fg,
-            ),
-          ),
-        ),
-      );
-    }
+    final fg = light ? t.onPrimary : t.ink;
+    final selectedBg = light ? t.onPrimary : t.ink;
+    final selectedFg = light ? t.primary : t.bg;
 
     return Container(
       padding: EdgeInsets.all(3 * s),
       decoration: BoxDecoration(
         border: Border.all(color: fg.withValues(alpha: 0.35), width: 1.2),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(t.rChip + 3 * s),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
-        children: [segment('ru', 'РУ'), segment('uz', 'OʻZ')],
+        children: [
+          for (final code in languages)
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => onChanged(code),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOut,
+                padding:
+                    EdgeInsets.symmetric(horizontal: 14 * s, vertical: 8 * s),
+                decoration: BoxDecoration(
+                  color: langCode == code ? selectedBg : Colors.transparent,
+                  borderRadius: BorderRadius.circular(t.rChip),
+                ),
+                child: Text(
+                  MirrorBrand.langLabel(code),
+                  style: t.label(
+                    12.5 * s,
+                    color: langCode == code ? selectedFg : fg,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
 }
 
-/// Верхняя планка внутренних экранов: матовая кнопка «назад», словесный знак,
-/// опциональный переключатель языка.
+/// Верхняя планка внутренних экранов: тонкий шеврон «назад», знак бренда по
+/// центру, опциональный переключатель языка. Сплошной фон с волосяной
+/// линией снизу — под планкой ничего не прокручивается, матовое стекло
+/// здесь было бы декорацией без эффекта.
 class MirrorTopBar extends StatelessWidget {
   const MirrorTopBar({
     super.key,
@@ -109,50 +128,90 @@ class MirrorTopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = MirrorTheme.of(context);
     final s = MirrorTheme.scale(context);
     final size = 44 * s;
+    final lang = langCode;
+    final onLang = onLangChanged;
 
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 20 * s, vertical: 12 * s),
-      child: Row(
-        children: [
-          SizedBox(
-            width: size,
-            height: size,
-            child: onBack == null
-                ? null
-                : ClipRRect(
-                    borderRadius: BorderRadius.circular(999),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-                      child: Material(
-                        color: MirrorTheme.surface.withValues(alpha: 0.9),
-                        child: InkWell(
-                          onTap: onBack,
-                          child: Icon(
-                            Icons.arrow_back_rounded,
-                            size: 22 * s,
-                            color: MirrorTheme.ink,
-                          ),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: t.bg,
+        border: Border(bottom: BorderSide(color: t.hairline)),
+      ),
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 20 * s, vertical: 10 * s),
+        child: Row(
+          children: [
+            SizedBox(
+              width: size,
+              height: size,
+              child: onBack == null
+                  ? null
+                  : Material(
+                      color: Colors.transparent,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(t.rButton),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        onTap: onBack,
+                        child: Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          size: 18 * s,
+                          color: t.ink,
                         ),
                       ),
                     ),
-                  ),
-          ),
-          Expanded(
-            child: Center(child: MirrorWordmark(size: 16 * s)),
-          ),
-          SizedBox(
-            width: langCode == null ? size : null,
-            child: langCode == null || onLangChanged == null
-                ? SizedBox(width: size)
-                : MirrorLangToggle(
-                    langCode: langCode!,
-                    onChanged: onLangChanged!,
-                  ),
-          ),
-        ],
+            ),
+            Expanded(
+              child: Center(child: MirrorBrandMark(height: 14 * s)),
+            ),
+            if (lang == null || onLang == null)
+              SizedBox(width: size)
+            else
+              MirrorLangToggle(langCode: lang, onChanged: onLang),
+          ],
+        ),
       ),
+    );
+  }
+}
+
+/// Квадратный чек выбора: волосяная рамка → заливка цветом бренда с галочкой.
+/// [onDark] — поверх залитой цветом бренда карточки (инверсия цветов).
+class MirrorCheck extends StatelessWidget {
+  const MirrorCheck({
+    super.key,
+    required this.selected,
+    this.size = 24,
+    this.onDark = false,
+  });
+
+  final bool selected;
+  final double size;
+  final bool onDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = MirrorTheme.of(context);
+    final fill = onDark ? t.onPrimary : t.primary;
+    final check = onDark ? t.primary : t.onPrimary;
+    final idleBorder =
+        onDark ? t.onPrimary.withValues(alpha: 0.6) : t.hairline;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 160),
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: selected ? fill : (onDark ? Colors.transparent : t.surface),
+        borderRadius: BorderRadius.circular(t.rChip),
+        border: Border.all(color: selected ? fill : idleBorder, width: 1.5),
+      ),
+      child: selected
+          ? Icon(Icons.check_rounded, size: size * 0.66, color: check)
+          : null,
     );
   }
 }
@@ -166,33 +225,26 @@ class MirrorSteps extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = MirrorTheme.of(context);
     final s = MirrorTheme.scale(context);
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 20 * s),
+      padding: EdgeInsets.fromLTRB(20 * s, 10 * s, 20 * s, 0),
       child: Row(
         children: List.generate(4, (i) {
           final done = i < current;
           final active = i == current;
           return Expanded(
-            child: Container(
-              margin: EdgeInsets.only(right: i == 3 ? 0 : 8 * s),
-              height: 5 * s,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              margin: EdgeInsets.only(right: i == 3 ? 0 : 6 * s),
+              height: 3 * s,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(999),
-                color: done || active
-                    ? null
-                    : MirrorTheme.hairline,
-                gradient: done
-                    ? const LinearGradient(
-                        colors: [MirrorTheme.pink, MirrorTheme.pink])
+                borderRadius: BorderRadius.circular(t.rChip),
+                color: done
+                    ? t.primary
                     : active
-                        ? LinearGradient(
-                            colors: [
-                              MirrorTheme.pink,
-                              MirrorTheme.pink.withValues(alpha: 0.25),
-                            ],
-                          )
-                        : null,
+                        ? t.primary.withValues(alpha: 0.55)
+                        : t.hairline,
               ),
             ),
           );

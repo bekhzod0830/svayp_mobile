@@ -68,6 +68,25 @@ const Map<String, String> kioskFemaleShapeAssets = {
   'INVERTED_TRIANGLE': 'lib/img/body_type/Heart.png',
 };
 
+/// Слот вещи в образе — та же логика, что на бэкенде, огрублённая до
+/// категорий. Общая для демо-сборки образа и «образов момента» на постере.
+String kioskSlotOf(String? category) {
+  switch (category) {
+    case 'TOPWEAR':
+      return 'TOP';
+    case 'BOTTOMWEAR':
+      return 'BOTTOM';
+    case 'DRESSES':
+    case 'ONE_PIECE':
+    case 'TWO_PIECE_SET':
+      return 'FULL';
+    case 'FOOTWEAR':
+      return 'SHOES';
+    default:
+      return 'OTHER';
+  }
+}
+
 /// Цена как на ценниках в зале: «1 250 000 сум» / «1 250 000 soʻm».
 /// Рукописная группировка по 3 разряда — intl.NumberFormat зависит от локали
 /// и не гарантирует ровно такой вид.

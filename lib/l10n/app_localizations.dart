@@ -6790,47 +6790,29 @@ abstract class AppLocalizations {
   /// **'Mirror'**
   String get mirrorTab;
 
-  /// No description provided for @mirrorIdleEyebrow.
-  ///
-  /// In en, this message translates to:
-  /// **'LIBAS AI stylist'**
-  String get mirrorIdleEyebrow;
-
-  /// No description provided for @mirrorIdleTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Try on a look'**
-  String get mirrorIdleTitle;
-
-  /// No description provided for @mirrorIdleTitleAccent.
-  ///
-  /// In en, this message translates to:
-  /// **'in 30 seconds'**
-  String get mirrorIdleTitleAccent;
-
   /// No description provided for @mirrorCtaCreate.
   ///
   /// In en, this message translates to:
-  /// **'Create a look'**
+  /// **'Create my look'**
   String get mirrorCtaCreate;
 
   /// No description provided for @mirrorCtaCatalog.
   ///
   /// In en, this message translates to:
-  /// **'Browse the catalog'**
+  /// **'Choose from the collection'**
   String get mirrorCtaCatalog;
 
-  /// No description provided for @mirrorFree.
+  /// No description provided for @mirrorCoverSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Free'**
-  String get mirrorFree;
+  /// **'Made from what\'s in the store today. About thirty seconds.'**
+  String get mirrorCoverSubtitle;
 
-  /// No description provided for @mirrorIntroEyebrow.
+  /// No description provided for @mirrorCoverLookKicker.
   ///
   /// In en, this message translates to:
-  /// **'Three steps'**
-  String get mirrorIntroEyebrow;
+  /// **'Look of the moment'**
+  String get mirrorCoverLookKicker;
 
   /// No description provided for @mirrorIntroTitle.
   ///
@@ -6838,47 +6820,23 @@ abstract class AppLocalizations {
   /// **'How it works'**
   String get mirrorIntroTitle;
 
-  /// No description provided for @mirrorStep1Title.
+  /// No description provided for @mirrorHow1.
   ///
   /// In en, this message translates to:
-  /// **'Take a photo of your face'**
-  String get mirrorStep1Title;
+  /// **'Photo'**
+  String get mirrorHow1;
 
-  /// No description provided for @mirrorStep1Text.
+  /// No description provided for @mirrorHow2.
   ///
   /// In en, this message translates to:
-  /// **'One photo, right here'**
-  String get mirrorStep1Text;
+  /// **'Two answers'**
+  String get mirrorHow2;
 
-  /// No description provided for @mirrorStep2Title.
+  /// No description provided for @mirrorHow3.
   ///
   /// In en, this message translates to:
-  /// **'Answer two questions'**
-  String get mirrorStep2Title;
-
-  /// No description provided for @mirrorStep2Text.
-  ///
-  /// In en, this message translates to:
-  /// **'Gender and body type'**
-  String get mirrorStep2Text;
-
-  /// No description provided for @mirrorStep3Title.
-  ///
-  /// In en, this message translates to:
-  /// **'See your look'**
-  String get mirrorStep3Title;
-
-  /// No description provided for @mirrorStep3Text.
-  ///
-  /// In en, this message translates to:
-  /// **'Made of items that are in stock'**
-  String get mirrorStep3Text;
-
-  /// No description provided for @mirrorIntroCta.
-  ///
-  /// In en, this message translates to:
-  /// **'Start'**
-  String get mirrorIntroCta;
+  /// **'Your look'**
+  String get mirrorHow3;
 
   /// No description provided for @mirrorPrivacyLong.
   ///
@@ -7201,7 +7159,7 @@ abstract class AppLocalizations {
   /// No description provided for @mirrorCollect.
   ///
   /// In en, this message translates to:
-  /// **'Collect for fitting'**
+  /// **'Reserve for fitting'**
   String get mirrorCollect;
 
   /// No description provided for @mirrorBuyTitle.

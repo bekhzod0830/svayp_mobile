@@ -8,10 +8,12 @@ import '../../data/kiosk_taxonomy.dart';
 import '../mirror_session_controller.dart';
 import '../mirror_theme.dart';
 import '../widgets/mirror_buttons.dart';
+import '../widgets/mirror_chrome.dart';
 
-/// Экран 5 — каталог зала (вход ветки «каталог»): чипы категорий,
-/// прогрессивная сетка, мультивыбор с розовой рамкой, счётчик на CTA.
-/// Смена категории выбор не сбрасывает (веб-паритет).
+/// Экран каталога зала (вход ветки «каталог»): текстовые вкладки категорий с
+/// подчёркиванием — как навигация бренда, сетка карточек с фото на белом,
+/// мультивыбор квадратным чеком, счётчик на CTA. Смена категории выбор не
+/// сбрасывает (веб-паритет).
 class MirrorCatalogScreen extends StatelessWidget {
   const MirrorCatalogScreen({super.key, required this.controller});
 
@@ -20,10 +22,12 @@ class MirrorCatalogScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final t = MirrorTheme.of(context);
     final s = MirrorTheme.scale(context);
     final c = controller;
     final lang = c.shopperLang;
     final picked = c.pickedProductIds.length;
+    final brand = t.brand;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -33,49 +37,38 @@ class MirrorCatalogScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(l10n.mirrorCatalogTitle, style: MirrorTheme.headline(36 * s)),
+              Text(l10n.mirrorCatalogTitle, style: t.headline(34 * s)),
               SizedBox(height: 6 * s),
               Text(
                 l10n.mirrorCatalogSubtitle,
-                style: MirrorTheme.subtitle(15 * s),
+                style: t.subtitle(15 * s),
               ),
             ],
           ),
         ),
-        SizedBox(height: 16 * s),
+        SizedBox(height: 18 * s),
         SizedBox(
-          height: 44 * s,
+          height: 38 * s,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
             padding: EdgeInsets.symmetric(horizontal: 28 * s),
             itemCount: kioskCategories.length,
-            separatorBuilder: (_, __) => SizedBox(width: 8 * s),
+            separatorBuilder: (_, __) => SizedBox(width: 22 * s),
             itemBuilder: (context, i) {
               final cat = kioskCategories[i];
-              final selected = c.category == cat.code;
-              return GestureDetector(
+              return _CategoryTab(
+                label: brand.categoryLabel(cat, lang),
+                selected: c.category == cat.code,
                 onTap: () => c.selectCategory(cat.code),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 160),
-                  padding: EdgeInsets.symmetric(horizontal: 18 * s),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: selected ? MirrorTheme.ink : MirrorTheme.surface,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    cat.label(lang),
-                    style: MirrorTheme.label(
-                      13.5 * s,
-                      weight: FontWeight.w700,
-                      color: selected ? Colors.white : MirrorTheme.ink,
-                    ),
-                  ),
-                ),
               );
             },
           ),
+        ),
+        Container(
+          height: 1,
+          margin: EdgeInsets.symmetric(horizontal: 28 * s),
+          color: t.hairline,
         ),
         SizedBox(height: 14 * s),
         Expanded(
@@ -85,7 +78,7 @@ class MirrorCatalogScreen extends StatelessWidget {
                   : Center(
                       child: Text(
                         l10n.mirrorCatalogEmpty,
-                        style: MirrorTheme.subtitle(16 * s),
+                        style: t.subtitle(16 * s),
                       ),
                     ))
               : GridView.builder(
@@ -95,7 +88,7 @@ class MirrorCatalogScreen extends StatelessWidget {
                     crossAxisCount: MirrorTheme.gridColumns(context),
                     mainAxisSpacing: 14 * s,
                     crossAxisSpacing: 14 * s,
-                    mainAxisExtent: 240 * s,
+                    mainAxisExtent: 256 * s,
                   ),
                   itemCount: c.catalog.length,
                   itemBuilder: (context, i) {
@@ -125,6 +118,53 @@ class MirrorCatalogScreen extends StatelessWidget {
   }
 }
 
+/// Вкладка категории: текст + подчёркивание цветом бренда у активной.
+class _CategoryTab extends StatelessWidget {
+  const _CategoryTab({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = MirrorTheme.of(context);
+    final s = MirrorTheme.scale(context);
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: IntrinsicWidth(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.end,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 160),
+              style: t.label(
+                14 * s,
+                weight: selected ? FontWeight.w700 : FontWeight.w500,
+                color: selected ? t.ink : t.muted,
+              ),
+              child: Text(label, maxLines: 1),
+            ),
+            SizedBox(height: 8 * s),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              height: 2,
+              color: selected ? t.primary : Colors.transparent,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _CatalogCard extends StatelessWidget {
   const _CatalogCard({
     required this.item,
@@ -140,16 +180,26 @@ class _CatalogCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = MirrorTheme.of(context);
     final s = MirrorTheme.scale(context);
+    final brand = t.brand;
+    final category = kioskCategories
+        .where((c) => c.code != null && c.code == item.category)
+        .toList();
+    final categoryLabel =
+        category.isEmpty ? null : brand.categoryLabel(category.first, lang);
+
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
+        padding: EdgeInsets.all(6 * s),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18 * s),
+          color: selected ? t.selectedBg : t.surface,
+          borderRadius: BorderRadius.circular(t.rCard),
           border: Border.all(
-            color: selected ? MirrorTheme.pink : Colors.transparent,
-            width: 3,
+            color: selected ? t.primary : t.hairline,
+            width: selected ? 2 : 1,
           ),
         ),
         child: Column(
@@ -160,40 +210,25 @@ class _CatalogCard extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(15 * s),
-                    child: item.imageUrl != null
-                        ? CachedNetworkImage(
-                            imageUrl: item.imageUrl!,
-                            fit: BoxFit.cover,
-                            placeholder: (_, __) =>
-                                Container(color: MirrorTheme.surface),
-                            errorWidget: (_, __, ___) =>
-                                Container(color: MirrorTheme.surface),
-                          )
-                        : Container(color: MirrorTheme.surface),
+                    borderRadius: BorderRadius.circular(t.rImage),
+                    child: ColoredBox(
+                      color: Colors.white,
+                      child: item.imageUrl != null
+                          ? CachedNetworkImage(
+                              imageUrl: item.imageUrl!,
+                              fit: BoxFit.cover,
+                              placeholder: (_, __) =>
+                                  ColoredBox(color: t.surface),
+                              errorWidget: (_, __, ___) =>
+                                  ColoredBox(color: t.surface),
+                            )
+                          : const SizedBox.expand(),
+                    ),
                   ),
                   Positioned(
                     top: 8 * s,
                     right: 8 * s,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 160),
-                      width: 26 * s,
-                      height: 26 * s,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: selected ? MirrorTheme.pink : Colors.white,
-                        border: Border.all(
-                          color: selected
-                              ? MirrorTheme.pink
-                              : MirrorTheme.hairline,
-                          width: 1.5,
-                        ),
-                      ),
-                      child: selected
-                          ? Icon(Icons.check_rounded,
-                              size: 17 * s, color: Colors.white)
-                          : null,
-                    ),
+                    child: MirrorCheck(selected: selected, size: 24 * s),
                   ),
                 ],
               ),
@@ -203,16 +238,25 @@ class _CatalogCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (categoryLabel != null) ...[
+                    Text(
+                      t.kickerCase(categoryLabel),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: t.kicker(s * 0.75, color: t.muted),
+                    ),
+                    SizedBox(height: 4 * s),
+                  ],
                   Text(
                     item.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: MirrorTheme.label(13.5 * s, weight: FontWeight.w700),
+                    style: t.label(13.5 * s, weight: FontWeight.w600),
                   ),
                   SizedBox(height: 3 * s),
                   Text(
                     item.price != null ? kioskMoney(item.price!, lang) : '',
-                    style: MirrorTheme.subtitle(12.5 * s),
+                    style: t.price(12.5 * s),
                   ),
                 ],
               ),
@@ -231,6 +275,7 @@ class _ShimmerGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = MirrorTheme.of(context);
     return GridView.builder(
       physics: const NeverScrollableScrollPhysics(),
       padding: EdgeInsets.fromLTRB(28 * s, 0, 28 * s, 16 * s),
@@ -238,16 +283,16 @@ class _ShimmerGrid extends StatelessWidget {
         crossAxisCount: MirrorTheme.gridColumns(context),
         mainAxisSpacing: 14 * s,
         crossAxisSpacing: 14 * s,
-        mainAxisExtent: 240 * s,
+        mainAxisExtent: 256 * s,
       ),
       itemCount: 6,
       itemBuilder: (_, __) => Shimmer.fromColors(
-        baseColor: MirrorTheme.surface,
-        highlightColor: Colors.white,
+        baseColor: t.hairline,
+        highlightColor: t.surface,
         child: Container(
           decoration: BoxDecoration(
-            color: MirrorTheme.surface,
-            borderRadius: BorderRadius.circular(18 * s),
+            color: t.hairline,
+            borderRadius: BorderRadius.circular(t.rCard),
           ),
         ),
       ),

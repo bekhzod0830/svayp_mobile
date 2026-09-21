@@ -3553,49 +3553,29 @@ class AppLocalizationsUz extends AppLocalizations {
   String get mirrorTab => 'Oyna';
 
   @override
-  String get mirrorIdleEyebrow => 'LIBAS AI-stilisti';
+  String get mirrorCtaCreate => 'Uslubimni yaratish';
 
   @override
-  String get mirrorIdleTitle => 'Uslubni kiyib koʻring';
+  String get mirrorCtaCatalog => 'Kolleksiyadan tanlash';
 
   @override
-  String get mirrorIdleTitleAccent => '30 soniyada';
+  String get mirrorCoverSubtitle =>
+      'Bugun zalda bor kiyimlardan. Taxminan oʻttiz soniya.';
 
   @override
-  String get mirrorCtaCreate => 'Uslub yaratish';
-
-  @override
-  String get mirrorCtaCatalog => 'Katalogni koʻrish';
-
-  @override
-  String get mirrorFree => 'Bepul';
-
-  @override
-  String get mirrorIntroEyebrow => 'Uch qadam';
+  String get mirrorCoverLookKicker => 'Kun uslubi';
 
   @override
   String get mirrorIntroTitle => 'Bu qanday ishlaydi';
 
   @override
-  String get mirrorStep1Title => 'Yuzingizni suratga oling';
+  String get mirrorHow1 => 'Surat';
 
   @override
-  String get mirrorStep1Text => 'Bitta surat, shu yerda';
+  String get mirrorHow2 => 'Ikki javob';
 
   @override
-  String get mirrorStep2Title => 'Ikki savolga javob bering';
-
-  @override
-  String get mirrorStep2Text => 'Jins va tana tuzilishi';
-
-  @override
-  String get mirrorStep3Title => 'Uslubni koʻring';
-
-  @override
-  String get mirrorStep3Text => 'Mavjud kiyimlardan';
-
-  @override
-  String get mirrorIntroCta => 'Boshlash';
+  String get mirrorHow3 => 'Sizning uslubingiz';
 
   @override
   String get mirrorPrivacyLong =>
@@ -3768,7 +3748,7 @@ class AppLocalizationsUz extends AppLocalizations {
   String get mirrorContinueInApp => 'Ilovada davom eting';
 
   @override
-  String get mirrorCollect => 'Kiyib koʻrishga yigʻish';
+  String get mirrorCollect => 'Kiyib koʻrish uchun band qilish';
 
   @override
   String get mirrorBuyTitle => 'Sizdagi kiyimlar';

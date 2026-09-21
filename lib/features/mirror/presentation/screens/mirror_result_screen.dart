@@ -14,8 +14,9 @@ import '../mirror_session_controller.dart';
 import '../mirror_theme.dart';
 import '../widgets/mirror_buttons.dart';
 
-/// Экран 7 — результат: образ во всю доступную высоту (проявляется из
-/// размытия), карточка QR, «Пересобрать» (лимит 3) и «Собрать на примерку».
+/// Экран результата: образ во всю доступную высоту (проявляется из
+/// размытия), лента вещей образа, карточка QR, «Пересобрать» (лимит 3) и
+/// «Отложить на примерку».
 class MirrorResultScreen extends StatefulWidget {
   const MirrorResultScreen({super.key, required this.controller});
 
@@ -48,6 +49,7 @@ class _MirrorResultScreenState extends State<MirrorResultScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final t = MirrorTheme.of(context);
     final s = MirrorTheme.scale(context);
     final c = widget.controller;
     final look = c.look;
@@ -61,18 +63,26 @@ class _MirrorResultScreenState extends State<MirrorResultScreen> {
       child: Column(
         children: [
           Expanded(
-            child: _RevealImage(look: look, s: s, meta: _ImageMeta(
-              tag: l10n.mirrorResultTag.toUpperCase(),
-              line: '${l10n.mirrorItemsCount(look.items.length)} · $total',
-            )),
+            child: _RevealImage(
+              look: look,
+              s: s,
+              meta: _ImageMeta(
+                tag: t.kickerCase(l10n.mirrorResultTag),
+                line: '${l10n.mirrorItemsCount(look.items.length)} · $total',
+              ),
+            ),
           ),
-          SizedBox(height: 16 * s),
+          if (look.items.isNotEmpty) ...[
+            SizedBox(height: 12 * s),
+            _LookItemsStrip(items: look.items, lang: lang, s: s),
+          ],
+          SizedBox(height: 12 * s),
           _QrCard(
             shareUrl: c.shareUrl,
             pulse: _qrPulse,
             onDownloadTap: _onDownloadTap,
           ),
-          SizedBox(height: 16 * s),
+          SizedBox(height: 14 * s),
           Row(
             children: [
               Expanded(
@@ -94,7 +104,7 @@ class _MirrorResultScreenState extends State<MirrorResultScreen> {
                   subLabel: total,
                   height: 64 * s,
                   // Сессия не должна закончиться без QR или кода: пока finish
-                  // не прошёл, «Собрать» подождёт (ensureShare сам ретраится).
+                  // не прошёл, «Отложить» подождёт (ensureShare сам ретраится).
                   enabled: c.sellerCode != null,
                   onTap: c.openBuy,
                 ),
@@ -122,7 +132,7 @@ class _RevealImage extends StatelessWidget {
   final double s;
   final _ImageMeta meta;
 
-  Widget _image(BoxFit fit) {
+  Widget _image(BoxFit fit, MirrorTheme t) {
     final url = look.resultImageUrl;
     final localPath = look.localResultPath;
     if (localPath != null) {
@@ -132,19 +142,20 @@ class _RevealImage extends StatelessWidget {
       return CachedNetworkImage(
         imageUrl: url,
         fit: fit,
-        placeholder: (_, __) => Container(color: MirrorTheme.surface),
-        errorWidget: (_, __, ___) => Container(
-          color: MirrorTheme.surface,
-          child: const Icon(Icons.image_not_supported_outlined,
-              color: MirrorTheme.gray),
+        placeholder: (_, __) => ColoredBox(color: t.surface),
+        errorWidget: (_, __, ___) => ColoredBox(
+          color: t.surface,
+          child: Icon(Icons.image_not_supported_outlined, color: t.muted),
         ),
       );
     }
-    return Container(color: MirrorTheme.surface);
+    return ColoredBox(color: t.surface);
   }
 
   @override
   Widget build(BuildContext context) {
+    final t = MirrorTheme.of(context);
+
     // Образ показываем ЦЕЛИКОМ (contain) — cover срезал бы голову у
     // вертикальной генерации. Пустых полей нет: фоном — размытая копия
     // той же картинки.
@@ -153,10 +164,10 @@ class _RevealImage extends StatelessWidget {
       children: [
         ImageFiltered(
           imageFilter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-          child: _image(BoxFit.cover),
+          child: _image(BoxFit.cover, t),
         ),
         ColoredBox(color: Colors.black.withValues(alpha: 0.12)),
-        _image(BoxFit.contain),
+        _image(BoxFit.contain, t),
       ],
     );
 
@@ -166,12 +177,12 @@ class _RevealImage extends StatelessWidget {
       tween: Tween(begin: reduceMotion ? 1 : 0, end: 1),
       duration: const Duration(milliseconds: 800),
       curve: Curves.easeOutCubic,
-      builder: (context, t, child) {
-        final sigma = 24.0 * (1 - t);
+      builder: (context, v, child) {
+        final sigma = 24.0 * (1 - v);
         return ClipRRect(
-          borderRadius: BorderRadius.circular(28 * s),
+          borderRadius: BorderRadius.circular(t.rCard),
           child: Transform.scale(
-            scale: 1.05 - 0.05 * t,
+            scale: 1.05 - 0.05 * v,
             child: sigma < 0.5
                 ? child!
                 : ImageFiltered(
@@ -208,16 +219,16 @@ class _RevealImage extends StatelessWidget {
             left: 16 * s,
             child: Container(
               padding: EdgeInsets.symmetric(
-                horizontal: 14 * s,
+                horizontal: 12 * s,
                 vertical: 8 * s,
               ),
               decoration: BoxDecoration(
-                color: MirrorTheme.pink,
-                borderRadius: BorderRadius.circular(999),
+                color: t.primary,
+                borderRadius: BorderRadius.circular(t.rChip),
               ),
               child: Text(
                 meta.tag,
-                style: MirrorTheme.label(12 * s, color: Colors.white),
+                style: t.kicker(s * 0.9, color: t.onPrimary),
               ),
             ),
           ),
@@ -227,7 +238,7 @@ class _RevealImage extends StatelessWidget {
             right: 18 * s,
             child: Text(
               meta.line,
-              style: MirrorTheme.label(16 * s, color: Colors.white),
+              style: t.label(16 * s, color: Colors.white),
             ),
           ),
         ],
@@ -236,7 +247,92 @@ class _RevealImage extends StatelessWidget {
   }
 }
 
+/// Лента вещей образа: что именно на человеке — ещё до экрана примерки.
+class _LookItemsStrip extends StatelessWidget {
+  const _LookItemsStrip({
+    required this.items,
+    required this.lang,
+    required this.s,
+  });
+
+  final List<KioskLookItem> items;
+  final String lang;
+  final double s;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = MirrorTheme.of(context);
+    return SizedBox(
+      height: 56 * s,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        itemCount: items.length,
+        separatorBuilder: (_, __) => SizedBox(width: 10 * s),
+        itemBuilder: (context, i) {
+          final item = items[i];
+          return Container(
+            padding: EdgeInsets.all(6 * s),
+            decoration: BoxDecoration(
+              color: t.surface,
+              borderRadius: BorderRadius.circular(t.rCard),
+              border: Border.all(color: t.hairline),
+            ),
+            child: Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(t.rImage),
+                  child: SizedBox(
+                    width: 34 * s,
+                    height: 44 * s,
+                    child: ColoredBox(
+                      color: Colors.white,
+                      child: item.imageUrl != null
+                          ? CachedNetworkImage(
+                              imageUrl: item.imageUrl!,
+                              fit: BoxFit.cover,
+                              placeholder: (_, __) =>
+                                  ColoredBox(color: t.surface),
+                              errorWidget: (_, __, ___) =>
+                                  ColoredBox(color: t.surface),
+                            )
+                          : null,
+                    ),
+                  ),
+                ),
+                SizedBox(width: 10 * s),
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: 150 * s),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: t.label(12.5 * s, weight: FontWeight.w600),
+                      ),
+                      SizedBox(height: 3 * s),
+                      Text(
+                        item.price != null ? kioskMoney(item.price!, lang) : '—',
+                        style: t.price(11.5 * s, color: t.muted),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(width: 6 * s),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 /// Карточка QR: «Заберите образ в телефон». Пока finish не ответил — шиммер.
+/// Сам QR всегда чернилами на белом — сканеру нужен контраст, не бренд.
 class _QrCard extends StatelessWidget {
   const _QrCard({
     required this.shareUrl,
@@ -251,14 +347,16 @@ class _QrCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final t = MirrorTheme.of(context);
     final s = MirrorTheme.scale(context);
+    final url = shareUrl;
 
     return Container(
-      padding: EdgeInsets.all(16 * s),
+      padding: EdgeInsets.all(14 * s),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22 * s),
-        border: Border.all(color: MirrorTheme.hairline, width: 1.5),
+        color: t.surface,
+        borderRadius: BorderRadius.circular(t.rCard),
+        border: Border.all(color: t.hairline),
       ),
       child: Row(
         children: [
@@ -266,33 +364,43 @@ class _QrCard extends StatelessWidget {
             duration: const Duration(milliseconds: 300),
             padding: EdgeInsets.all(8 * s),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14 * s),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(t.rImage),
               border: Border.all(
-                color: pulse ? MirrorTheme.pink : MirrorTheme.hairline,
-                width: pulse ? 3 : 1.5,
+                color: pulse ? t.primary : t.hairline,
+                width: pulse ? 2.5 : 1,
               ),
               boxShadow: pulse
                   ? [
                       BoxShadow(
-                        color: MirrorTheme.pink.withValues(alpha: 0.35),
+                        color: t.primary.withValues(alpha: 0.3),
                         blurRadius: 18,
                       ),
                     ]
                   : null,
             ),
-            child: shareUrl != null
+            child: url != null
                 ? QrImageView(
-                    data: shareUrl!,
+                    data: url,
                     size: 92 * s,
                     padding: EdgeInsets.zero,
+                    backgroundColor: Colors.white,
+                    eyeStyle: const QrEyeStyle(
+                      eyeShape: QrEyeShape.square,
+                      color: Color(0xFF111111),
+                    ),
+                    dataModuleStyle: const QrDataModuleStyle(
+                      dataModuleShape: QrDataModuleShape.square,
+                      color: Color(0xFF111111),
+                    ),
                   )
                 : Shimmer.fromColors(
-                    baseColor: MirrorTheme.hairline,
-                    highlightColor: Colors.white,
+                    baseColor: t.hairline,
+                    highlightColor: t.surface,
                     child: Container(
                       width: 92 * s,
                       height: 92 * s,
-                      color: MirrorTheme.hairline,
+                      color: t.hairline,
                     ),
                   ),
           ),
@@ -301,11 +409,11 @@ class _QrCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(l10n.mirrorQrTitle, style: MirrorTheme.label(16 * s)),
+                Text(l10n.mirrorQrTitle, style: t.label(16 * s)),
                 SizedBox(height: 6 * s),
                 Text(
                   pulse ? l10n.mirrorDownloadHint : l10n.mirrorQrSubtitle,
-                  style: MirrorTheme.subtitle(12.5 * s),
+                  style: t.subtitle(12.5 * s),
                 ),
                 SizedBox(height: 10 * s),
                 GestureDetector(
@@ -316,21 +424,19 @@ class _QrCard extends StatelessWidget {
                       vertical: 7 * s,
                     ),
                     decoration: BoxDecoration(
-                      color: MirrorTheme.surface,
-                      borderRadius: BorderRadius.circular(999),
+                      color: t.bg,
+                      borderRadius: BorderRadius.circular(t.rChip),
+                      border: Border.all(color: t.hairline),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.file_download_outlined,
-                            size: 15 * s, color: MirrorTheme.ink),
+                            size: 15 * s, color: t.ink),
                         SizedBox(width: 6 * s),
                         Text(
                           l10n.mirrorDownload,
-                          style: MirrorTheme.label(
-                            12.5 * s,
-                            weight: FontWeight.w700,
-                          ),
+                          style: t.label(12.5 * s, weight: FontWeight.w600),
                         ),
                       ],
                     ),
@@ -345,7 +451,7 @@ class _QrCard extends StatelessWidget {
   }
 }
 
-/// Экран 8 — состав образа: вещи с размерами и наличием, итог, код продавца.
+/// Экран состава образа: вещи с размерами и наличием, итог, код продавца.
 class MirrorBuyScreen extends StatelessWidget {
   const MirrorBuyScreen({super.key, required this.controller});
 
@@ -354,6 +460,7 @@ class MirrorBuyScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final t = MirrorTheme.of(context);
     final s = MirrorTheme.scale(context);
     final c = controller;
     final look = c.look;
@@ -366,34 +473,31 @@ class MirrorBuyScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(height: 20 * s),
-          Text(l10n.mirrorBuyTitle, style: MirrorTheme.headline(36 * s)),
+          Text(l10n.mirrorBuyTitle, style: t.headline(34 * s)),
           SizedBox(height: 6 * s),
-          Text(l10n.mirrorBuySubtitle, style: MirrorTheme.subtitle(15 * s)),
+          Text(l10n.mirrorBuySubtitle, style: t.subtitle(15 * s)),
           SizedBox(height: 16 * s),
           Expanded(
             child: ListView.separated(
               physics: const BouncingScrollPhysics(),
               itemCount: look.items.length,
-              separatorBuilder: (_, __) =>
-                  const Divider(color: MirrorTheme.hairline, height: 1),
+              separatorBuilder: (_, __) => Divider(color: t.hairline, height: 1),
               itemBuilder: (context, i) =>
                   _LookItemRow(item: look.items[i], lang: lang),
             ),
           ),
           Container(
             padding: EdgeInsets.symmetric(vertical: 16 * s),
-            decoration: const BoxDecoration(
-              border: Border(
-                top: BorderSide(color: MirrorTheme.ink, width: 2),
-              ),
+            decoration: BoxDecoration(
+              border: Border(top: BorderSide(color: t.ink, width: 1.5)),
             ),
             child: Row(
               children: [
-                Text(l10n.mirrorTotal, style: MirrorTheme.label(18 * s)),
+                Text(l10n.mirrorTotal, style: t.label(18 * s)),
                 const Spacer(),
                 Text(
                   kioskMoney(look.totalPrice, lang),
-                  style: MirrorTheme.headline(24 * s),
+                  style: t.headline(26 * s),
                 ),
               ],
             ),
@@ -402,27 +506,26 @@ class MirrorBuyScreen extends StatelessWidget {
             width: double.infinity,
             padding: EdgeInsets.all(20 * s),
             decoration: BoxDecoration(
-              color: MirrorTheme.lavender,
-              borderRadius: BorderRadius.circular(22 * s),
+              color: t.primaryDeep,
+              borderRadius: BorderRadius.circular(t.rCard),
             ),
             child: Row(
               children: [
                 Expanded(
                   child: Text(
                     l10n.mirrorCodeLabel,
-                    style: MirrorTheme.subtitle(13.5 * s),
+                    style: t.subtitle(
+                      13.5 * s,
+                      color: t.onPrimary.withValues(alpha: 0.85),
+                    ),
                   ),
                 ),
                 SizedBox(width: 16 * s),
                 Text(
                   c.sellerCode ?? '· · ·',
-                  style: TextStyle(
-                    fontFamily: 'GolosText',
-                    fontSize: 34 * s,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 3 * s,
-                    color: MirrorTheme.ink,
-                  ),
+                  style: t
+                      .display(32 * s, color: t.onPrimary)
+                      .copyWith(letterSpacing: 3 * s),
                 ),
               ],
             ),
@@ -449,6 +552,7 @@ class _LookItemRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final t = MirrorTheme.of(context);
     final s = MirrorTheme.scale(context);
 
     return Padding(
@@ -456,20 +560,22 @@ class _LookItemRow extends StatelessWidget {
       child: Row(
         children: [
           ClipRRect(
-            borderRadius: BorderRadius.circular(12 * s),
+            borderRadius: BorderRadius.circular(t.rImage),
             child: SizedBox(
               width: 56 * s,
               height: 72 * s,
-              child: item.imageUrl != null
-                  ? CachedNetworkImage(
-                      imageUrl: item.imageUrl!,
-                      fit: BoxFit.cover,
-                      placeholder: (_, __) =>
-                          Container(color: MirrorTheme.surface),
-                      errorWidget: (_, __, ___) =>
-                          Container(color: MirrorTheme.surface),
-                    )
-                  : Container(color: MirrorTheme.surface),
+              child: ColoredBox(
+                color: Colors.white,
+                child: item.imageUrl != null
+                    ? CachedNetworkImage(
+                        imageUrl: item.imageUrl!,
+                        fit: BoxFit.cover,
+                        placeholder: (_, __) => ColoredBox(color: t.surface),
+                        errorWidget: (_, __, ___) =>
+                            ColoredBox(color: t.surface),
+                      )
+                    : null,
+              ),
             ),
           ),
           SizedBox(width: 14 * s),
@@ -481,25 +587,19 @@ class _LookItemRow extends StatelessWidget {
                   item.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: MirrorTheme.label(15 * s, weight: FontWeight.w700),
+                  style: t.label(15 * s, weight: FontWeight.w600),
                 ),
                 SizedBox(height: 5 * s),
                 Row(
                   children: [
                     Text(
                       '${l10n.mirrorSizeLabel} ${item.size ?? '—'}',
-                      style: MirrorTheme.subtitle(12.5 * s),
+                      style: t.subtitle(12.5 * s),
                     ),
-                    Text(
-                      ' · ',
-                      style: MirrorTheme.subtitle(12.5 * s),
-                    ),
+                    Text(' · ', style: t.subtitle(12.5 * s)),
                     Text(
                       l10n.mirrorInStock,
-                      style: MirrorTheme.subtitle(
-                        12.5 * s,
-                        color: MirrorTheme.freeGreen,
-                      ),
+                      style: t.subtitle(12.5 * s, color: t.success),
                     ),
                   ],
                 ),
@@ -509,7 +609,7 @@ class _LookItemRow extends StatelessWidget {
           SizedBox(width: 12 * s),
           Text(
             item.price != null ? kioskMoney(item.price!, lang) : '—',
-            style: MirrorTheme.label(15 * s),
+            style: t.price(15 * s),
           ),
         ],
       ),

@@ -1,21 +1,44 @@
 import 'package:flutter/material.dart';
-import 'package:swipe/features/onboarding/presentation/widgets/intro/intro_theme.dart';
 
-/// Дизайн-токены Magic Mirror: редакционный «дрескод»-язык поверх IntroPalette.
-/// Киоск всегда светлый (постер — чернильный, внутренние экраны — белые);
-/// тёмная тема приложения сюда не протекает. Розовый — только для кикеров,
-/// выбора и CTA; всё остальное — чёрное на белом.
+import '../brand/mirror_brands.dart';
+
+export '../brand/mirror_brands.dart'
+    show MirrorBrand, MirrorBrandScope, kMirrorBrand;
+
+/// Дизайн-токены Magic Mirror, собранные из активного бренда.
+///
+/// Читать через [MirrorTheme.of]. Имена полей сохранены от прежней
+/// статической версии (`MirrorTheme.ink` → `t.ink`), розовый стал
+/// [primary], серый — [muted]. Киоск всегда светлый: тёмная тема приложения
+/// продавца сюда не протекает.
 class MirrorTheme {
-  MirrorTheme._();
+  const MirrorTheme(this.brand);
 
-  static const Color ink = IntroPalette.ink;
-  static const Color pink = IntroPalette.pink;
-  static const Color gray = IntroPalette.gray;
-  static const Color hairline = Color(0xFFEFEDF3);
-  static const Color surface = Color(0xFFF8F7FA);
-  static const Color lavender = Color(0xFFF1EEF5);
-  static const Color selectedBg = IntroPalette.gemChipBg;
-  static const Color freeGreen = IntroPalette.freeGreen;
+  final MirrorBrand brand;
+
+  static MirrorTheme of(BuildContext context) =>
+      MirrorTheme(MirrorBrandScope.of(context));
+
+  // ── Цвета ──────────────────────────────────────────────────────────────────
+  Color get bg => brand.palette.bg;
+  Color get surface => brand.palette.surface;
+  Color get ink => brand.palette.ink;
+  Color get muted => brand.palette.muted;
+  Color get hairline => brand.palette.hairline;
+  Color get primary => brand.palette.primary;
+  Color get primaryDeep => brand.palette.primaryDeep;
+  Color get primaryBright => brand.palette.primaryBright;
+  Color get onPrimary => brand.palette.onPrimary;
+  Color get selectedBg => brand.palette.selectedBg;
+  Color get accent => brand.palette.accent;
+  Color get danger => brand.palette.danger;
+  Color get success => brand.palette.success;
+
+  // ── Радиусы ────────────────────────────────────────────────────────────────
+  double get rButton => brand.shape.button;
+  double get rCard => brand.shape.card;
+  double get rChip => brand.shape.chip;
+  double get rImage => brand.shape.image;
 
   /// Единый масштаб киоска: телефон ≈ 1.0, портретный iPad ≈ 2.0.
   /// Никакого веб-скейла под 1080×1920 — только относительные размеры.
@@ -26,44 +49,103 @@ class MirrorTheme {
   static int gridColumns(BuildContext context) =>
       MediaQuery.sizeOf(context).width >= 900 ? 3 : 2;
 
-  static TextStyle kicker(double s, {Color color = pink}) => TextStyle(
-        fontFamily: IntroPalette.fontFamily,
+  // ── Типографика ────────────────────────────────────────────────────────────
+
+  String get _ui => brand.type.uiFamily;
+
+  /// Крупный акцидентный заголовок серифом бренда. Вес задаётся осью `wght`
+  /// переменного шрифта; fontWeight остаётся w400, иначе движок дорисует
+  /// «фальшивый» болд поверх единственного файла.
+  TextStyle display(double size, {Color? color}) => TextStyle(
+        fontFamily: brand.type.displayFamily,
+        fontFamilyFallback: brand.type.fallbackFamilies,
+        fontWeight: FontWeight.w400,
+        fontVariations: [FontVariation('wght', brand.type.displayWeight)],
+        fontSize: size,
+        letterSpacing: size * brand.type.displayTracking,
+        height: brand.type.displayHeight,
+        color: color ?? primaryDeep,
+      );
+
+  /// Заголовок экрана — тот же сериф, легче и чернилами.
+  TextStyle headline(double size, {Color? color}) => TextStyle(
+        fontFamily: brand.type.displayFamily,
+        fontFamilyFallback: brand.type.fallbackFamilies,
+        fontWeight: FontWeight.w400,
+        fontVariations: [FontVariation('wght', brand.type.headlineWeight)],
+        fontSize: size,
+        letterSpacing: size * brand.type.displayTracking,
+        height: 1.1,
+        color: color ?? ink,
+      );
+
+  /// Кикер — мелкая подпись над заголовком, капсом с разрядкой.
+  /// Цвет по умолчанию — [primaryBright]: он контрастнее на светлом фоне
+  /// в мелком кегле.
+  TextStyle kicker(double s, {Color? color}) => TextStyle(
+        fontFamily: _ui,
         fontSize: 12 * s,
-        fontWeight: FontWeight.w800,
-        letterSpacing: 2.4 * s,
-        color: color,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 12 * s * 0.18,
+        color: color ?? primaryBright,
         height: 1.0,
       );
 
-  static TextStyle headline(double size, {Color color = ink}) => TextStyle(
-        fontFamily: IntroPalette.fontFamily,
-        fontSize: size,
-        fontWeight: FontWeight.w800,
-        letterSpacing: size * -0.025,
-        color: color,
-        height: 1.08,
-      );
-
-  static TextStyle subtitle(double size, {Color color = gray}) => TextStyle(
-        fontFamily: IntroPalette.fontFamily,
+  TextStyle subtitle(double size, {Color? color}) => TextStyle(
+        fontFamily: _ui,
         fontSize: size,
         fontWeight: FontWeight.w500,
-        color: color,
+        color: color ?? muted,
         height: 1.5,
       );
 
-  static TextStyle label(
+  TextStyle label(
     double size, {
-    FontWeight weight = FontWeight.w800,
-    Color color = ink,
+    FontWeight weight = FontWeight.w700,
+    Color? color,
   }) =>
       TextStyle(
-        fontFamily: IntroPalette.fontFamily,
+        fontFamily: _ui,
         fontSize: size,
         fontWeight: weight,
-        color: color,
+        color: color ?? ink,
         height: 1.1,
       );
+
+  /// Подпись CTA: с разрядкой, если бренд ставит кнопки капсом.
+  TextStyle cta(double size, {Color? color}) => TextStyle(
+        fontFamily: _ui,
+        fontSize: size,
+        fontWeight: FontWeight.w700,
+        letterSpacing: brand.type.ctaUppercase ? size * 0.06 : 0,
+        color: color ?? onPrimary,
+        height: 1.1,
+      );
+
+  /// Цена: табличные цифры, чтобы суммы в списке стояли ровно.
+  TextStyle price(double size, {Color? color}) => TextStyle(
+        fontFamily: _ui,
+        fontSize: size,
+        fontWeight: FontWeight.w700,
+        fontFeatures: const [FontFeature.tabularFigures()],
+        color: color ?? ink,
+        height: 1.1,
+      );
+
+  /// Технический код (причина сбоя) — нарочно невзрачный.
+  TextStyle mono(double size, {Color? color}) => TextStyle(
+        fontFamily: 'Courier',
+        fontSize: size,
+        color: color ?? muted,
+        height: 1.3,
+      );
+
+  /// Регистр текста по правилам бренда.
+  String kickerCase(String text) =>
+      brand.type.kickerUppercase ? text.toUpperCase() : text;
+
+  String ctaCase(String text) =>
+      brand.type.ctaUppercase ? text.toUpperCase() : text;
 }
 
 /// Лёгкий каскадный вход: подъём + проявление. Свой, а не intro-`Entrance`,

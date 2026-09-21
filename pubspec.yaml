@@ -202,6 +202,7 @@ flutter:
     - lib/img/
     - lib/img/body_type/
     - lib/video/kiosk_poster/
+    - assets/brands/lacoste/
     - lib/img/brands/
     - lib/img/fit_preference/covered/
     - lib/img/fit_preference/uncovered/
@@ -233,6 +234,12 @@ flutter:
           weight: 800
         - asset: assets/fonts/GolosText-Black.ttf
           weight: 900
+    # Playfair Display (OFL) — акцидентный сериф Magic Mirror (бренд Lacoste).
+    # Один переменный файл: вес задаётся осью wght через TextStyle.fontVariations,
+    # поэтому weight здесь не объявляется.
+    - family: PlayfairDisplay
+      fonts:
+        - asset: assets/fonts/PlayfairDisplay-Variable.ttf
 
   # To add custom fonts to your application, add a fonts section here,
   # in this "flutter" section. Each entry in this list should have a

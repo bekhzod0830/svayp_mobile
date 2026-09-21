@@ -11,10 +11,11 @@ class MirrorOfflineScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final t = MirrorTheme.of(context);
     final s = MirrorTheme.scale(context);
 
     return ColoredBox(
-      color: Colors.white,
+      color: t.bg,
       child: Center(
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: 40 * s),
@@ -24,19 +25,19 @@ class MirrorOfflineScreen extends StatelessWidget {
               Icon(
                 Icons.wifi_off_rounded,
                 size: 56 * s,
-                color: MirrorTheme.gray,
+                color: t.muted,
               ),
               SizedBox(height: 24 * s),
               Text(
                 l10n.mirrorOfflineTitle,
                 textAlign: TextAlign.center,
-                style: MirrorTheme.headline(36 * s),
+                style: t.headline(36 * s),
               ),
               SizedBox(height: 12 * s),
               Text(
                 l10n.mirrorOfflineHint,
                 textAlign: TextAlign.center,
-                style: MirrorTheme.subtitle(17 * s),
+                style: t.subtitle(17 * s),
               ),
             ],
           ),

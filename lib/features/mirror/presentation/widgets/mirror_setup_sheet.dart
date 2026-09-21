@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../../data/kiosk_api.dart';
 import '../../data/kiosk_demo.dart';
-import '../mirror_theme.dart';
 
-/// Скрытый шит настройки киоска (5 касаний по словесному знаку на постере):
+/// Скрытый шит настройки киоска (5 касаний по знаку бренда на постере):
 /// ключ устройства X-Kiosk-Key и принудительный демо-режим. Это экран
-/// продавца, не покупателя — намеренно утилитарный и не локализованный
-/// под язык покупателя.
+/// продавца, не покупателя — намеренно утилитарный, не локализованный под
+/// язык покупателя и без токенов бренда: шит строится в оверлее корневого
+/// Navigator'а, где оформления киоска нет.
 class MirrorSetupSheet extends StatefulWidget {
   const MirrorSetupSheet({
     super.key,
@@ -95,6 +95,7 @@ class _MirrorSetupSheetState extends State<MirrorSetupSheet> {
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final textTheme = Theme.of(context).textTheme;
 
     return Padding(
       padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + bottomInset),
@@ -102,11 +103,11 @@ class _MirrorSetupSheetState extends State<MirrorSetupSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Настройка киоска', style: MirrorTheme.headline(22)),
+          Text('Настройка киоска', style: textTheme.titleLarge),
           const SizedBox(height: 4),
           Text(
             'Ключ устройства выдаётся при подключении магазина.',
-            style: MirrorTheme.subtitle(13),
+            style: textTheme.bodySmall,
           ),
           const SizedBox(height: 20),
           TextField(
@@ -127,7 +128,6 @@ class _MirrorSetupSheetState extends State<MirrorSetupSheet> {
                 'Скрывает вкладки продавца. Вернуться сюда — 5 касаний по логотипу.',
               ),
               value: _fullscreen,
-              activeThumbColor: MirrorTheme.pink,
               onChanged: (v) {
                 setState(() => _fullscreen = v);
                 widget.onFullscreenChanged!(v);
@@ -140,7 +140,6 @@ class _MirrorSetupSheetState extends State<MirrorSetupSheet> {
               'Каталог настоящий, примерка имитируется. Для показов.',
             ),
             value: _demoForced,
-            activeThumbColor: MirrorTheme.pink,
             onChanged: (v) {
               setState(() => _demoForced = v);
               widget.demo.setForced(v);
@@ -148,7 +147,7 @@ class _MirrorSetupSheetState extends State<MirrorSetupSheet> {
           ),
           if (_status != null) ...[
             const SizedBox(height: 8),
-            Text(_status!, style: MirrorTheme.subtitle(13)),
+            Text(_status!, style: textTheme.bodySmall),
           ],
           const SizedBox(height: 16),
           Row(

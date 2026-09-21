@@ -3508,49 +3508,29 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mirrorTab => 'Mirror';
 
   @override
-  String get mirrorIdleEyebrow => 'LIBAS AI stylist';
+  String get mirrorCtaCreate => 'Create my look';
 
   @override
-  String get mirrorIdleTitle => 'Try on a look';
+  String get mirrorCtaCatalog => 'Choose from the collection';
 
   @override
-  String get mirrorIdleTitleAccent => 'in 30 seconds';
+  String get mirrorCoverSubtitle =>
+      'Made from what\'s in the store today. About thirty seconds.';
 
   @override
-  String get mirrorCtaCreate => 'Create a look';
-
-  @override
-  String get mirrorCtaCatalog => 'Browse the catalog';
-
-  @override
-  String get mirrorFree => 'Free';
-
-  @override
-  String get mirrorIntroEyebrow => 'Three steps';
+  String get mirrorCoverLookKicker => 'Look of the moment';
 
   @override
   String get mirrorIntroTitle => 'How it works';
 
   @override
-  String get mirrorStep1Title => 'Take a photo of your face';
+  String get mirrorHow1 => 'Photo';
 
   @override
-  String get mirrorStep1Text => 'One photo, right here';
+  String get mirrorHow2 => 'Two answers';
 
   @override
-  String get mirrorStep2Title => 'Answer two questions';
-
-  @override
-  String get mirrorStep2Text => 'Gender and body type';
-
-  @override
-  String get mirrorStep3Title => 'See your look';
-
-  @override
-  String get mirrorStep3Text => 'Made of items that are in stock';
-
-  @override
-  String get mirrorIntroCta => 'Start';
+  String get mirrorHow3 => 'Your look';
 
   @override
   String get mirrorPrivacyLong =>
@@ -3730,7 +3710,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mirrorContinueInApp => 'Continue in the app';
 
   @override
-  String get mirrorCollect => 'Collect for fitting';
+  String get mirrorCollect => 'Reserve for fitting';
 
   @override
   String get mirrorBuyTitle => 'What you\'re wearing';

@@ -5,9 +5,10 @@ import '../../data/kiosk_taxonomy.dart';
 import '../mirror_session_controller.dart';
 import '../mirror_theme.dart';
 import '../widgets/mirror_buttons.dart';
+import '../widgets/mirror_chrome.dart';
 
-/// Экран 3а — пол. Отдельная страница (решение владельца): две крупные
-/// карточки, касание сразу ведёт к выбору фигуры.
+/// Экран 2а — пол. Отдельная страница (решение владельца): две крупные
+/// типографские карточки, касание сразу ведёт к выбору фигуры.
 class MirrorGenderScreen extends StatelessWidget {
   const MirrorGenderScreen({super.key, required this.controller});
 
@@ -16,6 +17,7 @@ class MirrorGenderScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final t = MirrorTheme.of(context);
     final s = MirrorTheme.scale(context);
 
     return Padding(
@@ -26,8 +28,8 @@ class MirrorGenderScreen extends StatelessWidget {
           SizedBox(height: 28 * s),
           MirrorFadeIn(
             child: Text(
-              l10n.mirrorGenderLabel.toUpperCase(),
-              style: MirrorTheme.kicker(s),
+              t.kickerCase(l10n.mirrorGenderLabel),
+              style: t.kicker(s),
             ),
           ),
           SizedBox(height: 14 * s),
@@ -35,7 +37,7 @@ class MirrorGenderScreen extends StatelessWidget {
             delayMs: 60,
             child: Text(
               l10n.mirrorBodyTitle,
-              style: MirrorTheme.headline(38 * s),
+              style: t.headline(36 * s),
             ),
           ),
           SizedBox(height: 8 * s),
@@ -45,7 +47,7 @@ class MirrorGenderScreen extends StatelessWidget {
               controller.menswearAvailable
                   ? l10n.mirrorBodySubtitle
                   : l10n.mirrorWomenOnly,
-              style: MirrorTheme.subtitle(16 * s),
+              style: t.subtitle(16 * s),
             ),
           ),
           SizedBox(height: 32 * s),
@@ -55,7 +57,7 @@ class MirrorGenderScreen extends StatelessWidget {
                 // Высота карточек подстраивается под доступное место —
                 // никаких переполнений ни на телефоне, ни на большом зеркале.
                 final cardHeight =
-                    (260 * s).clamp(120.0, constraints.maxHeight);
+                    (190 * s).clamp(120.0, constraints.maxHeight);
                 return Align(
                   alignment: Alignment.topCenter,
                   child: SizedBox(
@@ -66,7 +68,6 @@ class MirrorGenderScreen extends StatelessWidget {
                           child: MirrorFadeIn(
                             delayMs: 180,
                             child: _GenderCard(
-                              icon: Icons.female_rounded,
                               label: l10n.mirrorFemale,
                               selected: controller.gender == 'FEMALE',
                               onTap: () => controller.setGender('FEMALE'),
@@ -76,12 +77,11 @@ class MirrorGenderScreen extends StatelessWidget {
                         // Мужская одежда в зале есть не всегда: без неё мужчина
                         // снял бы фото и ждал генерацию ради пустого результата.
                         if (controller.menswearAvailable) ...[
-                          SizedBox(width: 16 * s),
+                          SizedBox(width: 14 * s),
                           Expanded(
                             child: MirrorFadeIn(
                               delayMs: 250,
                               child: _GenderCard(
-                                icon: Icons.male_rounded,
                                 label: l10n.mirrorMale,
                                 selected: controller.gender == 'MALE',
                                 onTap: () => controller.setGender('MALE'),
@@ -103,52 +103,59 @@ class MirrorGenderScreen extends StatelessWidget {
   }
 }
 
+/// Типографская карточка выбора: тонкая линейка цветом бренда и серифная
+/// подпись; выбранная — залита цветом бренда.
 class _GenderCard extends StatelessWidget {
   const _GenderCard({
-    required this.icon,
     required this.label,
     required this.selected,
     required this.onTap,
   });
 
-  final IconData icon;
   final String label;
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final t = MirrorTheme.of(context);
     final s = MirrorTheme.scale(context);
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        decoration: BoxDecoration(
-          color: selected ? MirrorTheme.selectedBg : MirrorTheme.surface,
-          borderRadius: BorderRadius.circular(28 * s),
-          border: Border.all(
-            color: selected ? MirrorTheme.pink : Colors.transparent,
-            width: 3,
+    final fg = selected ? t.onPrimary : t.ink;
+
+    return Material(
+      color: selected ? t.primary : t.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(t.rCard),
+        side: BorderSide(color: selected ? t.primary : t.hairline),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: EdgeInsets.all(20 * s),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 28 * s,
+                height: 1.5,
+                color: selected ? t.onPrimary : t.primary,
+              ),
+              const Spacer(),
+              Text(
+                label,
+                maxLines: 2,
+                style: t.headline(26 * s, color: fg),
+              ),
+            ],
           ),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: 64 * s,
-              color: selected ? MirrorTheme.pink : MirrorTheme.ink,
-            ),
-            SizedBox(height: 14 * s),
-            Text(label, style: MirrorTheme.label(20 * s)),
-          ],
         ),
       ),
     );
   }
 }
 
-/// Экран 3б — тип фигуры. Список зависит от пола, «Не знаю» есть всегда.
+/// Экран 2б — тип фигуры. Список зависит от пола, «Не знаю» есть всегда.
 class MirrorShapeScreen extends StatelessWidget {
   const MirrorShapeScreen({super.key, required this.controller});
 
@@ -157,6 +164,7 @@ class MirrorShapeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final t = MirrorTheme.of(context);
     final s = MirrorTheme.scale(context);
     final lang = controller.shopperLang;
     final gender = controller.gender ?? 'FEMALE';
@@ -171,8 +179,8 @@ class MirrorShapeScreen extends StatelessWidget {
           SizedBox(height: 28 * s),
           MirrorFadeIn(
             child: Text(
-              l10n.mirrorBodyTitle.toUpperCase(),
-              style: MirrorTheme.kicker(s),
+              t.kickerCase(l10n.mirrorBodyTitle),
+              style: t.kicker(s),
             ),
           ),
           SizedBox(height: 14 * s),
@@ -180,7 +188,7 @@ class MirrorShapeScreen extends StatelessWidget {
             delayMs: 60,
             child: Text(
               l10n.mirrorShapeLabel,
-              style: MirrorTheme.headline(38 * s),
+              style: t.headline(36 * s),
             ),
           ),
           SizedBox(height: 24 * s),
@@ -244,64 +252,62 @@ class _ShapeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = MirrorTheme.of(context);
     final s = MirrorTheme.scale(context);
+
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: EdgeInsets.all(12 * s),
+        padding: EdgeInsets.all(10 * s),
         decoration: BoxDecoration(
-          color: selected ? MirrorTheme.selectedBg : MirrorTheme.surface,
-          borderRadius: BorderRadius.circular(22 * s),
+          color: selected ? t.selectedBg : t.surface,
+          borderRadius: BorderRadius.circular(t.rCard),
           border: Border.all(
-            color: selected ? MirrorTheme.pink : Colors.transparent,
-            width: 3,
+            color: selected ? t.primary : t.hairline,
+            width: selected ? 2 : 1,
           ),
         ),
         child: Column(
           children: [
             Expanded(
-              // Иллюстрации силуэтов — полноцветные PNG на белом фоне:
-              // тонировать их нельзя (srcIn заливает всё сплошным цветом).
-              child: asset != null
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(14 * s),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // Иллюстрации силуэтов — полноцветные PNG на белом фоне:
+                  // тонировать их нельзя (srcIn заливает всё сплошным цветом).
+                  if (asset != null)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(t.rImage),
                       child: Container(
                         color: Colors.white,
                         padding: EdgeInsets.all(6 * s),
                         child: Image.asset(asset!, fit: BoxFit.contain),
                       ),
                     )
-                  : Center(
+                  else
+                    Center(
                       child: isUnknown
-                          ? Container(
-                              width: 52 * s,
-                              height: 52 * s,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: selected
-                                    ? Colors.white
-                                    : MirrorTheme.hairline,
-                              ),
-                              child: Text(
-                                '?',
-                                style: MirrorTheme.label(
-                                  24 * s,
-                                  color: selected
-                                      ? MirrorTheme.pink
-                                      : MirrorTheme.gray,
-                                ),
+                          ? Text(
+                              '?',
+                              style: t.display(
+                                40 * s,
+                                color: selected ? t.primary : t.muted,
                               ),
                             )
                           : Icon(
                               Icons.accessibility_new_rounded,
                               size: 52 * s,
-                              color: selected
-                                  ? MirrorTheme.pink
-                                  : MirrorTheme.ink,
+                              color: selected ? t.primary : t.ink,
                             ),
                     ),
+                  Positioned(
+                    top: 6 * s,
+                    right: 6 * s,
+                    child: MirrorCheck(selected: selected, size: 22 * s),
+                  ),
+                ],
+              ),
             ),
             SizedBox(height: 8 * s),
             Text(
@@ -309,10 +315,7 @@ class _ShapeCard extends StatelessWidget {
               maxLines: 2,
               textAlign: TextAlign.center,
               overflow: TextOverflow.ellipsis,
-              style: MirrorTheme.label(
-                13.5 * s,
-                weight: FontWeight.w700,
-              ),
+              style: t.label(13.5 * s, weight: FontWeight.w600),
             ),
           ],
         ),
