@@ -34,24 +34,6 @@ class MirrorTheme {
   Color get danger => brand.palette.danger;
   Color get success => brand.palette.success;
 
-  /// Дуотон для полноцветных иллюстраций (силуэт примерки нарисован розовым):
-  /// яркость пикселя раскладывается между [primaryDeep] и светлым оттенком
-  /// [primary], объём и тени сохраняются, альфа не трогается.
-  ColorFilter get figureDuotone {
-    final dark = primaryDeep;
-    final light = Color.lerp(primary, const Color(0xFFFFFFFF), 0.86)!;
-    const lr = 0.2126, lg = 0.7152, lb = 0.0722;
-    final kr = light.r - dark.r;
-    final kg = light.g - dark.g;
-    final kb = light.b - dark.b;
-    return ColorFilter.matrix(<double>[
-      lr * kr, lg * kr, lb * kr, 0, dark.r * 255, //
-      lr * kg, lg * kg, lb * kg, 0, dark.g * 255, //
-      lr * kb, lg * kb, lb * kb, 0, dark.b * 255, //
-      0, 0, 0, 1, 0,
-    ]);
-  }
-
   // ── Радиусы ────────────────────────────────────────────────────────────────
   double get rButton => brand.shape.button;
   double get rCard => brand.shape.card;

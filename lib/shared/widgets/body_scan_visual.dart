@@ -9,21 +9,7 @@ import 'package:flutter/material.dart';
 /// the Magic Mirror kiosk can share the same scan effect.
 class BodyScanVisual extends StatefulWidget {
   final Widget badge;
-
-  /// Glow and sparkle colour. Defaults to the consumer try-on pink; the
-  /// Magic Mirror passes its brand colour.
-  final Color accent;
-
-  /// Optional recolouring of the figure illustration (it is drawn in pink).
-  /// The Magic Mirror passes a brand duotone; null keeps the original art.
-  final ColorFilter? figureFilter;
-
-  const BodyScanVisual({
-    super.key,
-    required this.badge,
-    this.accent = const Color(0xFFF370A7),
-    this.figureFilter,
-  });
+  const BodyScanVisual({super.key, required this.badge});
 
   @override
   State<BodyScanVisual> createState() => _BodyScanVisualState();
@@ -32,11 +18,6 @@ class BodyScanVisual extends StatefulWidget {
 class _BodyScanVisualState extends State<BodyScanVisual>
     with SingleTickerProviderStateMixin {
   late final AnimationController _anim;
-
-  static const Widget _figure = Image(
-    image: AssetImage('assets/images/tryon_silhouette.png'),
-    fit: BoxFit.contain,
-  );
 
   @override
   void initState() {
@@ -59,7 +40,7 @@ class _BodyScanVisualState extends State<BodyScanVisual>
     return Stack(
       fit: StackFit.expand,
       children: [
-        // Barely-there aura behind the figure; the edges stay transparent
+        // Barely-there pink aura behind the figure; the edges stay transparent
         // so the stage reads as the sheet's own clean white (or dark) surface.
         DecoratedBox(
           decoration: BoxDecoration(
@@ -67,8 +48,8 @@ class _BodyScanVisualState extends State<BodyScanVisual>
               center: const Alignment(0, -0.15),
               radius: 0.9,
               colors: [
-                widget.accent.withValues(alpha: isDark ? 0.10 : 0.06),
-                widget.accent.withValues(alpha: 0),
+                const Color(0xFFF370A7).withValues(alpha: isDark ? 0.10 : 0.06),
+                const Color(0xFFF370A7).withValues(alpha: 0),
               ],
             ),
           ),
@@ -81,25 +62,18 @@ class _BodyScanVisualState extends State<BodyScanVisual>
             scale: 1 + 0.012 * math.sin(_anim.value * 2 * math.pi),
             child: child,
           ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            child: widget.figureFilter == null
-                ? _figure
-                : ColorFiltered(
-                    colorFilter: widget.figureFilter!,
-                    child: _figure,
-                  ),
+          child: const Padding(
+            padding: EdgeInsets.symmetric(vertical: 14),
+            child: Image(
+              image: AssetImage('assets/images/tryon_silhouette.png'),
+              fit: BoxFit.contain,
+            ),
           ),
         ),
         AnimatedBuilder(
           animation: _anim,
-          builder: (context, _) => CustomPaint(
-            painter: ScanGlowPainter(
-              _anim.value,
-              isDark,
-              accent: widget.accent,
-            ),
-          ),
+          builder: (context, _) =>
+              CustomPaint(painter: ScanGlowPainter(_anim.value, isDark)),
         ),
         Positioned(top: 12, right: 12, child: widget.badge),
       ],
@@ -114,10 +88,9 @@ class _BodyScanVisualState extends State<BodyScanVisual>
 class ScanGlowPainter extends CustomPainter {
   final double t; // 0..1 loop phase
   final bool isDark;
-  final Color accent;
-  ScanGlowPainter(this.t, this.isDark, {this.accent = _defaultAccent});
+  ScanGlowPainter(this.t, this.isDark);
 
-  static const _defaultAccent = Color(0xFFF370A7);
+  static const _pink = Color(0xFFF370A7);
 
   // Ring anchors as a fraction of the figure's height, and each ring's width
   // as a multiple of the figure's width (wider toward the ground, like the
@@ -164,7 +137,7 @@ class ScanGlowPainter extends CustomPainter {
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = 10
-          ..color = accent.withValues(alpha: 0.22 * alpha)
+          ..color = _pink.withValues(alpha: 0.22 * alpha)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12),
       );
       canvas.drawOval(
@@ -172,7 +145,7 @@ class ScanGlowPainter extends CustomPainter {
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = 3
-          ..color = accent.withValues(alpha: 0.60 * alpha)
+          ..color = _pink.withValues(alpha: 0.60 * alpha)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
       );
       canvas.drawOval(
@@ -199,7 +172,7 @@ class ScanGlowPainter extends CustomPainter {
     }
 
     // Slow sparkles, each twinkling once per loop on its own phase.
-    final sparkCore = isDark ? Colors.white : accent;
+    final sparkCore = isDark ? Colors.white : _pink;
     for (var i = 0; i < _sparks.length; i++) {
       final s = _sparks[i];
       final tw = math.sin(2 * math.pi * (t + s[2]));
@@ -211,7 +184,7 @@ class ScanGlowPainter extends CustomPainter {
         c,
         r * 2.6,
         Paint()
-          ..color = accent.withValues(alpha: 0.30 * a)
+          ..color = _pink.withValues(alpha: 0.30 * a)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
       );
       canvas.drawCircle(
@@ -227,7 +200,5 @@ class ScanGlowPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(ScanGlowPainter oldDelegate) =>
-      oldDelegate.t != t ||
-      oldDelegate.isDark != isDark ||
-      oldDelegate.accent != accent;
+      oldDelegate.t != t || oldDelegate.isDark != isDark;
 }

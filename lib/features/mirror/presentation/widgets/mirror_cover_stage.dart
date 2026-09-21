@@ -8,6 +8,7 @@ import '../../data/kiosk_cover_looks.dart';
 import '../../data/kiosk_models.dart';
 import '../../data/kiosk_taxonomy.dart';
 import '../mirror_theme.dart';
+import 'mirror_stage_parts.dart';
 
 /// Сцена постера — «примерочная»: арочное зеркало в глиняной раме на
 /// зелёной стене бутика. Вещи зала влетают с боков с наклоном, парят, затем
@@ -51,18 +52,7 @@ class MirrorCoverStage extends StatelessWidget {
 
   double get _centerX => artboard.width / 2;
 
-  Rect get _mirror => Rect.fromLTWH(_centerX - 85, 30, 170, 408);
-
-  /// Фигура в зеркале сужается книзу — голова-намёк, верх, низ, обувь:
-  /// плитки читаются как человек, а не как стопка фото. Верх начинается
-  /// ниже свода арки, чтобы углы плитки не вылезали за стекло.
-  static const double _bodyTop = 80;
-  static const double _bodyBottom = 418;
-  static const double _gap = 6;
-  static const double _shoesHeight = 60;
-  static const double _topWidth = 140;
-  static const double _bottomWidth = 124;
-  static const double _shoesWidth = 104;
+  Rect get _mirror => MirrorFigureLayout.mirrorRect(_centerX);
 
   /// «Рейл» по бокам зеркала: откуда вещи стартуют и с каким наклоном.
   List<Rect> get _rack => wide
@@ -134,7 +124,7 @@ class MirrorCoverStage extends StatelessWidget {
                 ),
               ),
 
-              Positioned.fromRect(rect: _mirror, child: const _Mirror()),
+              Positioned.fromRect(rect: _mirror, child: const MirrorArch()),
 
               for (var i = 0; i < pieces.length; i++)
                 _buildPiece(pieces[i], slots[i], i, v, fade, bob),
@@ -146,7 +136,7 @@ class MirrorCoverStage extends StatelessWidget {
                 child: _Pop(
                   t: _interval(v, 0.60, 0.72, Curves.easeOutBack),
                   opacity: _interval(v, 0.60, 0.66) * fade,
-                  child: const _AiBadge(),
+                  child: const MirrorAiBadge(),
                 ),
               ),
 
@@ -232,33 +222,17 @@ class MirrorCoverStage extends StatelessWidget {
     ];
   }
 
-  /// Раскладка вещей внутри зеркала — фигурой: верх шире, низ уже, обувь —
-  /// узкой полосой у пола. Цельная вещь занимает место верха и низа.
+  /// Раскладка вещей внутри зеркала фигурой (см. [MirrorFigureLayout]):
+  /// голова-намёк, верх, низ, обувь — плитки читаются как человек.
   List<Rect> _slots(List<_Piece> pieces) {
     final current = look;
     final hasShoes =
         current == null ? pieces.length > 2 : current.shoes != null;
-    final bodyCount = pieces.length - (hasShoes ? 1 : 0);
-    final bodyBottom = _bodyBottom - (hasShoes ? _shoesHeight + _gap : 0);
-    final bodyHeight = bodyBottom - _bodyTop;
-
-    Rect centered(double top, double width, double height) =>
-        Rect.fromLTWH(_centerX - width / 2, top, width, height);
-
-    final slots = <Rect>[];
-    if (bodyCount <= 1) {
-      slots.add(centered(_bodyTop, _topWidth - 4, bodyHeight));
-    } else {
-      final half = (bodyHeight - _gap) / 2;
-      slots
-        ..add(centered(_bodyTop, _topWidth, half))
-        ..add(centered(_bodyTop + half + _gap, _bottomWidth, half));
-    }
-    if (hasShoes) {
-      slots.add(
-        centered(_bodyBottom - _shoesHeight, _shoesWidth, _shoesHeight),
-      );
-    }
+    final slots = MirrorFigureLayout.slots(
+      centerX: _centerX,
+      bodyCount: pieces.length - (hasShoes ? 1 : 0),
+      hasShoes: hasShoes,
+    );
     while (slots.length < pieces.length) {
       slots.add(slots.last);
     }
@@ -353,128 +327,6 @@ class _PieceCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(math.max(2, radius - frame)),
           child: SizedBox.expand(child: content),
         ),
-      ),
-    );
-  }
-}
-
-/// Арочное зеркало: глиняная рама, светлое стекло, бегущий блик.
-class _Mirror extends StatelessWidget {
-  const _Mirror();
-
-  static const BorderRadius _arch = BorderRadius.vertical(
-    top: Radius.circular(85),
-    bottom: Radius.circular(8),
-  );
-  static const BorderRadius _glass = BorderRadius.vertical(
-    top: Radius.circular(81),
-    bottom: Radius.circular(5),
-  );
-
-  @override
-  Widget build(BuildContext context) {
-    final t = MirrorTheme.of(context);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: t.accent,
-        borderRadius: _arch,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.30),
-            blurRadius: 44,
-            spreadRadius: -14,
-            offset: const Offset(0, 26),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(4),
-        child: ClipRRect(
-          borderRadius: _glass,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Colors.white, t.surface, t.bg],
-                    stops: const [0.0, 0.55, 1.0],
-                  ),
-                ),
-              ),
-              // Намёк на голову и шею: вместе с плитками вещей отражение
-              // читается как человек.
-              Align(
-                alignment: Alignment.topCenter,
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 34,
-                        height: 34,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: t.primary.withValues(alpha: 0.14),
-                        ),
-                      ),
-                      Container(
-                        width: 12,
-                        height: 8,
-                        color: t.primary.withValues(alpha: 0.14),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const Gleam(
-                durationMs: 4200,
-                travelFraction: 0.5,
-                widthFraction: 0.5,
-                opacity: 0.7,
-                initialDelayMs: 1400,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AiBadge extends StatelessWidget {
-  const _AiBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    final t = MirrorTheme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
-      decoration: BoxDecoration(
-        color: t.surface,
-        borderRadius: BorderRadius.circular(999),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.28),
-            blurRadius: 18,
-            spreadRadius: -6,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            'AI',
-            style: t.label(12, weight: FontWeight.w800, color: t.primary),
-          ),
-          const SizedBox(width: 5),
-          Text('✦', style: TextStyle(color: t.accent, fontSize: 12)),
-        ],
       ),
     );
   }

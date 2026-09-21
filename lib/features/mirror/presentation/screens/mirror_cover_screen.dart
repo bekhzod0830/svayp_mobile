@@ -14,6 +14,7 @@ import '../mirror_theme.dart';
 import '../widgets/mirror_buttons.dart';
 import '../widgets/mirror_chrome.dart';
 import '../widgets/mirror_cover_stage.dart';
+import '../widgets/mirror_stage_parts.dart';
 
 /// Экран 0 — постер (обложка). Зелёная «стена бутика» с линиями корта и
 /// арочным зеркалом: вещи зала влетают с боков и собираются в зеркале в образ
@@ -386,106 +387,31 @@ class _StageWall extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = MirrorTheme.of(context);
-    return ClipRRect(
+    return MirrorStageWall(
       borderRadius: BorderRadius.vertical(bottom: Radius.circular(22 * cs)),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [t.primary, t.primaryDeep],
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                10 * cs,
+                topInset + 62 * cs,
+                10 * cs,
+                12 * cs,
+              ),
+              child: child,
+            ),
           ),
-        ),
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: CustomPaint(
-                painter: _CourtLinesPainter(
-                  color: t.onPrimary.withValues(alpha: 0.075),
-                ),
-              ),
-            ),
-            Positioned.fill(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  10 * cs,
-                  topInset + 62 * cs,
-                  10 * cs,
-                  12 * cs,
-                ),
-                child: child,
-              ),
-            ),
-            Positioned(
-              top: topInset + 12 * cs,
-              left: 24 * cs,
-              right: 24 * cs,
-              child: header,
-            ),
-          ],
-        ),
+          Positioned(
+            top: topInset + 12 * cs,
+            left: 24 * cs,
+            right: 24 * cs,
+            child: header,
+          ),
+        ],
       ),
     );
   }
-}
-
-/// Разметка теннисного корта тонкими линиями — наследие бренда вместо
-/// орнамента: внешний контур, одиночные коридоры, сетка и линии подачи.
-class _CourtLinesPainter extends CustomPainter {
-  const _CourtLinesPainter({required this.color});
-
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = math.max(1.2, size.shortestSide * 0.004)
-      ..color = color;
-
-    final court = Rect.fromLTRB(
-      size.width * 0.07,
-      size.height * 0.06,
-      size.width * 0.93,
-      size.height * 1.06, // дальняя половина уходит за скруглённый низ
-    );
-    canvas.drawRect(court, paint);
-
-    // Одиночные коридоры.
-    final alley = court.width * 0.125;
-    canvas
-      ..drawLine(
-        Offset(court.left + alley, court.top),
-        Offset(court.left + alley, court.bottom),
-        paint,
-      )
-      ..drawLine(
-        Offset(court.right - alley, court.top),
-        Offset(court.right - alley, court.bottom),
-        paint,
-      );
-
-    // Сетка и линия подачи с центральной линией.
-    final net = court.top + court.height * 0.5;
-    final service = court.top + court.height * 0.23;
-    canvas
-      ..drawLine(Offset(court.left, net), Offset(court.right, net), paint)
-      ..drawLine(
-        Offset(court.left + alley, service),
-        Offset(court.right - alley, service),
-        paint,
-      )
-      ..drawLine(
-        Offset(court.center.dx, service),
-        Offset(court.center.dx, net),
-        paint,
-      );
-  }
-
-  @override
-  bool shouldRepaint(_CourtLinesPainter oldDelegate) =>
-      oldDelegate.color != color;
 }
 
 /// Верхняя строка постера на зелёной стене: знак бренда (5 касаний —
