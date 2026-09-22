@@ -3629,6 +3629,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'The store currently carries the women’s collection';
 
   @override
+  String get mirrorGenLimit =>
+      'No more attempts at this stand — continue in the app';
+
+  @override
+  String get mirrorGenTimeout => 'This took too long. Please try again';
+
+  @override
   String get mirrorDontKnow => 'I don\'t know';
 
   @override

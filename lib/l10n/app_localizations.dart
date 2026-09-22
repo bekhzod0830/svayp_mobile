@@ -7024,6 +7024,18 @@ abstract class AppLocalizations {
   /// **'The store currently carries the women’s collection'**
   String get mirrorWomenOnly;
 
+  /// No description provided for @mirrorGenLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'No more attempts at this stand — continue in the app'**
+  String get mirrorGenLimit;
+
+  /// No description provided for @mirrorGenTimeout.
+  ///
+  /// In en, this message translates to:
+  /// **'This took too long. Please try again'**
+  String get mirrorGenTimeout;
+
   /// No description provided for @mirrorDontKnow.
   ///
   /// In en, this message translates to:

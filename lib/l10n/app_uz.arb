@@ -1312,6 +1312,8 @@
   "mirrorFemale": "Ayol",
   "mirrorMale": "Erkak",
   "mirrorWomenOnly": "Hozir zalda ayollar kolleksiyasi",
+  "mirrorGenLimit": "Bu stenddagi urinishlar tugadi — ilovada davom eting",
+  "mirrorGenTimeout": "Yaratish juda uzoq davom etdi. Qayta urinib koʻring",
   "mirrorDontKnow": "Bilmayman",
   "mirrorNext": "Keyingisi",
   "mirrorStyleTitle": "Sizga qaysi uslub yaqin?",

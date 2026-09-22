@@ -208,9 +208,18 @@ class _MirrorGeneratingScreenState extends State<MirrorGeneratingScreen> {
   Widget _buildFailure(BuildContext context, AppLocalizations l10n, double s) {
     final c = widget.controller;
     final reason = c.genReason;
-    final reasonText = MirrorSessionController.isLookUnavailable(reason)
+    final code = (reason ?? '').replaceFirst('KIOSK_', '');
+    final limited = code == 'REGENERATE_LIMIT' || code == 'RATE_LIMIT';
+    final unavailable = MirrorSessionController.isLookUnavailable(reason);
+    // Человеку у стенда — понятный текст, а не код ошибки (код уходит в аналитику).
+    final String? reasonText = unavailable
         ? l10n.mirrorLookUnavailable
-        : null;
+        : limited
+            ? l10n.mirrorGenLimit
+            : code == 'TIMEOUT'
+                ? l10n.mirrorGenTimeout
+                : null;
+    final canRetry = !unavailable && !limited;
 
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 32 * s),
@@ -238,12 +247,14 @@ class _MirrorGeneratingScreenState extends State<MirrorGeneratingScreen> {
                   style: MirrorTheme.subtitle(15 * s),
                 ),
               ],
-              SizedBox(height: 24 * s),
-              MirrorPrimaryButton(
-                label: l10n.mirrorGenRetry,
-                height: 60 * s,
-                onTap: c.retryGeneration,
-              ),
+              if (canRetry) ...[
+                SizedBox(height: 24 * s),
+                MirrorPrimaryButton(
+                  label: l10n.mirrorGenRetry,
+                  height: 60 * s,
+                  onTap: c.retryGeneration,
+                ),
+              ],
               SizedBox(height: 20 * s),
               if (c.shareUrl != null) ...[
                 Text(
@@ -267,16 +278,6 @@ class _MirrorGeneratingScreenState extends State<MirrorGeneratingScreen> {
                 ),
                 SizedBox(height: 16 * s),
               ],
-              if (reason != null && reasonText == null)
-                Text(
-                  reason,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontFamily: 'Courier',
-                    fontSize: 11 * s,
-                    color: MirrorTheme.gray.withValues(alpha: 0.7),
-                  ),
-                ),
             ],
           ),
         ),

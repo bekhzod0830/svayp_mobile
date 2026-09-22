@@ -28,6 +28,13 @@ enum MirrorScreen {
 
 enum MirrorPath { create, catalog }
 
+/// Отправка события аналитики. Подменяется в тестах: настоящий сервис при
+/// создании обращается к Firebase.
+typedef KioskEventLogger = Future<void> Function(
+  String name, {
+  Map<String, String>? parameters,
+});
+
 /// Состояние киоск-сессии: машина экранов, ответы, фото, генерация, таймеры
 /// бездействия. ChangeNotifier — по конвенции приложения (bloc не используется).
 ///
@@ -39,9 +46,11 @@ class MirrorSessionController extends ChangeNotifier {
     required KioskApi api,
     required KioskDemoService demo,
     required SharedPreferences prefs,
+    KioskEventLogger? logEvent,
   })  : _api = api,
         _demo = demo,
-        _prefs = prefs {
+        _prefs = prefs,
+        _logEvent = logEvent {
     _storeLabel = _prefs.getString(_storeLabelKey);
   }
 
@@ -49,15 +58,15 @@ class MirrorSessionController extends ChangeNotifier {
   static const idleTimeout = Duration(seconds: 45);
   static const idleGraceSeconds = 10;
   static const maxRegenerations = 3;
-  // Киоск генерирует на quality=medium: замер 45–60 c. Бюджет ML — 90 c, наш порог
-  // чуть выше, чтобы первым пришёл честный отказ сервера, а не клиентский таймаут.
-  static const int reassureAfterSec = 60;
-  static const int failAfterSec = 95;
+  // Киоск генерирует на quality=low: замер 20–35 c. Бюджет ML — 75 c (плюс очередь),
+  // наш порог выше, чтобы обычно первым приходил честный отказ сервера.
+  static const int reassureAfterSec = 35;
+  static const int failAfterSec = 90;
 
   final KioskApi _api;
   final KioskDemoService _demo;
   final SharedPreferences _prefs;
-  final AnalyticsService _analytics = AnalyticsService.instance;
+  final KioskEventLogger? _logEvent;
 
   // ── Состояние ──────────────────────────────────────────────────────────────
   MirrorScreen screen = MirrorScreen.idle;
@@ -96,8 +105,6 @@ class MirrorSessionController extends ChangeNotifier {
 
   KioskLook? look;
   KioskLook? _completedLook;
-  // Один демо-фолбэк на сессию: если и демо упало — честный экран ошибки.
-  bool _demoFallbackUsed = false;
   bool resultReady = false;
   int elapsedSec = 0;
   bool genFailed = false;
@@ -113,6 +120,22 @@ class MirrorSessionController extends ChangeNotifier {
 
   bool _active = false;
   bool _disposed = false;
+
+  /// Номер текущей генерации: отмена, сброс и новая генерация его меняют, и
+  /// запоздавший ответ прошлой генерации не открывает чужой результат.
+  int _genId = 0;
+
+  /// Для какого образа уже взяты код и QR: после «Пересобрать» их нужно обновить.
+  String? _sharedLookId;
+  bool _shareInFlight = false;
+  int _shareRetries = 0;
+
+  /// Все картинки результатов сессии: после сброса вычищаем из кэша каждую, а не
+  /// только последнюю — на прошлых пересборках тоже лицо покупателя.
+  final Set<String> _resultUrls = {};
+
+  /// Сброс пришёл, пока каталог грузился: перезагрузить, когда текущая загрузка кончится.
+  bool _catalogReloadPending = false;
 
   KioskLookWatch? _watch;
   Timer? _idleTimer;
@@ -174,7 +197,7 @@ class MirrorSessionController extends ChangeNotifier {
   }
 
   void _track(String event, [Map<String, String>? params]) {
-    _analytics.logEvent(event, parameters: {
+    (_logEvent ?? AnalyticsService.instance.logEvent)(event, parameters: {
       if (sessionId != null) 'kiosk_session_id': sessionId!,
       'demo': demoActive.toString(),
       ...?params,
@@ -192,6 +215,16 @@ class MirrorSessionController extends ChangeNotifier {
     // Двойное касание CTA не должно открыть две сессии.
     if (_beginning || screen != MirrorScreen.idle) return;
     _beginning = true;
+    try {
+      await _begin(p);
+    } finally {
+      // Любая неожиданная ошибка (не KioskApiException) раньше оставляла флаг
+      // поднятым — и кнопки постера не работали до перезапуска приложения.
+      _beginning = false;
+    }
+  }
+
+  Future<void> _begin(MirrorPath p) async {
     path = p;
     touch();
 
@@ -220,7 +253,6 @@ class MirrorSessionController extends ChangeNotifier {
       'path': p == MirrorPath.create ? 'create' : 'catalog',
     });
 
-    _beginning = false;
     if (p == MirrorPath.create) {
       _go(MirrorScreen.intro);
     } else {
@@ -267,7 +299,10 @@ class MirrorSessionController extends ChangeNotifier {
     }
     _notify();
 
-    if (_catalogFetchInFlight) return;
+    if (_catalogFetchInFlight) {
+      _catalogReloadPending = true;
+      return;
+    }
     _catalogFetchInFlight = true;
 
     void onPage(List<KioskCatalogItem> items) {
@@ -291,6 +326,12 @@ class MirrorSessionController extends ChangeNotifier {
       if (!_disposed) {
         catalogLoading = false;
         _notify();
+      }
+      // Сброс/смена ветки во время загрузки: прошлая загрузка отменилась по токену,
+      // а новая сразу вышла на флаге — без перезапуска новый покупатель видел пусто.
+      if (_catalogReloadPending && !_disposed) {
+        _catalogReloadPending = false;
+        if (screen == MirrorScreen.catalog) loadCatalog();
       }
     }
   }
@@ -368,8 +409,9 @@ class MirrorSessionController extends ChangeNotifier {
     touch();
     if (gender != g) {
       gender = g;
-      // Списки фигур зависят от пола — прежний выбор не имеет смысла.
+      // Списки фигур и стилей зависят от пола — прежний выбор не имеет смысла.
       bodyShape = null;
+      styles.clear();
     }
     _notify();
     _go(MirrorScreen.shape);
@@ -413,6 +455,8 @@ class MirrorSessionController extends ChangeNotifier {
   // ── Генерация ──────────────────────────────────────────────────────────────
 
   Future<void> startGeneration() async {
+    final genId = ++_genId;
+    bool stale() => _disposed || genId != _genId;
     _stopGeneration();
     genFailed = false;
     genReason = null;
@@ -444,9 +488,10 @@ class MirrorSessionController extends ChangeNotifier {
             photoPath: capturedPhoto?.path,
             baseCatalog: _catalogAllCache,
           );
+          if (stale()) return;
           _onGenerationCompleted(demoLook);
         } catch (_) {
-          _onGenerationFailed('DEMO_FAILED');
+          if (!stale()) _onGenerationFailed('DEMO_FAILED');
         }
       });
       return;
@@ -461,7 +506,7 @@ class MirrorSessionController extends ChangeNotifier {
         productIds:
             path == MirrorPath.catalog ? List.of(pickedProductIds) : null,
       );
-      if (screen != MirrorScreen.generating) return;
+      if (stale() || screen != MirrorScreen.generating) return;
       if (created.isTerminal) {
         created.status == KioskLookStatus.completed
             ? _onGenerationCompleted(created)
@@ -472,16 +517,19 @@ class MirrorSessionController extends ChangeNotifier {
       _watch = _api.watchLook(
         created.lookId,
         onProgress: (l) {
+          if (stale()) return;
           look = l;
           _notify();
         },
         onDone: (l) {
+          if (stale()) return;
           l.status == KioskLookStatus.completed
               ? _onGenerationCompleted(l)
               : _onGenerationFailed(l.failureReason ?? 'FAILED');
         },
       );
     } on KioskApiException catch (e) {
+      if (stale()) return;
       _onGenerationFailed(e.code ?? (e.isNetwork ? 'NETWORK' : 'FAILED'));
     }
   }
@@ -491,6 +539,8 @@ class MirrorSessionController extends ChangeNotifier {
     _stopGeneration(keepElapsed: true);
     look = l;
     _completedLook = l;
+    final url = l.resultImageUrl;
+    if (url != null) _resultUrls.add(url);
     resultReady = true;
     _track('kiosk_generation_completed', {
       'look_id': l.lookId,
@@ -504,24 +554,9 @@ class MirrorSessionController extends ChangeNotifier {
     _stopGeneration(keepElapsed: true);
     _track('kiosk_generation_failed', {'reason': reason});
 
-    // Витрина важнее ошибки (веб-паритет): если серверный пайплайн упал
-    // (например, сломан cv2 на бэкенде), тихо пересобираем образ в
-    // демо-режиме — с честным бейджем. Покупатель у зеркала не должен
-    // читать технические трейсы. Исключения: TIMEOUT/NETWORK (это про
-    // связь, не про пайплайн) и бизнес-отказы бэкенда KIOSK_* — нет образа
-    // в наличии, лимиты. Демо там соврало бы: оно выдаёт снятое фото за
-    // готовый образ.
-    final serverSide = !demoActive &&
-        reason != 'TIMEOUT' &&
-        reason != 'NETWORK' &&
-        !isBusinessRefusal(reason);
-    if (serverSide && !_demoFallbackUsed) {
-      _demoFallbackUsed = true;
-      _demo.enableAuto();
-      demoActive = true;
-      startGeneration();
-      return;
-    }
+    // Демо-фолбэка в настоящей сессии нет: демо выдаёт снятое фото за «образ» и
+    // придумывает код продавца, которого нет на сервере. Человеку у стенда —
+    // честный экран ошибки с повтором.
 
     genFailed = true;
     genReason = reason;
@@ -543,6 +578,7 @@ class MirrorSessionController extends ChangeNotifier {
   }
 
   void cancelGeneration() {
+    _genId++; // запоздавший ответ отменённой генерации не откроет результат
     _track('kiosk_generation_cancelled', {'elapsed': elapsedSec.toString()});
     _stopGeneration();
     if (path == MirrorPath.create) {
@@ -579,19 +615,34 @@ class MirrorSessionController extends ChangeNotifier {
   /// Код и QR — обязательный финал сессии. Если finish упал, тихо пробуем
   /// снова каждые 5 секунд, пока человек на результате.
   Future<void> ensureShare() async {
-    if (shareUrl != null || sessionId == null) return;
+    final id = sessionId;
+    // Код и QR уже выданы именно для показанного образа — делать нечего. После
+    // «Пересобрать» образ другой: finish нужно вызвать заново, иначе QR вёл бы на первый.
+    final lookId = _completedLook?.lookId;
+    if (id == null || _disposed || _shareInFlight) return;
+    if (shareUrl != null && _sharedLookId == lookId) return;
+    _shareInFlight = true;
     try {
-      final finish = demoActive
-          ? _demo.finish()
-          : await _api.finishSession(sessionId!);
+      final finish = demoActive ? _demo.finish() : await _api.finishSession(id);
+      // Пока ждали ответ, сессия могла смениться (сброс по бездействию) — тогда
+      // код и QR принадлежат прошлому покупателю.
+      if (_disposed || sessionId != id) return;
       sellerCode = finish.code;
       shareUrl = finish.shareUrl;
+      _sharedLookId = lookId;
+      _shareRetries = 0;
       _shareRetryTimer?.cancel();
       _shareRetryTimer = null;
       _notify();
     } catch (_) {
-      _shareRetryTimer?.cancel();
-      _shareRetryTimer = Timer(const Duration(seconds: 5), ensureShare);
+      if (_disposed || sessionId != id) return;
+      // Не бесконечно: на экране ошибки без готового образа сервер всегда отвечает 422.
+      if (_shareRetries++ < 3) {
+        _shareRetryTimer?.cancel();
+        _shareRetryTimer = Timer(const Duration(seconds: 5), ensureShare);
+      }
+    } finally {
+      _shareInFlight = false;
     }
   }
 
@@ -716,6 +767,8 @@ class MirrorSessionController extends ChangeNotifier {
 
     sessionId = null;
     menswearAvailable = true;
+    // Загрузка каталога идёт — дотянем после неё; следующий покупатель увидит полную витрину.
+    if (_catalogFetchInFlight) _catalogReloadPending = true;
     demoActive = false;
     gender = null;
     bodyShape = null;
@@ -730,7 +783,6 @@ class MirrorSessionController extends ChangeNotifier {
     validation = null;
     look = null;
     _completedLook = null;
-    _demoFallbackUsed = false;
     resultReady = false;
     elapsedSec = 0;
     genFailed = false;
@@ -738,6 +790,9 @@ class MirrorSessionController extends ChangeNotifier {
     attempt = 0;
     sellerCode = null;
     shareUrl = null;
+    _sharedLookId = null;
+    _shareRetries = 0;
+    _genId++;
     idleWarning = false;
     idleLeft = idleGraceSeconds;
     // Новый покупатель не должен наследовать язык предыдущего.
@@ -757,9 +812,14 @@ class MirrorSessionController extends ChangeNotifier {
   }
 
   Future<void> _evictResultImages() async {
-    final url = look?.resultImageUrl ?? _completedLook?.resultImageUrl;
-    if (url == null) return;
-    if (url.startsWith('http')) {
+    final urls = {
+      ..._resultUrls,
+      if (look?.resultImageUrl != null) look!.resultImageUrl!,
+      if (_completedLook?.resultImageUrl != null) _completedLook!.resultImageUrl!,
+    };
+    _resultUrls.clear();
+    for (final url in urls) {
+      if (!url.startsWith('http')) continue;
       try {
         await CachedNetworkImageProvider(url).evict();
       } catch (_) {}

@@ -1312,6 +1312,8 @@
   "mirrorFemale": "Женский",
   "mirrorMale": "Мужской",
   "mirrorWomenOnly": "Сейчас в зале женская коллекция",
+  "mirrorGenLimit": "Попытки на этом стенде закончились — продолжите в приложении",
+  "mirrorGenTimeout": "Генерация заняла слишком долго. Попробуйте ещё раз",
   "mirrorDontKnow": "Не знаю",
   "mirrorNext": "Дальше",
   "mirrorStyleTitle": "Какой стиль вам ближе?",
