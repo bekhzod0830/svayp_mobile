@@ -3556,15 +3556,6 @@ class AppLocalizationsUz extends AppLocalizations {
   String get mirrorCtaCreate => 'Uslubimni yaratish';
 
   @override
-  String get mirrorCtaCatalog => 'Kolleksiyadan tanlash';
-
-  @override
-  String get mirrorCoverKicker => 'Sehrli oyna';
-
-  @override
-  String get mirrorCoverLookKicker => 'Kun uslubi';
-
-  @override
   String get mirrorPrivacyLong =>
       'Yuz surati 15 daqiqa saqlanadi va avtomatik oʻchiriladi. Rasmda yuz koʻrsatilmaydi, sotuvchilar suratni koʻrmaydi.';
 
@@ -3861,4 +3852,66 @@ class AppLocalizationsUz extends AppLocalizations {
   @override
   String get promoErrGeneric =>
       'Promokodni qo\'llab bo\'lmadi. Qayta urinib ko\'ring.';
+
+  @override
+  String get mirrorCoverHeadline => 'Sizga ham\nyarashadimi?';
+
+  @override
+  String get mirrorCoverSubline =>
+      'Obraz tanlab, uni suratingizda kiyib koʻramiz';
+
+  @override
+  String get mirrorCoverInspiration => 'Kolleksiyadan\nilhom';
+
+  @override
+  String get mirrorCoverCta => 'Obrazimni yaratish';
+
+  @override
+  String get mirrorPoweredBy => 'Libas AI asosida';
+
+  @override
+  String get mirrorPickerKicker => 'Magic Mirror';
+
+  @override
+  String get mirrorPickerTitle => 'Koʻrinishni tanlang';
+
+  @override
+  String get mirrorPickerSubtitle =>
+      'Oyna xaridorlarni shunday kutib oladi. Keyin almashtirish uchun logotipga 5 marta bosing.';
+
+  @override
+  String get mirrorPickerStart => 'Oynani ishga tushirish';
+
+  @override
+  String get mirrorPickerCurrent => 'Hozirgi';
+
+  @override
+  String get mirrorGenStyleLabel => 'Uslub';
+
+  @override
+  String mirrorGenPickedCount(int count) {
+    return 'Zaldan kiyimlar: $count';
+  }
+
+  @override
+  String get mirrorCoverCatalog => 'Katalogdan tanlash';
+
+  @override
+  String get mirrorSiteQrHint =>
+      'Saytni ochish uchun telefon kamerasini kodga qarating';
+
+  @override
+  String get mirrorItemClose => 'Yopish';
+
+  @override
+  String get mirrorItemInLook => 'Obrazingizda';
+
+  @override
+  String get mirrorCodeKicker => 'Sotuvchi uchun kod';
+
+  @override
+  String get mirrorFromGallery => 'yoki galereyadan surat tanlang';
+
+  @override
+  String get mirrorFinish => 'Yakunlash';
 }

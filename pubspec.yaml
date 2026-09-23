@@ -203,6 +203,7 @@ flutter:
     - lib/img/body_type/
     - lib/video/kiosk_poster/
     - assets/brands/lacoste/
+    - assets/brands/libas/
     - lib/img/brands/
     - lib/img/fit_preference/covered/
     - lib/img/fit_preference/uncovered/

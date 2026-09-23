@@ -9,7 +9,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/analytics/analytics_service.dart';
 import '../brand/mirror_brands.dart';
 import '../data/kiosk_api.dart';
-import '../data/kiosk_cover_looks.dart';
 import '../data/kiosk_demo.dart';
 import '../data/kiosk_models.dart';
 
@@ -41,12 +40,13 @@ class MirrorSessionController extends ChangeNotifier {
     required KioskApi api,
     required KioskDemoService demo,
     required SharedPreferences prefs,
-    this.brand = kMirrorBrand,
+    MirrorBrand brand = kMirrorBrand,
     void Function(String event, Map<String, String> params)? analytics,
   })  : _api = api,
         _demo = demo,
         _prefs = prefs,
-        _sink = analytics {
+        _sink = analytics,
+        _brand = brand {
     _storeLabel = _prefs.getString(_storeLabelKey);
     shopperLang = brand.defaultLang;
   }
@@ -58,7 +58,7 @@ class MirrorSessionController extends ChangeNotifier {
   static const int reassureAfterSec = 25;
   static const int failAfterSec = 40;
 
-  /// Как часто постер освежает каталог зала, пока киоск стоит без дела.
+  /// Как часто освежается каталог зала, пока киоск стоит на постере.
   static const coverRefreshInterval = Duration(minutes: 15);
 
   final KioskApi _api;
@@ -69,8 +69,10 @@ class MirrorSessionController extends ChangeNotifier {
   /// Firebase не трогаем при создании); в тестах подставляется заглушка.
   final void Function(String event, Map<String, String> params)? _sink;
 
-  /// Оформление киоска: язык по умолчанию, подписи справочников.
-  final MirrorBrand brand;
+  /// Оформление киоска: язык по умолчанию, подписи справочников. Продавец
+  /// меняет его на экране выбора ([setBrand]).
+  MirrorBrand get brand => _brand;
+  MirrorBrand _brand;
 
   // ── Состояние ──────────────────────────────────────────────────────────────
   MirrorScreen screen = MirrorScreen.idle;
@@ -110,12 +112,6 @@ class MirrorSessionController extends ChangeNotifier {
   DateTime? _catalogWarmedAt;
   Timer? _coverRefreshTimer;
 
-  /// «Образы момента» для постера, пересобираются при каждом обновлении кэша.
-  List<KioskCoverLook> _coverLooks = const [];
-
-  /// Зерно ротации: внутри дня порядок стабилен, назавтра — другой.
-  final int _coverSeed = DateTime.now().day;
-
   File? capturedPhoto;
   String? photoBlobKey;
   KioskPhotoValidation? validation;
@@ -151,7 +147,6 @@ class MirrorSessionController extends ChangeNotifier {
   KioskApi get api => _api;
   KioskDemoService get demoService => _demo;
 
-  List<KioskCoverLook> get coverLooks => _coverLooks;
   List<KioskCatalogItem> get catalogPreview =>
       List.unmodifiable(_catalogAllCache);
 
@@ -248,8 +243,10 @@ class MirrorSessionController extends ChangeNotifier {
       _startDemoSession();
     } else {
       try {
-        final session =
-            await _api.startSession(shopperLang, p == MirrorPath.create ? 'create' : 'catalog');
+        final session = await _api.startSession(
+          apiLang,
+          p == MirrorPath.create ? 'create' : 'catalog',
+        );
         _demo.disableAuto();
         demoActive = false;
         sessionId = session.sessionId;
@@ -295,7 +292,6 @@ class MirrorSessionController extends ChangeNotifier {
   void _setCatalogCache(List<KioskCatalogItem> items, {required bool demo}) {
     _catalogAllCache = List.of(items);
     _catalogCacheIsDemo = demo;
-    _coverLooks = composeCoverLooks(_catalogAllCache, seed: _coverSeed);
   }
 
   /// Смена категории — мгновенный локальный фильтр по кэшу, без сети.
@@ -364,10 +360,12 @@ class MirrorSessionController extends ChangeNotifier {
     }
   }
 
-  /// Прогрев каталога для постера — без сессии: `/kiosk/catalog` нужен только
-  /// ключ устройства. Демо-каталог (весь маркетплейс) берём лишь когда демо
-  /// включено принудительно (показ партнёру); молча подменять каталог бренда
-  /// чужими вещами нельзя — при ошибке постер покажет типографский герой.
+  /// Прогрев каталога, пока киоск стоит на постере, — без сессии:
+  /// `/kiosk/catalog` нужен только ключ устройства. Так витрина каталога
+  /// открывается мгновенно, а сцена генерации листает реальные вещи зала.
+  /// Демо-каталог (весь маркетплейс) берём лишь когда демо включено
+  /// принудительно (показ партнёру): молча подменять каталог бренда чужими
+  /// вещами нельзя.
   Future<void> warmCatalog({bool force = false}) async {
     if (_disposed || screen != MirrorScreen.idle || !_active || offline) return;
 
@@ -391,8 +389,10 @@ class MirrorSessionController extends ChangeNotifier {
     _coverRefreshTimer?.cancel();
     _coverRefreshTimer = null;
     if (_disposed || screen != MirrorScreen.idle || !_active) return;
-    _coverRefreshTimer =
-        Timer.periodic(coverRefreshInterval, (_) => warmCatalog());
+    _coverRefreshTimer = Timer.periodic(
+      coverRefreshInterval,
+      (_) => warmCatalog(),
+    );
   }
 
   /// Подсадить каталог в тестах, минуя сеть.
@@ -685,9 +685,8 @@ class MirrorSessionController extends ChangeNotifier {
   Future<void> ensureShare() async {
     if (shareUrl != null || sessionId == null) return;
     try {
-      final finish = demoActive
-          ? _demo.finish()
-          : await _api.finishSession(sessionId!);
+      final finish =
+          demoActive ? _demo.finish() : await _api.finishSession(sessionId!);
       sellerCode = finish.code;
       shareUrl = finish.shareUrl;
       _shareRetryTimer?.cancel();
@@ -734,7 +733,9 @@ class MirrorSessionController extends ChangeNotifier {
       case MirrorScreen.style:
         _go(MirrorScreen.shape);
       case MirrorScreen.result:
-        _go(path == MirrorPath.create ? MirrorScreen.style : MirrorScreen.catalog);
+        _go(
+          path == MirrorPath.create ? MirrorScreen.style : MirrorScreen.catalog,
+        );
       case MirrorScreen.buy:
         _go(MirrorScreen.result);
     }
@@ -854,7 +855,7 @@ class MirrorSessionController extends ChangeNotifier {
     screen = MirrorScreen.idle;
     _notify();
 
-    // Постер снова на витрине: освежаем каталог зала для «образов момента».
+    // Киоск снова на постере: освежаем каталог зала к следующей сессии.
     _armCoverRefresh();
     warmCatalog();
   }
@@ -891,6 +892,19 @@ class MirrorSessionController extends ChangeNotifier {
       warmCatalog();
     }
   }
+
+  /// Сменить оформление. Сессия покупателя, если была, закрывается: вещи,
+  /// подписи и язык по умолчанию у брендов разные.
+  Future<void> setBrand(MirrorBrand next) async {
+    if (next.id == _brand.id) return;
+    _track('kiosk_brand_selected', {'brand': next.id});
+    _brand = next;
+    await hardReset('brand');
+  }
+
+  /// Язык для бэкенда. Киоск-API рассчитан на RU/UZ; английский экран
+  /// киоска отправляет русский, чтобы сессия не упала на неизвестном языке.
+  String get apiLang => shopperLang == 'uz' ? 'uz' : 'ru';
 
   void setShopperLang(String code) {
     shopperLang = code;

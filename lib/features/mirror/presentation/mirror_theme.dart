@@ -3,7 +3,16 @@ import 'package:flutter/material.dart';
 import '../brand/mirror_brands.dart';
 
 export '../brand/mirror_brands.dart'
-    show MirrorBrand, MirrorBrandScope, kMirrorBrand;
+    show
+        MirrorBrand,
+        MirrorBrandScope,
+        MirrorCoverHero,
+        MirrorCoverPiece,
+        MirrorVideoCover,
+        MirrorWordmarkStyle,
+        kMirrorBrand,
+        kMirrorBrands,
+        mirrorBrandById;
 
 /// Дизайн-токены Magic Mirror, собранные из активного бренда.
 ///
@@ -40,6 +49,26 @@ class MirrorTheme {
   double get rChip => brand.shape.chip;
   double get rImage => brand.shape.image;
 
+  /// Форма «кнопочных» мелочей (плашки, круглые кнопки) по углам кнопок
+  /// бренда: у LIBAS — пилюля и круг, у Lacoste — почти прямые углы.
+  bool get roundControls => brand.shape.button >= 100;
+
+  OutlinedBorder controlShape({BorderSide side = BorderSide.none}) =>
+      roundControls
+          ? StadiumBorder(side: side)
+          : RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(rButton),
+              side: side,
+            );
+
+  OutlinedBorder iconButtonShape({BorderSide side = BorderSide.none}) =>
+      roundControls
+          ? CircleBorder(side: side)
+          : RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(rButton),
+              side: side,
+            );
+
   /// Единый масштаб киоска: телефон ≈ 1.0, портретный iPad ≈ 2.0.
   /// Никакого веб-скейла под 1080×1920 — только относительные размеры.
   static double scale(BuildContext context) =>
@@ -53,14 +82,30 @@ class MirrorTheme {
 
   String get _ui => brand.type.uiFamily;
 
-  /// Крупный акцидентный заголовок серифом бренда. Вес задаётся осью `wght`
-  /// переменного шрифта; fontWeight остаётся w400, иначе движок дорисует
-  /// «фальшивый» болд поверх единственного файла.
+  /// Вес заголовка. Переменный шрифт получает вес осью `wght`, а fontWeight
+  /// остаётся w400 — иначе движок дорисует «фальшивый» болд поверх
+  /// единственного файла. Статичное семейство — обычный fontWeight.
+  FontWeight _weight(double w) => brand.type.displayVariable
+      ? FontWeight.w400
+      : FontWeight.values[((w / 100).round() - 1).clamp(0, 8)];
+
+  List<FontVariation>? _variations(double w) =>
+      brand.type.displayVariable ? [FontVariation('wght', w)] : null;
+
+  /// У GolosText нет «ʻ» (U+02BB, узбекская латиница). Без явного запасного
+  /// шрифта знак подставляет система, и на разных устройствах он выглядит
+  /// по-разному; берём его из акцидентного шрифта или запасных бренда.
+  List<String> get _uiFallback => {
+        brand.type.displayFamily,
+        ...brand.type.fallbackFamilies,
+      }.where((f) => f != _ui).toList();
+
+  /// Крупный заголовок акцидентным шрифтом бренда (см. [_weight]).
   TextStyle display(double size, {Color? color}) => TextStyle(
         fontFamily: brand.type.displayFamily,
         fontFamilyFallback: brand.type.fallbackFamilies,
-        fontWeight: FontWeight.w400,
-        fontVariations: [FontVariation('wght', brand.type.displayWeight)],
+        fontWeight: _weight(brand.type.displayWeight),
+        fontVariations: _variations(brand.type.displayWeight),
         fontSize: size,
         letterSpacing: size * brand.type.displayTracking,
         height: brand.type.displayHeight,
@@ -71,8 +116,8 @@ class MirrorTheme {
   TextStyle headline(double size, {Color? color}) => TextStyle(
         fontFamily: brand.type.displayFamily,
         fontFamilyFallback: brand.type.fallbackFamilies,
-        fontWeight: FontWeight.w400,
-        fontVariations: [FontVariation('wght', brand.type.headlineWeight)],
+        fontWeight: _weight(brand.type.headlineWeight),
+        fontVariations: _variations(brand.type.headlineWeight),
         fontSize: size,
         letterSpacing: size * brand.type.displayTracking,
         height: 1.1,
@@ -84,6 +129,7 @@ class MirrorTheme {
   /// в мелком кегле.
   TextStyle kicker(double s, {Color? color}) => TextStyle(
         fontFamily: _ui,
+        fontFamilyFallback: _uiFallback,
         fontSize: 12 * s,
         fontWeight: FontWeight.w700,
         letterSpacing: 12 * s * 0.18,
@@ -93,6 +139,7 @@ class MirrorTheme {
 
   TextStyle subtitle(double size, {Color? color}) => TextStyle(
         fontFamily: _ui,
+        fontFamilyFallback: _uiFallback,
         fontSize: size,
         fontWeight: FontWeight.w500,
         color: color ?? muted,
@@ -106,6 +153,7 @@ class MirrorTheme {
   }) =>
       TextStyle(
         fontFamily: _ui,
+        fontFamilyFallback: _uiFallback,
         fontSize: size,
         fontWeight: weight,
         color: color ?? ink,
@@ -115,6 +163,7 @@ class MirrorTheme {
   /// Подпись CTA: с разрядкой, если бренд ставит кнопки капсом.
   TextStyle cta(double size, {Color? color}) => TextStyle(
         fontFamily: _ui,
+        fontFamilyFallback: _uiFallback,
         fontSize: size,
         fontWeight: FontWeight.w700,
         letterSpacing: brand.type.ctaUppercase ? size * 0.06 : 0,
@@ -125,6 +174,7 @@ class MirrorTheme {
   /// Цена: табличные цифры, чтобы суммы в списке стояли ровно.
   TextStyle price(double size, {Color? color}) => TextStyle(
         fontFamily: _ui,
+        fontFamilyFallback: _uiFallback,
         fontSize: size,
         fontWeight: FontWeight.w700,
         fontFeatures: const [FontFeature.tabularFigures()],
@@ -178,7 +228,10 @@ class MirrorFadeIn extends StatelessWidget {
       ),
       builder: (context, t, child) => Opacity(
         opacity: t,
-        child: Transform.translate(offset: Offset(0, rise * (1 - t)), child: child),
+        child: Transform.translate(
+          offset: Offset(0, rise * (1 - t)),
+          child: child,
+        ),
       ),
       child: child,
     );

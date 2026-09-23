@@ -37,13 +37,49 @@ class MirrorBrandMark extends StatelessWidget {
       );
     }
 
-    return Text(
-      brand.wordmark,
-      maxLines: 1,
-      style: t.display(height, color: tint ?? t.ink).copyWith(
-            letterSpacing: height * 0.2,
-            height: 1.0,
+    // Словесный знак по правилам бренда; без них — акцидентный шрифт с
+    // широкой разрядкой.
+    final ws = brand.wordmarkStyle;
+    final ink = tint ?? t.ink;
+    if (ws == null) {
+      return Text(
+        brand.wordmark,
+        maxLines: 1,
+        style: t
+            .display(height, color: ink)
+            .copyWith(letterSpacing: height * 0.2, height: 1.0),
+      );
+    }
+    final style = TextStyle(
+      fontFamily: ws.family,
+      fontFamilyFallback:
+          ws.family == null ? null : t.brand.type.fallbackFamilies,
+      fontSize: height,
+      fontWeight: ws.weight,
+      letterSpacing: height * ws.tracking,
+      height: 1.0,
+      color: ink,
+    );
+    final chars = brand.wordmark.characters.toList();
+    final accent = ws.accentIndex;
+    final accentColor = ws.accentColor;
+    if (accent == null || accentColor == null || accent >= chars.length) {
+      return Text(brand.wordmark, maxLines: 1, style: style);
+    }
+    return Text.rich(
+      TextSpan(
+        style: style,
+        children: [
+          TextSpan(text: chars.take(accent).join()),
+          TextSpan(
+            text: chars[accent],
+            style: TextStyle(color: accentColor),
           ),
+          TextSpan(text: chars.skip(accent + 1).join()),
+        ],
+      ),
+      maxLines: 1,
+      semanticsLabel: brand.name,
     );
   }
 }
@@ -89,8 +125,10 @@ class MirrorLangToggle extends StatelessWidget {
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
                 curve: Curves.easeOut,
-                padding:
-                    EdgeInsets.symmetric(horizontal: 14 * s, vertical: 8 * s),
+                padding: EdgeInsets.symmetric(
+                  horizontal: 14 * s,
+                  vertical: 8 * s,
+                ),
                 decoration: BoxDecoration(
                   color: langCode == code ? selectedBg : Colors.transparent,
                   borderRadius: BorderRadius.circular(t.rChip),
@@ -197,8 +235,7 @@ class MirrorCheck extends StatelessWidget {
     final t = MirrorTheme.of(context);
     final fill = onDark ? t.onPrimary : t.primary;
     final check = onDark ? t.primary : t.onPrimary;
-    final idleBorder =
-        onDark ? t.onPrimary.withValues(alpha: 0.6) : t.hairline;
+    final idleBorder = onDark ? t.onPrimary.withValues(alpha: 0.6) : t.hairline;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 160),

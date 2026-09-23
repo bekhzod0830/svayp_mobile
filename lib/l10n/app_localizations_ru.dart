@@ -3535,15 +3535,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get mirrorCtaCreate => 'Создать мой образ';
 
   @override
-  String get mirrorCtaCatalog => 'Выбрать из коллекции';
-
-  @override
-  String get mirrorCoverKicker => 'Волшебное зеркало';
-
-  @override
-  String get mirrorCoverLookKicker => 'Образ момента';
-
-  @override
   String get mirrorPrivacyLong =>
       'Фото лица хранится 15 минут и удаляется автоматически. Лицо на картинке мы не показываем, продавцы фото не видят.';
 
@@ -3845,4 +3836,65 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get promoErrGeneric =>
       'Не удалось применить промокод. Попробуйте ещё раз.';
+
+  @override
+  String get mirrorCoverHeadline => 'А вам\nтак пойдёт?';
+
+  @override
+  String get mirrorCoverSubline => 'Подберём образ и примерим его на ваше фото';
+
+  @override
+  String get mirrorCoverInspiration => 'Вдохновение\nиз коллекции';
+
+  @override
+  String get mirrorCoverCta => 'Создать мой образ';
+
+  @override
+  String get mirrorPoweredBy => 'На базе Libas AI';
+
+  @override
+  String get mirrorPickerKicker => 'Magic Mirror';
+
+  @override
+  String get mirrorPickerTitle => 'Выберите оформление';
+
+  @override
+  String get mirrorPickerSubtitle =>
+      'Так зеркало встретит покупателей. Сменить потом — 5 касаний по логотипу.';
+
+  @override
+  String get mirrorPickerStart => 'Запустить зеркало';
+
+  @override
+  String get mirrorPickerCurrent => 'Сейчас';
+
+  @override
+  String get mirrorGenStyleLabel => 'Стиль';
+
+  @override
+  String mirrorGenPickedCount(int count) {
+    return 'Вещи из зала: $count';
+  }
+
+  @override
+  String get mirrorCoverCatalog => 'Выбрать из каталога';
+
+  @override
+  String get mirrorSiteQrHint =>
+      'Наведите камеру телефона на код, чтобы открыть сайт';
+
+  @override
+  String get mirrorItemClose => 'Закрыть';
+
+  @override
+  String get mirrorItemInLook => 'В вашем образе';
+
+  @override
+  String get mirrorCodeKicker => 'Код для продавца';
+
+  @override
+  String get mirrorFromGallery => 'или выбрать фото из галереи';
+
+  @override
+  String get mirrorFinish => 'Завершить';
 }

@@ -6796,24 +6796,6 @@ abstract class AppLocalizations {
   /// **'Create my look'**
   String get mirrorCtaCreate;
 
-  /// No description provided for @mirrorCtaCatalog.
-  ///
-  /// In en, this message translates to:
-  /// **'Choose from the collection'**
-  String get mirrorCtaCatalog;
-
-  /// No description provided for @mirrorCoverKicker.
-  ///
-  /// In en, this message translates to:
-  /// **'Magic mirror'**
-  String get mirrorCoverKicker;
-
-  /// No description provided for @mirrorCoverLookKicker.
-  ///
-  /// In en, this message translates to:
-  /// **'Look of the moment'**
-  String get mirrorCoverLookKicker;
-
   /// No description provided for @mirrorPrivacyLong.
   ///
   /// In en, this message translates to:
@@ -7353,6 +7335,120 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Could not apply the promo code. Please try again.'**
   String get promoErrGeneric;
+
+  /// No description provided for @mirrorCoverHeadline.
+  ///
+  /// In en, this message translates to:
+  /// **'Would it\nsuit you?'**
+  String get mirrorCoverHeadline;
+
+  /// No description provided for @mirrorCoverSubline.
+  ///
+  /// In en, this message translates to:
+  /// **'We’ll style a look and try it on your photo'**
+  String get mirrorCoverSubline;
+
+  /// No description provided for @mirrorCoverInspiration.
+  ///
+  /// In en, this message translates to:
+  /// **'Inspired\nby the collection'**
+  String get mirrorCoverInspiration;
+
+  /// No description provided for @mirrorCoverCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Create my look'**
+  String get mirrorCoverCta;
+
+  /// No description provided for @mirrorPoweredBy.
+  ///
+  /// In en, this message translates to:
+  /// **'Powered by Libas AI'**
+  String get mirrorPoweredBy;
+
+  /// Mirror kiosk: small label above the style picker title (seller-facing)
+  ///
+  /// In en, this message translates to:
+  /// **'Magic Mirror'**
+  String get mirrorPickerKicker;
+
+  /// Mirror kiosk: title of the brand style picker shown to the seller at start
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a style'**
+  String get mirrorPickerTitle;
+
+  /// Mirror kiosk: style picker explanation
+  ///
+  /// In en, this message translates to:
+  /// **'This is how the mirror will greet shoppers. You can change it later: tap the logo 5 times.'**
+  String get mirrorPickerSubtitle;
+
+  /// Mirror kiosk: button that opens the mirror in the chosen style
+  ///
+  /// In en, this message translates to:
+  /// **'Start the mirror'**
+  String get mirrorPickerStart;
+
+  /// Mirror kiosk: badge on the style that is currently active
+  ///
+  /// In en, this message translates to:
+  /// **'Current'**
+  String get mirrorPickerCurrent;
+
+  /// Mirror kiosk: caption above the chosen style chips on the loading screen
+  ///
+  /// In en, this message translates to:
+  /// **'Style'**
+  String get mirrorGenStyleLabel;
+
+  /// Mirror kiosk: loading screen chip with the number of pieces the shopper picked
+  ///
+  /// In en, this message translates to:
+  /// **'Pieces from the store: {count}'**
+  String mirrorGenPickedCount(int count);
+
+  /// Mirror kiosk cover: second button, the shopper picks pieces from the store catalog
+  ///
+  /// In en, this message translates to:
+  /// **'Choose from the catalog'**
+  String get mirrorCoverCatalog;
+
+  /// Mirror kiosk cover: hint under the QR code of the Libas AI website
+  ///
+  /// In en, this message translates to:
+  /// **'Point your phone camera at the code to open the site'**
+  String get mirrorSiteQrHint;
+
+  /// Mirror kiosk: closes the item details card
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get mirrorItemClose;
+
+  /// Mirror kiosk: item details kicker when the category is unknown
+  ///
+  /// In en, this message translates to:
+  /// **'In your look'**
+  String get mirrorItemInLook;
+
+  /// Mirror kiosk: small label above the seller code on the fitting ticket
+  ///
+  /// In en, this message translates to:
+  /// **'Code for the seller'**
+  String get mirrorCodeKicker;
+
+  /// Mirror kiosk camera: quiet link to pick a photo from the device gallery instead of the camera
+  ///
+  /// In en, this message translates to:
+  /// **'or choose a photo from the gallery'**
+  String get mirrorFromGallery;
+
+  /// Mirror kiosk final screen: ends the session and returns to the cover for the next shopper
+  ///
+  /// In en, this message translates to:
+  /// **'Finish'**
+  String get mirrorFinish;
 }
 
 class _AppLocalizationsDelegate

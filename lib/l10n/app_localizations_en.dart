@@ -3511,15 +3511,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mirrorCtaCreate => 'Create my look';
 
   @override
-  String get mirrorCtaCatalog => 'Choose from the collection';
-
-  @override
-  String get mirrorCoverKicker => 'Magic mirror';
-
-  @override
-  String get mirrorCoverLookKicker => 'Look of the moment';
-
-  @override
   String get mirrorPrivacyLong =>
       'Your face photo is kept for 15 minutes and deleted automatically. We never show your face on the image and sellers never see the photo.';
 
@@ -3823,4 +3814,66 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get promoErrGeneric =>
       'Could not apply the promo code. Please try again.';
+
+  @override
+  String get mirrorCoverHeadline => 'Would it\nsuit you?';
+
+  @override
+  String get mirrorCoverSubline =>
+      'We’ll style a look and try it on your photo';
+
+  @override
+  String get mirrorCoverInspiration => 'Inspired\nby the collection';
+
+  @override
+  String get mirrorCoverCta => 'Create my look';
+
+  @override
+  String get mirrorPoweredBy => 'Powered by Libas AI';
+
+  @override
+  String get mirrorPickerKicker => 'Magic Mirror';
+
+  @override
+  String get mirrorPickerTitle => 'Choose a style';
+
+  @override
+  String get mirrorPickerSubtitle =>
+      'This is how the mirror will greet shoppers. You can change it later: tap the logo 5 times.';
+
+  @override
+  String get mirrorPickerStart => 'Start the mirror';
+
+  @override
+  String get mirrorPickerCurrent => 'Current';
+
+  @override
+  String get mirrorGenStyleLabel => 'Style';
+
+  @override
+  String mirrorGenPickedCount(int count) {
+    return 'Pieces from the store: $count';
+  }
+
+  @override
+  String get mirrorCoverCatalog => 'Choose from the catalog';
+
+  @override
+  String get mirrorSiteQrHint =>
+      'Point your phone camera at the code to open the site';
+
+  @override
+  String get mirrorItemClose => 'Close';
+
+  @override
+  String get mirrorItemInLook => 'In your look';
+
+  @override
+  String get mirrorCodeKicker => 'Code for the seller';
+
+  @override
+  String get mirrorFromGallery => 'or choose a photo from the gallery';
+
+  @override
+  String get mirrorFinish => 'Finish';
 }

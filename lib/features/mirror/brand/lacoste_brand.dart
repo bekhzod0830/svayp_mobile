@@ -1,4 +1,4 @@
-import 'dart:ui' show Color;
+import 'dart:ui' show Color, Offset;
 
 import 'mirror_brand.dart';
 
@@ -14,8 +14,14 @@ const MirrorBrand lacosteBrand = MirrorBrand(
   name: 'Lacoste',
   wordmark: 'LACOSTE',
   logoAsset: null,
-  heroVideoAsset: null,
-  languages: ['ru', 'uz'],
+  // Словесный знак Lacoste — гротеск, не сериф.
+  wordmarkStyle: MirrorWordmarkStyle(family: 'GolosText', tracking: 0.07),
+  tagline: {
+    'ru': 'Зелёная студия и модель в образе',
+    'uz': 'Yashil studiya va obrazdagi model',
+    'en': 'Green studio and a styled model',
+  },
+  languages: ['ru', 'uz', 'en'],
   defaultLang: 'ru',
   palette: MirrorPalette(
     bg: Color(0xFFF4EFE6),
@@ -43,30 +49,68 @@ const MirrorBrand lacosteBrand = MirrorBrand(
     ctaUppercase: true,
   ),
   shape: MirrorShape(button: 4, card: 10, chip: 4, image: 6),
-  // Нейтральные фразы: зарегистрированные слоганы Lacoste не используем без
-  // текста от партнёра.
-  coverPhrases: {
-    'ru': [
-      'Увидьте себя в новом образе.',
-      'Ваш образ — за 30 секунд.',
-      'Собрано из того, что есть в зале.',
+  // Постер по макету: модель в поло и плиссированной юбке на зелёной
+  // студийной сцене, две карточки вещей с линиями к ним. Координаты сняты с
+  // макета 941×1672 и пересчитаны в доли бокса модели (399×1022).
+  coverHero: MirrorCoverHero(
+    modelAsset: 'assets/brands/lacoste/cover_model.webp',
+    modelAspect: 399 / 1022,
+    pieces: [
+      MirrorCoverPiece(
+        asset: 'assets/brands/lacoste/cover_polo.webp',
+        label: {'ru': 'Поло', 'uz': 'Polo', 'en': 'Polo'},
+        card: Offset(-0.361, 0.229),
+        target: Offset(0.105, 0.2495),
+        fromLeft: true,
+      ),
+      MirrorCoverPiece(
+        asset: 'assets/brands/lacoste/cover_skirt.webp',
+        label: {'ru': 'Юбка', 'uz': 'Yubka', 'en': 'Skirt'},
+        card: Offset(1.2155, 0.4843),
+        target: Offset(0.714, 0.489),
+        fromLeft: false,
+        // На макете линия выходит из верхней трети карточки и спускается
+        // к юбке дугой.
+        anchor: 0.38,
+      ),
     ],
-    'uz': [
-      'Oʻzingizni yangi uslubda koʻring.',
-      'Uslubingiz — 30 soniyada.',
-      'Zaldagi kiyimlardan yigʻilgan.',
-    ],
-  },
+    wall: Color(0xFF1A3724),
+    wallLight: Color(0xFF2B4632),
+    wallDeep: Color(0xFF11291B),
+    floor: Color(0xFF2C4733),
+    podium: Color(0xFF4E6A4C),
+    podiumTop: Color(0xFF687957),
+    ring: Color(0xFF8D9C76),
+    glass: Color(0xFF334B3A),
+    card: Color(0xFFE6DECE),
+    onCard: Color(0xFF1B2A20),
+    text: Color(0xFFEFE4D1),
+    textMuted: Color(0xFF9BA49B),
+    cta: Color(0xFFDAF69E),
+    onCta: Color(0xFF10261A),
+  ),
   styleLabels: {
-    'CLASSIC': {'ru': 'Классика', 'uz': 'Klassika'},
-    'CASUAL': {'ru': 'Уикенд', 'uz': 'Dam olish'},
-    'OFFICE_SMART': {'ru': 'Смарт', 'uz': 'Smart'},
-    'SPORTY': {'ru': 'Спорт · Теннис', 'uz': 'Sport · Tennis'},
+    'CLASSIC': {'ru': 'Классика', 'uz': 'Klassika', 'en': 'Classic'},
+    'CASUAL': {'ru': 'Уикенд', 'uz': 'Dam olish', 'en': 'Weekend'},
+    'OFFICE_SMART': {'ru': 'Смарт', 'uz': 'Smart', 'en': 'Smart'},
+    'SPORTY': {'ru': 'Спорт · Теннис', 'uz': 'Sport · Tennis', 'en': 'Sport · Tennis'},
   },
   hiddenStyles: {'MODEST_CHIC', 'EVENING'},
   categoryLabels: {
-    'TOPWEAR': {'ru': 'Поло и верх', 'uz': 'Polo va yuqori kiyim'},
-    'BOTTOMWEAR': {'ru': 'Брюки и шорты', 'uz': 'Shim va shortilar'},
-    'OUTERWEAR': {'ru': 'Куртки и пальто', 'uz': 'Kurtka va paltolar'},
+    'TOPWEAR': {
+      'ru': 'Поло и верх',
+      'uz': 'Polo va yuqori kiyim',
+      'en': 'Polos and tops',
+    },
+    'BOTTOMWEAR': {
+      'ru': 'Брюки и шорты',
+      'uz': 'Shim va shortilar',
+      'en': 'Trousers and shorts',
+    },
+    'OUTERWEAR': {
+      'ru': 'Куртки и пальто',
+      'uz': 'Kurtka va paltolar',
+      'en': 'Jackets and coats',
+    },
   },
 );

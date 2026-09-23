@@ -15,6 +15,8 @@ class MirrorSetupSheet extends StatefulWidget {
     required this.demo,
     this.fullscreen = false,
     this.onFullscreenChanged,
+    this.brandName,
+    this.onChooseBrand,
   });
 
   final KioskApi api;
@@ -22,12 +24,18 @@ class MirrorSetupSheet extends StatefulWidget {
   final bool fullscreen;
   final ValueChanged<bool>? onFullscreenChanged;
 
+  /// Текущее оформление и переход к экрану выбора.
+  final String? brandName;
+  final VoidCallback? onChooseBrand;
+
   static Future<void> show(
     BuildContext context, {
     required KioskApi api,
     required KioskDemoService demo,
     bool fullscreen = false,
     ValueChanged<bool>? onFullscreenChanged,
+    String? brandName,
+    VoidCallback? onChooseBrand,
   }) {
     return showModalBottomSheet<void>(
       context: context,
@@ -41,6 +49,8 @@ class MirrorSetupSheet extends StatefulWidget {
         demo: demo,
         fullscreen: fullscreen,
         onFullscreenChanged: onFullscreenChanged,
+        brandName: brandName,
+        onChooseBrand: onChooseBrand,
       ),
     );
   }
@@ -81,12 +91,16 @@ class _MirrorSetupSheetState extends State<MirrorSetupSheet> {
       // Пробную сессию сразу закрываем — она не должна висеть на бэкенде.
       widget.api.resetSession(session.sessionId).catchError((_) {});
       if (!mounted) return;
-      setState(() => _status =
-          'OK · ${session.storeLabel} · товаров: ${session.catalogSize}');
+      setState(
+        () => _status =
+            'OK · ${session.storeLabel} · товаров: ${session.catalogSize}',
+      );
     } on KioskApiException catch (e) {
       if (!mounted) return;
-      setState(() => _status =
-          'Ошибка: ${e.statusCode ?? 'сеть'} ${e.code ?? e.message}');
+      setState(
+        () => _status =
+            'Ошибка: ${e.statusCode ?? 'сеть'} ${e.code ?? e.message}',
+      );
     } finally {
       if (mounted) setState(() => _testing = false);
     }
@@ -120,6 +134,18 @@ class _MirrorSetupSheetState extends State<MirrorSetupSheet> {
             ),
           ),
           const SizedBox(height: 12),
+          if (widget.onChooseBrand != null)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.palette_outlined),
+              title: const Text('Сменить оформление'),
+              subtitle: Text('Сейчас: ${widget.brandName ?? '—'}'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.of(context).pop();
+                widget.onChooseBrand!();
+              },
+            ),
           if (widget.onFullscreenChanged != null)
             SwitchListTile(
               contentPadding: EdgeInsets.zero,

@@ -15,6 +15,7 @@ import '../data/kiosk_demo.dart';
 import 'mirror_session_controller.dart';
 import 'mirror_theme.dart';
 import 'screens/mirror_body_screens.dart';
+import 'screens/mirror_brand_picker.dart';
 import 'screens/mirror_camera_screen.dart';
 import 'screens/mirror_catalog_screen.dart';
 import 'screens/mirror_cover_screen.dart';
@@ -32,7 +33,9 @@ import 'widgets/mirror_setup_sheet.dart';
 /// controller.screen — hardReset физически не может оставить «застрявших»
 /// роутов. Пока таб активен, экран не гаснет (wakelock) и горит на максимум;
 /// при уходе с таба обе блокировки снимаются, а сессия покупателя живёт.
-/// Оформление задаёт [kMirrorBrand] через [MirrorBrandScope].
+/// Оформление выбирает продавец на экране [MirrorBrandPicker] при каждом
+/// открытии вкладки (для показов клиентам); выбор запоминается и
+/// подсвечивается в следующий раз. Бренд раздаётся через [MirrorBrandScope].
 class MirrorTab extends StatefulWidget {
   const MirrorTab({
     super.key,
@@ -54,11 +57,22 @@ class _MirrorTabState extends State<MirrorTab> with WidgetsBindingObserver {
   /// вернуться в киоск сам, без продавца.
   static const _fullscreenPref = 'kiosk_fullscreen';
 
+  /// Последнее выбранное оформление.
+  static const _brandPref = 'kiosk_brand';
+
   late final MirrorSessionController _controller;
 
   /// Material-виджеты внутри киоска (рипл InkWell, индикаторы, Switch) читают
   /// ThemeData — подкрашиваем его брендом один раз, а не на каждый build.
-  late final ThemeData _kioskTheme;
+  late ThemeData _kioskTheme;
+
+  late MirrorBrand _brand;
+
+  /// Экран выбора оформления поверх киоска.
+  bool _picking = true;
+
+  /// Постер после выбора открывается уже собранным: превью раскрылось в него.
+  bool _coverIntro = true;
 
   StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
   double? _originalBrightness;
@@ -69,16 +83,17 @@ class _MirrorTabState extends State<MirrorTab> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _brand = mirrorBrandById(getIt<SharedPreferences>().getString(_brandPref));
     _controller = MirrorSessionController(
       api: getIt<KioskApi>(),
       demo: getIt<KioskDemoService>(),
       prefs: getIt<SharedPreferences>(),
-      brand: kMirrorBrand,
+      brand: _brand,
     );
-    _kioskTheme = _themeFor(kMirrorBrand);
-    _connectivitySub = Connectivity()
-        .onConnectivityChanged
-        .listen(_onConnectivityChanged);
+    _kioskTheme = _themeFor(_brand);
+    _connectivitySub = Connectivity().onConnectivityChanged.listen(
+          _onConnectivityChanged,
+        );
     if (widget.isActive) _enterKioskMode();
     if (getIt<SharedPreferences>().getBool(_fullscreenPref) ?? false) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -165,7 +180,9 @@ class _MirrorTabState extends State<MirrorTab> with WidgetsBindingObserver {
       _originalBrightness ??= await brightness.current;
       await brightness.setScreenBrightness(1.0);
       _brightnessChanged = true;
-    } catch (_) {/* яркость недоступна — не мешаем работе */}
+    } catch (_) {
+      /* яркость недоступна — не мешаем работе */
+    }
   }
 
   Future<void> _exitKioskMode() async {
@@ -189,7 +206,32 @@ class _MirrorTabState extends State<MirrorTab> with WidgetsBindingObserver {
       demo: getIt<KioskDemoService>(),
       fullscreen: _fullscreen,
       onFullscreenChanged: _setFullscreen,
+      brandName: _brand.name,
+      onChooseBrand: _openPicker,
     );
+  }
+
+  void _openPicker() {
+    if (!mounted) return;
+    // Сессии покупателя на постере нет, но на всякий случай — чистый лист.
+    if (_controller.screen != MirrorScreen.idle) {
+      _controller.hardReset('manual');
+    }
+    setState(() => _picking = true);
+  }
+
+  void _onBrandPicked(MirrorBrand brand) {
+    getIt<SharedPreferences>().setString(_brandPref, brand.id);
+    setState(() {
+      _brand = brand;
+      _kioskTheme = _themeFor(brand);
+      _picking = false;
+      _coverIntro = false;
+    });
+    _controller.setBrand(brand);
+    // Флаг читается один раз при создании постера; следующие постеры
+    // (после сессий покупателей) снова играют вход.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _coverIntro = true);
   }
 
   Widget _buildScreen() {
@@ -202,6 +244,7 @@ class _MirrorTabState extends State<MirrorTab> with WidgetsBindingObserver {
           active: widget.isActive,
           fullscreen: _fullscreen,
           onEnterFullscreen: () => _setFullscreen(true),
+          playIntro: _coverIntro,
         );
       case MirrorScreen.camera:
         return MirrorCameraScreen(
@@ -251,10 +294,26 @@ class _MirrorTabState extends State<MirrorTab> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     // Киоск всегда светлый и в цветах бренда: тёмная тема приложения
     // продавца сюда не протекает.
+    if (_picking) {
+      return Theme(
+        data: _kioskTheme,
+        child: TickerMode(
+          enabled: widget.isActive,
+          child: MirrorBrandPicker(
+            brands: kMirrorBrands,
+            current: _brand,
+            controller: _controller,
+            onPicked: _onBrandPicked,
+            active: widget.isActive,
+            fullscreen: _fullscreen,
+          ),
+        ),
+      );
+    }
     return Theme(
       data: _kioskTheme,
       child: MirrorBrandScope(
-        brand: kMirrorBrand,
+        brand: _brand,
         child: ListenableBuilder(
           listenable: _controller,
           builder: (context, _) {
@@ -272,8 +331,7 @@ class _MirrorTabState extends State<MirrorTab> with WidgetsBindingObserver {
                   final showLang = !isIdle && _controller.stepIndex == 0;
                   // Постер и результат — полноэкранные: у них своя шапка
                   // поверх сцены/фото, планка киоска им не нужна.
-                  final showChrome =
-                      !isIdle && screen != MirrorScreen.result;
+                  final showChrome = !isIdle && screen != MirrorScreen.result;
 
                   return Listener(
                     behavior: HitTestBehavior.translucent,
@@ -310,8 +368,9 @@ class _MirrorTabState extends State<MirrorTab> with WidgetsBindingObserver {
                                     ),
                                   Expanded(
                                     child: AnimatedSwitcher(
-                                      duration:
-                                          const Duration(milliseconds: 300),
+                                      duration: const Duration(
+                                        milliseconds: 300,
+                                      ),
                                       switchInCurve: Curves.easeOutCubic,
                                       switchOutCurve: Curves.easeIn,
                                       transitionBuilder: (child, animation) =>

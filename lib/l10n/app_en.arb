@@ -1344,9 +1344,6 @@
 
   "mirrorTab": "Mirror",
   "mirrorCtaCreate": "Create my look",
-  "mirrorCtaCatalog": "Choose from the collection",
-  "mirrorCoverKicker": "Magic mirror",
-  "mirrorCoverLookKicker": "Look of the moment",
   "mirrorPrivacyLong": "Your face photo is kept for 15 minutes and deleted automatically. We never show your face on the image and sellers never see the photo.",
   "mirrorPrivacyShort": "The photo is deleted after 15 minutes",
   "mirrorCamAim": "Place your face inside the circle",
@@ -1468,5 +1465,71 @@
   "promoHaveAnother": "The discount is spent. You can enter another promo code.",
   "promoYourCode": "Your promo code: {code}",
   "promoErrTooManyAttempts": "Too many attempts. Please try again later.",
-  "promoErrGeneric": "Could not apply the promo code. Please try again."
+  "promoErrGeneric": "Could not apply the promo code. Please try again.",
+  "mirrorCoverHeadline": "Would it\nsuit you?",
+  "mirrorCoverSubline": "We’ll style a look and try it on your photo",
+  "mirrorCoverInspiration": "Inspired\nby the collection",
+  "mirrorCoverCta": "Create my look",
+  "mirrorPoweredBy": "Powered by Libas AI",
+  "mirrorPickerKicker": "Magic Mirror",
+    "@mirrorPickerKicker": {
+      "description": "Mirror kiosk: small label above the style picker title (seller-facing)"
+    },
+  "mirrorPickerTitle": "Choose a style",
+    "@mirrorPickerTitle": {
+      "description": "Mirror kiosk: title of the brand style picker shown to the seller at start"
+    },
+  "mirrorPickerSubtitle": "This is how the mirror will greet shoppers. You can change it later: tap the logo 5 times.",
+    "@mirrorPickerSubtitle": {
+      "description": "Mirror kiosk: style picker explanation"
+    },
+  "mirrorPickerStart": "Start the mirror",
+    "@mirrorPickerStart": {
+      "description": "Mirror kiosk: button that opens the mirror in the chosen style"
+    },
+  "mirrorPickerCurrent": "Current",
+    "@mirrorPickerCurrent": {
+      "description": "Mirror kiosk: badge on the style that is currently active"
+    },
+  "mirrorGenStyleLabel": "Style",
+    "@mirrorGenStyleLabel": {
+      "description": "Mirror kiosk: caption above the chosen style chips on the loading screen"
+    },
+  "mirrorGenPickedCount": "Pieces from the store: {count}",
+    "@mirrorGenPickedCount": {
+      "description": "Mirror kiosk: loading screen chip with the number of pieces the shopper picked",
+      "placeholders": {
+        "count": {
+          "type": "int"
+        }
+      }
+    },
+  "mirrorCoverCatalog": "Choose from the catalog",
+  "mirrorSiteQrHint": "Point your phone camera at the code to open the site",
+    "@mirrorCoverCatalog": {
+      "description": "Mirror kiosk cover: second button, the shopper picks pieces from the store catalog"
+    },
+    "@mirrorSiteQrHint": {
+      "description": "Mirror kiosk cover: hint under the QR code of the Libas AI website"
+    },
+  "mirrorItemClose": "Close",
+  "@mirrorItemClose": {
+    "description": "Mirror kiosk: closes the item details card"
+  },
+  "mirrorItemInLook": "In your look",
+  "@mirrorItemInLook": {
+    "description": "Mirror kiosk: item details kicker when the category is unknown"
+  },
+  "mirrorCodeKicker": "Code for the seller",
+  "@mirrorCodeKicker": {
+    "description": "Mirror kiosk: small label above the seller code on the fitting ticket"
+  },
+  "mirrorFromGallery": "or choose a photo from the gallery",
+  "@mirrorFromGallery": {
+    "description": "Mirror kiosk camera: quiet link to pick a photo from the device gallery instead of the camera"
+  },
+  "mirrorFinish": "Finish",
+  "@mirrorFinish": {
+    "description": "Mirror kiosk final screen: ends the session and returns to the cover for the next shopper"
+  }
 }

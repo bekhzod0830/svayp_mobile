@@ -4,6 +4,7 @@ import 'package:swipe/l10n/app_localizations.dart';
 import '../../data/kiosk_taxonomy.dart';
 import '../mirror_session_controller.dart';
 import '../mirror_theme.dart';
+import '../widgets/mirror_body_figure.dart';
 import '../widgets/mirror_buttons.dart';
 import '../widgets/mirror_chrome.dart';
 
@@ -206,6 +207,10 @@ class MirrorShapeScreen extends StatelessWidget {
                     asset: isFemale
                         ? kioskFemaleShapeAssets[shape.code]
                         : null,
+                    maleShape: !isFemale &&
+                            MirrorMaleBodyFigure.supports(shape.code)
+                        ? shape.code
+                        : null,
                     selected: controller.bodyShape == shape.code,
                     onTap: () => controller.setShape(shape.code!),
                   ),
@@ -241,11 +246,16 @@ class _ShapeCard extends StatelessWidget {
     required this.asset,
     required this.selected,
     required this.onTap,
+    this.maleShape,
     this.isUnknown = false,
   });
 
   final String label;
   final String? asset;
+
+  /// Код мужского типа фигуры: силуэт рисуется кодом
+  /// ([MirrorMaleBodyFigure]), готовых картинок для мужчин нет.
+  final String? maleShape;
   final bool selected;
   final bool isUnknown;
   final VoidCallback onTap;
@@ -276,7 +286,18 @@ class _ShapeCard extends StatelessWidget {
                 children: [
                   // Иллюстрации силуэтов — полноцветные PNG на белом фоне:
                   // тонировать их нельзя (srcIn заливает всё сплошным цветом).
-                  if (asset != null)
+                  if (maleShape != null)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(t.rImage),
+                      child: Container(
+                        color: Colors.white,
+                        padding: EdgeInsets.all(6 * s),
+                        child: Center(
+                          child: MirrorMaleBodyFigure(shape: maleShape!),
+                        ),
+                      ),
+                    )
+                  else if (asset != null)
                     ClipRRect(
                       borderRadius: BorderRadius.circular(t.rImage),
                       child: Container(

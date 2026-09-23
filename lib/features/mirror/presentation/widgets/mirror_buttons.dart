@@ -42,8 +42,8 @@ class _MirrorPrimaryButtonState extends State<MirrorPrimaryButton> {
     final t = MirrorTheme.of(context);
     final s = MirrorTheme.scale(context);
     final h = widget.height ?? 60 * s;
-    final active =
-        widget.enabled && !widget.isLoading && widget.onTap != null;
+    final active = widget.enabled && !widget.isLoading && widget.onTap != null;
+    final gradient = t.brand.palette.primaryGradient;
 
     final Widget content = widget.isLoading
         ? SizedBox(
@@ -86,32 +86,57 @@ class _MirrorPrimaryButtonState extends State<MirrorPrimaryButton> {
         child: SizedBox(
           width: double.infinity,
           height: h,
-          child: Material(
-            color: t.primary,
-            shape: RoundedRectangleBorder(
+          child: DecoratedBox(
+            // Градиент и мягкое свечение — если бренд так ставит кнопки
+            // (LIBAS: розовая пилюля из онбординга).
+            decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(t.rButton),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: active ? widget.onTap : null,
-              onHighlightChanged: (v) => setState(() => _pressed = v && active),
-              splashColor: t.onPrimary.withValues(alpha: 0.12),
-              highlightColor: t.onPrimary.withValues(alpha: 0.06),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  if (widget.gleam && active)
-                    const Positioned.fill(
-                      child: Gleam(
-                        durationMs: 4200,
-                        travelFraction: 0.45,
-                        widthFraction: 0.32,
-                        opacity: 0.22,
-                        initialDelayMs: 1600,
-                      ),
+              gradient: gradient == null
+                  ? null
+                  : LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: gradient,
                     ),
-                  content,
-                ],
+              boxShadow: gradient != null && active
+                  ? [
+                      BoxShadow(
+                        color: t.primary.withValues(alpha: 0.38),
+                        blurRadius: 26 * s,
+                        spreadRadius: -6 * s,
+                        offset: Offset(0, 10 * s),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Material(
+              color: gradient == null ? t.primary : Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(t.rButton),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: active ? widget.onTap : null,
+                onHighlightChanged: (v) =>
+                    setState(() => _pressed = v && active),
+                splashColor: t.onPrimary.withValues(alpha: 0.12),
+                highlightColor: t.onPrimary.withValues(alpha: 0.06),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    if (widget.gleam && active)
+                      const Positioned.fill(
+                        child: Gleam(
+                          durationMs: 4200,
+                          travelFraction: 0.45,
+                          widthFraction: 0.32,
+                          opacity: 0.22,
+                          initialDelayMs: 1600,
+                        ),
+                      ),
+                    content,
+                  ],
+                ),
               ),
             ),
           ),
@@ -212,11 +237,12 @@ class MirrorTextButton extends StatelessWidget {
             child: Text(
               label,
               textAlign: TextAlign.center,
-              style: t.label(15 * s, weight: FontWeight.w600, color: c).copyWith(
-                decoration: TextDecoration.underline,
-                decorationColor: c.withValues(alpha: 0.45),
-                decorationThickness: 1,
-              ),
+              style:
+                  t.label(15 * s, weight: FontWeight.w600, color: c).copyWith(
+                        decoration: TextDecoration.underline,
+                        decorationColor: c.withValues(alpha: 0.45),
+                        decorationThickness: 1,
+                      ),
             ),
           ),
         ),

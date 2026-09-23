@@ -1,13 +1,23 @@
 import 'package:flutter/widgets.dart';
 
 import 'lacoste_brand.dart';
+import 'libas_brand.dart';
 import 'mirror_brand.dart';
 
 export 'mirror_brand.dart';
 
-/// Активный бренд киоска этой сборки. Следующий бренд — новый файл рядом с
-/// `lacoste_brand.dart` и замена этой константы.
-const MirrorBrand kMirrorBrand = lacosteBrand;
+/// Оформления, между которыми продавец выбирает на старте киоска (экран
+/// выбора и шит настройки). Новый бренд — новый файл рядом с
+/// `lacoste_brand.dart` и строка в этом списке.
+const List<MirrorBrand> kMirrorBrands = [libasBrand, lacosteBrand];
+
+/// Оформление по умолчанию: пока продавец ничего не выбрал, и для оверлеев,
+/// которые не видят [MirrorBrandScope].
+const MirrorBrand kMirrorBrand = libasBrand;
+
+/// Бренд по сохранённому id; неизвестный id — [kMirrorBrand].
+MirrorBrand mirrorBrandById(String? id) =>
+    kMirrorBrands.firstWhere((b) => b.id == id, orElse: () => kMirrorBrand);
 
 /// Бренд для поддерева киоска.
 ///
@@ -23,11 +33,11 @@ class MirrorBrandScope extends InheritedWidget {
 
   final MirrorBrand brand;
 
-  static MirrorBrand of(BuildContext context) => maybeOf(context) ?? kMirrorBrand;
+  static MirrorBrand of(BuildContext context) =>
+      maybeOf(context) ?? kMirrorBrand;
 
-  static MirrorBrand? maybeOf(BuildContext context) => context
-      .dependOnInheritedWidgetOfExactType<MirrorBrandScope>()
-      ?.brand;
+  static MirrorBrand? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<MirrorBrandScope>()?.brand;
 
   @override
   bool updateShouldNotify(MirrorBrandScope oldWidget) =>

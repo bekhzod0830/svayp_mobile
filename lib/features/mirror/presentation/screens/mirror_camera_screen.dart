@@ -337,8 +337,7 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.no_photography_outlined,
-                  size: 48 * s, color: t.muted),
+              Icon(Icons.no_photography_outlined, size: 48 * s, color: t.muted),
               SizedBox(height: 20 * s),
               Text(
                 l10n.mirrorCamNoAccess,
@@ -496,14 +495,16 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
                       enabled: _initialized && _phase == _CamPhase.live,
                       onTap: _startCountdown,
                     ),
-                    SizedBox(height: 12 * s),
-                    MirrorGhostButton(
-                      label: l10n.mirrorUpload,
-                      height: 56 * s,
-                      enabled: _phase == _CamPhase.live,
-                      onTap: _pickFromGallery,
+                    SizedBox(height: 4 * s),
+                    // Галерея — тихой ссылкой: главный путь — снимок у
+                    // зеркала, но готовое фото тоже подойдёт.
+                    MirrorTextButton(
+                      label: l10n.mirrorFromGallery,
+                      height: 44 * s,
+                      color: t.muted,
+                      onTap: _phase == _CamPhase.live ? _pickFromGallery : null,
                     ),
-                  ] else
+                  ] else ...[
                     Row(
                       children: [
                         Expanded(
@@ -525,6 +526,18 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
                         ),
                       ],
                     ),
+                    SizedBox(height: 4 * s),
+                    // После снимка тоже можно взять фото из галереи — так же
+                    // тихо, чтобы не спорить с «Переснять» и «Готово».
+                    MirrorTextButton(
+                      label: l10n.mirrorFromGallery,
+                      height: 44 * s,
+                      color: t.muted,
+                      onTap: _phase == _CamPhase.uploading
+                          ? null
+                          : _pickFromGallery,
+                    ),
+                  ],
                   SizedBox(height: 24 * s),
                 ],
               ),
