@@ -10,15 +10,17 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 
 import '../../data/kiosk_api.dart';
+import '../../data/kiosk_models.dart';
 import '../mirror_session_controller.dart';
 import '../mirror_theme.dart';
 import '../widgets/mirror_buttons.dart';
 
 enum _CamPhase { live, countdown, captured, uploading }
 
-/// Экран 2 — камера (только лицо). Фронталка по умолчанию, круглая рамка,
-/// отсчёт 3-2-1, превью с «Переснять»/«Готово». Серверная валидация мягкая:
-/// блокирует только «лицо не найдено», остальное — предупреждает и пропускает.
+/// Экран 1 — камера (только лицо). Фронталка по умолчанию, круглая рамка
+/// цветом бренда, отсчёт 3-2-1, превью с «Переснять»/«Готово». Серверная
+/// валидация мягкая: блокирует только «лицо не найдено», остальные подсказки
+/// показываются полторы секунды и пропускают дальше.
 class MirrorCameraScreen extends StatefulWidget {
   const MirrorCameraScreen({
     super.key,
@@ -51,7 +53,14 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
   File? _shot;
   // Кадр из галереи не зеркалим — он уже «как есть», в отличие от фронталки.
   bool _shotFromGallery = false;
-  String? _hint;
+
+  /// Жёсткая ошибка (лицо не найдено, фото не ушло) — блокирует.
+  String? _error;
+
+  /// Мягкая подсказка бэкенда (несколько лиц, темно, далеко) — не блокирует:
+  /// показывается перед переходом дальше.
+  String? _softHint;
+  Timer? _softHintTimer;
 
   @override
   void initState() {
@@ -84,6 +93,7 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
     WidgetsBinding.instance.removeObserver(this);
     _discardShot();
     _countdownTimer?.cancel();
+    _softHintTimer?.cancel();
     _camera?.dispose();
     super.dispose();
   }
@@ -162,7 +172,8 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
     setState(() {
       _phase = _CamPhase.countdown;
       _countdown = 3;
-      _hint = null;
+      _error = null;
+      _softHint = null;
     });
     _countdownTimer = Timer.periodic(const Duration(milliseconds: 900), (t) {
       if (!mounted) return;
@@ -229,7 +240,8 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
         setState(() {
           _shot = file;
           _shotFromGallery = true;
-          _hint = null;
+          _error = null;
+          _softHint = null;
           _phase = _CamPhase.captured;
         });
       }
@@ -247,12 +259,14 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
   }
 
   void _retake() {
+    _softHintTimer?.cancel();
     widget.controller.onPhotoRetaken();
     _discardShot();
     setState(() {
       _shot = null;
       _shotFromGallery = false;
-      _hint = null;
+      _error = null;
+      _softHint = null;
       _phase = _CamPhase.live;
     });
   }
@@ -263,7 +277,8 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
     final l10n = AppLocalizations.of(context)!;
     setState(() {
       _phase = _CamPhase.uploading;
-      _hint = null;
+      _error = null;
+      _softHint = null;
     });
     try {
       final validation = await widget.controller.uploadAndConfirmPhoto(shot);
@@ -272,48 +287,76 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
         // Единственный жёсткий блок: без лица дальше нельзя.
         setState(() {
           _phase = _CamPhase.captured;
-          _hint = l10n.mirrorFaceNotFound;
+          _error = l10n.mirrorFaceNotFound;
         });
         return;
       }
-      // Мягкие подсказки не блокируют (веб-паритет): предупреждаем — и дальше.
-      widget.controller.confirmPhoto();
+      final soft = _softHintFor(validation, l10n);
+      if (soft == null) {
+        widget.controller.confirmPhoto();
+        return;
+      }
+      // Мягкие подсказки не блокируют (веб-паритет): показываем полторы
+      // секунды — и дальше. Фаза остаётся uploading, чтобы «Готово» не ушло
+      // на повторную загрузку.
+      setState(() => _softHint = soft);
+      _softHintTimer?.cancel();
+      _softHintTimer = Timer(const Duration(milliseconds: 1800), () {
+        if (mounted) widget.controller.confirmPhoto();
+      });
     } on KioskApiException {
       if (!mounted) return;
       setState(() {
         _phase = _CamPhase.captured;
-        _hint = l10n.mirrorUploadFailed;
+        _error = l10n.mirrorUploadFailed;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _phase = _CamPhase.captured;
-        _hint = l10n.mirrorUploadFailed;
+        _error = l10n.mirrorUploadFailed;
       });
     }
+  }
+
+  /// FACE_NOT_FOUND обрабатывается отдельно как блок; остальное — совет.
+  String? _softHintFor(KioskPhotoValidation v, AppLocalizations l10n) {
+    switch (v.hint) {
+      case 'MULTIPLE_FACES':
+        return l10n.mirrorFaceMultiple;
+      case 'MOVE_CLOSER':
+        return l10n.mirrorFaceCloser;
+      case 'TOO_DARK':
+        return l10n.mirrorFaceTooDark;
+    }
+    if (v.faceCount > 1) return l10n.mirrorFaceMultiple;
+    if (v.tooDark) return l10n.mirrorFaceTooDark;
+    return null;
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final t = MirrorTheme.of(context);
     final s = MirrorTheme.scale(context);
 
     // Камера недоступна, но кадр ещё не выбран: даём путь через галерею
     // (это же спасает симулятор без камеры).
-    if (_initFailed && _phase != _CamPhase.captured && _phase != _CamPhase.uploading) {
+    if (_initFailed &&
+        _phase != _CamPhase.captured &&
+        _phase != _CamPhase.uploading) {
       return Center(
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: 40 * s),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.no_photography_outlined,
-                  size: 48 * s, color: MirrorTheme.gray),
+              Icon(Icons.no_photography_outlined, size: 48 * s, color: t.muted),
               SizedBox(height: 20 * s),
               Text(
                 l10n.mirrorCamNoAccess,
                 textAlign: TextAlign.center,
-                style: MirrorTheme.headline(24 * s),
+                style: t.headline(24 * s),
               ),
               SizedBox(height: 24 * s),
               ConstrainedBox(
@@ -355,7 +398,16 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
       );
     }
 
-    final captured = _phase == _CamPhase.captured || _phase == _CamPhase.uploading;
+    final captured =
+        _phase == _CamPhase.captured || _phase == _CamPhase.uploading;
+    final hintText = _error ??
+        _softHint ??
+        (captured ? l10n.mirrorCamDoneHint : l10n.mirrorCamLook);
+    final hintColor = _error != null
+        ? t.danger
+        : _softHint != null
+            ? t.accent
+            : t.muted;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -366,20 +418,18 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
 
         return Column(
           children: [
-            SizedBox(height: 10 * s),
+            SizedBox(height: 14 * s),
             Text(
               captured ? l10n.mirrorCamDone : l10n.mirrorCamAim,
               textAlign: TextAlign.center,
-              style: MirrorTheme.headline(26 * s),
+              style: t.headline(26 * s),
             ),
             SizedBox(height: 6 * s),
-            Text(
-              _hint ?? (captured ? l10n.mirrorCamDoneHint : l10n.mirrorCamLook),
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 200),
+              style: t.subtitle(15 * s, color: hintColor),
               textAlign: TextAlign.center,
-              style: MirrorTheme.subtitle(
-                15 * s,
-                color: _hint != null ? MirrorTheme.pink : MirrorTheme.gray,
-              ),
+              child: Text(hintText),
             ),
             Expanded(
               child: Center(
@@ -400,11 +450,11 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
                               )
                             : _initialized && _camera != null
                                 ? _CoverPreview(controller: _camera!)
-                                : const ColoredBox(
-                                    color: MirrorTheme.surface,
+                                : ColoredBox(
+                                    color: t.surface,
                                     child: Center(
                                       child: CircularProgressIndicator(
-                                        color: MirrorTheme.pink,
+                                        color: t.primary,
                                         strokeWidth: 2.5,
                                       ),
                                     ),
@@ -412,9 +462,9 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
                       ),
                       IgnorePointer(
                         child: CustomPaint(
-                          painter: _DashedRingPainter(
-                            color: MirrorTheme.pink,
-                            strokeWidth: 3.5 * s,
+                          painter: _RingPainter(
+                            color: t.primary,
+                            strokeWidth: 3 * s,
                           ),
                         ),
                       ),
@@ -424,10 +474,7 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
                           child: Center(
                             child: Text(
                               '$_countdown',
-                              style: MirrorTheme.headline(
-                                96 * s,
-                                color: Colors.white,
-                              ),
+                              style: t.display(96 * s, color: Colors.white),
                             ),
                           ),
                         ),
@@ -444,12 +491,12 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(Icons.lock_outline_rounded,
-                          size: 14 * s, color: MirrorTheme.gray),
+                          size: 14 * s, color: t.muted),
                       SizedBox(width: 6 * s),
                       Flexible(
                         child: Text(
                           l10n.mirrorPrivacyShort,
-                          style: MirrorTheme.subtitle(13 * s),
+                          style: t.subtitle(13 * s),
                         ),
                       ),
                     ],
@@ -459,18 +506,19 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
                     MirrorPrimaryButton(
                       label: l10n.mirrorShoot,
                       height: 64 * s,
-                      enabled:
-                          _initialized && _phase == _CamPhase.live,
+                      enabled: _initialized && _phase == _CamPhase.live,
                       onTap: _startCountdown,
                     ),
-                    SizedBox(height: 12 * s),
-                    MirrorGhostButton(
-                      label: l10n.mirrorUpload,
-                      height: 56 * s,
-                      enabled: _phase == _CamPhase.live,
-                      onTap: _pickFromGallery,
+                    SizedBox(height: 4 * s),
+                    // Галерея — тихой ссылкой: главный путь — снимок у
+                    // зеркала, но готовое фото тоже подойдёт.
+                    MirrorTextButton(
+                      label: l10n.mirrorFromGallery,
+                      height: 44 * s,
+                      color: t.muted,
+                      onTap: _phase == _CamPhase.live ? _pickFromGallery : null,
                     ),
-                  ] else
+                  ] else ...[
                     Row(
                       children: [
                         Expanded(
@@ -492,6 +540,18 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
                         ),
                       ],
                     ),
+                    SizedBox(height: 4 * s),
+                    // После снимка тоже можно взять фото из галереи — так же
+                    // тихо, чтобы не спорить с «Переснять» и «Готово».
+                    MirrorTextButton(
+                      label: l10n.mirrorFromGallery,
+                      height: 44 * s,
+                      color: t.muted,
+                      onTap: _phase == _CamPhase.uploading
+                          ? null
+                          : _pickFromGallery,
+                    ),
+                  ],
                   SizedBox(height: 24 * s),
                 ],
               ),
@@ -530,9 +590,9 @@ class _CoverPreview extends StatelessWidget {
   }
 }
 
-/// Пунктирное розовое кольцо-ориентир по краю круга.
-class _DashedRingPainter extends CustomPainter {
-  const _DashedRingPainter({required this.color, required this.strokeWidth});
+/// Сплошное кольцо-ориентир цветом бренда по краю круга.
+class _RingPainter extends CustomPainter {
+  const _RingPainter({required this.color, required this.strokeWidth});
 
   final Color color;
   final double strokeWidth;
@@ -542,26 +602,13 @@ class _DashedRingPainter extends CustomPainter {
     final paint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round
       ..color = color;
     final center = Offset(size.width / 2, size.height / 2);
-    final radius = math.min(size.width, size.height) / 2 - strokeWidth;
-    const dashCount = 36;
-    const dashFraction = 0.55;
-    final step = 2 * math.pi / dashCount;
-    for (var i = 0; i < dashCount; i++) {
-      final start = i * step;
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius),
-        start,
-        step * dashFraction,
-        false,
-        paint,
-      );
-    }
+    final radius = math.min(size.width, size.height) / 2 - strokeWidth / 2;
+    canvas.drawCircle(center, radius, paint);
   }
 
   @override
-  bool shouldRepaint(_DashedRingPainter oldDelegate) =>
+  bool shouldRepaint(_RingPainter oldDelegate) =>
       oldDelegate.color != color || oldDelegate.strokeWidth != strokeWidth;
 }

@@ -3508,49 +3508,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mirrorTab => 'Mirror';
 
   @override
-  String get mirrorIdleEyebrow => 'LIBAS AI stylist';
-
-  @override
-  String get mirrorIdleTitle => 'Try on a look';
-
-  @override
-  String get mirrorIdleTitleAccent => 'in 30 seconds';
-
-  @override
-  String get mirrorCtaCreate => 'Create a look';
-
-  @override
-  String get mirrorCtaCatalog => 'Browse the catalog';
-
-  @override
-  String get mirrorFree => 'Free';
-
-  @override
-  String get mirrorIntroEyebrow => 'Three steps';
-
-  @override
-  String get mirrorIntroTitle => 'How it works';
-
-  @override
-  String get mirrorStep1Title => 'Take a photo of your face';
-
-  @override
-  String get mirrorStep1Text => 'One photo, right here';
-
-  @override
-  String get mirrorStep2Title => 'Answer two questions';
-
-  @override
-  String get mirrorStep2Text => 'Gender and body type';
-
-  @override
-  String get mirrorStep3Title => 'See your look';
-
-  @override
-  String get mirrorStep3Text => 'Made of items that are in stock';
-
-  @override
-  String get mirrorIntroCta => 'Start';
+  String get mirrorCtaCreate => 'Create my look';
 
   @override
   String get mirrorPrivacyLong =>
@@ -3715,10 +3673,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mirrorQrTitle => 'Take the look with you';
 
   @override
-  String get mirrorQrSubtitle =>
-      'Point your camera — the photo, sizes and prices will be saved in the LIBAS app.';
-
-  @override
   String get mirrorDownload => 'Save photo';
 
   @override
@@ -3737,7 +3691,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mirrorContinueInApp => 'Continue in the app';
 
   @override
-  String get mirrorCollect => 'Collect for fitting';
+  String get mirrorCollect => 'Reserve for fitting';
 
   @override
   String get mirrorBuyTitle => 'What you\'re wearing';
@@ -3867,4 +3821,66 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get promoErrGeneric =>
       'Could not apply the promo code. Please try again.';
+
+  @override
+  String get mirrorCoverHeadline => 'Would it\nsuit you?';
+
+  @override
+  String get mirrorCoverSubline =>
+      'We’ll style a look and try it on your photo';
+
+  @override
+  String get mirrorCoverInspiration => 'Inspired\nby the collection';
+
+  @override
+  String get mirrorCoverCta => 'Create my look';
+
+  @override
+  String get mirrorPoweredBy => 'Powered by Libas AI';
+
+  @override
+  String get mirrorPickerKicker => 'Magic Mirror';
+
+  @override
+  String get mirrorPickerTitle => 'Choose a style';
+
+  @override
+  String get mirrorPickerSubtitle =>
+      'This is how the mirror will greet shoppers. You can change it later: tap the logo 5 times.';
+
+  @override
+  String get mirrorPickerStart => 'Start the mirror';
+
+  @override
+  String get mirrorPickerCurrent => 'Current';
+
+  @override
+  String get mirrorGenStyleLabel => 'Style';
+
+  @override
+  String mirrorGenPickedCount(int count) {
+    return 'Pieces from the store: $count';
+  }
+
+  @override
+  String get mirrorCoverCatalog => 'Choose from the catalog';
+
+  @override
+  String get mirrorSiteQrHint =>
+      'Point your phone camera at the code to open the site';
+
+  @override
+  String get mirrorItemClose => 'Close';
+
+  @override
+  String get mirrorItemInLook => 'In your look';
+
+  @override
+  String get mirrorCodeKicker => 'Code for the seller';
+
+  @override
+  String get mirrorFromGallery => 'or choose a photo from the gallery';
+
+  @override
+  String get mirrorFinish => 'Finish';
 }

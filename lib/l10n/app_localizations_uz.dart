@@ -3553,49 +3553,7 @@ class AppLocalizationsUz extends AppLocalizations {
   String get mirrorTab => 'Oyna';
 
   @override
-  String get mirrorIdleEyebrow => 'LIBAS AI-stilisti';
-
-  @override
-  String get mirrorIdleTitle => 'Uslubni kiyib koʻring';
-
-  @override
-  String get mirrorIdleTitleAccent => '30 soniyada';
-
-  @override
-  String get mirrorCtaCreate => 'Uslub yaratish';
-
-  @override
-  String get mirrorCtaCatalog => 'Katalogni koʻrish';
-
-  @override
-  String get mirrorFree => 'Bepul';
-
-  @override
-  String get mirrorIntroEyebrow => 'Uch qadam';
-
-  @override
-  String get mirrorIntroTitle => 'Bu qanday ishlaydi';
-
-  @override
-  String get mirrorStep1Title => 'Yuzingizni suratga oling';
-
-  @override
-  String get mirrorStep1Text => 'Bitta surat, shu yerda';
-
-  @override
-  String get mirrorStep2Title => 'Ikki savolga javob bering';
-
-  @override
-  String get mirrorStep2Text => 'Jins va tana tuzilishi';
-
-  @override
-  String get mirrorStep3Title => 'Uslubni koʻring';
-
-  @override
-  String get mirrorStep3Text => 'Mavjud kiyimlardan';
-
-  @override
-  String get mirrorIntroCta => 'Boshlash';
+  String get mirrorCtaCreate => 'Uslubimni yaratish';
 
   @override
   String get mirrorPrivacyLong =>
@@ -3754,10 +3712,6 @@ class AppLocalizationsUz extends AppLocalizations {
   String get mirrorQrTitle => 'Uslubni telefonga oling';
 
   @override
-  String get mirrorQrSubtitle =>
-      'Kamerani qarating — surat, oʻlchamlar va narxlar LIBAS ilovasida saqlanadi.';
-
-  @override
   String get mirrorDownload => 'Suratni yuklash';
 
   @override
@@ -3776,7 +3730,7 @@ class AppLocalizationsUz extends AppLocalizations {
   String get mirrorContinueInApp => 'Ilovada davom eting';
 
   @override
-  String get mirrorCollect => 'Kiyib koʻrishga yigʻish';
+  String get mirrorCollect => 'Kiyib koʻrish uchun band qilish';
 
   @override
   String get mirrorBuyTitle => 'Sizdagi kiyimlar';
@@ -3906,4 +3860,66 @@ class AppLocalizationsUz extends AppLocalizations {
   @override
   String get promoErrGeneric =>
       'Promokodni qo\'llab bo\'lmadi. Qayta urinib ko\'ring.';
+
+  @override
+  String get mirrorCoverHeadline => 'Sizga ham\nyarashadimi?';
+
+  @override
+  String get mirrorCoverSubline =>
+      'Obraz tanlab, uni suratingizda kiyib koʻramiz';
+
+  @override
+  String get mirrorCoverInspiration => 'Kolleksiyadan\nilhom';
+
+  @override
+  String get mirrorCoverCta => 'Obrazimni yaratish';
+
+  @override
+  String get mirrorPoweredBy => 'Libas AI asosida';
+
+  @override
+  String get mirrorPickerKicker => 'Magic Mirror';
+
+  @override
+  String get mirrorPickerTitle => 'Koʻrinishni tanlang';
+
+  @override
+  String get mirrorPickerSubtitle =>
+      'Oyna xaridorlarni shunday kutib oladi. Keyin almashtirish uchun logotipga 5 marta bosing.';
+
+  @override
+  String get mirrorPickerStart => 'Oynani ishga tushirish';
+
+  @override
+  String get mirrorPickerCurrent => 'Hozirgi';
+
+  @override
+  String get mirrorGenStyleLabel => 'Uslub';
+
+  @override
+  String mirrorGenPickedCount(int count) {
+    return 'Zaldan kiyimlar: $count';
+  }
+
+  @override
+  String get mirrorCoverCatalog => 'Katalogdan tanlash';
+
+  @override
+  String get mirrorSiteQrHint =>
+      'Saytni ochish uchun telefon kamerasini kodga qarating';
+
+  @override
+  String get mirrorItemClose => 'Yopish';
+
+  @override
+  String get mirrorItemInLook => 'Obrazingizda';
+
+  @override
+  String get mirrorCodeKicker => 'Sotuvchi uchun kod';
+
+  @override
+  String get mirrorFromGallery => 'yoki galereyadan surat tanlang';
+
+  @override
+  String get mirrorFinish => 'Yakunlash';
 }

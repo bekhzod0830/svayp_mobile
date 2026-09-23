@@ -15,11 +15,11 @@ import '../data/kiosk_demo.dart';
 import 'mirror_session_controller.dart';
 import 'mirror_theme.dart';
 import 'screens/mirror_body_screens.dart';
+import 'screens/mirror_brand_picker.dart';
 import 'screens/mirror_camera_screen.dart';
 import 'screens/mirror_catalog_screen.dart';
+import 'screens/mirror_cover_screen.dart';
 import 'screens/mirror_generating_screen.dart';
-import 'screens/mirror_idle_screen.dart';
-import 'screens/mirror_intro_screen.dart';
 import 'screens/mirror_result_screen.dart';
 import 'screens/mirror_style_screen.dart';
 import 'widgets/mirror_chrome.dart';
@@ -33,6 +33,9 @@ import 'widgets/mirror_setup_sheet.dart';
 /// controller.screen — hardReset физически не может оставить «застрявших»
 /// роутов. Пока таб активен, экран не гаснет (wakelock) и горит на максимум;
 /// при уходе с таба обе блокировки снимаются, а сессия покупателя живёт.
+/// Оформление выбирает продавец на экране [MirrorBrandPicker] при каждом
+/// открытии вкладки (для показов клиентам); выбор запоминается и
+/// подсвечивается в следующий раз. Бренд раздаётся через [MirrorBrandScope].
 class MirrorTab extends StatefulWidget {
   const MirrorTab({
     super.key,
@@ -54,7 +57,23 @@ class _MirrorTabState extends State<MirrorTab> with WidgetsBindingObserver {
   /// вернуться в киоск сам, без продавца.
   static const _fullscreenPref = 'kiosk_fullscreen';
 
+  /// Последнее выбранное оформление.
+  static const _brandPref = 'kiosk_brand';
+
   late final MirrorSessionController _controller;
+
+  /// Material-виджеты внутри киоска (рипл InkWell, индикаторы, Switch) читают
+  /// ThemeData — подкрашиваем его брендом один раз, а не на каждый build.
+  late ThemeData _kioskTheme;
+
+  late MirrorBrand _brand;
+
+  /// Экран выбора оформления поверх киоска.
+  bool _picking = true;
+
+  /// Постер после выбора открывается уже собранным: превью раскрылось в него.
+  bool _coverIntro = true;
+
   StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
   double? _originalBrightness;
   bool _brightnessChanged = false;
@@ -64,20 +83,42 @@ class _MirrorTabState extends State<MirrorTab> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _brand = mirrorBrandById(getIt<SharedPreferences>().getString(_brandPref));
     _controller = MirrorSessionController(
       api: getIt<KioskApi>(),
       demo: getIt<KioskDemoService>(),
       prefs: getIt<SharedPreferences>(),
+      brand: _brand,
     );
-    _connectivitySub = Connectivity()
-        .onConnectivityChanged
-        .listen(_onConnectivityChanged);
+    _kioskTheme = _themeFor(_brand);
+    _connectivitySub = Connectivity().onConnectivityChanged.listen(
+          _onConnectivityChanged,
+        );
     if (widget.isActive) _enterKioskMode();
     if (getIt<SharedPreferences>().getBool(_fullscreenPref) ?? false) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _setFullscreen(true);
       });
     }
+  }
+
+  static ThemeData _themeFor(MirrorBrand brand) {
+    final t = MirrorTheme(brand);
+    final base = AppTheme.lightTheme;
+    return base.copyWith(
+      scaffoldBackgroundColor: t.bg,
+      colorScheme: base.colorScheme.copyWith(
+        primary: t.primary,
+        onPrimary: t.onPrimary,
+        surface: t.surface,
+        onSurface: t.ink,
+      ),
+      splashColor: t.primary.withValues(alpha: 0.08),
+      highlightColor: t.primary.withValues(alpha: 0.04),
+      progressIndicatorTheme: base.progressIndicatorTheme.copyWith(
+        color: t.primary,
+      ),
+    );
   }
 
   void _setFullscreen(bool value) {
@@ -139,7 +180,9 @@ class _MirrorTabState extends State<MirrorTab> with WidgetsBindingObserver {
       _originalBrightness ??= await brightness.current;
       await brightness.setScreenBrightness(1.0);
       _brightnessChanged = true;
-    } catch (_) {/* яркость недоступна — не мешаем работе */}
+    } catch (_) {
+      /* яркость недоступна — не мешаем работе */
+    }
   }
 
   Future<void> _exitKioskMode() async {
@@ -163,24 +206,45 @@ class _MirrorTabState extends State<MirrorTab> with WidgetsBindingObserver {
       demo: getIt<KioskDemoService>(),
       fullscreen: _fullscreen,
       onFullscreenChanged: _setFullscreen,
+      brandName: _brand.name,
+      onChooseBrand: _openPicker,
     );
+  }
+
+  void _openPicker() {
+    if (!mounted) return;
+    // Сессии покупателя на постере нет, но на всякий случай — чистый лист.
+    if (_controller.screen != MirrorScreen.idle) {
+      _controller.hardReset('manual');
+    }
+    setState(() => _picking = true);
+  }
+
+  void _onBrandPicked(MirrorBrand brand) {
+    getIt<SharedPreferences>().setString(_brandPref, brand.id);
+    setState(() {
+      _brand = brand;
+      _kioskTheme = _themeFor(brand);
+      _picking = false;
+      _coverIntro = false;
+    });
+    _controller.setBrand(brand);
+    // Флаг читается один раз при создании постера; следующие постеры
+    // (после сессий покупателей) снова играют вход.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _coverIntro = true);
   }
 
   Widget _buildScreen() {
     switch (_controller.screen) {
       case MirrorScreen.idle:
-        return MirrorIdleScreen(
+        return MirrorCoverScreen(
           key: const ValueKey('idle'),
           controller: _controller,
           onOpenSetup: _openSetup,
           active: widget.isActive,
           fullscreen: _fullscreen,
           onEnterFullscreen: () => _setFullscreen(true),
-        );
-      case MirrorScreen.intro:
-        return MirrorIntroScreen(
-          key: const ValueKey('intro'),
-          controller: _controller,
+          playIntro: _coverIntro,
         );
       case MirrorScreen.camera:
         return MirrorCameraScreen(
@@ -228,99 +292,132 @@ class _MirrorTabState extends State<MirrorTab> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    // Киоск всегда светлый: тёмная тема приложения продавца сюда не протекает.
+    // Киоск всегда светлый и в цветах бренда: тёмная тема приложения
+    // продавца сюда не протекает.
+    if (_picking) {
+      return Theme(
+        data: _kioskTheme,
+        child: TickerMode(
+          enabled: widget.isActive,
+          child: MirrorBrandPicker(
+            brands: kMirrorBrands,
+            current: _brand,
+            controller: _controller,
+            onPicked: _onBrandPicked,
+            active: widget.isActive,
+            fullscreen: _fullscreen,
+          ),
+        ),
+      );
+    }
     return Theme(
-      data: AppTheme.lightTheme,
-      child: ListenableBuilder(
-        listenable: _controller,
-        builder: (context, _) {
-          // Язык покупателя локален для поддерева киоска.
-          return Localizations.override(
-            context: context,
-            locale: Locale(_controller.shopperLang),
-            child: Builder(
-              builder: (context) {
-                final screen = _controller.screen;
-                final isIdle = screen == MirrorScreen.idle;
-                final showChrome = !isIdle;
+      data: _kioskTheme,
+      child: MirrorBrandScope(
+        brand: _brand,
+        child: ListenableBuilder(
+          listenable: _controller,
+          builder: (context, _) {
+            // Язык покупателя локален для поддерева киоска.
+            return Localizations.override(
+              context: context,
+              locale: Locale(_controller.shopperLang),
+              child: Builder(
+                builder: (context) {
+                  final t = MirrorTheme.of(context);
+                  final screen = _controller.screen;
+                  final isIdle = screen == MirrorScreen.idle;
+                  // Переключатель языка — на первом внутреннем шаге любой
+                  // ветки; дальше человек уже читает на своём языке.
+                  final showLang = !isIdle && _controller.stepIndex == 0;
+                  // Постер и результат — полноэкранные: у них своя шапка
+                  // поверх сцены/фото, планка киоска им не нужна.
+                  final showChrome = !isIdle && screen != MirrorScreen.result;
 
-                return Listener(
-                  behavior: HitTestBehavior.translucent,
-                  onPointerDown: (_) => _controller.touch(),
-                  child: ColoredBox(
-                    color: isIdle ? MirrorTheme.ink : Colors.white,
-                    child: Stack(
-                      children: [
-                        Positioned.fill(
-                          child: Column(
-                            children: [
-                              if (showChrome)
-                                SafeArea(
-                                  bottom: false,
-                                  child: Column(
-                                    children: [
-                                      MirrorTopBar(
-                                        onBack: _controller.goBack,
-                                        langCode:
-                                            screen == MirrorScreen.intro
+                  return Listener(
+                    behavior: HitTestBehavior.translucent,
+                    onPointerDown: (_) => _controller.touch(),
+                    child: ColoredBox(
+                      color: t.bg,
+                      // Таб остаётся смонтированным за другими вкладками —
+                      // без TickerMode постер крутил бы анимации часами.
+                      child: TickerMode(
+                        enabled: widget.isActive,
+                        child: Stack(
+                          children: [
+                            Positioned.fill(
+                              child: Column(
+                                children: [
+                                  if (showChrome)
+                                    SafeArea(
+                                      bottom: false,
+                                      child: Column(
+                                        children: [
+                                          MirrorTopBar(
+                                            onBack: _controller.goBack,
+                                            langCode: showLang
                                                 ? _controller.shopperLang
                                                 : null,
-                                        onLangChanged:
-                                            _controller.setShopperLang,
+                                            onLangChanged:
+                                                _controller.setShopperLang,
+                                          ),
+                                          MirrorSteps(
+                                            current: _controller.stepIndex,
+                                          ),
+                                        ],
                                       ),
-                                      MirrorSteps(
-                                        current: _controller.stepIndex,
+                                    ),
+                                  Expanded(
+                                    child: AnimatedSwitcher(
+                                      duration: const Duration(
+                                        milliseconds: 300,
                                       ),
-                                    ],
-                                  ),
-                                ),
-                              Expanded(
-                                child: AnimatedSwitcher(
-                                  duration:
-                                      const Duration(milliseconds: 250),
-                                  switchInCurve: Curves.easeOutCubic,
-                                  switchOutCurve: Curves.easeIn,
-                                  transitionBuilder: (child, animation) =>
-                                      FadeTransition(
-                                    opacity: animation,
-                                    child: SlideTransition(
-                                      position: Tween<Offset>(
-                                        begin: const Offset(0, 0.015),
-                                        end: Offset.zero,
-                                      ).animate(animation),
-                                      child: child,
+                                      switchInCurve: Curves.easeOutCubic,
+                                      switchOutCurve: Curves.easeIn,
+                                      transitionBuilder: (child, animation) =>
+                                          FadeTransition(
+                                        opacity: animation,
+                                        child: ScaleTransition(
+                                          scale: Tween<double>(
+                                            begin: 0.985,
+                                            end: 1,
+                                          ).animate(animation),
+                                          child: child,
+                                        ),
+                                      ),
+                                      child: _buildScreen(),
                                     ),
                                   ),
-                                  child: _buildScreen(),
+                                ],
+                              ),
+                            ),
+                            if (_controller.demoActive && !isIdle)
+                              const Positioned(
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                child: _DemoBadge(),
+                              ),
+                            if (_controller.idleWarning)
+                              Positioned.fill(
+                                child: MirrorIdleWarning(
+                                  secondsLeft: _controller.idleLeft,
+                                  onStay: _controller.touch,
                                 ),
                               ),
-                            ],
-                          ),
+                            if (_controller.offline)
+                              const Positioned.fill(
+                                child: MirrorOfflineScreen(),
+                              ),
+                          ],
                         ),
-                        if (_controller.demoActive && !isIdle)
-                          const Positioned(
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            child: _DemoBadge(),
-                          ),
-                        if (_controller.idleWarning)
-                          Positioned.fill(
-                            child: MirrorIdleWarning(
-                              secondsLeft: _controller.idleLeft,
-                              onStay: _controller.touch,
-                            ),
-                          ),
-                        if (_controller.offline)
-                          const Positioned.fill(child: MirrorOfflineScreen()),
-                      ],
+                      ),
                     ),
-                  ),
-                );
-              },
-            ),
-          );
-        },
+                  );
+                },
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -333,9 +430,10 @@ class _DemoBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final t = MirrorTheme.of(context);
     return IgnorePointer(
       child: Container(
-        color: MirrorTheme.ink.withValues(alpha: 0.85),
+        color: t.ink.withValues(alpha: 0.85),
         padding: EdgeInsets.only(
           top: MediaQuery.paddingOf(context).top + 2,
           bottom: 4,
@@ -343,11 +441,7 @@ class _DemoBadge extends StatelessWidget {
         child: Text(
           l10n.mirrorDemoBadge,
           textAlign: TextAlign.center,
-          style: MirrorTheme.label(
-            11,
-            weight: FontWeight.w600,
-            color: Colors.white,
-          ),
+          style: t.label(11, weight: FontWeight.w600, color: t.bg),
         ),
       ),
     );

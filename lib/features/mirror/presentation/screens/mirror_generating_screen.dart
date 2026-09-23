@@ -1,22 +1,28 @@
 import 'dart:io';
 import 'dart:math' as math;
-import 'dart:ui' show ImageFilter;
+import 'dart:ui' as ui;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:swipe/l10n/app_localizations.dart';
-import 'package:swipe/shared/widgets/body_scan_visual.dart';
 
+import '../../data/kiosk_taxonomy.dart';
 import '../mirror_session_controller.dart';
 import '../mirror_theme.dart';
 import '../widgets/mirror_buttons.dart';
+import '../widgets/mirror_arch.dart';
 
-/// Экран 6 — генерация. Человек стоит посреди зала 20–30 секунд, поэтому
-/// экран — маленький спектакль: живая аврора на фоне, сканирующийся силуэт,
-/// плывущие карточки выбранных вещей и чек-лист этапов, которые отмечаются
-/// галочками по мере работы. Полоса прогресса детерминированная; «почти
-/// готово» после 25с; ошибка после 40с с Retry и QR. Отмена доступна всегда.
+/// Экран генерации: «зеркало проявляет ваш образ». В арочном зеркале бренда
+/// — фото самого покупателя. Сначала оно бледное и размытое и по мере сборки
+/// проявляется в цвет; рама зеркала дорисовывается по прогрессу, по стеклу
+/// идёт полоса сканирования, а к раме по этапам прикрепляются ответы
+/// покупателя — пол, фигура, стили или число выбранных вещей. Ни одной
+/// картинки товара: до результата мы не знаем, какие вещи войдут в образ,
+/// и не показываем случайные.
+///
+/// Прогресс детерминированный; «почти готово» после 25с; ошибка после 40с с
+/// Retry и QR. Отмена доступна всегда, но не спорит со сценой.
 class MirrorGeneratingScreen extends StatefulWidget {
   const MirrorGeneratingScreen({super.key, required this.controller});
 
@@ -26,12 +32,109 @@ class MirrorGeneratingScreen extends StatefulWidget {
   State<MirrorGeneratingScreen> createState() => _MirrorGeneratingScreenState();
 }
 
-class _MirrorGeneratingScreenState extends State<MirrorGeneratingScreen> {
+class _MirrorGeneratingScreenState extends State<MirrorGeneratingScreen>
+    with TickerProviderStateMixin {
   bool _precaching = false;
+
+  /// Полоса сканирования по стеклу.
+  late final AnimationController _scan;
+
+  /// Общее «дыхание»: свечение, искры, точка на конце линии прогресса.
+  late final AnimationController _ambient;
+
+  @override
+  void initState() {
+    super.initState();
+    _scan = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2600),
+    );
+    _ambient = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 3600),
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _scan
+        ..stop()
+        ..value = 0;
+      _ambient
+        ..stop()
+        ..value = 0.5;
+    } else {
+      if (!_scan.isAnimating) _scan.repeat();
+      if (!_ambient.isAnimating) _ambient.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _scan.dispose();
+    _ambient.dispose();
+    super.dispose();
+  }
+
+  /// Ответы покупателя, которые прикрепляются к зеркалу, по этапам.
+  List<_Answer> _answers(AppLocalizations l10n) {
+    final c = widget.controller;
+    final brand = c.brand;
+    final lang = c.shopperLang;
+    final answers = <_Answer>[];
+
+    final gender = c.gender;
+    if (gender != null) {
+      answers.add(_Answer(
+        stage: 1,
+        kicker: l10n.mirrorGenderLabel,
+        value: gender == 'MALE' ? l10n.mirrorMale : l10n.mirrorFemale,
+      ));
+    }
+    final shape = c.bodyShape;
+    if (shape != null) {
+      final label = shape == kioskShapeUnknown
+          ? l10n.mirrorDontKnow
+          : (kioskShapes[gender] ?? const <KioskLabeled>[])
+                  .where((x) => x.code == shape)
+                  .map((x) => x.label(lang))
+                  .firstOrNull ??
+              l10n.mirrorDontKnow;
+      answers
+          .add(_Answer(stage: 1, kicker: l10n.mirrorShapeLabel, value: label));
+    }
+    if (c.path == MirrorPath.create && c.styles.isNotEmpty) {
+      final labels = [
+        for (final code in c.styles)
+          brand.styleLabel(
+            kioskStyles.firstWhere(
+              (x) => x.code == code,
+              orElse: () => KioskLabeled(code, code, code),
+            ),
+            lang,
+          ),
+      ];
+      answers.add(_Answer(
+        stage: 2,
+        kicker: l10n.mirrorGenStyleLabel,
+        value: labels.join(' · '),
+      ));
+    } else if (c.path == MirrorPath.catalog && c.pickedProductIds.isNotEmpty) {
+      answers.add(_Answer(
+        stage: 2,
+        kicker: l10n.mirrorPicked,
+        value: l10n.mirrorGenPickedCount(c.pickedProductIds.length),
+      ));
+    }
+    return answers;
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final t = MirrorTheme.of(context);
     final s = MirrorTheme.scale(context);
     final c = widget.controller;
 
@@ -40,172 +143,88 @@ class _MirrorGeneratingScreenState extends State<MirrorGeneratingScreen> {
       _precacheAndReveal();
     }
 
-    if (c.genFailed) return _buildFailure(context, l10n, s);
+    if (c.genFailed) return _buildFailure(context, l10n, t, s);
 
     final elapsed = c.elapsedSec;
-    final stages = [l10n.mirrorGen1, l10n.mirrorGen2, l10n.mirrorGen3, l10n.mirrorGen4];
+    final stages = [
+      l10n.mirrorGen1,
+      l10n.mirrorGen2,
+      l10n.mirrorGen3,
+      l10n.mirrorGen4
+    ];
     // Этап ~6 секунд; последний держится до конца генерации.
     final activeStage = math.min(elapsed ~/ 6, stages.length - 1);
 
     // До 25с — easeOut к 90%; дальше медленный доползающий хвост к 95%.
-    final base = Curves.easeOut
-            .transform((elapsed / MirrorSessionController.reassureAfterSec).clamp(0.0, 1.0)) *
+    final base = Curves.easeOut.transform(
+            (elapsed / MirrorSessionController.reassureAfterSec)
+                .clamp(0.0, 1.0)) *
         0.9;
     final crawl = elapsed > MirrorSessionController.reassureAfterSec
-        ? math.min(0.05, (elapsed - MirrorSessionController.reassureAfterSec) * 0.005)
+        ? math.min(
+            0.05, (elapsed - MirrorSessionController.reassureAfterSec) * 0.005)
         : 0.0;
-    final progress = (base + crawl).clamp(0.03, 0.95);
+    final progress = c.resultReady ? 1.0 : (base + crawl).clamp(0.03, 0.95);
 
-    // До трёх выбранных вещей плывут вокруг силуэта (ветка «каталог») —
-    // человек видит, что примеряются именно его вещи.
-    final pickedImages = c.catalog
-        .where((item) =>
-            c.pickedProductIds.contains(item.id) && item.imageUrl != null)
-        .map((item) => item.imageUrl!)
-        .take(3)
-        .toList();
-
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        const _AuroraBackground(),
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: 28 * s),
-          child: Column(
-            children: [
-              Expanded(
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: BodyScanVisual(
-                        badge: Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 12 * s,
-                            vertical: 6 * s,
-                          ),
-                          decoration: BoxDecoration(
-                            color: MirrorTheme.pink,
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Text(
-                            'AI',
-                            style:
-                                MirrorTheme.label(12 * s, color: Colors.white),
-                          ),
-                        ),
-                      ),
-                    ),
-                    if (pickedImages.isNotEmpty)
-                      Positioned(
-                        top: 24 * s,
-                        left: 0,
-                        child: _FloatingGarment(
-                            url: pickedImages[0], s: s, variant: 1),
-                      ),
-                    if (pickedImages.length > 1)
-                      Positioned(
-                        top: 90 * s,
-                        right: 0,
-                        child: _FloatingGarment(
-                            url: pickedImages[1], s: s, variant: 2),
-                      ),
-                    if (pickedImages.length > 2)
-                      Positioned(
-                        bottom: 30 * s,
-                        left: 8 * s,
-                        child: _FloatingGarment(
-                            url: pickedImages[2], s: s, variant: 3),
-                      ),
-                  ],
-                ),
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20 * s, 12 * s, 20 * s, 0),
+      child: Column(
+        children: [
+          Expanded(
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(end: progress),
+              duration: MediaQuery.disableAnimationsOf(context)
+                  ? Duration.zero
+                  : const Duration(milliseconds: 900),
+              curve: Curves.easeOut,
+              builder: (context, p, _) => _DevelopingMirror(
+                progress: p,
+                stage: activeStage,
+                photo: c.capturedPhoto,
+                answers: _answers(l10n),
+                scan: _scan,
+                ambient: _ambient,
               ),
-              SizedBox(height: 14 * s),
-              Text(
-                l10n.mirrorGenTitle,
-                textAlign: TextAlign.center,
-                style: MirrorTheme.headline(30 * s),
-              ),
-              SizedBox(height: 16 * s),
-              // Чек-лист этапов: сделанные отмечаются галочкой с «поп»-анимацией,
-              // активный пульсирует. Осмысленный прогресс вместо крутилки.
-              ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: 460 * s),
-                child: Column(
-                  children: [
-                    for (var i = 0; i < stages.length; i++)
-                      _StageRow(
-                        label: stages[i],
-                        state: i < activeStage
-                            ? _StageState.done
-                            : i == activeStage
-                                ? _StageState.active
-                                : _StageState.pending,
-                        s: s,
-                      ),
-                  ],
-                ),
-              ),
-              if (elapsed > MirrorSessionController.reassureAfterSec) ...[
-                SizedBox(height: 8 * s),
-                Text(
-                  l10n.mirrorGenAlmost,
-                  textAlign: TextAlign.center,
-                  style: MirrorTheme.subtitle(14 * s, color: MirrorTheme.pink),
-                ),
-              ],
-              SizedBox(height: 16 * s),
-              Row(
-                children: [
-                  Expanded(
-                    child: LayoutBuilder(
-                      builder: (context, constraints) => Container(
-                        height: 8 * s,
-                        alignment: Alignment.centerLeft,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF0E0EA),
-                          borderRadius: BorderRadius.circular(6 * s),
-                        ),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 900),
-                          curve: Curves.easeOut,
-                          height: 8 * s,
-                          width: constraints.maxWidth * progress,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(6 * s),
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFF9A9CB), Color(0xFFF370A7)],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: 12 * s),
-                  SizedBox(
-                    width: 48 * s,
-                    child: Text(
-                      '${(progress * 100).round()}%',
-                      textAlign: TextAlign.right,
-                      style: MirrorTheme.label(15 * s, color: MirrorTheme.pink),
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 18 * s),
-              MirrorGhostButton(
-                label: l10n.mirrorCancel,
-                height: 56 * s,
-                onTap: c.cancelGeneration,
-              ),
-              SizedBox(height: 24 * s),
-            ],
+            ),
           ),
-        ),
-      ],
+          SizedBox(height: 16 * s),
+          Text(
+            l10n.mirrorGenTitle,
+            textAlign: TextAlign.center,
+            style: t.headline(30 * s),
+          ),
+          SizedBox(height: 10 * s),
+          _StatusLine(text: stages[activeStage], stage: activeStage),
+          SizedBox(
+            height: 30 * s,
+            child: elapsed > MirrorSessionController.reassureAfterSec
+                ? Center(
+                    child: Text(
+                      l10n.mirrorGenAlmost,
+                      textAlign: TextAlign.center,
+                      style: t.subtitle(16 * s, color: t.accent),
+                    ),
+                  )
+                : null,
+          ),
+          MirrorTextButton(
+            label: l10n.mirrorCancel,
+            height: 48 * s,
+            color: t.muted,
+            onTap: c.cancelGeneration,
+          ),
+          SizedBox(height: 10 * s),
+        ],
+      ),
     );
   }
 
-  Widget _buildFailure(BuildContext context, AppLocalizations l10n, double s) {
+  Widget _buildFailure(
+    BuildContext context,
+    AppLocalizations l10n,
+    MirrorTheme t,
+    double s,
+  ) {
     final c = widget.controller;
     final reason = c.genReason;
     final code = (reason ?? '').replaceFirst('KIOSK_', '');
@@ -228,23 +247,19 @@ class _MirrorGeneratingScreenState extends State<MirrorGeneratingScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                Icons.auto_awesome_outlined,
-                size: 44 * s,
-                color: MirrorTheme.gray,
-              ),
+              Icon(Icons.auto_awesome_outlined, size: 44 * s, color: t.muted),
               SizedBox(height: 18 * s),
               Text(
                 l10n.mirrorGenFailed,
                 textAlign: TextAlign.center,
-                style: MirrorTheme.headline(30 * s),
+                style: t.headline(30 * s),
               ),
               if (reasonText != null) ...[
                 SizedBox(height: 10 * s),
                 Text(
                   reasonText,
                   textAlign: TextAlign.center,
-                  style: MirrorTheme.subtitle(15 * s),
+                  style: t.subtitle(15 * s),
                 ),
               ],
               if (canRetry) ...[
@@ -260,15 +275,15 @@ class _MirrorGeneratingScreenState extends State<MirrorGeneratingScreen> {
                 Text(
                   l10n.mirrorGenContinueInApp,
                   textAlign: TextAlign.center,
-                  style: MirrorTheme.subtitle(14 * s),
+                  style: t.subtitle(14 * s),
                 ),
                 SizedBox(height: 12 * s),
                 Container(
                   padding: EdgeInsets.all(12 * s),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(16 * s),
-                    border: Border.all(color: MirrorTheme.hairline),
+                    borderRadius: BorderRadius.circular(t.rCard),
+                    border: Border.all(color: t.hairline),
                   ),
                   child: QrImageView(
                     data: c.shareUrl!,
@@ -291,11 +306,15 @@ class _MirrorGeneratingScreenState extends State<MirrorGeneratingScreen> {
     final url = look?.resultImageUrl;
     try {
       if (url != null && url.startsWith('http')) {
-        await precacheImage(CachedNetworkImageProvider(url), context)
-            .timeout(const Duration(seconds: 6));
+        await precacheImage(
+          CachedNetworkImageProvider(url),
+          context,
+        ).timeout(const Duration(seconds: 6));
       } else if (look?.localResultPath != null) {
-        await precacheImage(FileImage(File(look!.localResultPath!)), context)
-            .timeout(const Duration(seconds: 6));
+        await precacheImage(
+          FileImage(File(look!.localResultPath!)),
+          context,
+        ).timeout(const Duration(seconds: 6));
       }
     } catch (_) {
       // Прекэш — оптимизация; без него результат просто догрузится на экране.
@@ -304,93 +323,66 @@ class _MirrorGeneratingScreenState extends State<MirrorGeneratingScreen> {
   }
 }
 
-enum _StageState { pending, active, done }
+/// Одна живая строка статуса: пульсирующая точка и текст текущего этапа,
+/// который сменяется мягким подъёмом.
+class _StatusLine extends StatelessWidget {
+  const _StatusLine({required this.text, required this.stage});
 
-/// Строка чек-листа: галочка / пульс / ожидание.
-class _StageRow extends StatelessWidget {
-  const _StageRow({required this.label, required this.state, required this.s});
-
-  final String label;
-  final _StageState state;
-  final double s;
+  final String text;
+  final int stage;
 
   @override
   Widget build(BuildContext context) {
-    final Color textColor;
-    final FontWeight weight;
-    switch (state) {
-      case _StageState.done:
-        textColor = MirrorTheme.ink;
-        weight = FontWeight.w600;
-      case _StageState.active:
-        textColor = MirrorTheme.ink;
-        weight = FontWeight.w800;
-      case _StageState.pending:
-        textColor = MirrorTheme.gray.withValues(alpha: 0.6);
-        weight = FontWeight.w600;
-    }
+    final t = MirrorTheme.of(context);
+    final s = MirrorTheme.scale(context);
+    final still = MediaQuery.disableAnimationsOf(context);
 
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 6 * s),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 26 * s,
-            height: 26 * s,
-            child: switch (state) {
-              _StageState.done => AnimatedScale(
-                  scale: 1,
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeOutBack,
-                  child: DecoratedBox(
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: MirrorTheme.pink,
-                    ),
-                    child: Icon(Icons.check_rounded,
-                        size: 17 * s, color: Colors.white),
-                  ),
-                ),
-              _StageState.active => _PulsingDot(s: s),
-              _StageState.pending => DecoratedBox(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: MirrorTheme.hairline, width: 2),
-                  ),
-                ),
-            },
-          ),
-          SizedBox(width: 14 * s),
-          Expanded(
-            child: AnimatedDefaultTextStyle(
-              duration: const Duration(milliseconds: 250),
-              style: TextStyle(
-                fontFamily: 'GolosText',
-                fontSize: 15 * s,
-                fontWeight: weight,
-                color: textColor,
-                height: 1.2,
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _PulseDot(size: 8 * s),
+        SizedBox(width: 10 * s),
+        Flexible(
+          child: AnimatedSwitcher(
+            duration: still ? Duration.zero : const Duration(milliseconds: 350),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeIn,
+            transitionBuilder: (child, animation) => FadeTransition(
+              opacity: animation,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0, 0.5),
+                  end: Offset.zero,
+                ).animate(animation),
+                child: child,
               ),
-              child: Text(label),
+            ),
+            child: Text(
+              text,
+              key: ValueKey(stage),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              style: t
+                  .label(16 * s, weight: FontWeight.w600)
+                  .copyWith(height: 1.25),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
-/// Пульсирующее кольцо активного этапа.
-class _PulsingDot extends StatefulWidget {
-  const _PulsingDot({required this.s});
+class _PulseDot extends StatefulWidget {
+  const _PulseDot({required this.size});
 
-  final double s;
+  final double size;
 
   @override
-  State<_PulsingDot> createState() => _PulsingDotState();
+  State<_PulseDot> createState() => _PulseDotState();
 }
 
-class _PulsingDotState extends State<_PulsingDot>
+class _PulseDotState extends State<_PulseDot>
     with SingleTickerProviderStateMixin {
   late final AnimationController _anim;
 
@@ -400,7 +392,19 @@ class _PulsingDotState extends State<_PulsingDot>
     _anim = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
-    )..repeat();
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _anim
+        ..stop()
+        ..value = 1;
+    } else if (!_anim.isAnimating) {
+      _anim.repeat(reverse: true);
+    }
   }
 
   @override
@@ -411,29 +415,21 @@ class _PulsingDotState extends State<_PulsingDot>
 
   @override
   Widget build(BuildContext context) {
-    if (MediaQuery.of(context).disableAnimations) {
-      return DecoratedBox(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(color: MirrorTheme.pink, width: 3),
-        ),
-      );
-    }
+    final t = MirrorTheme.of(context);
     return AnimatedBuilder(
       animation: _anim,
       builder: (context, _) {
-        final t = 0.5 + 0.5 * math.sin(_anim.value * 2 * math.pi);
-        return DecoratedBox(
+        final p = Curves.easeInOut.transform(_anim.value);
+        return Container(
+          width: widget.size,
+          height: widget.size,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(
-              color: MirrorTheme.pink.withValues(alpha: 0.45 + 0.55 * t),
-              width: 3,
-            ),
+            color: t.primary.withValues(alpha: 0.45 + 0.55 * p),
             boxShadow: [
               BoxShadow(
-                color: MirrorTheme.pink.withValues(alpha: 0.35 * t),
-                blurRadius: 10,
+                color: t.primary.withValues(alpha: 0.35 * p),
+                blurRadius: 8,
                 spreadRadius: 1,
               ),
             ],
@@ -444,158 +440,420 @@ class _PulsingDotState extends State<_PulsingDot>
   }
 }
 
-/// Плывущая карточка выбранной вещи вокруг силуэта.
-class _FloatingGarment extends StatefulWidget {
-  const _FloatingGarment({
-    required this.url,
-    required this.s,
-    required this.variant,
+/// Ответ покупателя на раме зеркала.
+class _Answer {
+  const _Answer(
+      {required this.stage, required this.kicker, required this.value});
+
+  /// С какого этапа генерации ответ виден.
+  final int stage;
+  final String kicker;
+  final String value;
+}
+
+/// Сцена экрана генерации: арочное зеркало с фото покупателя, рама-прогресс,
+/// сканирование, ответы на раме, процент на нижней кромке.
+class _DevelopingMirror extends StatelessWidget {
+  const _DevelopingMirror({
+    required this.progress,
+    required this.stage,
+    required this.photo,
+    required this.answers,
+    required this.scan,
+    required this.ambient,
   });
 
-  final String url;
-  final double s;
-  final int variant;
-
-  @override
-  State<_FloatingGarment> createState() => _FloatingGarmentState();
-}
-
-class _FloatingGarmentState extends State<_FloatingGarment>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _anim;
-
-  @override
-  void initState() {
-    super.initState();
-    _anim = AnimationController(
-      vsync: this,
-      duration: Duration(milliseconds: 4200 + widget.variant * 600),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _anim.dispose();
-    super.dispose();
-  }
+  final double progress;
+  final int stage;
+  final File? photo;
+  final List<_Answer> answers;
+  final Animation<double> scan;
+  final Animation<double> ambient;
 
   @override
   Widget build(BuildContext context) {
-    final s = widget.s;
-    final card = Container(
-      width: 74 * s,
-      height: 96 * s,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14 * s),
-        border: Border.all(color: Colors.white, width: 2.5),
-        boxShadow: [
-          BoxShadow(
-            color: MirrorTheme.ink.withValues(alpha: 0.12),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: CachedNetworkImage(
-        imageUrl: widget.url,
-        fit: BoxFit.cover,
-        placeholder: (_, __) => const ColoredBox(color: MirrorTheme.surface),
-        errorWidget: (_, __, ___) =>
-            const ColoredBox(color: MirrorTheme.surface),
-      ),
-    );
+    final t = MirrorTheme.of(context);
+    final s = MirrorTheme.scale(context);
 
-    if (MediaQuery.of(context).disableAnimations) return card;
+    return LayoutBuilder(
+      builder: (context, box) {
+        final size = box.biggest;
+        // Арка: по высоте сцены, пропорция зеркала ~0.62, с запасом по бокам
+        // под ответы.
+        final archH = size.height * 0.94;
+        final archW = math.min(archH * 0.6, size.width * 0.56);
+        final arch = Rect.fromCenter(
+          center: Offset(size.width / 2, size.height * 0.49),
+          width: archW,
+          height: math.min(archH, archW / 0.5),
+        );
+        final chipMaxW = math.min(210 * s, size.width * 0.46);
+        // Ответы по очереди слева и справа, на своих высотах.
+        const slots = [0.24, 0.40, 0.60, 0.74];
 
-    return AnimatedBuilder(
-      animation: _anim,
-      builder: (context, child) {
-        final t = _anim.value * 2 * math.pi;
-        return Transform.translate(
-          offset: Offset(3 * s * math.sin(t + widget.variant), 8 * s * math.sin(t)),
-          child: Transform.rotate(
-            angle: 0.04 * math.sin(t + widget.variant * 2),
-            child: child,
-          ),
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // Мягкое свечение цветом бренда за зеркалом.
+            Positioned.fill(
+              child: AnimatedBuilder(
+                animation: ambient,
+                builder: (context, _) => CustomPaint(
+                  painter: MirrorArchHaloPainter(
+                    arch: arch,
+                    color: t.primary,
+                    strength: 0.14 +
+                        0.10 * progress +
+                        0.05 * Curves.easeInOut.transform(ambient.value),
+                  ),
+                ),
+              ),
+            ),
+            Positioned.fromRect(
+              rect: arch,
+              child: _MirrorGlass(
+                photo: photo,
+                progress: progress,
+                stage: stage,
+                scan: scan,
+              ),
+            ),
+            // Рама: тонкий контур и поверх — линия прогресса с точкой.
+            Positioned.fromRect(
+              rect: arch.inflate(8 * s),
+              child: IgnorePointer(
+                child: AnimatedBuilder(
+                  animation: ambient,
+                  builder: (context, _) => CustomPaint(
+                    painter: MirrorArchFramePainter(
+                      progress: progress,
+                      track: t.hairline,
+                      color: t.primary,
+                      glow: Curves.easeInOut.transform(ambient.value),
+                      s: s,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            for (var i = 0; i < answers.length && i < slots.length; i++)
+              // Карточка ответа заходит на раму на треть ширины арки —
+              // «приколота» к зеркалу и не упирается в край экрана.
+              Positioned(
+                top: arch.top + arch.height * slots[i] - 45 * s,
+                height: 90 * s,
+                left: i.isEven ? 6 * s : arch.right - arch.width * 0.3,
+                right: i.isEven
+                    ? size.width - (arch.left + arch.width * 0.3)
+                    : 6 * s,
+                child: _AnswerChip(
+                  answer: answers[i],
+                  visible: stage >= answers[i].stage,
+                  fromLeft: i.isEven,
+                  maxWidth: chipMaxW,
+                ),
+              ),
+            // Процент — плашкой на нижней кромке рамы.
+            Positioned(
+              left: 0,
+              right: 0,
+              top: arch.bottom - 4 * s,
+              child: Center(
+                child: _PercentBadge(progress: progress),
+              ),
+            ),
+          ],
         );
       },
-      child: card,
     );
   }
 }
 
-/// Аврора: два мягких цветовых пятна, медленно дрейфующих за силуэтом.
-class _AuroraBackground extends StatefulWidget {
-  const _AuroraBackground();
+/// Стекло зеркала: фото покупателя проявляется из бледного и размытого в
+/// цвет, по стеклу идёт полоса сканирования. На первом этапе вокруг лица
+/// сходятся уголки фокуса.
+class _MirrorGlass extends StatelessWidget {
+  const _MirrorGlass({
+    required this.photo,
+    required this.progress,
+    required this.stage,
+    required this.scan,
+  });
 
-  @override
-  State<_AuroraBackground> createState() => _AuroraBackgroundState();
-}
-
-class _AuroraBackgroundState extends State<_AuroraBackground>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _anim;
-
-  @override
-  void initState() {
-    super.initState();
-    _anim = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 14),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _anim.dispose();
-    super.dispose();
-  }
+  final File? photo;
+  final double progress;
+  final int stage;
+  final Animation<double> scan;
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.sizeOf(context);
-    final still = MediaQuery.of(context).disableAnimations;
+    final t = MirrorTheme.of(context);
+    final s = MirrorTheme.scale(context);
+    final file = photo;
+    // Проявление: насыщенность 10% → 100%, размытие 5 → 0.
+    final develop = progress.clamp(0.0, 1.0);
+    final saturation = 0.1 + 0.9 * develop;
+    final blur = 5 * (1 - develop);
 
-    Widget blob(Color color, double diameter, Offset base, double phase) {
-      return AnimatedBuilder(
-        animation: _anim,
-        builder: (context, child) {
-          final t = still ? 0.0 : _anim.value * 2 * math.pi;
-          return Positioned(
-            left: base.dx + 40 * math.sin(t + phase),
-            top: base.dy + 60 * math.cos(t * 0.8 + phase),
-            child: child!,
+    Widget image = file == null
+        ? DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [t.surface, t.selectedBg],
+              ),
+            ),
+          )
+        : Image.file(
+            file,
+            fit: BoxFit.cover,
+            alignment: const Alignment(0, -0.35),
+            cacheWidth: 900,
+            gaplessPlayback: true,
           );
-        },
-        child: ImageFiltered(
-          imageFilter: ImageFilter.blur(sigmaX: 80, sigmaY: 80),
-          child: Container(
-            width: diameter,
-            height: diameter,
-            decoration: BoxDecoration(shape: BoxShape.circle, color: color),
-          ),
-        ),
+    image = ColorFiltered(
+      colorFilter: ColorFilter.matrix(_saturationMatrix(saturation)),
+      child: image,
+    );
+    if (blur > 0.05) {
+      image = ImageFiltered(
+        imageFilter: ui.ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+        child: image,
       );
     }
 
-    return ClipRect(
+    return ClipPath(
+      clipper: const MirrorArchClipper(),
       child: Stack(
+        fit: StackFit.expand,
         children: [
-          blob(
-            MirrorTheme.pink.withValues(alpha: 0.10),
-            size.width * 0.8,
-            Offset(-size.width * 0.25, size.height * 0.05),
-            0,
+          ColoredBox(color: t.surface),
+          image,
+          // Лёгкая «вуаль» цвета бренда, которая уходит по мере проявления.
+          IgnorePointer(
+            child: ColoredBox(
+              color: t.primary.withValues(alpha: 0.10 * (1 - develop)),
+            ),
           ),
-          blob(
-            const Color(0xFFE0A337).withValues(alpha: 0.07),
-            size.width * 0.7,
-            Offset(size.width * 0.45, size.height * 0.35),
-            2.2,
+          // Полоса сканирования.
+          AnimatedBuilder(
+            animation: scan,
+            builder: (context, _) => CustomPaint(
+              painter: _ScanPainter(
+                value: scan.value,
+                color: t.primary,
+                s: s,
+              ),
+            ),
+          ),
+          // Этап «лицо»: уголки фокуса вокруг лица.
+          AnimatedOpacity(
+            opacity: stage == 0 ? 1 : 0,
+            duration: const Duration(milliseconds: 500),
+            child: AnimatedScale(
+              scale: stage == 0 ? 1 : 1.25,
+              duration: const Duration(milliseconds: 600),
+              curve: Curves.easeOutCubic,
+              child: CustomPaint(
+                painter: _FocusPainter(color: Colors.white, s: s),
+              ),
+            ),
           ),
         ],
+      ),
+    );
+  }
+
+  static List<double> _saturationMatrix(double sat) {
+    const r = 0.2126, g = 0.7152, b = 0.0722;
+    final inv = 1 - sat;
+    return [
+      r * inv + sat,
+      g * inv,
+      b * inv,
+      0,
+      0,
+      r * inv,
+      g * inv + sat,
+      b * inv,
+      0,
+      0,
+      r * inv,
+      g * inv,
+      b * inv + sat,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+    ];
+  }
+}
+
+/// Полоса сканирования: мягкий светлый шлейф и тонкая линия цвета бренда.
+class _ScanPainter extends CustomPainter {
+  const _ScanPainter(
+      {required this.value, required this.color, required this.s});
+
+  final double value;
+  final Color color;
+  final double s;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final y = -0.1 * size.height + value * size.height * 1.2;
+    final trail = Rect.fromLTRB(0, y - size.height * 0.16, size.width, y);
+    canvas
+      ..drawRect(
+        trail,
+        Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.white.withValues(alpha: 0),
+              Colors.white.withValues(alpha: 0.28),
+            ],
+          ).createShader(trail),
+      )
+      ..drawRect(
+        Rect.fromLTWH(0, y - 1.5 * s, size.width, 3 * s),
+        Paint()
+          ..color = color.withValues(alpha: 0.9)
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, 2 * s),
+      )
+      ..drawRect(
+        Rect.fromLTWH(0, y - 0.6 * s, size.width, 1.2 * s),
+        Paint()..color = Colors.white.withValues(alpha: 0.9),
+      );
+  }
+
+  @override
+  bool shouldRepaint(_ScanPainter old) =>
+      old.value != value || old.color != color;
+}
+
+/// Уголки фокуса вокруг лица (верхняя часть зеркала).
+class _FocusPainter extends CustomPainter {
+  const _FocusPainter({required this.color, required this.s});
+
+  final Color color;
+  final double s;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final box = Rect.fromCenter(
+      center: Offset(size.width / 2, size.height * 0.27),
+      width: size.width * 0.48,
+      height: size.width * 0.56,
+    );
+    final len = box.width * 0.18;
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3 * s
+      ..strokeCap = StrokeCap.round
+      ..color = color.withValues(alpha: 0.9);
+    for (final (corner, dx, dy) in [
+      (box.topLeft, 1.0, 1.0),
+      (box.topRight, -1.0, 1.0),
+      (box.bottomLeft, 1.0, -1.0),
+      (box.bottomRight, -1.0, -1.0),
+    ]) {
+      canvas.drawPath(
+        Path()
+          ..moveTo(corner.dx + dx * len, corner.dy)
+          ..lineTo(corner.dx, corner.dy)
+          ..lineTo(corner.dx, corner.dy + dy * len),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_FocusPainter old) => old.color != color || old.s != s;
+}
+
+/// Ответ покупателя: карточка, приколотая к раме зеркала точкой цвета
+/// бренда. Влетает сбоку, когда наступает её этап.
+class _AnswerChip extends StatelessWidget {
+  const _AnswerChip({
+    required this.answer,
+    required this.visible,
+    required this.fromLeft,
+    required this.maxWidth,
+  });
+
+  final _Answer answer;
+  final bool visible;
+  final bool fromLeft;
+  final double maxWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = MirrorTheme.of(context);
+    final s = MirrorTheme.scale(context);
+    final still = MediaQuery.disableAnimationsOf(context);
+    final duration = still ? Duration.zero : const Duration(milliseconds: 520);
+    final pinned = MirrorPinnedCard(
+      fromLeft: fromLeft,
+      maxWidth: maxWidth,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment:
+            fromLeft ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        children: [
+          Text(
+            t.kickerCase(answer.kicker),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: t.kicker(s * 0.8),
+          ),
+          SizedBox(height: 5 * s),
+          Text(
+            answer.value,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: fromLeft ? TextAlign.right : TextAlign.left,
+            style:
+                t.label(14 * s, weight: FontWeight.w700).copyWith(height: 1.2),
+          ),
+        ],
+      ),
+    );
+
+    return Align(
+      alignment: fromLeft ? Alignment.centerRight : Alignment.centerLeft,
+      child: AnimatedOpacity(
+        opacity: visible ? 1 : 0,
+        duration: duration,
+        child: AnimatedSlide(
+          offset: visible ? Offset.zero : Offset(fromLeft ? -0.25 : 0.25, 0),
+          duration: duration,
+          curve: Curves.easeOutBack,
+          child: pinned,
+        ),
+      ),
+    );
+  }
+}
+
+/// Процент готовности плашкой на нижней кромке рамы.
+class _PercentBadge extends StatelessWidget {
+  const _PercentBadge({required this.progress});
+
+  final double progress;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = MirrorTheme.of(context);
+    final s = MirrorTheme.scale(context);
+    return MirrorArchBadge(
+      child: Text(
+        '${(progress * 100).round()}%',
+        style: t.price(16 * s, color: t.onPrimary),
       ),
     );
   }

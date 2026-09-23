@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 
 import 'kiosk_api.dart';
 import 'kiosk_models.dart';
+import 'kiosk_taxonomy.dart';
 
 /// Демо-режим киоска — порт `swipe-web/lib/kiosk-demo.ts`.
 ///
@@ -123,23 +124,8 @@ class KioskDemoService {
     return filtered(_catalogCache);
   }
 
-  /// Слот товара — та же логика, что на бэкенде, огрублённая до категорий.
-  static String _slotOf(KioskCatalogItem item) {
-    switch (item.category) {
-      case 'TOPWEAR':
-        return 'TOP';
-      case 'BOTTOMWEAR':
-        return 'BOTTOM';
-      case 'DRESSES':
-      case 'ONE_PIECE':
-      case 'TWO_PIECE_SET':
-        return 'FULL';
-      case 'FOOTWEAR':
-        return 'SHOES';
-      default:
-        return 'OTHER';
-    }
-  }
+  /// Слот товара — общая с постером логика, см. [kioskSlotOf].
+  static String _slotOf(KioskCatalogItem item) => kioskSlotOf(item.category);
 
   /// Собирает образ по тем же правилам, что бэкенд: цельная вещь ИЛИ верх+низ,
   /// плюс обувь, не больше 4 вещей. «Результат» — снятый кадр [photoPath]:
