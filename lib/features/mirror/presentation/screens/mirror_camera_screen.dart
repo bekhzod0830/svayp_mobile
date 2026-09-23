@@ -91,6 +91,7 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _discardShot();
     _countdownTimer?.cancel();
     _softHintTimer?.cancel();
     _camera?.dispose();
@@ -230,6 +231,10 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
       final path =
           '${dir.path}/mirror_face_${DateTime.now().millisecondsSinceEpoch}.jpg';
       final file = await File(picked.path).copy(path);
+      // Копия у нас — исходник во временной папке image_picker удаляем сразу.
+      try {
+        await File(picked.path).delete();
+      } catch (_) {}
       widget.controller.onPhotoTaken();
       if (mounted) {
         setState(() {
@@ -245,9 +250,18 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
     }
   }
 
+  /// Кадр, который так и не ушёл в контроллер, — удаляем: на экране обещано, что
+  /// фото не останется. Отправленный кадр принадлежит контроллеру, он удалит его сам.
+  void _discardShot() {
+    final shot = _shot;
+    if (shot == null || shot.path == widget.controller.capturedPhoto?.path) return;
+    shot.delete().catchError((_) => shot);
+  }
+
   void _retake() {
     _softHintTimer?.cancel();
     widget.controller.onPhotoRetaken();
+    _discardShot();
     setState(() {
       _shot = null;
       _shotFromGallery = false;

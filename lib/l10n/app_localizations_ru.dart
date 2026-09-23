@@ -3609,6 +3609,14 @@ class AppLocalizationsRu extends AppLocalizations {
   String get mirrorWomenOnly => 'Сейчас в зале женская коллекция';
 
   @override
+  String get mirrorGenLimit =>
+      'Попытки на этом стенде закончились — продолжите в приложении';
+
+  @override
+  String get mirrorGenTimeout =>
+      'Генерация заняла слишком долго. Попробуйте ещё раз';
+
+  @override
   String get mirrorDontKnow => 'Не знаю';
 
   @override

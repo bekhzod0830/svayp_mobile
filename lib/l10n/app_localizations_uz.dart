@@ -3631,6 +3631,14 @@ class AppLocalizationsUz extends AppLocalizations {
   String get mirrorWomenOnly => 'Hozir zalda ayollar kolleksiyasi';
 
   @override
+  String get mirrorGenLimit =>
+      'Bu stenddagi urinishlar tugadi — ilovada davom eting';
+
+  @override
+  String get mirrorGenTimeout =>
+      'Yaratish juda uzoq davom etdi. Qayta urinib koʻring';
+
+  @override
   String get mirrorDontKnow => 'Bilmayman';
 
   @override

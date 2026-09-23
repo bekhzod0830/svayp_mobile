@@ -31,6 +31,13 @@ const List<KioskLabeled> kioskStyles = [
   KioskLabeled('SPORTY', 'Спорт-шик', 'Sport-shik', 'Sport chic'),
 ];
 
+/// «Модест» и «Вечерний» подобраны под женскую коллекцию — мужчине их не показываем.
+const Set<String> _womenOnlyStyles = {'MODEST_CHIC', 'EVENING'};
+
+List<KioskLabeled> kioskStylesFor(String? gender) => gender == 'MALE'
+    ? kioskStyles.where((s) => !_womenOnlyStyles.contains(s.code)).toList()
+    : kioskStyles;
+
 /// Фильтры каталога. `code == null` — «Все»; остальные совпадают с enum
 /// Category на бэкенде. Бельё и домашнее не выносим: в образ они не идут.
 const List<KioskLabeled> kioskCategories = [

@@ -42,7 +42,19 @@ final _catalog = <KioskCatalogItem>[
 ];
 
 void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
+  group('kioskStylesFor', () {
+    test('мужчине не показываем «Модест» и «Вечерний»', () {
+      final codes = kioskStylesFor('MALE').map((s) => s.code).toList();
+      expect(codes, isNot(contains('MODEST_CHIC')));
+      expect(codes, isNot(contains('EVENING')));
+      expect(codes, containsAll(['CLASSIC', 'CASUAL', 'OFFICE_SMART', 'SPORTY']));
+    });
+
+    test('женщине и без пола — все шесть', () {
+      expect(kioskStylesFor('FEMALE'), hasLength(6));
+      expect(kioskStylesFor(null), hasLength(6));
+    });
+  });
 
   group('KioskSession.menswearAvailable', () {
     test('бэкенд сказал «мужского нет» — кнопку прячем', () {
@@ -68,7 +80,7 @@ void main() {
       expect(MirrorSessionController.isBusinessRefusal('KIOSK_RATE_LIMIT'), isTrue);
     });
 
-    test('сбой генерации по-прежнему может уйти в демо', () {
+    test('обычный сбой — не бизнес-отказ: человеку показываем «Повторить»', () {
       expect(MirrorSessionController.isBusinessRefusal('FAILED'), isFalse);
       expect(MirrorSessionController.isBusinessRefusal(null), isFalse);
     });

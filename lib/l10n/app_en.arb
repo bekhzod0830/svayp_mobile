@@ -1368,6 +1368,8 @@
   "mirrorFemale": "Female",
   "mirrorMale": "Male",
   "mirrorWomenOnly": "The store currently carries the women’s collection",
+  "mirrorGenLimit": "No more attempts at this stand — continue in the app",
+  "mirrorGenTimeout": "This took too long. Please try again",
   "mirrorDontKnow": "I don't know",
   "mirrorNext": "Next",
   "mirrorStyleTitle": "Which style feels like you?",
