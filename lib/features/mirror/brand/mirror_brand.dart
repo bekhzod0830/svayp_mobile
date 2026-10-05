@@ -378,6 +378,14 @@ class MirrorBrand {
     return visible.isEmpty ? kioskStyles : visible;
   }
 
+  /// Стили бренда для выбранного пола: мужчине не показываем «Модест» и
+  /// «Вечерний» (см. [kioskStylesFor]). Пусто — весь список бренда.
+  List<KioskLabeled> stylesFor(String? gender) {
+    final allowed = kioskStylesFor(gender).map((s) => s.code).toSet();
+    final filtered = styles.where((s) => allowed.contains(s.code)).toList();
+    return filtered.isEmpty ? styles : filtered;
+  }
+
   String taglineFor(String lang) =>
       tagline[lang] ?? tagline[defaultLang] ?? tagline['ru'] ?? '';
 

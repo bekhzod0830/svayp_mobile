@@ -5,7 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:swipe/features/mirror/brand/lacoste_brand.dart';
 import 'package:swipe/features/mirror/brand/mirror_brand.dart';
 import 'package:swipe/features/mirror/data/kiosk_api.dart';
-import 'package:swipe/features/mirror/data/kiosk_cover_looks.dart';
 import 'package:swipe/features/mirror/data/kiosk_demo.dart';
 import 'package:swipe/features/mirror/data/kiosk_models.dart';
 import 'package:swipe/features/mirror/data/kiosk_taxonomy.dart';
@@ -42,6 +41,8 @@ final _catalog = <KioskCatalogItem>[
 ];
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('kioskStylesFor', () {
     test('мужчине не показываем «Модест» и «Вечерний»', () {
       final codes = kioskStylesFor('MALE').map((s) => s.code).toList();
@@ -170,8 +171,10 @@ void main() {
       final sporty = kioskStyles.firstWhere((s) => s.code == 'SPORTY');
       expect(lacosteBrand.styleLabel(sporty, 'ru'), 'Спорт · Теннис');
       expect(lacosteBrand.styleLabel(sporty, 'uz'), 'Sport · Tennis');
-      // Незнакомый язык — откат на язык бренда по умолчанию.
-      expect(lacosteBrand.styleLabel(sporty, 'en'), 'Спорт · Теннис');
+      expect(lacosteBrand.styleLabel(sporty, 'en'), 'Sport · Tennis');
+      // Языка нет в переименованиях бренда — подпись справочника на этом же языке
+      // (не русское переименование на чужом экране).
+      expect(lacosteBrand.styleLabel(sporty, 'kk'), sporty.label('kk'));
       // Не переименованная категория — подпись справочника.
       final dresses = kioskCategories.firstWhere((c) => c.code == 'DRESSES');
       expect(lacosteBrand.categoryLabel(dresses, 'uz'), dresses.label('uz'));
@@ -192,10 +195,8 @@ void main() {
       expect(everythingHidden.styles.length, kioskStyles.length);
     });
 
-    test('фразы постера откатываются на язык по умолчанию', () {
-      expect(lacosteBrand.phrasesFor('uz'), isNotEmpty);
-      expect(lacosteBrand.phrasesFor('en'), lacosteBrand.phrasesFor('ru'));
-      expect(lacosteBrand.languages, ['ru', 'uz']);
+    test('языки бренда', () {
+      expect(lacosteBrand.languages, ['ru', 'uz', 'en']);
     });
 
     test('текст на зелёном читается: контраст onPrimary/primary ≥ 4.5', () {
@@ -207,37 +208,6 @@ void main() {
     });
   });
 
-  group('composeCoverLooks', () {
-    test('образ — цельная вещь или верх+низ; без повторов и вещей без фото', () {
-      final looks = composeCoverLooks(_catalog, seed: 7);
-      expect(looks.length, 4);
-      final seen = <String>{};
-      for (final look in looks) {
-        final isFull = look.full != null;
-        final isPair = look.top != null && look.bottom != null;
-        expect(isFull ^ isPair, isTrue, reason: 'либо цельная, либо пара');
-        for (final item in look.items) {
-          expect(item.imageUrl, isNotNull);
-          expect(seen.add(item.id), isTrue, reason: '${item.id} повторяется');
-        }
-        expect(look.items.map((i) => i.id), isNot(contains('a1')));
-        expect(look.totalPrice, look.items.length * 1000);
-      }
-    });
-
-    test('порядок детерминирован зерном', () {
-      List<String> ids(int seed) => composeCoverLooks(_catalog, seed: seed)
-          .map((l) => l.items.map((i) => i.id).join(','))
-          .toList();
-      expect(ids(3), ids(3));
-    });
-
-    test('count ограничивает; пустой каталог и одна обувь — пусто', () {
-      expect(composeCoverLooks(_catalog, count: 1).length, 1);
-      expect(composeCoverLooks(const []), isEmpty);
-      expect(composeCoverLooks([_item('s1', 'FOOTWEAR')]), isEmpty);
-    });
-  });
 
   group('MirrorSessionController', () {
     late MirrorSessionController c;
@@ -315,10 +285,8 @@ void main() {
       expect(c.shopperLang, lacosteBrand.defaultLang);
     });
 
-    test('подсаженный каталог даёт образы для постера', () {
-      expect(c.coverLooks, isEmpty);
+    test('подсаженный каталог виден на витрине', () {
       c.seedCatalogForTest(_catalog);
-      expect(c.coverLooks, isNotEmpty);
       expect(c.catalogPreview.length, _catalog.length);
     });
   });

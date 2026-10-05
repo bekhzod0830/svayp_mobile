@@ -51,7 +51,7 @@ class MirrorStyleScreen extends StatelessWidget {
               childAspectRatio: 1.5,
               physics: const BouncingScrollPhysics(),
               children: [
-                for (final style in kioskStylesFor(controller.gender))
+                for (final style in brand.stylesFor(controller.gender))
                   _StyleTile(
                     label: brand.styleLabel(style, lang),
                     selected: controller.styles.contains(style.code),

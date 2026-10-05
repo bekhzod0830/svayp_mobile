@@ -47,11 +47,15 @@ class MirrorSessionController extends ChangeNotifier {
     required KioskApi api,
     required KioskDemoService demo,
     required SharedPreferences prefs,
+    MirrorBrand brand = kMirrorBrand,
+    void Function(String event, Map<String, String> params)? analytics,
     KioskEventLogger? logEvent,
   })  : _api = api,
         _demo = demo,
         _prefs = prefs,
-        _logEvent = logEvent {
+        _sink = analytics,
+        _logEvent = logEvent,
+        _brand = brand {
     _storeLabel = _prefs.getString(_storeLabelKey);
     shopperLang = brand.defaultLang;
   }
@@ -60,10 +64,11 @@ class MirrorSessionController extends ChangeNotifier {
   static const idleTimeout = Duration(seconds: 45);
   static const idleGraceSeconds = 10;
   static const maxRegenerations = 3;
-  // Киоск генерирует на quality=low: замер 20–35 c. Бюджет ML — 75 c (плюс очередь),
-  // наш порог выше, чтобы обычно первым приходил честный отказ сервера.
-  static const int reassureAfterSec = 35;
-  static const int failAfterSec = 90;
+  // Киоск генерирует через FASHN по шагам: замер на проде ≈105 c на 3 вещи
+  // (gpt-image — ~30 c). Бюджет ML — 200 c, наш порог выше, чтобы первым
+  // приходил честный отказ сервера.
+  static const int reassureAfterSec = 100;
+  static const int failAfterSec = 210;
 
   /// Как часто освежается каталог зала, пока киоск стоит на постере.
   static const coverRefreshInterval = Duration(minutes: 15);
@@ -71,6 +76,17 @@ class MirrorSessionController extends ChangeNotifier {
   final KioskApi _api;
   final KioskDemoService _demo;
   final SharedPreferences _prefs;
+
+  /// Куда уходят события киоска. null — общая аналитика приложения (лениво:
+  /// Firebase не трогаем при создании); в тестах подставляется заглушка.
+  final void Function(String event, Map<String, String> params)? _sink;
+
+  /// Оформление киоска: язык по умолчанию, подписи справочников. Продавец
+  /// меняет его на экране выбора ([setBrand]).
+  MirrorBrand get brand => _brand;
+  MirrorBrand _brand;
+
+  /// Логгер аналитики по умолчанию (подменяется в тестах вместо Firebase).
   final KioskEventLogger? _logEvent;
 
   // ── Состояние ──────────────────────────────────────────────────────────────
@@ -146,8 +162,6 @@ class MirrorSessionController extends ChangeNotifier {
   /// только последнюю — на прошлых пересборках тоже лицо покупателя.
   final Set<String> _resultUrls = {};
 
-  /// Сброс пришёл, пока каталог грузился: перезагрузить, когда текущая загрузка кончится.
-  bool _catalogReloadPending = false;
 
   KioskLookWatch? _watch;
   Timer? _idleTimer;
@@ -220,7 +234,7 @@ class MirrorSessionController extends ChangeNotifier {
   }
 
   void _track(String event, [Map<String, String>? params]) {
-    (_logEvent ?? AnalyticsService.instance.logEvent)(event, parameters: {
+    final payload = <String, String>{
       if (sessionId != null) 'kiosk_session_id': sessionId!,
       'demo': demoActive.toString(),
       ...?params,
@@ -232,7 +246,7 @@ class MirrorSessionController extends ChangeNotifier {
     }
     // Аналитика не должна валить киоск: Firebase может быть не поднят.
     try {
-      AnalyticsService.instance.logEvent(event, parameters: payload);
+      (_logEvent ?? AnalyticsService.instance.logEvent)(event, parameters: payload);
     } catch (_) {}
   }
 
@@ -374,41 +388,28 @@ class MirrorSessionController extends ChangeNotifier {
     }
     _notify();
 
-    if (_catalogFetchInFlight) {
-      _catalogReloadPending = true;
-      return;
-    }
-    _catalogFetchInFlight = true;
-
-    void onPage(List<KioskCatalogItem> items) {
-      if (_disposed) return;
-      _catalogAllCache = List.of(items);
-      catalog = _applyCategory(_catalogAllCache);
+    if (_catalogFetchInFlight) return;
+    await _refreshCatalogCache(demo: demoActive, cancelled: cancelled);
+    if (!_disposed) {
+      catalogLoading = false;
       _notify();
     }
   }
 
-    try {
-      if (demoActive) {
-        await _demo.catalog(onPage: onPage, cancelled: cancelled);
-      } else {
-        await _api.fetchWholeCatalog(onPage, cancelled: cancelled);
-      }
-    } catch (_) {
-      // Сеть моргнула — показываем кэш/то, что успело прийти; пустое
-      // состояние экран отрисует сам.
-    } finally {
-      _catalogFetchInFlight = false;
-      if (!_disposed) {
-        catalogLoading = false;
-        _notify();
-      }
-      // Сброс/смена ветки во время загрузки: прошлая загрузка отменилась по токену,
-      // а новая сразу вышла на флаге — без перезапуска новый покупатель видел пусто.
-      if (_catalogReloadPending && !_disposed) {
-        _catalogReloadPending = false;
-        if (screen == MirrorScreen.catalog) loadCatalog();
-      }
+  /// Прогрев каталога, пока киоск стоит на постере, — без сессии:
+  /// `/kiosk/catalog` нужен только ключ устройства. Так витрина каталога
+  /// открывается мгновенно, а сцена генерации листает реальные вещи зала.
+  /// Демо-каталог (весь маркетплейс) берём лишь когда демо включено
+  /// принудительно (показ партнёру): молча подменять каталог бренда чужими
+  /// вещами нельзя.
+  Future<void> warmCatalog({bool force = false}) async {
+    if (_disposed || screen != MirrorScreen.idle || !_active || offline) return;
+
+    final wantDemo = _demo.forced;
+    if (_catalogCacheIsDemo != wantDemo && _catalogAllCache.isNotEmpty) {
+      _setCatalogCache(const [], demo: wantDemo);
+      _catalogWarmedAt = null;
+      _notify();
     }
 
     final warmedAt = _catalogWarmedAt;
@@ -875,8 +876,6 @@ class MirrorSessionController extends ChangeNotifier {
 
     sessionId = null;
     menswearAvailable = true;
-    // Загрузка каталога идёт — дотянем после неё; следующий покупатель увидит полную витрину.
-    if (_catalogFetchInFlight) _catalogReloadPending = true;
     demoActive = false;
     gender = null;
     bodyShape = null;

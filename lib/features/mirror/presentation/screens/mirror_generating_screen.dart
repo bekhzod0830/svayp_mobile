@@ -152,8 +152,8 @@ class _MirrorGeneratingScreenState extends State<MirrorGeneratingScreen>
       l10n.mirrorGen3,
       l10n.mirrorGen4
     ];
-    // Этап ~6 секунд; последний держится до конца генерации.
-    final activeStage = math.min(elapsed ~/ 6, stages.length - 1);
+    // Этап ~25 секунд (образ через FASHN ≈105 c); последний держится до конца.
+    final activeStage = math.min(elapsed ~/ 25, stages.length - 1);
 
     // До 25с — easeOut к 90%; дальше медленный доползающий хвост к 95%.
     final base = Curves.easeOut.transform(
