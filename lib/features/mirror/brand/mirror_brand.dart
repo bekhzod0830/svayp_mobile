@@ -20,6 +20,7 @@ class MirrorPalette {
     required this.danger,
     required this.success,
     this.primaryGradient,
+    this.glow,
   });
 
   /// Фон страницы.
@@ -65,6 +66,10 @@ class MirrorPalette {
   /// Градиент главной кнопки (сверху-слева → снизу-справа). null — кнопка
   /// сплошная цветом [primary].
   final List<Color>? primaryGradient;
+
+  /// Цвет свечений и искр (ореол зеркала, мерцание). null — [primary]. Нужен
+  /// тёмным брендам: чёрный ореол выглядел бы грязной тенью.
+  final Color? glow;
 }
 
 /// Типографика бренда: акцидентный шрифт для заголовков и интерфейсный —
@@ -117,19 +122,71 @@ class MirrorType {
   final List<String> fallbackFamilies;
 }
 
-/// Радиусы бренда.
+/// Контур зеркала на постере, камере, генерации, результате и талоне.
+/// Размер стекла общий для всех экранов (см. `mirrorGlassSize`), поэтому
+/// пропорция задаётся здесь, а не в каждой вёрстке.
+class MirrorArchShape {
+  const MirrorArchShape({
+    this.top = 1.0,
+    this.corner = 0.07,
+    this.aspect = 0.62,
+    this.doubleLine = false,
+  });
+
+  /// Радиус верха в долях половины ширины: 1 — полукруглая арка,
+  /// 0 — прямой верх с углами [corner] (витрина).
+  final double top;
+
+  /// Радиус остальных углов в долях ширины.
+  final double corner;
+
+  /// Ширина / высота стекла.
+  final double aspect;
+
+  /// Рама двойной линией: плотная снаружи и волосяная по кромке стекла,
+  /// как бокс «XX» в знаке Storexx. false — одна линия.
+  final bool doubleLine;
+
+  /// Арочное зеркало (LIBAS, Lacoste).
+  static const arch = MirrorArchShape();
+
+  /// Прямоугольная витрина с едва скруглёнными углами (Storexx) в
+  /// пропорции готового образа 2:3 — на результате он виден целиком.
+  static const window = MirrorArchShape(
+    top: 0,
+    corner: 0.012,
+    aspect: 2 / 3,
+    doubleLine: true,
+  );
+
+  @override
+  bool operator ==(Object other) =>
+      other is MirrorArchShape &&
+      other.top == top &&
+      other.corner == corner &&
+      other.aspect == aspect &&
+      other.doubleLine == doubleLine;
+
+  @override
+  int get hashCode => Object.hash(top, corner, aspect, doubleLine);
+}
+
 class MirrorShape {
   const MirrorShape({
     required this.button,
     required this.card,
     required this.chip,
     required this.image,
+    this.mirror = MirrorArchShape.arch,
   });
 
   final double button;
   final double card;
   final double chip;
   final double image;
+
+  /// Контур зеркала; по умолчанию арка.
+  final MirrorArchShape mirror;
 }
 
 /// Как набирать текстовый знак бренда, пока нет файла логотипа.
@@ -217,6 +274,57 @@ class MirrorVideoCover {
 /// ведёт к этой же вещи на модели. Координаты — в долях бокса модели
 /// (0,0 — левый верх её картинки; карточка обычно лежит вне 0..1), поэтому
 /// композиция масштабируется вместе с моделью на любом экране.
+/// Постер-«витрина»: фактурный тёмный фон, прямоугольная рама с двойной
+/// линией (как бокс «XX» в знаке Storexx), внутри — медленно сменяющиеся
+/// редакционные кадры, под рамой — бегущая строка брендов зала. Светлая
+/// и тёмная версии различаются только фактурой и цветами.
+class MirrorWindowCover {
+  const MirrorWindowCover({
+    required this.backdropAsset,
+    required this.slides,
+    this.slideSeconds = 5,
+    this.marquee = const [],
+    this.kicker = const {},
+    this.headline = const {},
+    required this.bg,
+    required this.text,
+    required this.textMuted,
+    required this.frame,
+    required this.glow,
+    required this.cta,
+    required this.onCta,
+  });
+
+  /// Фактура фона (растягивается по экрану с обрезкой).
+  final String backdropAsset;
+
+  /// Кадры в витрине, в порядке показа; меняются кроссфейдом с медленным
+  /// наездом. Один кадр — статичная витрина.
+  final List<String> slides;
+  final int slideSeconds;
+
+  /// Бренды зала для бегущей строки под витриной. Пусто — строки нет.
+  final List<String> marquee;
+
+  /// Свой текст постера по языкам вместо общего «А вам так пойдёт?»:
+  /// строка-хэштег над заголовком (как разделы в презентации магазина) и
+  /// заголовок капсом по центру, строки через `\n`. Пусто — общий текст.
+  final Map<String, String> kicker;
+  final Map<String, String> headline;
+
+  final Color bg;
+  final Color text;
+  final Color textMuted;
+
+  /// Линии рамы.
+  final Color frame;
+
+  /// Свечение за рамой.
+  final Color glow;
+  final Color cta;
+  final Color onCta;
+}
+
 class MirrorCoverPiece {
   const MirrorCoverPiece({
     required this.asset,
@@ -320,6 +428,13 @@ class MirrorBrand {
     this.wordmarkStyle,
     this.tagline = const {},
     this.videoCover,
+    this.windowCover,
+    this.logoHeightScale = 1.0,
+    this.logoMonochrome = false,
+    this.variantId,
+    this.baseId,
+    this.backdropAsset,
+    this.backdropVeil = 0.6,
     this.coverHero,
     this.languages = const ['ru', 'uz'],
     this.defaultLang = 'ru',
@@ -354,6 +469,37 @@ class MirrorBrand {
 
   /// Студийная сцена постера с моделью и вещами. null — только фон и текст.
   final MirrorCoverHero? coverHero;
+
+  /// Постер-витрина (Storexx). Приоритет сцен: витрина, видео, студия.
+  final MirrorWindowCover? windowCover;
+
+  /// Во сколько раз файл логотипа крупнее словесного знака той же строки:
+  /// квадратный знак (STORE над боксом XX) в 18 px не читается.
+  final double logoHeightScale;
+
+  /// Файл логотипа — одноцветный знак на прозрачном фоне: без явного цвета
+  /// он тонируется в чернила палитры (белый на тёмном, чёрный на светлом).
+  final bool logoMonochrome;
+
+  /// Фактура под всеми внутренними экранами киоска (камень Storexx);
+  /// null — ровный [MirrorPalette.bg]. Постер рисует свой фон сам.
+  final String? backdropAsset;
+
+  /// Плотность вуали цвета [MirrorPalette.bg] поверх [backdropAsset],
+  /// 0..1: фактура должна угадываться, а не спорить с текстом и карточками.
+  final double backdropVeil;
+
+  /// id второй версии того же бренда (светлая ⇄ тёмная). Есть — на постере
+  /// появляется переключатель темы. Ссылка по id: две const-версии не могут
+  /// ссылаться друг на друга напрямую.
+  final String? variantId;
+
+  /// У дополнительной версии — id основной: экран выбора показывает одну
+  /// карточку на бренд и узнаёт в ней текущий выбор.
+  final String? baseId;
+
+  /// id карточки бренда на экране выбора.
+  String get familyId => baseId ?? id;
 
   /// Языки покупателя в порядке переключателя.
   final List<String> languages;

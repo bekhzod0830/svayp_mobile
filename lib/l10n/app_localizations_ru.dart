@@ -3542,7 +3542,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get mirrorPrivacyShort => 'Фото удалится через 15 минут';
 
   @override
-  String get mirrorCamAim => 'Поместите лицо в круг';
+  String get mirrorCamAim => 'Поместите лицо в рамку';
 
   @override
   String get mirrorCamLook => 'Смотрите прямо в камеру';

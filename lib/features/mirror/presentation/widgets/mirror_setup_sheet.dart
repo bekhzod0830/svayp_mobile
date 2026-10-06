@@ -1,10 +1,13 @@
+import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/kiosk_api.dart';
+import '../../data/kiosk_camera.dart';
 import '../../data/kiosk_demo.dart';
 
 /// Скрытый шит настройки киоска (5 касаний по знаку бренда на постере):
-/// ключ устройства X-Kiosk-Key и принудительный демо-режим. Это экран
+/// ключ устройства X-Kiosk-Key, принудительный демо-режим и выбор камеры.
+/// Это экран
 /// продавца, не покупателя — намеренно утилитарный, не локализованный под
 /// язык покупателя и без токенов бренда: шит строится в оверлее корневого
 /// Navigator'а, где оформления киоска нет.
@@ -17,6 +20,8 @@ class MirrorSetupSheet extends StatefulWidget {
     this.onFullscreenChanged,
     this.brandName,
     this.onChooseBrand,
+    this.cameraName,
+    this.onCameraChanged,
   });
 
   final KioskApi api;
@@ -28,6 +33,10 @@ class MirrorSetupSheet extends StatefulWidget {
   final String? brandName;
   final VoidCallback? onChooseBrand;
 
+  /// Камера, выбранная вручную (null — авто), и её смена.
+  final String? cameraName;
+  final ValueChanged<String?>? onCameraChanged;
+
   static Future<void> show(
     BuildContext context, {
     required KioskApi api,
@@ -36,6 +45,8 @@ class MirrorSetupSheet extends StatefulWidget {
     ValueChanged<bool>? onFullscreenChanged,
     String? brandName,
     VoidCallback? onChooseBrand,
+    String? cameraName,
+    ValueChanged<String?>? onCameraChanged,
   }) {
     return showModalBottomSheet<void>(
       context: context,
@@ -51,6 +62,8 @@ class MirrorSetupSheet extends StatefulWidget {
         onFullscreenChanged: onFullscreenChanged,
         brandName: brandName,
         onChooseBrand: onChooseBrand,
+        cameraName: cameraName,
+        onCameraChanged: onCameraChanged,
       ),
     );
   }
@@ -66,12 +79,110 @@ class _MirrorSetupSheetState extends State<MirrorSetupSheet> {
   String? _status;
   bool _testing = false;
 
+  String? _cameraName;
+
+  /// Что видит Android прямо сейчас; null — ещё ищем.
+  List<CameraDescription>? _cameras;
+  String? _camerasError;
+
   @override
   void initState() {
     super.initState();
     _keyController = TextEditingController(text: widget.api.deviceKey ?? '');
     _demoForced = widget.demo.forced;
     _fullscreen = widget.fullscreen;
+    _cameraName = widget.cameraName;
+    if (widget.onCameraChanged != null) _scanCameras();
+  }
+
+  Future<void> _scanCameras() async {
+    setState(() {
+      _cameras = null;
+      _camerasError = null;
+    });
+    try {
+      final cameras = await availableCameras();
+      if (mounted) setState(() => _cameras = cameras);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _cameras = const [];
+          _camerasError = '$e';
+        });
+      }
+    }
+  }
+
+  void _chooseCamera(String? name) {
+    setState(() => _cameraName = name);
+    widget.onCameraChanged!(name);
+  }
+
+  Widget _buildCameraSection(TextTheme textTheme) {
+    final cameras = _cameras;
+    final auto = cameras == null ? null : pickKioskCamera(cameras);
+    // Выбранная вручную камера сейчас не подключена — киоск откроет авто.
+    final missing = _cameraName != null &&
+        cameras != null &&
+        cameras.every((c) => c.name != _cameraName);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(child: Text('Камера', style: textTheme.titleMedium)),
+            IconButton(
+              tooltip: 'Найти камеры заново',
+              icon: const Icon(Icons.refresh),
+              onPressed: cameras == null ? null : _scanCameras,
+            ),
+          ],
+        ),
+        if (cameras == null)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: LinearProgressIndicator(),
+          )
+        else if (cameras.isEmpty)
+          Text(
+            'Android не видит ни одной камеры. Подключите USB-камеру до '
+            'запуска приложения и перезапустите его. Если камеру не видит '
+            'и системное приложение «Камера» — планшет не поддерживает '
+            'USB-камеры (UVC).'
+            '${_camerasError != null ? '\n$_camerasError' : ''}',
+            style: textTheme.bodySmall,
+          )
+        else
+          RadioGroup<String?>(
+            groupValue: missing ? null : _cameraName,
+            onChanged: _chooseCamera,
+            child: Column(
+              children: [
+                RadioListTile<String?>(
+                  contentPadding: EdgeInsets.zero,
+                  value: null,
+                  title: const Text('Авто — USB-камера, если подключена'),
+                  subtitle: Text(
+                    auto == null ? '—' : 'Сейчас: ${kioskCameraLabel(auto)}',
+                  ),
+                ),
+                for (final c in cameras)
+                  RadioListTile<String?>(
+                    contentPadding: EdgeInsets.zero,
+                    value: c.name,
+                    title: Text(kioskCameraLabel(c)),
+                  ),
+              ],
+            ),
+          ),
+        if (missing)
+          Text(
+            'Выбранная камера (id $_cameraName) не подключена — '
+            'используется авто.',
+            style: textTheme.bodySmall,
+          ),
+      ],
+    );
   }
 
   @override
@@ -111,7 +222,7 @@ class _MirrorSetupSheetState extends State<MirrorSetupSheet> {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     final textTheme = Theme.of(context).textTheme;
 
-    return Padding(
+    return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + bottomInset),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -171,6 +282,10 @@ class _MirrorSetupSheetState extends State<MirrorSetupSheet> {
               widget.demo.setForced(v);
             },
           ),
+          if (widget.onCameraChanged != null) ...[
+            const SizedBox(height: 8),
+            _buildCameraSection(textTheme),
+          ],
           if (_status != null) ...[
             const SizedBox(height: 8),
             Text(_status!, style: textTheme.bodySmall),

@@ -3,21 +3,36 @@ import 'package:flutter/widgets.dart';
 import 'lacoste_brand.dart';
 import 'libas_brand.dart';
 import 'mirror_brand.dart';
+import 'storexx_brand.dart';
 
 export 'mirror_brand.dart';
 
 /// Оформления, между которыми продавец выбирает на старте киоска (экран
 /// выбора и шит настройки). Новый бренд — новый файл рядом с
 /// `lacoste_brand.dart` и строка в этом списке.
-const List<MirrorBrand> kMirrorBrands = [libasBrand, lacosteBrand];
+const List<MirrorBrand> kMirrorBrands = [
+  libasBrand,
+  lacosteBrand,
+  storexxBrand,
+];
 
 /// Оформление по умолчанию: пока продавец ничего не выбрал, и для оверлеев,
 /// которые не видят [MirrorBrandScope].
 const MirrorBrand kMirrorBrand = libasBrand;
 
+/// Дополнительные версии брендов (тёмная Storexx): на экране выбора их нет,
+/// включаются переключателем темы на постере.
+const List<MirrorBrand> kMirrorBrandVariants = [storexxDarkBrand];
+
 /// Бренд по сохранённому id; неизвестный id — [kMirrorBrand].
-MirrorBrand mirrorBrandById(String? id) =>
-    kMirrorBrands.firstWhere((b) => b.id == id, orElse: () => kMirrorBrand);
+MirrorBrand mirrorBrandById(String? id) => [
+      ...kMirrorBrands,
+      ...kMirrorBrandVariants,
+    ].firstWhere((b) => b.id == id, orElse: () => kMirrorBrand);
+
+/// Вторая версия бренда (светлая ⇄ тёмная) или null.
+MirrorBrand? mirrorBrandVariant(MirrorBrand b) =>
+    b.variantId == null ? null : mirrorBrandById(b.variantId);
 
 /// Бренд для поддерева киоска.
 ///

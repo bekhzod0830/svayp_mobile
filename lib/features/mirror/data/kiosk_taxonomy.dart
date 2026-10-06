@@ -51,18 +51,33 @@ const List<KioskLabeled> kioskCategories = [
   KioskLabeled('ACCESSORIES', 'Аксессуары', 'Aksessuarlar', 'Accessories'),
 ];
 
-/// Типы фигуры по полу. Вариант «не знаю» (UNKNOWN) добавляется на экране
-/// всегда, отдельно от этих списков.
+/// Типы фигуры по полу. Вариант «не знаю» (UNKNOWN) с экрана убран
+/// (2026-10-05, решение владельца): покупатель выбирает один из силуэтов.
 const Map<String, List<KioskLabeled>> kioskShapes = {
   'FEMALE': [
     KioskLabeled('HOURGLASS', 'Песочные часы', 'Qum soati', 'Hourglass'),
     KioskLabeled('PEAR', 'Груша', 'Nok', 'Pear'),
     KioskLabeled('APPLE', 'Яблоко', 'Olma', 'Apple'),
-    KioskLabeled('RECTANGLE', 'Прямоугольник', 'Toʻgʻri toʻrtburchak', 'Rectangle'),
-    KioskLabeled('INVERTED_TRIANGLE', 'Перевёрнутый', 'Teskari uchburchak', 'Inverted triangle'),
+    KioskLabeled(
+      'RECTANGLE',
+      'Прямоугольник',
+      'Toʻgʻri toʻrtburchak',
+      'Rectangle',
+    ),
+    KioskLabeled(
+      'INVERTED_TRIANGLE',
+      'Перевёрнутый',
+      'Teskari uchburchak',
+      'Inverted triangle',
+    ),
   ],
   'MALE': [
-    KioskLabeled('RECTANGLE', 'Прямоугольник', 'Toʻgʻri toʻrtburchak', 'Rectangle'),
+    KioskLabeled(
+      'RECTANGLE',
+      'Прямоугольник',
+      'Toʻgʻri toʻrtburchak',
+      'Rectangle',
+    ),
     KioskLabeled(
       'INVERTED_TRIANGLE',
       'Перевёрнутый треугольник',
@@ -74,11 +89,12 @@ const Map<String, List<KioskLabeled>> kioskShapes = {
   ],
 };
 
-/// Код «не знаю» для типа фигуры.
+/// Код «не знаю» для типа фигуры — на экране больше не предлагается,
+/// но бэкенд и старые сессии его знают.
 const String kioskShapeUnknown = 'UNKNOWN';
 
-/// Силуэты женских фигур из уже забандленных ассетов; мужские — текстовые
-/// карточки (паритет с веб-киоском).
+/// Силуэты женских фигур из уже забандленных ассетов; мужские рисуются
+/// кодом (`MirrorMaleBodyFigure`).
 const Map<String, String> kioskFemaleShapeAssets = {
   'HOURGLASS': 'lib/img/body_type/Hourglass.png',
   'PEAR': 'lib/img/body_type/Triangle.png',
@@ -136,8 +152,9 @@ String kioskMoneyShort(int value) {
 /// как ошибка и растягивают строку.
 String kioskSizeLabel(String raw) {
   final clean = raw.replaceAll('_', ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
-  final range = RegExp(r'^([A-Za-z]+) (\S+?)\s*[–-]\s*\1 (\S+)$')
-      .firstMatch(clean);
+  final range = RegExp(
+    r'^([A-Za-z]+) (\S+?)\s*[–-]\s*\1 (\S+)$',
+  ).firstMatch(clean);
   if (range != null) return '${range[1]} ${range[2]}–${range[3]}';
   return clean;
 }

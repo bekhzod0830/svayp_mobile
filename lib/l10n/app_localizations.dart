@@ -6811,7 +6811,7 @@ abstract class AppLocalizations {
   /// No description provided for @mirrorCamAim.
   ///
   /// In en, this message translates to:
-  /// **'Place your face inside the circle'**
+  /// **'Place your face in the frame'**
   String get mirrorCamAim;
 
   /// No description provided for @mirrorCamLook.

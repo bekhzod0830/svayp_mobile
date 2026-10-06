@@ -4,11 +4,13 @@ import 'package:swipe/l10n/app_localizations.dart';
 import '../mirror_session_controller.dart';
 import '../mirror_theme.dart';
 import '../widgets/mirror_buttons.dart';
-import '../widgets/mirror_chrome.dart';
+import '../widgets/mirror_choice.dart';
+import '../widgets/mirror_style_figure.dart';
 
-/// Экран 3 — выбор стиля (только ветка «создать»): плитки из справочника
-/// бренда (скрытые стили не показываем, подписи — брендовые), мультивыбор,
-/// минимум одна.
+/// Экран 3 — выбор стиля (только ветка «создать»): карточки из справочника
+/// бренда (скрытые стили не показываем, подписи — брендовые) с
+/// иллюстрацией образа, мультивыбор, минимум одна. Карточки — той же
+/// сетки и размера, что на экранах пола и фигуры.
 class MirrorStyleScreen extends StatelessWidget {
   const MirrorStyleScreen({super.key, required this.controller});
 
@@ -21,6 +23,8 @@ class MirrorStyleScreen extends StatelessWidget {
     final s = MirrorTheme.scale(context);
     final lang = controller.shopperLang;
     final brand = t.brand;
+    // Стили бренда, но только подходящие полу покупателя.
+    final styles = brand.stylesFor(controller.gender);
 
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 28 * s),
@@ -44,18 +48,25 @@ class MirrorStyleScreen extends StatelessWidget {
           ),
           SizedBox(height: 24 * s),
           Expanded(
-            child: GridView.count(
-              crossAxisCount: 2,
-              mainAxisSpacing: 14 * s,
-              crossAxisSpacing: 14 * s,
-              childAspectRatio: 1.5,
-              physics: const BouncingScrollPhysics(),
+            child: MirrorChoiceGrid(
               children: [
-                for (final style in brand.stylesFor(controller.gender))
-                  _StyleTile(
-                    label: brand.styleLabel(style, lang),
-                    selected: controller.styles.contains(style.code),
-                    onTap: () => controller.toggleStyle(style.code!),
+                for (var i = 0; i < styles.length; i++)
+                  MirrorChoiceCard(
+                    label: brand.styleLabel(styles[i], lang),
+                    // Раскладка вещей стиля рисуется кодом, как мужские
+                    // силуэты фигуры.
+                    figure: MirrorStyleFigure.supports(
+                      styles[i].code,
+                      controller.gender,
+                    )
+                        ? MirrorStyleFigure(
+                            style: styles[i].code!,
+                            gender: controller.gender,
+                          )
+                        : null,
+                    selected: controller.styles.contains(styles[i].code),
+                    fadeInDelayMs: 120 + 50 * i,
+                    onTap: () => controller.toggleStyle(styles[i].code!),
                   ),
               ],
             ),
@@ -69,63 +80,6 @@ class MirrorStyleScreen extends StatelessWidget {
           ),
           SizedBox(height: 24 * s),
         ],
-      ),
-    );
-  }
-}
-
-/// Редакционная плитка: серифная подпись внизу, квадратный чек сверху;
-/// выбранная — залита цветом бренда.
-class _StyleTile extends StatelessWidget {
-  const _StyleTile({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = MirrorTheme.of(context);
-    final s = MirrorTheme.scale(context);
-
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: EdgeInsets.all(16 * s),
-        decoration: BoxDecoration(
-          color: selected ? t.primary : t.surface,
-          borderRadius: BorderRadius.circular(t.rCard),
-          border: Border.all(color: selected ? t.primary : t.hairline),
-        ),
-        child: Stack(
-          children: [
-            Align(
-              alignment: Alignment.topLeft,
-              child: MirrorCheck(
-                selected: selected,
-                size: 24 * s,
-                onDark: selected,
-              ),
-            ),
-            Align(
-              alignment: Alignment.bottomLeft,
-              child: Text(
-                label,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: t.headline(
-                  21 * s,
-                  color: selected ? t.onPrimary : t.ink,
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

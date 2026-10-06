@@ -11,6 +11,7 @@ import 'package:swipe/l10n/app_localizations.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../data/kiosk_api.dart';
+import '../data/kiosk_camera.dart';
 import '../data/kiosk_demo.dart';
 import 'mirror_session_controller.dart';
 import 'mirror_theme.dart';
@@ -20,6 +21,7 @@ import 'screens/mirror_camera_screen.dart';
 import 'screens/mirror_catalog_screen.dart';
 import 'screens/mirror_cover_screen.dart';
 import 'screens/mirror_generating_screen.dart';
+import 'widgets/mirror_arch.dart';
 import 'screens/mirror_result_screen.dart';
 import 'screens/mirror_style_screen.dart';
 import 'widgets/mirror_chrome.dart';
@@ -68,6 +70,9 @@ class _MirrorTabState extends State<MirrorTab> with WidgetsBindingObserver {
 
   late MirrorBrand _brand;
 
+  /// Камера, выбранная продавцом вручную ([kKioskCameraPref]); null — авто.
+  String? _cameraName;
+
   /// Экран выбора оформления поверх киоска.
   bool _picking = true;
 
@@ -84,6 +89,7 @@ class _MirrorTabState extends State<MirrorTab> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _brand = mirrorBrandById(getIt<SharedPreferences>().getString(_brandPref));
+    _cameraName = getIt<SharedPreferences>().getString(kKioskCameraPref);
     _controller = MirrorSessionController(
       api: getIt<KioskApi>(),
       demo: getIt<KioskDemoService>(),
@@ -208,7 +214,17 @@ class _MirrorTabState extends State<MirrorTab> with WidgetsBindingObserver {
       onFullscreenChanged: _setFullscreen,
       brandName: _brand.name,
       onChooseBrand: _openPicker,
+      cameraName: _cameraName,
+      onCameraChanged: _setCamera,
     );
+  }
+
+  void _setCamera(String? name) {
+    final prefs = getIt<SharedPreferences>();
+    name == null
+        ? prefs.remove(kKioskCameraPref)
+        : prefs.setString(kKioskCameraPref, name);
+    setState(() => _cameraName = name);
   }
 
   void _openPicker() {
@@ -245,12 +261,17 @@ class _MirrorTabState extends State<MirrorTab> with WidgetsBindingObserver {
           fullscreen: _fullscreen,
           onEnterFullscreen: () => _setFullscreen(true),
           playIntro: _coverIntro,
+          onToggleTheme: switch (mirrorBrandVariant(_brand)) {
+            final next? => () => _onBrandPicked(next),
+            null => null,
+          },
         );
       case MirrorScreen.camera:
         return MirrorCameraScreen(
           key: const ValueKey('camera'),
           controller: _controller,
           cameraAllowed: widget.isActive,
+          preferredCamera: _cameraName,
         );
       case MirrorScreen.gender:
         return MirrorGenderScreen(
@@ -344,6 +365,9 @@ class _MirrorTabState extends State<MirrorTab> with WidgetsBindingObserver {
                         enabled: widget.isActive,
                         child: Stack(
                           children: [
+                            // Фактура бренда под всеми внутренними экранами
+                            // (постер рисует свой фон поверх).
+                            const Positioned.fill(child: MirrorBackdrop()),
                             Positioned.fill(
                               child: Column(
                                 children: [

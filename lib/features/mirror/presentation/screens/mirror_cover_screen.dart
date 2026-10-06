@@ -14,9 +14,10 @@ import '../mirror_theme.dart';
 import '../widgets/mirror_arch.dart';
 import '../widgets/mirror_chrome.dart';
 
-/// Экран 0 — постер (обложка). Два варианта сцены по бренду:
-/// видео в арочном зеркале на светлой сцене ([MirrorVideoCover], LIBAS) или
-/// студия с моделью ([MirrorCoverHero], Lacoste). Текст и кнопки общие.
+/// Экран 0 — постер (обложка). Три варианта сцены по бренду:
+/// видео в арочном зеркале на светлой сцене ([MirrorVideoCover], LIBAS),
+/// студия с моделью ([MirrorCoverHero], Lacoste) или витрина на чёрном
+/// камне ([MirrorWindowCover], Storexx). Текст и кнопки общие.
 ///
 /// Студия собрана по макету бренда: тёмно-зелёная
 /// фотостудия с овальным стеклом и светом из окна, в центре — модель в образе
@@ -37,6 +38,7 @@ class MirrorCoverScreen extends StatefulWidget {
     this.fullscreen = false,
     this.onEnterFullscreen,
     this.playIntro = true,
+    this.onToggleTheme,
   });
 
   final MirrorSessionController controller;
@@ -55,6 +57,9 @@ class MirrorCoverScreen extends StatefulWidget {
   /// он открывается с экрана выбора оформления: превью уже «сыграло» вход и
   /// на глазах выросло до полного экрана.
   final bool playIntro;
+
+  /// Переключить светлую/тёмную версию бренда; null — кнопки нет.
+  final VoidCallback? onToggleTheme;
 
   @override
   State<MirrorCoverScreen> createState() => _MirrorCoverScreenState();
@@ -320,6 +325,145 @@ class _MirrorCoverScreenState extends State<MirrorCoverScreen>
     ];
   }
 
+  /// Витрина Storexx: мрамор на весь экран, прямоугольная рама с
+  /// двойной линией (как бокс «XX» в знаке), внутри — редакционные кадры
+  /// марок, сменяющиеся кроссфейдом с медленным наездом; под рамой — бегущая
+  /// строка брендов зала.
+  List<Widget> _windowStage(MirrorWindowCover w, _Geometry g) {
+    final u = g.u;
+    final s = MirrorTheme.scale(context);
+    final shape = MirrorTheme.of(context).mirror;
+    final inset = mirrorFrameInset(shape, s);
+    // Стекло — того же размера, что на камере, генерации и результате:
+    // витрина постера и зеркало внутри — одна рама. Вместе с бегущей
+    // строкой под ней стоит по центру полосы между текстом и кнопками.
+    final win = g.window(
+      mirrorGlassSize(g.size, g.padding, shape, s),
+      top: w.headline.isNotEmpty
+          ? g.windowTextBottom + 20 * u
+          : g.model.top + 14 * u,
+      frame: inset,
+      marquee:
+          w.marquee.isEmpty ? 0 : _BrandMarquee.height(g.sz(15, 9.5)) + 12 * u,
+    );
+    final plays = widget.active && !_lifecyclePaused;
+    return [
+      Positioned.fill(
+        child: RepaintBoundary(
+          child: _MarbleBackdrop(asset: w.backdropAsset, bg: w.bg),
+        ),
+      ),
+      // Свет за витриной «дышит».
+      FadeTransition(
+        opacity: Tween<double>(
+          begin: 1,
+          end: 0.5,
+        ).animate(CurvedAnimation(parent: _light, curve: Curves.easeInOut)),
+        child: RepaintBoundary(
+          child: CustomPaint(
+            painter: MirrorArchHaloPainter(
+              arch: win,
+              color: w.glow,
+              strength: 0.22,
+              shape: shape,
+              s: s,
+            ),
+          ),
+        ),
+      ),
+      Positioned.fromRect(
+        rect: win,
+        child: Entrance(
+          parent: _intro,
+          kind: IntroEntranceKind.riseCard,
+          delay: 0.16,
+          duration: 0.75,
+          child: Stack(
+            fit: StackFit.expand,
+            clipBehavior: Clip.none,
+            children: [
+              ClipPath(
+                clipper: MirrorArchClipper(shape),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    ColoredBox(color: w.bg),
+                    _WindowSlides(
+                      assets: w.slides,
+                      seconds: w.slideSeconds,
+                      active: plays,
+                      reduceMotion: _reduceMotion,
+                    ),
+                    // Низ кадра чуть темнее: витрина подсвечена сверху.
+                    IgnorePointer(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            stops: const [0.62, 1],
+                            colors: [
+                              w.bg.withValues(alpha: 0),
+                              w.bg.withValues(alpha: 0.45),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const Gleam(
+                      durationMs: 7600,
+                      travelFraction: 0.45,
+                      widthFraction: 0.3,
+                      opacity: 0.12,
+                      initialDelayMs: 2200,
+                    ),
+                  ],
+                ),
+              ),
+              // Рама — та же, что на внутренних экранах: снаружи стекла,
+              // двойной линией у витрины.
+              Positioned(
+                left: -inset,
+                top: -inset,
+                right: -inset,
+                bottom: -inset,
+                child: IgnorePointer(
+                  child: CustomPaint(
+                    painter: MirrorArchFramePainter(
+                      shape: shape,
+                      progress: 1,
+                      track: w.frame,
+                      color: w.frame,
+                      glow: 0,
+                      s: s,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      if (w.marquee.isNotEmpty)
+        Positioned(
+          left: 0,
+          right: 0,
+          top: win.bottom + inset + 12 * u,
+          child: Entrance(
+            parent: _intro,
+            kind: IntroEntranceKind.rise,
+            delay: 0.7,
+            child: _BrandMarquee(
+              items: w.marquee,
+              color: w.textMuted,
+              size: g.sz(15, 9.5),
+              active: plays && !_reduceMotion,
+            ),
+          ),
+        ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -327,12 +471,16 @@ class _MirrorCoverScreenState extends State<MirrorCoverScreen>
     final brand = t.brand;
     final hero = brand.coverHero;
     final video = brand.videoCover;
+    final window = brand.windowCover;
     final lang = Localizations.localeOf(context).languageCode;
     final pad = MediaQuery.paddingOf(context);
 
-    // Цвета сцены: видео-постер, студия бренда или палитра киоска.
-    final look =
-        video != null ? _SceneLook.video(video) : _SceneLook.of(t, hero);
+    // Цвета сцены: витрина, видео-постер, студия бренда или палитра киоска.
+    final look = window != null
+        ? _SceneLook.window(window)
+        : video != null
+            ? _SceneLook.video(video)
+            : _SceneLook.of(t, hero);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: look.dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
@@ -350,7 +498,9 @@ class _MirrorCoverScreenState extends State<MirrorCoverScreen>
             return Stack(
               fit: StackFit.expand,
               children: [
-                if (video != null)
+                if (window != null)
+                  ..._windowStage(window, g)
+                else if (video != null)
                   ..._videoStage(video, g, look)
                 else ...[
                   // Студия: стены, пол, подиум, овал стекла — статичный слой.
@@ -495,56 +645,84 @@ class _MirrorCoverScreenState extends State<MirrorCoverScreen>
                       onWordmarkTap: _onWordmarkTap,
                       fullscreen: widget.fullscreen,
                       onEnterFullscreen: widget.onEnterFullscreen,
+                      onToggleTheme: widget.onToggleTheme,
                     ),
                   ),
                 ),
 
-                // Заголовок и подзаголовок.
-                Positioned(
-                  top: g.headlineTop,
-                  left: g.margin,
-                  right: g.margin,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Entrance(
-                        parent: _intro,
-                        kind: IntroEntranceKind.rise,
-                        delay: 0.06,
-                        child: _Headline(
-                          text: l10n.mirrorCoverHeadline,
-                          style: t
-                              .label(
-                                g.headlineSize,
-                                weight: look.dark
-                                    ? FontWeight.w700
-                                    : FontWeight.w800,
-                                color: look.text,
-                              )
-                              .copyWith(
-                                height: _Geometry.headlineLeading,
-                                letterSpacing: -0.02 * g.headlineSize,
-                              ),
-                          accent: look.headlineAccent,
-                        ),
+                // Витрина со своим текстом: хэштег и заголовок по центру.
+                if (window != null && window.headline.isNotEmpty)
+                  Positioned(
+                    top: g.windowTextTop,
+                    left: g.margin,
+                    right: g.margin,
+                    child: _WindowTitle(
+                      intro: _intro,
+                      kicker: _forLang(window.kicker, lang, brand.defaultLang),
+                      headline: _forLang(
+                        window.headline,
+                        lang,
+                        brand.defaultLang,
                       ),
-                      SizedBox(height: _Geometry.gapHeadlineSubline * u),
-                      Entrance(
-                        parent: _intro,
-                        kind: IntroEntranceKind.rise,
-                        delay: 0.14,
-                        child: Text(
-                          l10n.mirrorCoverSubline,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: t
-                              .subtitle(g.sublineSize, color: look.text)
-                              .copyWith(height: 1.3),
+                      look: look,
+                      kickerSize: g.windowKickerSize,
+                      headlineSize: g.windowHeadlineSize,
+                      gap: 14 * u,
+                    ),
+                  )
+                else
+                  // Заголовок и подзаголовок.
+                  Positioned(
+                    top: g.headlineTop,
+                    left: g.margin,
+                    right: g.margin,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Entrance(
+                          parent: _intro,
+                          kind: IntroEntranceKind.rise,
+                          delay: 0.06,
+                          child: _Headline(
+                            text: l10n.mirrorCoverHeadline,
+                            // Витрина: заголовок антиквой бренда, без
+                            // уплотнения — у засечного шрифта свой ритм.
+                            style: look.serifHeadline
+                                ? t
+                                    .display(g.headlineSize, color: look.text)
+                                    .copyWith(height: 0.98)
+                                : t
+                                    .label(
+                                      g.headlineSize,
+                                      weight: look.dark
+                                          ? FontWeight.w700
+                                          : FontWeight.w800,
+                                      color: look.text,
+                                    )
+                                    .copyWith(
+                                      height: _Geometry.headlineLeading,
+                                      letterSpacing: -0.02 * g.headlineSize,
+                                    ),
+                            accent: look.headlineAccent,
+                          ),
                         ),
-                      ),
-                    ],
+                        SizedBox(height: _Geometry.gapHeadlineSubline * u),
+                        Entrance(
+                          parent: _intro,
+                          kind: IntroEntranceKind.rise,
+                          delay: 0.14,
+                          child: Text(
+                            l10n.mirrorCoverSubline,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: t
+                                .subtitle(g.sublineSize, color: look.text)
+                                .copyWith(height: 1.3),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
 
                 // Низ: главная кнопка «Создать мой образ», вторая — выбор
                 // из каталога, подпись Libas AI с сайтом.
@@ -643,7 +821,33 @@ class _SceneLook {
     this.dark = true,
     this.headlineAccent,
     this.ctaGradient,
+    this.serifHeadline = false,
+    this.squareCta = false,
   });
+
+  /// Витрина Storexx: мрамор, линии и кнопки цветом текста.
+  factory _SceneLook.window(MirrorWindowCover w) => _SceneLook(
+        wall: w.bg,
+        wallLight: w.bg,
+        wallDeep: w.bg,
+        floor: w.bg,
+        podium: w.bg,
+        podiumTop: w.bg,
+        ring: w.frame,
+        glass: w.bg,
+        card: w.bg,
+        onCard: w.text,
+        text: w.text,
+        textMuted: w.textMuted,
+        cta: w.cta,
+        onCta: w.onCta,
+        pillBg: w.text.withValues(alpha: 0.08),
+        pillBorder: w.text.withValues(alpha: 0.22),
+        onText: w.bg,
+        dark: w.bg.computeLuminance() < 0.2,
+        serifHeadline: true,
+        squareCta: true,
+      );
 
   /// Светлая сцена видео-постера.
   factory _SceneLook.video(MirrorVideoCover v) => _SceneLook(
@@ -742,6 +946,12 @@ class _SceneLook {
 
   /// Градиент главной кнопки.
   final List<Color>? ctaGradient;
+
+  /// Заголовок акцидентным шрифтом бренда, а не гротеском (витрина).
+  final bool serifHeadline;
+
+  /// Кнопки с углами бренда и подписью капсом вместо пилюль (витрина).
+  final bool squareCta;
 }
 
 /// Геометрия постера. Макет — 941×1672; единица [u] ограничена и шириной, и
@@ -751,6 +961,7 @@ class _SceneLook {
 class _Geometry {
   _Geometry._({
     required this.size,
+    required this.padding,
     required this.u,
     required this.margin,
     required this.headlineTop,
@@ -759,6 +970,7 @@ class _Geometry {
     required this.ctaHeight,
     required this.secondaryHeight,
     required this.poweredSize,
+    required this.bottomBlock,
     required this.model,
   });
 
@@ -808,6 +1020,7 @@ class _Geometry {
 
     return _Geometry._(
       size: size,
+      padding: padding,
       u: u,
       margin: margin,
       headlineTop: headlineTop,
@@ -816,6 +1029,7 @@ class _Geometry {
       ctaHeight: ctaHeight,
       secondaryHeight: secondaryHeight,
       poweredSize: poweredSize,
+      bottomBlock: bottomBlock,
       model: model,
     );
   }
@@ -830,6 +1044,9 @@ class _Geometry {
   static const double bottomInset = 30;
 
   final Size size;
+
+  /// Системные поля экрана.
+  final EdgeInsets padding;
   final double u;
   final double margin;
   final double headlineTop;
@@ -840,6 +1057,9 @@ class _Geometry {
   /// Высота второй кнопки «Создать мой образ».
   final double secondaryHeight;
   final double poweredSize;
+
+  /// Высота блока кнопок с подписью внизу (без системного поля).
+  final double bottomBlock;
 
   /// Бокс картинки модели.
   final Rect model;
@@ -885,6 +1105,46 @@ class _Geometry {
     final w = math.min(h * aspect, size.width - margin * 2.6);
     return Rect.fromLTWH(size.width / 2 - w / 2, model.top + 4 * u, w, h);
   }
+
+  /// Витрина: стекло общего размера [glass] (см. `mirrorGlassSize`) вместе
+  /// с бегущей строкой высотой [marquee] по центру полосы от [top] до
+  /// блока кнопок; [frame] — вылет рамы за стекло. Если полосы не хватает
+  /// (чего в штатной вёрстке не бывает), стекло уменьшается, сохраняя
+  /// пропорцию.
+  Rect window(
+    Size glass, {
+    required double top,
+    required double frame,
+    required double marquee,
+  }) {
+    final bottom = size.height - padding.bottom - bottomBlock;
+    final fitH = math.max(bottom - top - marquee - frame * 2, 80.0);
+    final fitW = math.max(size.width - margin * 2, 80.0);
+    final aspect = glass.width / glass.height;
+    var w = math.min(glass.width, fitW);
+    var h = w / aspect;
+    if (h > fitH) {
+      h = fitH;
+      w = h * aspect;
+    }
+    final y = top + frame + (fitH - h) / 2;
+    return Rect.fromLTWH(size.width / 2 - w / 2, y, w, h);
+  }
+
+  /// Текст витрины: хэштег и заголовок в две строки капсом, по центру.
+  double get windowKickerSize => sz(17, 9.5);
+  double get windowHeadlineSize => sz(60, 22);
+
+  /// Под шапкой: её верх — `pad.top + 30u` (= headlineTop − 80u), высота —
+  /// квадратный знак бренда (см. [_Header], logoHeightScale) или пилюля
+  /// языков, что выше.
+  double get windowTextTop =>
+      headlineTop - 80 * u + math.max(sz(36, 18) * 1.9, sz(46, 32)) + 22 * u;
+  double get windowTextBottom =>
+      windowTextTop +
+      windowKickerSize * 1.2 +
+      14 * u +
+      windowHeadlineSize * 1.08 * 2;
 
   /// Линия пола (стык стены и пола).
   double get floorY => model.top + model.height * 0.856;
@@ -1417,6 +1677,7 @@ class _Header extends StatelessWidget {
     required this.onWordmarkTap,
     required this.fullscreen,
     required this.onEnterFullscreen,
+    this.onToggleTheme,
   });
 
   final _Geometry g;
@@ -1425,6 +1686,31 @@ class _Header extends StatelessWidget {
   final VoidCallback onWordmarkTap;
   final bool fullscreen;
   final VoidCallback? onEnterFullscreen;
+  final VoidCallback? onToggleTheme;
+
+  Widget _roundButton({
+    required double size,
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) =>
+      Semantics(
+        button: true,
+        label: label,
+        child: SizedBox(
+          width: size,
+          height: size,
+          child: Material(
+            color: look.pillBg,
+            shape: CircleBorder(side: BorderSide(color: look.pillBorder)),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: onTap,
+              child: Icon(icon, size: size * 0.5, color: look.text),
+            ),
+          ),
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -1448,6 +1734,19 @@ class _Header extends StatelessWidget {
               langCode: controller.shopperLang,
               onChanged: controller.setShopperLang,
             ),
+            // Светлая ⇄ тёмная версия бренда. Иконка — та тема, в которую
+            // переключит кнопка.
+            if (onToggleTheme case final toggle?) ...[
+              SizedBox(width: 10 * g.u),
+              _roundButton(
+                size: pillHeight,
+                icon: look.dark
+                    ? Icons.light_mode_outlined
+                    : Icons.dark_mode_outlined,
+                label: look.dark ? 'Светлая тема' : 'Тёмная тема',
+                onTap: toggle,
+              ),
+            ],
             if (!fullscreen && onEnterFullscreen != null) ...[
               SizedBox(width: 10 * g.u),
               SizedBox(
@@ -1578,7 +1877,16 @@ class _CoverCtaState extends State<_CoverCta> {
     final look = widget.look;
     final h = widget.height;
     final fontSize = h * 0.42;
-    final style = t.label(fontSize, weight: FontWeight.w700, color: look.onCta);
+    // Витрина: углы бренда и подпись капсом с разрядкой вместо пилюли.
+    final square = look.squareCta;
+    final label = square ? t.ctaCase(widget.label) : widget.label;
+    final style = square
+        ? t.cta(fontSize * 0.88, color: look.onCta)
+        : t.label(fontSize, weight: FontWeight.w700, color: look.onCta);
+    final radius = BorderRadius.circular(square ? t.rButton : 999);
+    final OutlinedBorder shape = square
+        ? RoundedRectangleBorder(borderRadius: radius)
+        : const StadiumBorder();
 
     return AnimatedScale(
       scale: _pressed ? 0.97 : 1,
@@ -1590,7 +1898,7 @@ class _CoverCtaState extends State<_CoverCta> {
           final pulse = Curves.easeInOut.transform(widget.ambient.value);
           return DecoratedBox(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: radius,
               boxShadow: [
                 BoxShadow(
                   color: look.cta.withValues(alpha: 0.18 + 0.16 * pulse),
@@ -1608,7 +1916,7 @@ class _CoverCtaState extends State<_CoverCta> {
           height: h,
           child: Material(
             color: look.ctaGradient == null ? look.cta : Colors.transparent,
-            shape: const StadiumBorder(),
+            shape: shape,
             clipBehavior: Clip.antiAlias,
             child: InkWell(
               onTap: widget.onTap,
@@ -1644,7 +1952,7 @@ class _CoverCtaState extends State<_CoverCta> {
                     children: [
                       Flexible(
                         child: Text(
-                          widget.label,
+                          label,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: style,
@@ -1712,6 +2020,11 @@ class _SecondaryButtonState extends State<_SecondaryButton> {
     final look = widget.look;
     final h = widget.height;
     final fontSize = h * 0.36;
+    final square = look.squareCta;
+    final side = BorderSide(
+      color: look.text.withValues(alpha: 0.35),
+      width: 1.5,
+    );
 
     return AnimatedScale(
       scale: _pressed ? 0.97 : 1,
@@ -1722,12 +2035,12 @@ class _SecondaryButtonState extends State<_SecondaryButton> {
         height: h,
         child: Material(
           color: look.pillBg,
-          shape: StadiumBorder(
-            side: BorderSide(
-              color: look.text.withValues(alpha: 0.35),
-              width: 1.5,
-            ),
-          ),
+          shape: square
+              ? RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(t.rButton),
+                  side: side,
+                )
+              : StadiumBorder(side: side),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: widget.onTap,
@@ -1745,14 +2058,16 @@ class _SecondaryButtonState extends State<_SecondaryButton> {
                 SizedBox(width: fontSize * 0.45),
                 Flexible(
                   child: Text(
-                    widget.label,
+                    square ? t.ctaCase(widget.label) : widget.label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: t.label(
-                      fontSize,
-                      weight: FontWeight.w700,
-                      color: look.text,
-                    ),
+                    style: square
+                        ? t.cta(fontSize * 0.9, color: look.text)
+                        : t.label(
+                            fontSize,
+                            weight: FontWeight.w700,
+                            color: look.text,
+                          ),
                   ),
                 ),
               ],
@@ -1796,10 +2111,7 @@ class _PoweredBy extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
         child: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: size,
-            vertical: size * 0.6,
-          ),
+          padding: EdgeInsets.symmetric(horizontal: size, vertical: size * 0.6),
           child: Text.rich(
             TextSpan(
               style: muted.copyWith(height: 1.4),
@@ -1910,17 +2222,22 @@ class _SiteQrOverlayState extends State<_SiteQrOverlay> {
                 SizedBox(height: 16 * s),
                 Text(
                   _libasSite,
-                  style: t.label(22 * s,
-                      weight: FontWeight.w800, color: const Color(0xFF111111)),
+                  style: t.label(
+                    22 * s,
+                    weight: FontWeight.w800,
+                    color: const Color(0xFF111111),
+                  ),
                 ),
                 SizedBox(height: 6 * s),
                 Text(
                   l10n.mirrorSiteQrHint,
                   textAlign: TextAlign.center,
                   style: t
-                      .label(14 * s,
-                          weight: FontWeight.w500,
-                          color: const Color(0xFF5C5C5C))
+                      .label(
+                        14 * s,
+                        weight: FontWeight.w500,
+                        color: const Color(0xFF5C5C5C),
+                      )
                       .copyWith(height: 1.35),
                 ),
                 SizedBox(height: 14 * s),
@@ -2321,6 +2638,377 @@ class _AiChip extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ── Витрина Storexx ──────────────────────────────────────────────────────────
+
+/// Фактура камня на весь постер: картинка с обрезкой, сверху ровное
+/// затемнение, к низу плотнее, чтобы кнопки и подпись читались поверх
+/// прожилок. Статичный слой.
+class _MarbleBackdrop extends StatelessWidget {
+  const _MarbleBackdrop({required this.asset, required this.bg});
+
+  final String asset;
+  final Color bg;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        ColoredBox(color: bg),
+        Image.asset(
+          asset,
+          fit: BoxFit.cover,
+          alignment: Alignment.center,
+          filterQuality: FilterQuality.medium,
+        ),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              stops: const [0, 0.55, 1],
+              colors: [
+                bg.withValues(alpha: 0.30),
+                bg.withValues(alpha: 0.42),
+                bg.withValues(alpha: 0.86),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Кадры в витрине: каждые [seconds] следующий проявляется поверх
+/// предыдущего, пока показывается — медленно наезжает. Неактивный таб,
+/// пауза приложения и «меньше движения» — статичный кадр.
+class _WindowSlides extends StatefulWidget {
+  const _WindowSlides({
+    required this.assets,
+    required this.seconds,
+    required this.active,
+    required this.reduceMotion,
+  });
+
+  final List<String> assets;
+  final int seconds;
+  final bool active;
+  final bool reduceMotion;
+
+  @override
+  State<_WindowSlides> createState() => _WindowSlidesState();
+}
+
+class _WindowSlidesState extends State<_WindowSlides>
+    with TickerProviderStateMixin {
+  late final AnimationController _zoom;
+  late final AnimationController _fade;
+  Timer? _timer;
+  int _index = 0;
+  int? _prev;
+  bool _precached = false;
+
+  bool get _plays =>
+      widget.active && !widget.reduceMotion && widget.assets.length > 1;
+
+  @override
+  void initState() {
+    super.initState();
+    _zoom = AnimationController(
+      vsync: this,
+      duration: Duration(seconds: widget.seconds + 1),
+    );
+    _fade = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    );
+    _sync();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_precached) return;
+    _precached = true;
+    // Следующий кадр не должен грузиться на глазах.
+    for (final a in widget.assets) {
+      precacheImage(AssetImage(a), context);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _WindowSlides old) {
+    super.didUpdateWidget(old);
+    if (old.active != widget.active ||
+        old.reduceMotion != widget.reduceMotion) {
+      _sync();
+    }
+  }
+
+  void _sync() {
+    if (!_plays) {
+      _timer?.cancel();
+      _timer = null;
+      _zoom.stop();
+      return;
+    }
+    if (!_zoom.isAnimating && !_zoom.isCompleted) _zoom.forward();
+    _timer ??= Timer.periodic(
+      Duration(seconds: widget.seconds),
+      (_) => _next(),
+    );
+  }
+
+  void _next() {
+    if (!mounted) return;
+    setState(() {
+      _prev = _index;
+      _index = (_index + 1) % widget.assets.length;
+    });
+    _zoom.forward(from: 0);
+    _fade.forward(from: 0).whenComplete(() {
+      if (mounted) setState(() => _prev = null);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _zoom.dispose();
+    _fade.dispose();
+    super.dispose();
+  }
+
+  Widget _slide(int i, {required bool incoming}) {
+    return AnimatedBuilder(
+      animation: Listenable.merge([_zoom, _fade]),
+      builder: (context, child) {
+        // Наезд небольшой: кадры из презентации магазина невелики, сильное
+        // увеличение их размывает.
+        final scale = incoming
+            ? 1 + 0.045 * Curves.easeOut.transform(_zoom.value)
+            : 1.045;
+        final opacity = incoming && _prev != null
+            ? Curves.easeInOut.transform(_fade.value)
+            : 1.0;
+        return Opacity(
+          opacity: opacity,
+          child: Transform.scale(
+            scale: scale,
+            alignment: Alignment.topCenter,
+            child: child,
+          ),
+        );
+      },
+      child: Image.asset(
+        widget.assets[i],
+        fit: BoxFit.cover,
+        alignment: Alignment.topCenter,
+        filterQuality: FilterQuality.medium,
+        gaplessPlayback: true,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.assets.isEmpty) return const SizedBox.shrink();
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (_prev case final p?) _slide(p, incoming: false),
+        _slide(_index, incoming: true),
+      ],
+    );
+  }
+}
+
+/// Бегущая строка брендов зала под витриной: капс антиквой бренда с широкой
+/// разрядкой — как указатель марок в универмаге, — точки между именами,
+/// края растворяются. Скорость постоянная, круг — по длине списка.
+class _BrandMarquee extends StatefulWidget {
+  const _BrandMarquee({
+    required this.items,
+    required this.color,
+    required this.size,
+    required this.active,
+  });
+
+  final List<String> items;
+  final Color color;
+  final double size;
+  final bool active;
+
+  /// Высота строки при кегле [size] — для расчёта места под витриной.
+  static double height(double size) => size * 1.5;
+
+  @override
+  State<_BrandMarquee> createState() => _BrandMarqueeState();
+}
+
+class _BrandMarqueeState extends State<_BrandMarquee>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _run = AnimationController(
+    vsync: this,
+    duration: Duration(
+      milliseconds: (widget.items.length * 2400).clamp(12000, 90000),
+    ),
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _sync();
+  }
+
+  @override
+  void didUpdateWidget(covariant _BrandMarquee old) {
+    super.didUpdateWidget(old);
+    if (old.active != widget.active) _sync();
+  }
+
+  void _sync() {
+    if (widget.active) {
+      if (!_run.isAnimating) _run.repeat();
+    } else {
+      _run.stop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _run.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = MirrorTheme.of(context);
+    final style = t
+        .display(widget.size, color: widget.color)
+        .copyWith(letterSpacing: widget.size * 0.22, height: 1.0);
+    const sep = '    ·    ';
+    final line = '${widget.items.map((e) => e.toUpperCase()).join(sep)}$sep';
+    final width = (TextPainter(
+      text: TextSpan(text: line, style: style),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout())
+        .width;
+
+    return ClipRect(
+      child: ShaderMask(
+        blendMode: BlendMode.dstIn,
+        shaderCallback: (rect) => const LinearGradient(
+          colors: [
+            Color(0x00FFFFFF),
+            Color(0xFFFFFFFF),
+            Color(0xFFFFFFFF),
+            Color(0x00FFFFFF),
+          ],
+          stops: [0, 0.12, 0.88, 1],
+        ).createShader(rect),
+        child: SizedBox(
+          height: _BrandMarquee.height(widget.size),
+          child: AnimatedBuilder(
+            animation: _run,
+            builder: (context, child) => OverflowBox(
+              alignment: Alignment.centerLeft,
+              maxWidth: double.infinity,
+              child: Transform.translate(
+                offset: Offset(-width * _run.value, 0),
+                child: child,
+              ),
+            ),
+            // Две копии подряд — круг замыкается без шва.
+            child: Text(
+              '$line$line',
+              maxLines: 1,
+              softWrap: false,
+              style: style,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Текст бренда по языку покупателя, иначе по языку бренда, иначе любой.
+String _forLang(Map<String, String> m, String lang, String fallback) =>
+    m[lang] ?? m[fallback] ?? (m.isEmpty ? '' : m.values.first);
+
+/// Текст витрины Storexx: хэштег разрядкой (как разделы в презентации
+/// магазина), под ним заголовок капсом антиквой бренда — того же
+/// «римского» склада, что и знак STORE XX. Всё по центру над витриной.
+class _WindowTitle extends StatelessWidget {
+  const _WindowTitle({
+    required this.intro,
+    required this.kicker,
+    required this.headline,
+    required this.look,
+    required this.kickerSize,
+    required this.headlineSize,
+    required this.gap,
+  });
+
+  final Animation<double> intro;
+  final String kicker;
+  final String headline;
+  final _SceneLook look;
+  final double kickerSize;
+  final double headlineSize;
+  final double gap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = MirrorTheme.of(context);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (kicker.isNotEmpty) ...[
+          Entrance(
+            parent: intro,
+            kind: IntroEntranceKind.rise,
+            delay: 0.06,
+            child: Text(
+              kicker,
+              maxLines: 1,
+              textAlign: TextAlign.center,
+              style: t
+                  .label(
+                    kickerSize,
+                    weight: FontWeight.w600,
+                    color: look.textMuted,
+                  )
+                  .copyWith(letterSpacing: kickerSize * 0.24, height: 1.2),
+            ),
+          ),
+          SizedBox(height: gap),
+        ],
+        Entrance(
+          parent: intro,
+          kind: IntroEntranceKind.rise,
+          delay: 0.12,
+          // Длинные языки ужимаются, а не переносятся в третью строку.
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              headline.toUpperCase(),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              style: t
+                  .display(headlineSize, color: look.text)
+                  .copyWith(letterSpacing: headlineSize * 0.06, height: 1.08),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

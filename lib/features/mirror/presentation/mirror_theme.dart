@@ -9,17 +9,20 @@ export '../brand/mirror_brands.dart'
         MirrorCoverHero,
         MirrorCoverPiece,
         MirrorVideoCover,
+        MirrorWindowCover,
+        MirrorArchShape,
         MirrorWordmarkStyle,
         kMirrorBrand,
         kMirrorBrands,
-        mirrorBrandById;
+        mirrorBrandById,
+        mirrorBrandVariant;
 
 /// Дизайн-токены Magic Mirror, собранные из активного бренда.
 ///
 /// Читать через [MirrorTheme.of]. Имена полей сохранены от прежней
 /// статической версии (`MirrorTheme.ink` → `t.ink`), розовый стал
-/// [primary], серый — [muted]. Киоск всегда светлый: тёмная тема приложения
-/// продавца сюда не протекает.
+/// [primary], серый — [muted]. Тёмная тема приложения продавца сюда не
+/// протекает: светлый или тёмный киоск задаёт палитра бренда (см. [dark]).
 class MirrorTheme {
   const MirrorTheme(this.brand);
 
@@ -40,6 +43,9 @@ class MirrorTheme {
   Color get onPrimary => brand.palette.onPrimary;
   Color get selectedBg => brand.palette.selectedBg;
   Color get accent => brand.palette.accent;
+
+  /// Свечения и искры; у светлых брендов совпадает с [primary].
+  Color get glow => brand.palette.glow ?? brand.palette.primary;
   Color get danger => brand.palette.danger;
   Color get success => brand.palette.success;
 
@@ -48,6 +54,12 @@ class MirrorTheme {
   double get rCard => brand.shape.card;
   double get rChip => brand.shape.chip;
   double get rImage => brand.shape.image;
+
+  /// Контур зеркала бренда (арка или витрина).
+  MirrorArchShape get mirror => brand.shape.mirror;
+
+  /// Тёмный скин (Storexx): светлые иконки статус-бара.
+  bool get dark => brand.palette.bg.computeLuminance() < 0.2;
 
   /// Форма «кнопочных» мелочей (плашки, круглые кнопки) по углам кнопок
   /// бренда: у LIBAS — пилюля и круг, у Lacoste — почти прямые углы.

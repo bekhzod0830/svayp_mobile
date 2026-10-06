@@ -42,6 +42,15 @@ class _MirrorGeneratingScreenState extends State<MirrorGeneratingScreen>
   /// Общее «дыхание»: свечение, искры, точка на конце линии прогресса.
   late final AnimationController _ambient;
 
+  /// Плавный прогресс. Контроллер считает целые секунды; между ними время
+  /// досчитывается по секундомеру, и прогресс пересчитывается каждый кадр
+  /// (кадры даёт [_scan]) — рама заполняется непрерывно, без рывков
+  /// «прыгнул — встал».
+  final Stopwatch _sinceTick = Stopwatch();
+  int _lastElapsed = -1;
+  double _shown = 0;
+  Duration? _lastFrame;
+
   @override
   void initState() {
     super.initState();
@@ -71,8 +80,50 @@ class _MirrorGeneratingScreenState extends State<MirrorGeneratingScreen>
     }
   }
 
+  /// Непрерывное время генерации в секундах.
+  double _smoothElapsed(int elapsed) {
+    if (elapsed != _lastElapsed) {
+      // Новая генерация («Пересобрать», повтор) — начинаем с нуля.
+      if (elapsed < _lastElapsed) _shown = 0;
+      _lastElapsed = elapsed;
+      _sinceTick
+        ..reset()
+        ..start();
+    }
+    // Не убегаем дальше следующей секунды, если тик контроллера запоздал.
+    return elapsed + math.min(_sinceTick.elapsedMilliseconds / 1000, 1.0);
+  }
+
+  /// Та же кривая, что и раньше: до [MirrorSessionController.reassureAfterSec]
+  /// easeOut к 90%, дальше медленный хвост к 95%, — но от непрерывного времени.
+  double _targetFor(double t) {
+    const reassure = MirrorSessionController.reassureAfterSec;
+    final base = Curves.easeOut.transform((t / reassure).clamp(0.0, 1.0)) * 0.9;
+    final crawl = t > reassure ? math.min(0.05, (t - reassure) * 0.005) : 0.0;
+    return (base + crawl).clamp(0.03, 0.95);
+  }
+
+  double _progressFrame(MirrorSessionController c) {
+    final now = _sinceTick.elapsed;
+    final last = _lastFrame;
+    final dt =
+        last == null || now < last ? 0.016 : (now - last).inMicroseconds / 1e6;
+    _lastFrame = now;
+    if (c.resultReady) {
+      // Образ готов — мягко добегаем до 100% примерно за полсекунды.
+      _shown += (1 - _shown) * (1 - math.exp(-dt * 9));
+      if (_shown > 0.998) _shown = 1;
+    } else {
+      // Прогресс только растёт: на стыке секунд досчитанное время может
+      // оказаться чуть впереди.
+      _shown = math.max(_shown, _targetFor(_smoothElapsed(c.elapsedSec)));
+    }
+    return _shown;
+  }
+
   @override
   void dispose() {
+    _sinceTick.stop();
     _scan.dispose();
     _ambient.dispose();
     super.dispose();
@@ -87,11 +138,13 @@ class _MirrorGeneratingScreenState extends State<MirrorGeneratingScreen>
 
     final gender = c.gender;
     if (gender != null) {
-      answers.add(_Answer(
-        stage: 1,
-        kicker: l10n.mirrorGenderLabel,
-        value: gender == 'MALE' ? l10n.mirrorMale : l10n.mirrorFemale,
-      ));
+      answers.add(
+        _Answer(
+          stage: 1,
+          kicker: l10n.mirrorGenderLabel,
+          value: gender == 'MALE' ? l10n.mirrorMale : l10n.mirrorFemale,
+        ),
+      );
     }
     final shape = c.bodyShape;
     if (shape != null) {
@@ -102,8 +155,9 @@ class _MirrorGeneratingScreenState extends State<MirrorGeneratingScreen>
                   .map((x) => x.label(lang))
                   .firstOrNull ??
               l10n.mirrorDontKnow;
-      answers
-          .add(_Answer(stage: 1, kicker: l10n.mirrorShapeLabel, value: label));
+      answers.add(
+        _Answer(stage: 1, kicker: l10n.mirrorShapeLabel, value: label),
+      );
     }
     if (c.path == MirrorPath.create && c.styles.isNotEmpty) {
       final labels = [
@@ -116,17 +170,21 @@ class _MirrorGeneratingScreenState extends State<MirrorGeneratingScreen>
             lang,
           ),
       ];
-      answers.add(_Answer(
-        stage: 2,
-        kicker: l10n.mirrorGenStyleLabel,
-        value: labels.join(' · '),
-      ));
+      answers.add(
+        _Answer(
+          stage: 2,
+          kicker: l10n.mirrorGenStyleLabel,
+          value: labels.join(' · '),
+        ),
+      );
     } else if (c.path == MirrorPath.catalog && c.pickedProductIds.isNotEmpty) {
-      answers.add(_Answer(
-        stage: 2,
-        kicker: l10n.mirrorPicked,
-        value: l10n.mirrorGenPickedCount(c.pickedProductIds.length),
-      ));
+      answers.add(
+        _Answer(
+          stage: 2,
+          kicker: l10n.mirrorPicked,
+          value: l10n.mirrorGenPickedCount(c.pickedProductIds.length),
+        ),
+      );
     }
     return answers;
   }
@@ -150,35 +208,20 @@ class _MirrorGeneratingScreenState extends State<MirrorGeneratingScreen>
       l10n.mirrorGen1,
       l10n.mirrorGen2,
       l10n.mirrorGen3,
-      l10n.mirrorGen4
+      l10n.mirrorGen4,
     ];
     // Этап ~25 секунд (образ через FASHN ≈105 c); последний держится до конца.
     final activeStage = math.min(elapsed ~/ 25, stages.length - 1);
-
-    // До 25с — easeOut к 90%; дальше медленный доползающий хвост к 95%.
-    final base = Curves.easeOut.transform(
-            (elapsed / MirrorSessionController.reassureAfterSec)
-                .clamp(0.0, 1.0)) *
-        0.9;
-    final crawl = elapsed > MirrorSessionController.reassureAfterSec
-        ? math.min(
-            0.05, (elapsed - MirrorSessionController.reassureAfterSec) * 0.005)
-        : 0.0;
-    final progress = c.resultReady ? 1.0 : (base + crawl).clamp(0.03, 0.95);
 
     return Padding(
       padding: EdgeInsets.fromLTRB(20 * s, 12 * s, 20 * s, 0),
       child: Column(
         children: [
           Expanded(
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(end: progress),
-              duration: MediaQuery.disableAnimationsOf(context)
-                  ? Duration.zero
-                  : const Duration(milliseconds: 900),
-              curve: Curves.easeOut,
-              builder: (context, p, _) => _DevelopingMirror(
-                progress: p,
+            child: AnimatedBuilder(
+              animation: _scan,
+              builder: (context, _) => _DevelopingMirror(
+                progress: _progressFrame(c),
                 stage: activeStage,
                 photo: c.capturedPhoto,
                 answers: _answers(l10n),
@@ -442,8 +485,11 @@ class _PulseDotState extends State<_PulseDot>
 
 /// Ответ покупателя на раме зеркала.
 class _Answer {
-  const _Answer(
-      {required this.stage, required this.kicker, required this.value});
+  const _Answer({
+    required this.stage,
+    required this.kicker,
+    required this.value,
+  });
 
   /// С какого этапа генерации ответ виден.
   final int stage;
@@ -478,14 +524,12 @@ class _DevelopingMirror extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, box) {
         final size = box.biggest;
-        // Арка: по высоте сцены, пропорция зеркала ~0.62, с запасом по бокам
-        // под ответы.
-        final archH = size.height * 0.94;
-        final archW = math.min(archH * 0.6, size.width * 0.56);
-        final arch = Rect.fromCenter(
+        // Стекло общего размера (как на камере и результате); ответы
+        // заходят на раму с боков.
+        final arch = mirrorGlassRect(
+          context,
+          size,
           center: Offset(size.width / 2, size.height * 0.49),
-          width: archW,
-          height: math.min(archH, archW / 0.5),
         );
         final chipMaxW = math.min(210 * s, size.width * 0.46);
         // Ответы по очереди слева и справа, на своих высотах.
@@ -501,10 +545,12 @@ class _DevelopingMirror extends StatelessWidget {
                 builder: (context, _) => CustomPaint(
                   painter: MirrorArchHaloPainter(
                     arch: arch,
-                    color: t.primary,
+                    color: t.glow,
                     strength: 0.14 +
                         0.10 * progress +
                         0.05 * Curves.easeInOut.transform(ambient.value),
+                    shape: t.mirror,
+                    s: s,
                   ),
                 ),
               ),
@@ -520,12 +566,13 @@ class _DevelopingMirror extends StatelessWidget {
             ),
             // Рама: тонкий контур и поверх — линия прогресса с точкой.
             Positioned.fromRect(
-              rect: arch.inflate(8 * s),
+              rect: arch.inflate(mirrorFrameInset(t.mirror, s)),
               child: IgnorePointer(
                 child: AnimatedBuilder(
                   animation: ambient,
                   builder: (context, _) => CustomPaint(
                     painter: MirrorArchFramePainter(
+                      shape: t.mirror,
                       progress: progress,
                       track: t.hairline,
                       color: t.primary,
@@ -553,13 +600,15 @@ class _DevelopingMirror extends StatelessWidget {
                   maxWidth: chipMaxW,
                 ),
               ),
-            // Процент — плашкой на нижней кромке рамы.
+            // Процент — плашкой по центру нижней линии рамы (как сумма на
+            // результате).
             Positioned(
               left: 0,
               right: 0,
-              top: arch.bottom - 4 * s,
-              child: Center(
-                child: _PercentBadge(progress: progress),
+              top: arch.bottom + mirrorFrameInset(t.mirror, s),
+              child: FractionalTranslation(
+                translation: const Offset(0, -0.5),
+                child: Center(child: _PercentBadge(progress: progress)),
               ),
             ),
           ],
@@ -624,7 +673,7 @@ class _MirrorGlass extends StatelessWidget {
     }
 
     return ClipPath(
-      clipper: const MirrorArchClipper(),
+      clipper: MirrorArchClipper(t.mirror),
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -640,11 +689,7 @@ class _MirrorGlass extends StatelessWidget {
           AnimatedBuilder(
             animation: scan,
             builder: (context, _) => CustomPaint(
-              painter: _ScanPainter(
-                value: scan.value,
-                color: t.primary,
-                s: s,
-              ),
+              painter: _ScanPainter(value: scan.value, color: t.primary, s: s),
             ),
           ),
           // Этап «лицо»: уголки фокуса вокруг лица.
@@ -695,8 +740,11 @@ class _MirrorGlass extends StatelessWidget {
 
 /// Полоса сканирования: мягкий светлый шлейф и тонкая линия цвета бренда.
 class _ScanPainter extends CustomPainter {
-  const _ScanPainter(
-      {required this.value, required this.color, required this.s});
+  const _ScanPainter({
+    required this.value,
+    required this.color,
+    required this.s,
+  });
 
   final double value;
   final Color color;

@@ -3563,7 +3563,7 @@ class AppLocalizationsUz extends AppLocalizations {
   String get mirrorPrivacyShort => 'Surat 15 daqiqadan soʻng oʻchiriladi';
 
   @override
-  String get mirrorCamAim => 'Yuzingizni doira ichiga joylang';
+  String get mirrorCamAim => 'Yuzingizni ramkaga joylashtiring';
 
   @override
   String get mirrorCamLook => 'Toʻgʻridan-toʻgʻri kameraga qarang';

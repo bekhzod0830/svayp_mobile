@@ -204,6 +204,7 @@ flutter:
     - lib/video/kiosk_poster/
     - assets/brands/lacoste/
     - assets/brands/libas/
+    - assets/brands/storexx/
     - lib/img/brands/
     - lib/img/fit_preference/covered/
     - lib/img/fit_preference/uncovered/
@@ -241,6 +242,13 @@ flutter:
     - family: PlayfairDisplay
       fonts:
         - asset: assets/fonts/PlayfairDisplay-Variable.ttf
+    # Forum (OFL, Денис Машаров) — классическая антиква с римскими капителями,
+    # под засечный знак STORE XX (бренд Storexx в Magic Mirror). Один статичный
+    # файл, вес 400; кириллица есть, узбекского «ʻ» нет — он берётся из
+    # Playfair Display через fallbackFamilies.
+    - family: Forum
+      fonts:
+        - asset: assets/fonts/Forum-Regular.ttf
 
   # To add custom fonts to your application, add a fonts section here,
   # in this "flutter" section. Each entry in this list should have a

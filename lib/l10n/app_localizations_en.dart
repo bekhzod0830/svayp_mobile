@@ -3518,7 +3518,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mirrorPrivacyShort => 'The photo is deleted after 15 minutes';
 
   @override
-  String get mirrorCamAim => 'Place your face inside the circle';
+  String get mirrorCamAim => 'Place your face in the frame';
 
   @override
   String get mirrorCamLook => 'Look straight into the camera';

@@ -4,18 +4,21 @@ import 'package:flutter/material.dart';
 
 import '../mirror_theme.dart';
 
-/// Контур арочного зеркала: полукруглый верх, прямые стенки, мягкие нижние
-/// углы. Путь начинается в левом нижнем углу и идёт вверх, через верх, вниз
-/// по правой стенке и по низу обратно — поэтому его удобно «дорисовывать»
-/// по прогрессу (экран генерации).
-Path mirrorArchPath(Size size) {
+/// Контур зеркала: по умолчанию арка — полукруглый верх, прямые стенки,
+/// мягкие нижние углы; у бренда с [MirrorArchShape.window] — прямоугольная
+/// витрина. Путь начинается в левом нижнем углу и идёт вверх, через верх,
+/// вниз по правой стенке и по низу обратно — поэтому его удобно
+/// «дорисовывать» по прогрессу (экран генерации).
+Path mirrorArchPath(Size size, [MirrorArchShape shape = MirrorArchShape.arch]) {
   final w = size.width;
   final h = size.height;
-  final r = w / 2;
-  final rb = w * 0.07;
+  final rb = w * shape.corner;
+  final r = (w / 2 * shape.top).clamp(rb, w / 2);
   return Path()
     ..moveTo(0, h - rb)
     ..lineTo(0, r)
+    ..arcToPoint(Offset(r, 0), radius: Radius.circular(r))
+    ..lineTo(w - r, 0)
     ..arcToPoint(Offset(w, r), radius: Radius.circular(r))
     ..lineTo(w, h - rb)
     ..arcToPoint(Offset(w - rb, h), radius: Radius.circular(rb))
@@ -24,28 +27,104 @@ Path mirrorArchPath(Size size) {
     ..close();
 }
 
-/// Обрезка по арке [mirrorArchPath].
-class MirrorArchClipper extends CustomClipper<Path> {
-  const MirrorArchClipper();
-
-  @override
-  Path getClip(Size size) => mirrorArchPath(size);
-
-  @override
-  bool shouldReclip(MirrorArchClipper oldClipper) => false;
+/// Стекло зеркала одного размера на всех экранах киоска — постере, камере,
+/// генерации и результате: покупатель на каждом шаге видит одну и ту же
+/// раму. Размер считается от экрана, а не от свободного места конкретной
+/// вёрстки: по высоте — экран без системных полей минус место под текст и
+/// кнопки самого плотного экрана (камера: заголовок, подсказка, две кнопки
+/// и подпись), по ширине — поля по 28 единиц. Экраны подстраивают свои
+/// отступы под этот размер, а не наоборот.
+Size mirrorGlassSize(
+  Size screen,
+  EdgeInsets padding,
+  MirrorArchShape shape,
+  double s,
+) {
+  final usable = screen.height - padding.vertical;
+  final maxH = math.max(usable - 320 * s, 160.0);
+  final maxW = math.max(screen.width - 56 * s, 120.0);
+  final w = math.min(maxH * shape.aspect, maxW);
+  return Size(w, w / shape.aspect);
 }
 
-/// Мягкое свечение цветом бренда за арочным зеркалом.
+/// То же от контекста экрана.
+Size mirrorGlassSizeOf(BuildContext context) => mirrorGlassSize(
+      MediaQuery.sizeOf(context),
+      MediaQuery.paddingOf(context),
+      MirrorTheme.of(context).mirror,
+      MirrorTheme.scale(context),
+    );
+
+/// Стекло общего размера в боксе экрана, по центру [center] (по умолчанию —
+/// центр бокса). Если бокс меньше стекла с рамой — чего в штатных вёрстках
+/// не бывает — стекло уменьшается, сохраняя пропорцию. [margin] — поле
+/// от краёв бокса, по умолчанию под раму ([mirrorFrameInset]).
+Rect mirrorGlassRect(
+  BuildContext context,
+  Size box, {
+  Offset? center,
+  double? margin,
+}) {
+  final glass = mirrorGlassSizeOf(context);
+  final shape = MirrorTheme.of(context).mirror;
+  final m = margin ?? mirrorFrameInset(shape, MirrorTheme.scale(context));
+  final fitW = math.max(box.width - m * 2, 40.0);
+  final fitH = math.max(box.height - m * 2, 40.0);
+  var w = math.min(glass.width, fitW);
+  var h = w / shape.aspect;
+  if (h > fitH) {
+    h = fitH;
+    w = h * shape.aspect;
+  }
+  return Rect.fromCenter(
+    center: center ?? Offset(box.width / 2, box.height / 2),
+    width: w,
+    height: h,
+  );
+}
+
+/// Отступ рамы от стекла: контур рисуется снаружи стекла на этом
+/// расстоянии. У двойной рамы по кромке стекла проходит волосяная линия.
+double mirrorFrameInset(MirrorArchShape shape, double s) =>
+    shape.doubleLine ? 7 * s : 8 * s;
+
+/// Обрезка по арке [mirrorArchPath].
+class MirrorArchClipper extends CustomClipper<Path> {
+  const MirrorArchClipper([this.shape = MirrorArchShape.arch]);
+
+  final MirrorArchShape shape;
+
+  @override
+  Path getClip(Size size) => mirrorArchPath(size, shape);
+
+  @override
+  bool shouldReclip(MirrorArchClipper oldClipper) => oldClipper.shape != shape;
+}
+
+/// Мягкое свечение цветом бренда за зеркалом. Арка — овальный ореол;
+/// витрина — свет по контуру рамы и пятно на «полу» под ней, как
+/// подсветка витрины магазина. [arch] — прямоугольник стекла.
 class MirrorArchHaloPainter extends CustomPainter {
-  const MirrorArchHaloPainter(
-      {required this.arch, required this.color, required this.strength});
+  const MirrorArchHaloPainter({
+    required this.arch,
+    required this.color,
+    required this.strength,
+    this.shape = MirrorArchShape.arch,
+    this.s = 1,
+  });
 
   final Rect arch;
   final Color color;
   final double strength;
+  final MirrorArchShape shape;
+  final double s;
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (shape.doubleLine) {
+      _paintWindow(canvas);
+      return;
+    }
     final rect = arch.inflate(arch.width * 0.45);
     canvas.drawOval(
       rect,
@@ -59,13 +138,52 @@ class MirrorArchHaloPainter extends CustomPainter {
     );
   }
 
+  void _paintWindow(Canvas canvas) {
+    final frame = arch.inflate(mirrorFrameInset(shape, s));
+    final path = mirrorArchPath(frame.size, shape).shift(frame.topLeft);
+    canvas
+      ..drawPath(
+        path,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 16 * s
+          ..color = color.withValues(alpha: strength * 0.75)
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, 16 * s),
+      )
+      ..drawPath(
+        path,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 5 * s
+          ..color = color.withValues(alpha: strength)
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, 5 * s),
+      )
+      ..drawOval(
+        Rect.fromCenter(
+          center: Offset(frame.center.dx, frame.bottom + 5 * s),
+          width: frame.width * 1.1,
+          height: 18 * s,
+        ),
+        Paint()
+          ..color = color.withValues(alpha: strength * 0.65)
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, 9 * s),
+      );
+  }
+
   @override
   bool shouldRepaint(MirrorArchHaloPainter old) =>
-      old.arch != arch || old.color != color || old.strength != strength;
+      old.arch != arch ||
+      old.color != color ||
+      old.strength != strength ||
+      old.shape != shape ||
+      old.s != s;
 }
 
 /// Рама зеркала: контур-дорожка и линия прогресса по нему со светящейся
 /// точкой на конце. При [progress] = 1 рама замкнута и точки нет.
+/// Рисуется на прямоугольнике стекла, расширенном на [mirrorFrameInset];
+/// у двойной рамы ([MirrorArchShape.doubleLine]) линия тоньше, а по кромке
+/// стекла идёт вторая, волосяная.
 class MirrorArchFramePainter extends CustomPainter {
   const MirrorArchFramePainter({
     required this.progress,
@@ -73,6 +191,7 @@ class MirrorArchFramePainter extends CustomPainter {
     required this.color,
     required this.glow,
     required this.s,
+    this.shape = MirrorArchShape.arch,
   });
 
   final double progress;
@@ -80,11 +199,12 @@ class MirrorArchFramePainter extends CustomPainter {
   final Color color;
   final double glow;
   final double s;
+  final MirrorArchShape shape;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final path = mirrorArchPath(size);
-    final width = 4 * s;
+    final path = mirrorArchPath(size, shape);
+    final width = shape.doubleLine ? 2.4 * s : 4 * s;
     canvas.drawPath(
       path,
       Paint()
@@ -92,6 +212,20 @@ class MirrorArchFramePainter extends CustomPainter {
         ..strokeWidth = width
         ..color = track,
     );
+    if (shape.doubleLine) {
+      final inset = mirrorFrameInset(shape, s);
+      final inner = mirrorArchPath(
+        Size(size.width - inset * 2, size.height - inset * 2),
+        shape,
+      ).shift(Offset(inset, inset));
+      canvas.drawPath(
+        inner,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = math.max(1.0 * s, 0.9)
+          ..color = color.withValues(alpha: 0.6),
+      );
+    }
     final p = progress.clamp(0.0, 1.0);
     if (p <= 0) return;
     final metric = path.computeMetrics().first;
@@ -133,7 +267,41 @@ class MirrorArchFramePainter extends CustomPainter {
       old.glow != glow ||
       old.color != color ||
       old.track != track ||
+      old.shape != shape ||
       old.s != s;
+}
+
+/// Фактура бренда под экраном ([MirrorBrand.backdropAsset]) под вуалью
+/// цвета фона; без фактуры — ровный фон. Статичный слой.
+class MirrorBackdrop extends StatelessWidget {
+  const MirrorBackdrop({super.key, this.veil});
+
+  /// Плотность вуали вместо [MirrorBrand.backdropVeil].
+  final double? veil;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = MirrorTheme.of(context);
+    final asset = t.brand.backdropAsset;
+    if (asset == null) return ColoredBox(color: t.bg);
+    return RepaintBoundary(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          ColoredBox(color: t.bg),
+          Image.asset(
+            asset,
+            fit: BoxFit.cover,
+            alignment: Alignment.center,
+            filterQuality: FilterQuality.medium,
+          ),
+          ColoredBox(
+            color: t.bg.withValues(alpha: veil ?? t.brand.backdropVeil),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// Карточка, «приколотая» к раме зеркала: светлая плашка с тенью и точкой

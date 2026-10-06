@@ -62,7 +62,11 @@ class _MirrorBrandPickerState extends State<MirrorBrandPicker>
   @override
   void initState() {
     super.initState();
-    _selected = widget.current;
+    // Тёмная версия бренда выбрана — подсвечиваем карточку основной.
+    _selected = widget.brands.firstWhere(
+      (b) => b.id == widget.current.familyId,
+      orElse: () => widget.current,
+    );
     _intro = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
@@ -76,7 +80,7 @@ class _MirrorBrandPickerState extends State<MirrorBrandPicker>
       duration: const Duration(milliseconds: 650),
     );
     _zoom.addStatusListener((status) {
-      if (status == AnimationStatus.completed) widget.onPicked(_selected);
+      if (status == AnimationStatus.completed) widget.onPicked(_picked);
     });
   }
 
@@ -102,6 +106,11 @@ class _MirrorBrandPickerState extends State<MirrorBrandPicker>
     super.dispose();
   }
 
+  /// Выбранная карточка; если это бренд текущего оформления — его текущая
+  /// версия (тёмная Storexx не сбрасывается в светлую).
+  MirrorBrand get _picked =>
+      _selected.id == widget.current.familyId ? widget.current : _selected;
+
   GlobalKey _keyFor(MirrorBrand b) =>
       _cardKeys.putIfAbsent(b.id, GlobalKey.new);
 
@@ -120,13 +129,13 @@ class _MirrorBrandPickerState extends State<MirrorBrandPicker>
     final card = _keyFor(_selected).currentContext?.findRenderObject();
     final root = _rootKey.currentContext?.findRenderObject();
     if (card is! RenderBox || root is! RenderBox) {
-      widget.onPicked(_selected);
+      widget.onPicked(_picked);
       return;
     }
     final topLeft = card.localToGlobal(Offset.zero, ancestor: root);
     setState(() => _zoomFrom = topLeft & card.size);
     if (MediaQuery.disableAnimationsOf(context)) {
-      widget.onPicked(_selected);
+      widget.onPicked(_picked);
     } else {
       _zoom.forward();
     }
@@ -166,7 +175,7 @@ class _MirrorBrandPickerState extends State<MirrorBrandPicker>
     final l10n = AppLocalizations.of(context)!;
     final s = MirrorTheme.scale(context);
     final pad = MediaQuery.paddingOf(context);
-    final accent = MirrorTheme(_selected).primary;
+    final accent = MirrorTheme(_selected).glow;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
@@ -311,7 +320,7 @@ class _MirrorBrandPickerState extends State<MirrorBrandPicker>
             child: _BrandCard(
               brand: brands[i],
               selected: brands[i].id == _selected.id,
-              current: brands[i].id == widget.current.id,
+              current: brands[i].id == widget.current.familyId,
               hidden: _zoomFrom != null && brands[i].id == _selected.id,
               width: cardW,
               height: cardH,
@@ -436,7 +445,7 @@ class _BrandCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = MirrorTheme(brand).primary;
+    final accent = MirrorTheme(brand).glow;
     final radius = BorderRadius.circular(22 * s);
 
     return Semantics(
@@ -588,7 +597,13 @@ class _StartButtonState extends State<_StartButton> {
   @override
   Widget build(BuildContext context) {
     final t = MirrorTheme(widget.brand);
-    final colors = t.brand.palette.primaryGradient ?? [t.primary, t.primary];
+    // Тёмный бренд (чёрная кнопка) на тёмном фоне выбора не виден —
+    // выворачиваем: белая кнопка, текст цветом бренда.
+    final dark = t.primary.computeLuminance() < 0.08;
+    final colors = dark
+        ? const [Color(0xFFFFFFFF), Color(0xFFE9E6E1)]
+        : t.brand.palette.primaryGradient ?? [t.primary, t.primary];
+    final fg = dark ? t.primary : t.onPrimary;
     final h = widget.height;
 
     return ConstrainedBox(
@@ -610,7 +625,7 @@ class _StartButtonState extends State<_StartButton> {
             ),
             boxShadow: [
               BoxShadow(
-                color: t.primary.withValues(alpha: 0.3),
+                color: t.glow.withValues(alpha: 0.3),
                 blurRadius: h * 0.45,
                 spreadRadius: -h * 0.2,
                 offset: Offset(0, h * 0.12),
@@ -649,7 +664,7 @@ class _StartButtonState extends State<_StartButton> {
                             fontFamilyFallback: const ['PlayfairDisplay'],
                             fontSize: h * 0.3,
                             fontWeight: FontWeight.w700,
-                            color: t.onPrimary,
+                            color: fg,
                           ),
                         ),
                       ),
@@ -657,7 +672,7 @@ class _StartButtonState extends State<_StartButton> {
                       Icon(
                         Icons.arrow_forward_rounded,
                         size: h * 0.36,
-                        color: t.onPrimary,
+                        color: fg,
                       ),
                     ],
                   ),

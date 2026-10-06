@@ -2,11 +2,11 @@ import 'dart:ui' show Color, FontWeight;
 
 import 'mirror_brand.dart';
 
-/// LIBAS: собственный стиль приложения — белый фон, чернильный текст,
-/// фирменный розовый для выбора и CTA (градиентная пилюля, как в онбординге),
-/// Golos Text ExtraBold в заголовках, скруглённые формы. Значения — из
-/// `IntroPalette` (дек «LIBAS Онбординг»), продублированы здесь, чтобы бренд
-/// киоска оставался константой без зависимостей от онбординга.
+/// LIBAS: монохромный стиль для покупателей любого пола — чёрный, белый и
+/// нейтральные серые. Цвет бренда остаётся только в «Λ» знака: розовые
+/// кнопки и выбор читались как «только для женщин», а бронзовые акценты — как
+/// шаблонная «премиальность». Golos Text ExtraBold в заголовках, скруглённые
+/// формы.
 ///
 /// Постер — видео с примерочным зеркалом в арке (см. [MirrorVideoCover]).
 const MirrorBrand libasBrand = MirrorBrand(
@@ -14,7 +14,7 @@ const MirrorBrand libasBrand = MirrorBrand(
   name: 'LIBAS',
   wordmark: 'LIBΛS',
   // Знак набран ровно как на экране входа: системный шрифт w700, плотный
-  // трекинг, розовая «Λ».
+  // трекинг, «Λ» — фирменным цветом. Это единственный цветной элемент скина.
   wordmarkStyle: MirrorWordmarkStyle(
     weight: FontWeight.w700,
     tracking: -1 / 48,
@@ -22,28 +22,30 @@ const MirrorBrand libasBrand = MirrorBrand(
     accentColor: Color(0xFFF370A7),
   ),
   tagline: {
-    'ru': 'Фирменный розовый и видео в зеркале',
-    'uz': 'Firma pushti rangi va oynadagi video',
-    'en': 'Signature pink and a video in the mirror',
+    'ru': 'Чёрно-белая классика и видео в зеркале',
+    'uz': 'Qora-oq klassika va oynadagi video',
+    'en': 'Black-and-white classic and a video in the mirror',
   },
   languages: ['ru', 'uz', 'en'],
   defaultLang: 'ru',
   palette: MirrorPalette(
     bg: Color(0xFFFFFFFF),
-    surface: Color(0xFFF8F7FA),
-    ink: Color(0xFF141118),
-    muted: Color(0xFF8A8690),
-    hairline: Color(0xFFEFEDF3),
-    primary: Color(0xFFE32B86),
-    primaryDeep: Color(0xFF141118),
-    // Розовый мельче 16 px — темнее основного, чтобы читался на белом.
-    primaryBright: Color(0xFFC81E74),
+    surface: Color(0xFFF5F5F5),
+    ink: Color(0xFF121212),
+    muted: Color(0xFF878787),
+    hairline: Color(0xFFE8E8E8),
+    primary: Color(0xFF121212),
+    primaryDeep: Color(0xFF121212),
+    primaryBright: Color(0xFF121212),
     onPrimary: Color(0xFFFFFFFF),
-    selectedBg: Color(0xFFFDEBF3),
-    accent: Color(0xFF8A5A16),
-    danger: Color(0xFFE5484D),
+    selectedBg: Color(0xFFEFEFEF),
+    accent: Color(0xFF555555),
+    danger: Color(0xFFD93F3F),
     success: Color(0xFF2E7D52),
-    primaryGradient: [Color(0xFFF65BA5), Color(0xFFE32B86)],
+    primaryGradient: [Color(0xFF333333), Color(0xFF121212)],
+    // Свечения — нейтральный светло-серый: чёрный ореол выглядел бы грязной
+    // тенью.
+    glow: Color(0xFFBDBDBD),
   ),
   type: MirrorType(
     displayFamily: 'GolosText',
@@ -65,15 +67,14 @@ const MirrorBrand libasBrand = MirrorBrand(
     posterAsset: 'assets/brands/libas/cover_poster.webp',
     // Верх кадра срезан: там водяной знак генератора видео.
     zoom: 1.1,
-    bgTop: Color(0xFFFFFAFC),
-    bgBottom: Color(0xFFF8E2EE),
-    glow: Color(0xFFF370A7),
-    rim: Color(0xFFF65BA5),
-    text: Color(0xFF141118),
-    textMuted: Color(0xFF8A8690),
-    headlineAccent: Color(0xFFE32B86),
-    cta: Color(0xFFE32B86),
+    bgTop: Color(0xFFFFFFFF),
+    bgBottom: Color(0xFFF0F0F0),
+    glow: Color(0xFFBDBDBD),
+    rim: Color(0xFFD6D6D6),
+    text: Color(0xFF121212),
+    textMuted: Color(0xFF878787),
+    cta: Color(0xFF121212),
     onCta: Color(0xFFFFFFFF),
-    ctaGradient: [Color(0xFFF65BA5), Color(0xFFE32B86)],
+    ctaGradient: [Color(0xFF333333), Color(0xFF121212)],
   ),
 );

@@ -31,10 +31,8 @@ enum MirrorPath { create, catalog }
 
 /// Отправка события аналитики. Подменяется в тестах: настоящий сервис при
 /// создании обращается к Firebase.
-typedef KioskEventLogger = Future<void> Function(
-  String name, {
-  Map<String, String>? parameters,
-});
+typedef KioskEventLogger = Future<void> Function(String name,
+    {Map<String, String>? parameters});
 
 /// Состояние киоск-сессии: машина экранов, ответы, фото, генерация, таймеры
 /// бездействия. ChangeNotifier — по конвенции приложения (bloc не используется).
@@ -86,7 +84,8 @@ class MirrorSessionController extends ChangeNotifier {
   MirrorBrand get brand => _brand;
   MirrorBrand _brand;
 
-  /// Логгер аналитики по умолчанию (подменяется в тестах вместо Firebase).
+  /// Логгер в форме `AnalyticsService.logEvent` — второй способ подменить
+  /// аналитику (им пользуются тесты контроллера). [_sink] главнее.
   final KioskEventLogger? _logEvent;
 
   // ── Состояние ──────────────────────────────────────────────────────────────
@@ -119,6 +118,10 @@ class MirrorSessionController extends ChangeNotifier {
   /// обновление на постере и при каждом входе в каталог.
   List<KioskCatalogItem> _catalogAllCache = [];
   bool _catalogFetchInFlight = false;
+
+  /// Сброс или вход в каталог пришёл, пока каталог грузился: перезагрузить,
+  /// когда текущая загрузка кончится.
+  bool _catalogReloadPending = false;
 
   /// Откуда кэш: из киоск-API зала или из демо (`/products/all` — весь
   /// маркетплейс). Постер бренда не должен показывать чужие вещи, поэтому
@@ -161,7 +164,6 @@ class MirrorSessionController extends ChangeNotifier {
   /// Все картинки результатов сессии: после сброса вычищаем из кэша каждую, а не
   /// только последнюю — на прошлых пересборках тоже лицо покупателя.
   final Set<String> _resultUrls = {};
-
 
   KioskLookWatch? _watch;
   Timer? _idleTimer;
@@ -246,7 +248,8 @@ class MirrorSessionController extends ChangeNotifier {
     }
     // Аналитика не должна валить киоск: Firebase может быть не поднят.
     try {
-      (_logEvent ?? AnalyticsService.instance.logEvent)(event, parameters: payload);
+      final log = _logEvent ?? AnalyticsService.instance.logEvent;
+      log(event, parameters: payload).catchError((Object _) {});
     } catch (_) {}
   }
 
@@ -369,6 +372,10 @@ class MirrorSessionController extends ChangeNotifier {
       // состояние экран отрисует сам.
     } finally {
       _catalogFetchInFlight = false;
+      if (_catalogReloadPending && !_disposed) {
+        _catalogReloadPending = false;
+        if (screen == MirrorScreen.catalog) unawaited(loadCatalog());
+      }
     }
   }
 
@@ -388,7 +395,13 @@ class MirrorSessionController extends ChangeNotifier {
     }
     _notify();
 
-    if (_catalogFetchInFlight) return;
+    // Прошлая загрузка ещё идёт, но её мог отменить сброс сессии (токен
+    // сменился) — тогда перезапустим, когда она закончится, иначе новый
+    // покупатель увидит пустой каталог.
+    if (_catalogFetchInFlight) {
+      _catalogReloadPending = true;
+      return;
+    }
     await _refreshCatalogCache(demo: demoActive, cancelled: cancelled);
     if (!_disposed) {
       catalogLoading = false;
@@ -697,6 +710,15 @@ class MirrorSessionController extends ChangeNotifier {
     if (!canRegenerate) return;
     attempt += 1;
     _track('kiosk_regenerate', {'attempt': attempt.toString()});
+    // Код и QR выданы для прошлого образа — снимаем их сразу, чтобы новый
+    // результат не показался со старым QR. ensureShare на новом результате
+    // запросит свежие (до этого — шиммер, «Отложить» ждёт код).
+    _shareRetryTimer?.cancel();
+    _shareRetryTimer = null;
+    _shareRetries = 0;
+    sellerCode = null;
+    shareUrl = null;
+    _sharedLookId = null;
     startGeneration();
   }
 
@@ -876,6 +898,9 @@ class MirrorSessionController extends ChangeNotifier {
 
     sessionId = null;
     menswearAvailable = true;
+    // Загрузка каталога идёт — дотянем после неё; следующий покупатель
+    // увидит полную витрину.
+    if (_catalogFetchInFlight) _catalogReloadPending = true;
     demoActive = false;
     gender = null;
     bodyShape = null;
@@ -926,7 +951,8 @@ class MirrorSessionController extends ChangeNotifier {
     final urls = {
       ..._resultUrls,
       if (look?.resultImageUrl != null) look!.resultImageUrl!,
-      if (_completedLook?.resultImageUrl != null) _completedLook!.resultImageUrl!,
+      if (_completedLook?.resultImageUrl != null)
+        _completedLook!.resultImageUrl!,
     };
     _resultUrls.clear();
     for (final url in urls) {

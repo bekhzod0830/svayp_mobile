@@ -113,11 +113,12 @@ class _MirrorResultScreenState extends State<MirrorResultScreen>
     final pad = MediaQuery.paddingOf(context);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.dark,
+      value: t.dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
       child: MirrorItemDetails(
         lang: lang,
+        // Фон — фактура бренда из MirrorTab; здесь только вёрстка.
         child: ColoredBox(
-          color: t.bg,
+          color: Colors.transparent,
           child: Column(
             children: [
               SizedBox(height: pad.top + 10 * s),
@@ -154,7 +155,10 @@ class _MirrorResultScreenState extends State<MirrorResultScreen>
                   onQrTap: _onDownloadTap,
                 ),
               ),
-              SizedBox(height: 26 * s),
+              // Под рамой плотно: стекло — общего размера с другими
+              // экранами, плашка суммы висит на нижней линии рамы внутри
+              // бокса зеркала, а ленте вещей с кнопками остаётся ровно своё.
+              SizedBox(height: 4 * s),
               // Вещи образа — одной лентой под суммой; касание открывает
               // подробности вещи.
               Entrance(
@@ -169,14 +173,14 @@ class _MirrorResultScreenState extends State<MirrorResultScreen>
                   style: t.kicker(s, color: t.muted),
                 ),
               ),
-              SizedBox(height: 10 * s),
+              SizedBox(height: 4 * s),
               _ItemsRow(
                 items: look.items,
                 lang: lang,
                 entrance: _entrance,
                 keyFor: _keyFor,
               ),
-              SizedBox(height: 14 * s),
+              SizedBox(height: 8 * s),
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: 20 * s),
                 child: Entrance(
@@ -215,7 +219,7 @@ class _MirrorResultScreenState extends State<MirrorResultScreen>
                   ),
                 ),
               ),
-              SizedBox(height: pad.bottom + 16 * s),
+              SizedBox(height: pad.bottom + 12 * s),
             ],
           ),
         ),
@@ -258,16 +262,15 @@ class _ResultMirror extends StatelessWidget {
         // компактные ярлыки «фото + цена» на кромке рамы: образ не
         // закрывается, названия есть на экране состава.
         final compact = size.width < 600;
-        // Арка в пропорции результата (2:3) — образ виден целиком.
-        final maxH = size.height - 22 * s;
-        final archW =
-            math.min(maxH * 2 / 3, size.width * (compact ? 0.7 : 0.58));
-        final archH = math.min(maxH, archW * 1.5);
-        final arch = Rect.fromLTWH(
-          size.width / 2 - archW / 2,
-          (maxH - archH) / 2,
-          archW,
-          archH,
+        // Стекло общего размера — то же, что на постере, камере и
+        // генерации; в боксе прижато кверху, чтобы под рамой осталось
+        // место плашке с суммой.
+        final glass = mirrorGlassSizeOf(context);
+        final frame = mirrorFrameInset(t.mirror, s);
+        final arch = mirrorGlassRect(
+          context,
+          size,
+          center: Offset(size.width / 2, frame + glass.height / 2),
         );
         final inset = arch.width * 0.06;
         final qrSize = (compact ? 70 : 84) * s;
@@ -287,9 +290,11 @@ class _ResultMirror extends StatelessWidget {
                 builder: (context, _) => CustomPaint(
                   painter: MirrorArchHaloPainter(
                     arch: arch,
-                    color: t.primary,
+                    color: t.glow,
                     strength:
                         0.22 + 0.06 * Curves.easeInOut.transform(ambient.value),
+                    shape: t.mirror,
+                    s: s,
                   ),
                 ),
               ),
@@ -299,12 +304,13 @@ class _ResultMirror extends StatelessWidget {
               child: _RevealGlass(image: image, entrance: entrance),
             ),
             Positioned.fromRect(
-              rect: arch.inflate(8 * s),
+              rect: arch.inflate(mirrorFrameInset(t.mirror, s)),
               child: IgnorePointer(
                 child: AnimatedBuilder(
                   animation: ambient,
                   builder: (context, _) => CustomPaint(
                     painter: MirrorArchFramePainter(
+                      shape: t.mirror,
                       progress: 1,
                       track: t.hairline,
                       color: t.primary,
@@ -325,7 +331,7 @@ class _ResultMirror extends StatelessWidget {
                 left: arch.left + arch.width * dx,
                 top: arch.top + arch.height * dy,
                 child: Twinkle(
-                  color: t.primary,
+                  color: t.glow,
                   size: sz * s,
                   delaySeconds: delay,
                 ),
@@ -353,22 +359,25 @@ class _ResultMirror extends StatelessWidget {
                 ),
               ),
             ),
-            // Сумма образа — на нижней кромке рамы.
+            // Сумма образа — плашкой по центру нижней линии рамы.
             Positioned(
               left: 0,
               right: 0,
-              top: arch.bottom - 4 * s,
-              child: Center(
-                child: Entrance(
-                  parent: entrance,
-                  kind: IntroEntranceKind.pop,
-                  delay: 0.35,
-                  child: MirrorArchBadge(
-                    child: _CountUpPrice(
-                      total: look.totalPrice,
-                      lang: lang,
-                      size: 17 * s,
-                      color: t.onPrimary,
+              top: arch.bottom + mirrorFrameInset(t.mirror, s),
+              child: FractionalTranslation(
+                translation: const Offset(0, -0.5),
+                child: Center(
+                  child: Entrance(
+                    parent: entrance,
+                    kind: IntroEntranceKind.pop,
+                    delay: 0.35,
+                    child: MirrorArchBadge(
+                      child: _CountUpPrice(
+                        total: look.totalPrice,
+                        lang: lang,
+                        size: 17 * s,
+                        color: t.onPrimary,
+                      ),
                     ),
                   ),
                 ),
@@ -398,7 +407,7 @@ class _RevealGlass extends StatelessWidget {
       curve: const Interval(0, 0.45, curve: Curves.easeOutCubic),
     );
     return ClipPath(
-      clipper: const MirrorArchClipper(),
+      clipper: MirrorArchClipper(t.mirror),
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -415,8 +424,10 @@ class _RevealGlass extends StatelessWidget {
                 return sigma < 0.05
                     ? scaled
                     : ImageFiltered(
-                        imageFilter:
-                            ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
+                        imageFilter: ImageFilter.blur(
+                          sigmaX: sigma,
+                          sigmaY: sigma,
+                        ),
                         child: scaled,
                       );
               },
@@ -490,7 +501,7 @@ class _ItemsRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = MirrorTheme.scale(context);
     return SizedBox(
-      height: 124 * s,
+      height: 112 * s,
       child: Center(
         child: ListView.separated(
           shrinkWrap: true,
@@ -556,7 +567,7 @@ class _ItemTileState extends State<_ItemTile> {
           scale: _pressed ? 0.95 : 1,
           duration: const Duration(milliseconds: 120),
           child: Container(
-            width: 84 * s,
+            width: 76 * s,
             padding: EdgeInsets.all(6 * s),
             decoration: BoxDecoration(
               color: t.surface,
@@ -567,11 +578,12 @@ class _ItemTileState extends State<_ItemTile> {
               children: [
                 ClipRRect(
                   key: widget.thumbKey,
-                  borderRadius:
-                      BorderRadius.circular(math.min(t.rImage, 10 * s)),
+                  borderRadius: BorderRadius.circular(
+                    math.min(t.rImage, 10 * s),
+                  ),
                   child: SizedBox(
-                    width: 72 * s,
-                    height: 72 * s,
+                    width: 64 * s,
+                    height: 64 * s,
                     child: ColoredBox(
                       color: Colors.white,
                       child: item.imageUrl != null
@@ -595,14 +607,21 @@ class _ItemTileState extends State<_ItemTile> {
                       : t.brand.categoryLabel(category, widget.lang),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: t.label(10.5 * s,
-                      weight: FontWeight.w600, color: t.muted),
+                  style: t.label(
+                    10.5 * s,
+                    weight: FontWeight.w600,
+                    color: t.muted,
+                  ),
                 ),
                 SizedBox(height: 2 * s),
-                Text(
-                  item.price != null ? kioskMoneyShort(item.price!) : '—',
-                  maxLines: 1,
-                  style: t.price(12.5 * s, color: t.primaryBright),
+                // Семизначная сумма шире плитки — ужимается, а не режется.
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    item.price != null ? kioskMoneyShort(item.price!) : '—',
+                    maxLines: 1,
+                    style: t.price(12.5 * s, color: t.primaryBright),
+                  ),
                 ),
               ],
             ),
@@ -740,10 +759,8 @@ class _CountUpPrice extends StatelessWidget {
       ),
       duration: const Duration(milliseconds: 1300),
       curve: Curves.easeOutCubic,
-      builder: (context, v, _) => Text(
-        kioskMoney(v.round(), lang),
-        style: t.price(size, color: color),
-      ),
+      builder: (context, v, _) =>
+          Text(kioskMoney(v.round(), lang), style: t.price(size, color: color)),
     );
   }
 }
@@ -802,10 +819,7 @@ class _MirrorBuyScreenState extends State<MirrorBuyScreen> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Expanded(
-                    child: Text(
-                      l10n.mirrorBuyTitle,
-                      style: t.headline(26 * s),
-                    ),
+                    child: Text(l10n.mirrorBuyTitle, style: t.headline(26 * s)),
                   ),
                   Text(
                     l10n.mirrorItemsCount(look.items.length),
@@ -942,21 +956,26 @@ class _FittingTicket extends StatelessWidget {
                 SizedBox(
                   height: topH,
                   child: Padding(
-                    padding:
-                        EdgeInsets.fromLTRB(18 * s, 16 * s, 18 * s, 16 * s),
+                    padding: EdgeInsets.fromLTRB(
+                      18 * s,
+                      16 * s,
+                      18 * s,
+                      16 * s,
+                    ),
                     child: Row(
                       children: [
-                        // Образ в маленькой арке — тот же, что в зеркале.
+                        // Образ в маленькой раме — той же пропорции, что
+                        // зеркало.
                         Container(
-                          width: 74 * s,
+                          width: (topH - 32 * s) * t.mirror.aspect,
                           height: topH - 32 * s,
                           padding: EdgeInsets.all(3 * s),
                           decoration: ShapeDecoration(
                             color: on.withValues(alpha: 0.9),
-                            shape: const _ArchBorder(),
+                            shape: _ArchBorder(shape: t.mirror),
                           ),
                           child: ClipPath(
-                            clipper: const MirrorArchClipper(),
+                            clipper: MirrorArchClipper(t.mirror),
                             child: img == null
                                 ? ColoredBox(color: t.surface)
                                 : Image(
@@ -1092,8 +1111,10 @@ class _CodeReveal extends StatelessWidget {
             Builder(
               builder: (context) {
                 final start = i / (chars.length + 3);
-                final k =
-                    ((v - start) * (chars.length + 3) / 4).clamp(0.0, 1.0);
+                final k = ((v - start) * (chars.length + 3) / 4).clamp(
+                  0.0,
+                  1.0,
+                );
                 final e = Curves.easeOutBack.transform(k);
                 return Opacity(
                   opacity: k,
@@ -1124,14 +1145,14 @@ class _TicketClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {
     final body = Path()
-      ..addRRect(RRect.fromRectAndRadius(
-        Offset.zero & size,
-        Radius.circular(radius),
-      ));
+      ..addRRect(
+        RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(radius)),
+      );
     final holes = Path()
       ..addOval(Rect.fromCircle(center: Offset(0, cut), radius: notch))
       ..addOval(
-          Rect.fromCircle(center: Offset(size.width, cut), radius: notch));
+        Rect.fromCircle(center: Offset(size.width, cut), radius: notch),
+      );
     return Path.combine(PathOperation.difference, body, holes);
   }
 
@@ -1141,8 +1162,11 @@ class _TicketClipper extends CustomClipper<Path> {
 }
 
 class _DashPainter extends CustomPainter {
-  const _DashPainter(
-      {required this.color, required this.inset, required this.s});
+  const _DashPainter({
+    required this.color,
+    required this.inset,
+    required this.s,
+  });
 
   final Color color;
   final double inset;
@@ -1173,7 +1197,9 @@ class _DashPainter extends CustomPainter {
 
 /// Рамка-арка для миниатюры образа.
 class _ArchBorder extends OutlinedBorder {
-  const _ArchBorder({super.side});
+  const _ArchBorder({super.side, this.shape = MirrorArchShape.arch});
+
+  final MirrorArchShape shape;
 
   @override
   EdgeInsetsGeometry get dimensions => EdgeInsets.all(side.width);
@@ -1184,17 +1210,17 @@ class _ArchBorder extends OutlinedBorder {
 
   @override
   Path getOuterPath(Rect rect, {TextDirection? textDirection}) =>
-      mirrorArchPath(rect.size).shift(rect.topLeft);
+      mirrorArchPath(rect.size, shape).shift(rect.topLeft);
 
   @override
   void paint(Canvas canvas, Rect rect, {TextDirection? textDirection}) {}
 
   @override
-  ShapeBorder scale(double t) => _ArchBorder(side: side.scale(t));
+  ShapeBorder scale(double t) => _ArchBorder(side: side.scale(t), shape: shape);
 
   @override
   _ArchBorder copyWith({BorderSide? side}) =>
-      _ArchBorder(side: side ?? this.side);
+      _ArchBorder(side: side ?? this.side, shape: shape);
 }
 
 /// Вещь образа на финальном экране: фото, название, размер и наличие, цена.
@@ -1289,11 +1315,7 @@ class _LookItemRow extends StatelessWidget {
                 ),
               ),
               SizedBox(width: 6 * s),
-              Icon(
-                Icons.chevron_right_rounded,
-                size: 22 * s,
-                color: t.muted,
-              ),
+              Icon(Icons.chevron_right_rounded, size: 22 * s, color: t.muted),
             ],
           ),
         ),

@@ -17,13 +17,14 @@ class MirrorBrandMark extends StatelessWidget {
     final t = MirrorTheme.of(context);
     final brand = t.brand;
     final asset = brand.logoAsset;
-    final tint = color;
+    final tint = color ?? (brand.logoMonochrome ? t.ink : null);
 
     if (asset != null) {
+      final h = height * brand.logoHeightScale;
       if (asset.toLowerCase().endsWith('.svg')) {
         return SvgPicture.asset(
           asset,
-          height: height,
+          height: h,
           colorFilter:
               tint == null ? null : ColorFilter.mode(tint, BlendMode.srcIn),
           semanticsLabel: brand.wordmark,
@@ -31,8 +32,9 @@ class MirrorBrandMark extends StatelessWidget {
       }
       return Image.asset(
         asset,
-        height: height,
+        height: h,
         color: tint,
+        filterQuality: FilterQuality.medium,
         semanticLabel: brand.wordmark,
       );
     }
@@ -149,9 +151,9 @@ class MirrorLangToggle extends StatelessWidget {
 }
 
 /// Верхняя планка внутренних экранов: тонкий шеврон «назад», знак бренда по
-/// центру, опциональный переключатель языка. Сплошной фон с волосяной
-/// линией снизу — под планкой ничего не прокручивается, матовое стекло
-/// здесь было бы декорацией без эффекта.
+/// центру, опциональный переключатель языка. Прозрачная, с волосяной
+/// линией снизу: под планкой ничего не прокручивается, а фон экрана (ровный
+/// или фактура бренда) должен проходить под ней без шва.
 class MirrorTopBar extends StatelessWidget {
   const MirrorTopBar({
     super.key,
@@ -174,7 +176,6 @@ class MirrorTopBar extends StatelessWidget {
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: t.bg,
         border: Border(bottom: BorderSide(color: t.hairline)),
       ),
       child: Padding(

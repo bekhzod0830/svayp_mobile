@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math' as math;
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
@@ -10,14 +9,17 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 
 import '../../data/kiosk_api.dart';
+import '../../data/kiosk_camera.dart';
 import '../../data/kiosk_models.dart';
 import '../mirror_session_controller.dart';
 import '../mirror_theme.dart';
+import '../widgets/mirror_arch.dart';
 import '../widgets/mirror_buttons.dart';
 
 enum _CamPhase { live, countdown, captured, uploading }
 
-/// Экран 1 — камера (только лицо). Фронталка по умолчанию, круглая рамка
+/// Экран 1 — камера (только лицо). USB-камера зеркала по умолчанию, затем
+/// фронталка (см. [pickKioskCamera]); круглая рамка
 /// цветом бренда, отсчёт 3-2-1, превью с «Переснять»/«Готово». Серверная
 /// валидация мягкая: блокирует только «лицо не найдено», остальные подсказки
 /// показываются полторы секунды и пропускают дальше.
@@ -26,12 +28,16 @@ class MirrorCameraScreen extends StatefulWidget {
     super.key,
     required this.controller,
     required this.cameraAllowed,
+    this.preferredCamera,
   });
 
   final MirrorSessionController controller;
 
   /// false, когда продавец ушёл с таба — индикатор записи не должен гореть.
   final bool cameraAllowed;
+
+  /// Камера, выбранная продавцом в шите настройки; null — автовыбор.
+  final String? preferredCamera;
 
   @override
   State<MirrorCameraScreen> createState() => _MirrorCameraScreenState();
@@ -47,9 +53,18 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
   bool _permissionDenied = false;
   bool _frontCamera = true;
 
+  /// Внешняя USB-камера смотрит на покупателя, но плагин зеркалит превью
+  /// только фронталке — зеркалим сами.
+  bool _externalCamera = false;
+
   _CamPhase _phase = _CamPhase.live;
   int _countdown = 3;
   Timer? _countdownTimer;
+
+  /// Автозапуск отсчёта: камера готова — через паузу «3-2-1» стартует сам,
+  /// кнопка «Сфотографировать» остаётся запасным ручным путём.
+  Timer? _autoStartTimer;
+  static const _autoStartDelay = Duration(milliseconds: 1400);
   File? _shot;
   // Кадр из галереи не зеркалим — он уже «как есть», в отличие от фронталки.
   bool _shotFromGallery = false;
@@ -93,6 +108,7 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
     WidgetsBinding.instance.removeObserver(this);
     _discardShot();
     _countdownTimer?.cancel();
+    _autoStartTimer?.cancel();
     _softHintTimer?.cancel();
     _camera?.dispose();
     super.dispose();
@@ -113,22 +129,25 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
       }
 
       final cameras = await availableCameras();
-      if (!mounted || cameras.isEmpty) {
-        // Пусто и с разрешением — камеры физически нет (например, симулятор).
-        if (mounted) setState(() => _initFailed = true);
+      if (!mounted) return;
+      final chosen = pickKioskCamera(
+        cameras,
+        preferredName: widget.preferredCamera,
+      );
+      if (chosen == null) {
+        // Пусто и с разрешением — Android не видит ни одной камеры
+        // (симулятор, или USB-камеру планшет не поддерживает).
+        setState(() => _initFailed = true);
         return;
       }
-      final front = cameras.firstWhere(
-        (c) => c.lensDirection == CameraLensDirection.front,
-        orElse: () => cameras.first,
-      );
-      _frontCamera = front.lensDirection == CameraLensDirection.front;
+      _frontCamera = chosen.lensDirection == CameraLensDirection.front;
+      _externalCamera = chosen.lensDirection == CameraLensDirection.external;
 
       final prev = _camera;
       if (prev != null) await prev.dispose();
 
       final controller = CameraController(
-        front,
+        chosen,
         ResolutionPreset.high,
         enableAudio: false,
         imageFormatGroup: ImageFormatGroup.jpeg,
@@ -141,6 +160,7 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
           _initFailed = false;
           _permissionDenied = false;
         });
+        _scheduleAutoCountdown();
       }
     } on CameraException catch (e) {
       if (mounted) {
@@ -157,6 +177,7 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
 
   void _teardownCamera() {
     _countdownTimer?.cancel();
+    _autoStartTimer?.cancel();
     _camera?.dispose();
     _camera = null;
     if (mounted) {
@@ -167,7 +188,16 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
     }
   }
 
+  void _scheduleAutoCountdown() {
+    _autoStartTimer?.cancel();
+    if (!_initialized || _phase != _CamPhase.live || _shot != null) return;
+    _autoStartTimer = Timer(_autoStartDelay, () {
+      if (mounted) _startCountdown();
+    });
+  }
+
   void _startCountdown() {
+    _autoStartTimer?.cancel();
     if (!_initialized || _phase != _CamPhase.live) return;
     setState(() {
       _phase = _CamPhase.countdown;
@@ -175,7 +205,7 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
       _error = null;
       _softHint = null;
     });
-    _countdownTimer = Timer.periodic(const Duration(milliseconds: 900), (t) {
+    _countdownTimer = Timer.periodic(_countdownTick, (t) {
       if (!mounted) return;
       if (_countdown <= 1) {
         t.cancel();
@@ -185,6 +215,9 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
       }
     });
   }
+
+  /// Шаг отсчёта; вся полоса рамки проходит за [_countdownTick] × 3.
+  static const _countdownTick = Duration(milliseconds: 1000);
 
   Future<void> _capture() async {
     final camera = _camera;
@@ -219,6 +252,7 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
   /// Загрузка готового фото из галереи — человек выбирает лучший кадр,
   /// дальше тот же путь: подтверждение → валидация лица → вопросы.
   Future<void> _pickFromGallery() async {
+    _autoStartTimer?.cancel();
     try {
       final picked = await ImagePicker().pickImage(
         source: ImageSource.gallery,
@@ -254,7 +288,9 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
   /// фото не останется. Отправленный кадр принадлежит контроллеру, он удалит его сам.
   void _discardShot() {
     final shot = _shot;
-    if (shot == null || shot.path == widget.controller.capturedPhoto?.path) return;
+    if (shot == null || shot.path == widget.controller.capturedPhoto?.path) {
+      return;
+    }
     shot.delete().catchError((_) => shot);
   }
 
@@ -269,6 +305,8 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
       _softHint = null;
       _phase = _CamPhase.live;
     });
+    // «Переснять» — снова сам отсчитает.
+    _scheduleAutoCountdown();
   }
 
   Future<void> _confirm() async {
@@ -409,156 +447,213 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
             ? t.accent
             : t.muted;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final circle = math.min(
-          constraints.maxWidth * 0.72,
-          constraints.maxHeight * 0.46,
-        );
-
-        return Column(
-          children: [
-            SizedBox(height: 14 * s),
-            Text(
-              captured ? l10n.mirrorCamDone : l10n.mirrorCamAim,
-              textAlign: TextAlign.center,
-              style: t.headline(26 * s),
-            ),
-            SizedBox(height: 6 * s),
-            AnimatedDefaultTextStyle(
-              duration: const Duration(milliseconds: 200),
-              style: t.subtitle(15 * s, color: hintColor),
-              textAlign: TextAlign.center,
-              child: Text(hintText),
-            ),
-            Expanded(
-              child: Center(
-                child: SizedBox(
-                  width: circle,
-                  height: circle,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      ClipOval(
-                        child: captured && _shot != null
-                            ? Transform.flip(
-                                // Зеркалим показ фронтального кадра — человек
-                                // видит себя как в зеркале; в бэкенд уходит
-                                // оригинал.
-                                flipX: _frontCamera && !_shotFromGallery,
-                                child: Image.file(_shot!, fit: BoxFit.cover),
-                              )
-                            : _initialized && _camera != null
-                                ? _CoverPreview(controller: _camera!)
-                                : ColoredBox(
-                                    color: t.surface,
-                                    child: Center(
-                                      child: CircularProgressIndicator(
-                                        color: t.primary,
-                                        strokeWidth: 2.5,
+    // Отступы колонки плотные: самый тесный экран киоска, от него считается
+    // общий размер стекла (см. mirrorGlassSize).
+    return Column(
+      children: [
+        SizedBox(height: 8 * s),
+        Text(
+          captured ? l10n.mirrorCamDone : l10n.mirrorCamAim,
+          textAlign: TextAlign.center,
+          style: t.headline(26 * s),
+        ),
+        SizedBox(height: 4 * s),
+        AnimatedDefaultTextStyle(
+          duration: const Duration(milliseconds: 200),
+          style: t.subtitle(15 * s, color: hintColor),
+          textAlign: TextAlign.center,
+          child: Text(hintText),
+        ),
+        SizedBox(height: 8 * s),
+        Expanded(
+          // То же зеркало, что на постере, генерации и результате: человек
+          // видит себя в той же раме, в которой потом «проявится» образ.
+          child: LayoutBuilder(
+            builder: (context, box) {
+              final arch = mirrorGlassRect(context, box.biggest);
+              final counting = _phase == _CamPhase.countdown;
+              return Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: MirrorArchHaloPainter(
+                        arch: arch,
+                        color: t.glow,
+                        strength: 0.2,
+                        shape: t.mirror,
+                        s: s,
+                      ),
+                    ),
+                  ),
+                  Positioned.fromRect(
+                    rect: arch,
+                    child: ClipPath(
+                      clipper: MirrorArchClipper(t.mirror),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          captured && _shot != null
+                              ? Transform.flip(
+                                  // Зеркалим показ кадра с фронталки или
+                                  // USB-камеры зеркала — человек
+                                  // видит себя как в зеркале; в бэкенд уходит
+                                  // оригинал.
+                                  flipX: (_frontCamera || _externalCamera) &&
+                                      !_shotFromGallery,
+                                  child: Image.file(_shot!, fit: BoxFit.cover),
+                                )
+                              : _initialized && _camera != null
+                                  ? Transform.flip(
+                                      flipX: _externalCamera,
+                                      child:
+                                          _CoverPreview(controller: _camera!),
+                                    )
+                                  : ColoredBox(
+                                      color: t.surface,
+                                      child: Center(
+                                        child: CircularProgressIndicator(
+                                          color: t.primary,
+                                          strokeWidth: 2.5,
+                                        ),
                                       ),
                                     ),
+                          if (counting)
+                            ColoredBox(
+                              color: Colors.black.withValues(alpha: 0.25),
+                              child: Center(
+                                child: AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 250),
+                                  transitionBuilder: (child, a) =>
+                                      ScaleTransition(
+                                    scale: Tween(
+                                      begin: 1.4,
+                                      end: 1.0,
+                                    ).animate(a),
+                                    child: FadeTransition(
+                                      opacity: a,
+                                      child: child,
+                                    ),
                                   ),
-                      ),
-                      IgnorePointer(
-                        child: CustomPaint(
-                          painter: _RingPainter(
-                            color: t.primary,
-                            strokeWidth: 3 * s,
-                          ),
-                        ),
-                      ),
-                      if (_phase == _CamPhase.countdown)
-                        ColoredBox(
-                          color: Colors.black.withValues(alpha: 0.25),
-                          child: Center(
-                            child: Text(
-                              '$_countdown',
-                              style: t.display(96 * s, color: Colors.white),
+                                  child: Text(
+                                    '$_countdown',
+                                    key: ValueKey(_countdown),
+                                    style: t.display(
+                                      96 * s,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                    ],
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-              ),
-            ),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 28 * s),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.lock_outline_rounded,
-                          size: 14 * s, color: t.muted),
-                      SizedBox(width: 6 * s),
-                      Flexible(
-                        child: Text(
-                          l10n.mirrorPrivacyShort,
-                          style: t.subtitle(13 * s),
+                  // Рама: во время отсчёта линия цвета бренда обегает арку
+                  // ровно за три секунды — как прогресс на экране генерации.
+                  Positioned.fromRect(
+                    rect: arch.inflate(mirrorFrameInset(t.mirror, s)),
+                    child: IgnorePointer(
+                      child: TweenAnimationBuilder<double>(
+                        key: ValueKey(counting),
+                        tween: Tween(begin: counting ? 0 : 1, end: 1),
+                        duration: counting ? _countdownTick * 3 : Duration.zero,
+                        builder: (context, p, _) => CustomPaint(
+                          painter: MirrorArchFramePainter(
+                            shape: t.mirror,
+                            progress: p,
+                            track: t.hairline,
+                            color: t.primary,
+                            glow: 0.5,
+                            s: s,
+                          ),
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                  SizedBox(height: 14 * s),
-                  if (!captured) ...[
-                    MirrorPrimaryButton(
-                      label: l10n.mirrorShoot,
-                      height: 64 * s,
-                      enabled: _initialized && _phase == _CamPhase.live,
-                      onTap: _startCountdown,
+                ],
+              );
+            },
+          ),
+        ),
+        SizedBox(height: 8 * s),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 28 * s),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.lock_outline_rounded,
+                    size: 14 * s,
+                    color: t.muted,
+                  ),
+                  SizedBox(width: 6 * s),
+                  Flexible(
+                    child: Text(
+                      l10n.mirrorPrivacyShort,
+                      style: t.subtitle(13 * s),
                     ),
-                    SizedBox(height: 4 * s),
-                    // Галерея — тихой ссылкой: главный путь — снимок у
-                    // зеркала, но готовое фото тоже подойдёт.
-                    MirrorTextButton(
-                      label: l10n.mirrorFromGallery,
-                      height: 44 * s,
-                      color: t.muted,
-                      onTap: _phase == _CamPhase.live ? _pickFromGallery : null,
-                    ),
-                  ] else ...[
-                    Row(
-                      children: [
-                        Expanded(
-                          child: MirrorGhostButton(
-                            label: l10n.mirrorRetake,
-                            height: 64 * s,
-                            enabled: _phase != _CamPhase.uploading,
-                            onTap: _retake,
-                          ),
-                        ),
-                        SizedBox(width: 14 * s),
-                        Expanded(
-                          child: MirrorPrimaryButton(
-                            label: l10n.mirrorDone,
-                            height: 64 * s,
-                            isLoading: _phase == _CamPhase.uploading,
-                            onTap: _confirm,
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 4 * s),
-                    // После снимка тоже можно взять фото из галереи — так же
-                    // тихо, чтобы не спорить с «Переснять» и «Готово».
-                    MirrorTextButton(
-                      label: l10n.mirrorFromGallery,
-                      height: 44 * s,
-                      color: t.muted,
-                      onTap: _phase == _CamPhase.uploading
-                          ? null
-                          : _pickFromGallery,
-                    ),
-                  ],
-                  SizedBox(height: 24 * s),
+                  ),
                 ],
               ),
-            ),
-          ],
-        );
-      },
+              SizedBox(height: 10 * s),
+              if (!captured) ...[
+                MirrorPrimaryButton(
+                  label: l10n.mirrorShoot,
+                  height: 64 * s,
+                  enabled: _initialized && _phase == _CamPhase.live,
+                  onTap: _startCountdown,
+                ),
+                SizedBox(height: 4 * s),
+                // Галерея — тихой ссылкой: главный путь — снимок у
+                // зеркала, но готовое фото тоже подойдёт.
+                MirrorTextButton(
+                  label: l10n.mirrorFromGallery,
+                  height: 36 * s,
+                  color: t.muted,
+                  onTap: _phase == _CamPhase.live ? _pickFromGallery : null,
+                ),
+              ] else ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: MirrorGhostButton(
+                        label: l10n.mirrorRetake,
+                        height: 64 * s,
+                        enabled: _phase != _CamPhase.uploading,
+                        onTap: _retake,
+                      ),
+                    ),
+                    SizedBox(width: 14 * s),
+                    Expanded(
+                      child: MirrorPrimaryButton(
+                        label: l10n.mirrorDone,
+                        height: 64 * s,
+                        isLoading: _phase == _CamPhase.uploading,
+                        onTap: _confirm,
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 4 * s),
+                // После снимка тоже можно взять фото из галереи — так же
+                // тихо, чтобы не спорить с «Переснять» и «Готово».
+                MirrorTextButton(
+                  label: l10n.mirrorFromGallery,
+                  height: 36 * s,
+                  color: t.muted,
+                  onTap:
+                      _phase == _CamPhase.uploading ? null : _pickFromGallery,
+                ),
+              ],
+              SizedBox(height: 12 * s),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -571,44 +666,17 @@ class _CoverPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final previewRatio = controller.value.aspectRatio;
-        // Камера отдаёт landscape-отношение; в портретном превью оно
-        // инвертируется.
-        final ratio = previewRatio > 1 ? 1 / previewRatio : previewRatio;
-        var scale = ratio / (constraints.maxWidth / constraints.maxHeight);
-        if (scale < 1) scale = 1 / scale;
-        return ClipRect(
-          child: Transform.scale(
-            scale: scale,
-            child: Center(child: CameraPreview(controller)),
-          ),
-        );
-      },
+    // Камера отдаёт landscape-отношение; в портрете оно инвертируется.
+    final raw = controller.value.aspectRatio;
+    final portrait = raw > 1 ? 1 / raw : raw;
+    return FittedBox(
+      fit: BoxFit.cover,
+      clipBehavior: Clip.hardEdge,
+      child: SizedBox(
+        width: 1000 * portrait,
+        height: 1000,
+        child: CameraPreview(controller),
+      ),
     );
   }
-}
-
-/// Сплошное кольцо-ориентир цветом бренда по краю круга.
-class _RingPainter extends CustomPainter {
-  const _RingPainter({required this.color, required this.strokeWidth});
-
-  final Color color;
-  final double strokeWidth;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..color = color;
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = math.min(size.width, size.height) / 2 - strokeWidth / 2;
-    canvas.drawCircle(center, radius, paint);
-  }
-
-  @override
-  bool shouldRepaint(_RingPainter oldDelegate) =>
-      oldDelegate.color != color || oldDelegate.strokeWidth != strokeWidth;
 }
