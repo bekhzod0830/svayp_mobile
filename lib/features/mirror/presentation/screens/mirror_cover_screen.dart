@@ -93,14 +93,17 @@ class _MirrorCoverScreenState extends State<MirrorCoverScreen>
     _intro = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
+      animationBehavior: AnimationBehavior.preserve,
     );
     _ambient = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 4600),
+      animationBehavior: AnimationBehavior.preserve,
     );
     _light = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 9000),
+      animationBehavior: AnimationBehavior.preserve,
     );
     if (!widget.playIntro) _intro.value = 1;
   }
@@ -108,7 +111,11 @@ class _MirrorCoverScreenState extends State<MirrorCoverScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final reduce = MediaQuery.disableAnimationsOf(context);
+    // Постер — витрина киоска: системное «отключить анимации» на планшете
+    // (его часто включают при настройке киоска) замораживало слайды и ленту
+    // брендов. Здесь его не слушаем; контроллеры ниже — AnimationBehavior.preserve,
+    // иначе при этом флаге Flutter ужимает их длительность до 5%.
+    const reduce = false;
     if (!_synced || reduce != _reduceMotion) {
       _synced = true;
       _reduceMotion = reduce;
@@ -2722,10 +2729,12 @@ class _WindowSlidesState extends State<_WindowSlides>
     _zoom = AnimationController(
       vsync: this,
       duration: Duration(seconds: widget.seconds + 1),
+      animationBehavior: AnimationBehavior.preserve,
     );
     _fade = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1100),
+      animationBehavior: AnimationBehavior.preserve,
     );
     _sync();
   }
@@ -2855,6 +2864,7 @@ class _BrandMarqueeState extends State<_BrandMarquee>
     with SingleTickerProviderStateMixin {
   late final AnimationController _run = AnimationController(
     vsync: this,
+    animationBehavior: AnimationBehavior.preserve,
     duration: Duration(
       milliseconds: (widget.items.length * 2400).clamp(12000, 90000),
     ),

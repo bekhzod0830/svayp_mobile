@@ -3922,4 +3922,109 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get mirrorFinish => 'Yakunlash';
+
+  @override
+  String get mirrorWardrobeKicker => 'Garderobingizdan boshlaymiz';
+
+  @override
+  String get mirrorWardrobeTitle => 'Obrazni kim uchun tanlaymiz?';
+
+  @override
+  String get mirrorWardrobeSubtitle =>
+      'Garderobni tanlang — keyin uslubingizga mos kiyimlarni tanlaymiz.';
+
+  @override
+  String get mirrorWardrobeWomen => 'Ayollar garderobi';
+
+  @override
+  String get mirrorWardrobeMen => 'Erkaklar garderobi';
+
+  @override
+  String get mirrorWardrobeDesc => 'Siz uchun obrazlar';
+
+  @override
+  String get mirrorWardrobeFooter => 'Shu doʻkon kolleksiyasidan kiyimlar';
+
+  @override
+  String get mirrorContinue => 'Davom etish';
+
+  @override
+  String get mirrorShapeTitleStation => 'Qaysi qomat sizga yaqinroq?';
+
+  @override
+  String get mirrorShapeSubtitleStation =>
+      'Oʻxshash siluetni tanlang. Aniq oʻlchamlar kerak emas.';
+
+  @override
+  String get mirrorShapeUnknown => 'Qomat turimni bilmayman';
+
+  @override
+  String get mirrorStyleSubtitleStation => 'Bir nechta uslubni tanlash mumkin.';
+
+  @override
+  String get mirrorBrandTitle => 'Qayerdan xarid qilishni yoqtirasiz?';
+
+  @override
+  String get mirrorBrandSubtitle =>
+      'Bitta brendni tanlang — yoki istalgan, hammasidan tanlaymiz.';
+
+  @override
+  String get mirrorBrandAny => 'Istalgan brend';
+
+  @override
+  String get mirrorRefineTitle => 'Nimani oʻzgartiramiz?';
+
+  @override
+  String get mirrorRefineSubtitle =>
+      'Variantni tanlang — yangi obraz yigʻamiz.';
+
+  @override
+  String get mirrorFaceQuestion => 'Yaratilgan yuz sizga yoqdimi?';
+
+  @override
+  String get mirrorFaceNoHint =>
+      'Keyingi safar yuz fotosuratingizga yaqinroq boʻladi.';
+
+  @override
+  String get mirrorYes => 'Ha';
+
+  @override
+  String get mirrorNo => 'Yoʻq';
+
+  @override
+  String get mirrorRefineCheaper => 'Arzonroq';
+
+  @override
+  String get mirrorRefinePricier => 'Qimmatroq';
+
+  @override
+  String get mirrorRefineColor => 'Boshqa rang';
+
+  @override
+  String get mirrorRefineBrand => 'Boshqa brend';
+
+  @override
+  String get mirrorRefineStyle => 'Uslubni almashtirish';
+
+  @override
+  String get mirrorRefineAgain => 'Shunchaki qayta yigʻish';
+
+  @override
+  String get mirrorColorsTitle => 'Qaysi ranglarni koʻrsatmaylik?';
+
+  @override
+  String get mirrorColorsSubtitle => 'Bir nechtasini belgilash mumkin.';
+
+  @override
+  String get mirrorSkip => 'Oʻtkazib yuborish';
+
+  @override
+  String mirrorStylesSelected(int count) {
+    return 'Tanlandi: $count';
+  }
+
+  @override
+  String mirrorStylesPage(int from, int to, int total) {
+    return '$from–$to / $total';
+  }
 }

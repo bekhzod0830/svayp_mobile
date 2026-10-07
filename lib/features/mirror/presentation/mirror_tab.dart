@@ -24,6 +24,8 @@ import 'screens/mirror_generating_screen.dart';
 import 'widgets/mirror_arch.dart';
 import 'screens/mirror_result_screen.dart';
 import 'screens/mirror_style_screen.dart';
+import 'screens/mirror_refine_screen.dart';
+import 'screens/mirror_shop_brand_screen.dart';
 import 'widgets/mirror_chrome.dart';
 import 'widgets/mirror_idle_warning.dart';
 import 'widgets/mirror_offline_screen.dart';
@@ -73,6 +75,12 @@ class _MirrorTabState extends State<MirrorTab> with WidgetsBindingObserver {
   /// Камера, выбранная продавцом вручную ([kKioskCameraPref]); null — авто.
   String? _cameraName;
 
+  /// Планка качества USB-камеры напрямую ([kKioskUvcMaxWidthPref]).
+  int _uvcMaxWidth = kUvcMaxWidth;
+
+  /// Диагностика потока в углу экрана камеры ([kKioskCameraDebugPref]).
+  bool _cameraDebug = false;
+
   /// Экран выбора оформления поверх киоска.
   bool _picking = true;
 
@@ -90,6 +98,11 @@ class _MirrorTabState extends State<MirrorTab> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _brand = mirrorBrandById(getIt<SharedPreferences>().getString(_brandPref));
     _cameraName = getIt<SharedPreferences>().getString(kKioskCameraPref);
+    _uvcMaxWidth = parseKioskUvcMaxWidth(
+      getIt<SharedPreferences>().getInt(kKioskUvcMaxWidthPref),
+    );
+    _cameraDebug =
+        getIt<SharedPreferences>().getBool(kKioskCameraDebugPref) ?? false;
     _controller = MirrorSessionController(
       api: getIt<KioskApi>(),
       demo: getIt<KioskDemoService>(),
@@ -98,8 +111,8 @@ class _MirrorTabState extends State<MirrorTab> with WidgetsBindingObserver {
     );
     _kioskTheme = _themeFor(_brand);
     _connectivitySub = Connectivity().onConnectivityChanged.listen(
-          _onConnectivityChanged,
-        );
+      _onConnectivityChanged,
+    );
     if (widget.isActive) _enterKioskMode();
     if (getIt<SharedPreferences>().getBool(_fullscreenPref) ?? false) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -216,7 +229,21 @@ class _MirrorTabState extends State<MirrorTab> with WidgetsBindingObserver {
       onChooseBrand: _openPicker,
       cameraName: _cameraName,
       onCameraChanged: _setCamera,
+      uvcMaxWidth: _uvcMaxWidth,
+      onUvcMaxWidthChanged: _setUvcMaxWidth,
+      cameraDebug: _cameraDebug,
+      onCameraDebugChanged: _setCameraDebug,
     );
+  }
+
+  void _setCameraDebug(bool value) {
+    getIt<SharedPreferences>().setBool(kKioskCameraDebugPref, value);
+    setState(() => _cameraDebug = value);
+  }
+
+  void _setUvcMaxWidth(int width) {
+    getIt<SharedPreferences>().setInt(kKioskUvcMaxWidthPref, width);
+    setState(() => _uvcMaxWidth = width);
   }
 
   void _setCamera(String? name) {
@@ -272,6 +299,8 @@ class _MirrorTabState extends State<MirrorTab> with WidgetsBindingObserver {
           controller: _controller,
           cameraAllowed: widget.isActive,
           preferredCamera: _cameraName,
+          uvcMaxWidth: _uvcMaxWidth,
+          showDiagnostics: _cameraDebug,
         );
       case MirrorScreen.gender:
         return MirrorGenderScreen(
@@ -286,6 +315,16 @@ class _MirrorTabState extends State<MirrorTab> with WidgetsBindingObserver {
       case MirrorScreen.style:
         return MirrorStyleScreen(
           key: const ValueKey('style'),
+          controller: _controller,
+        );
+      case MirrorScreen.brand:
+        return MirrorShopBrandScreen(
+          key: const ValueKey('brand'),
+          controller: _controller,
+        );
+      case MirrorScreen.refine:
+        return MirrorRefineScreen(
+          key: const ValueKey('refine'),
           controller: _controller,
         );
       case MirrorScreen.catalog:
@@ -399,15 +438,15 @@ class _MirrorTabState extends State<MirrorTab> with WidgetsBindingObserver {
                                       switchOutCurve: Curves.easeIn,
                                       transitionBuilder: (child, animation) =>
                                           FadeTransition(
-                                        opacity: animation,
-                                        child: ScaleTransition(
-                                          scale: Tween<double>(
-                                            begin: 0.985,
-                                            end: 1,
-                                          ).animate(animation),
-                                          child: child,
-                                        ),
-                                      ),
+                                            opacity: animation,
+                                            child: ScaleTransition(
+                                              scale: Tween<double>(
+                                                begin: 0.985,
+                                                end: 1,
+                                              ).animate(animation),
+                                              child: child,
+                                            ),
+                                          ),
                                       child: _buildScreen(),
                                     ),
                                   ),

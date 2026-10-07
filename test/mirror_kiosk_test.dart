@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'dart:math' as math;
 
 import 'package:flutter_test/flutter_test.dart';
@@ -43,17 +45,46 @@ final _catalog = <KioskCatalogItem>[
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('kioskStylesFor', () {
-    test('мужчине не показываем «Модест» и «Вечерний»', () {
-      final codes = kioskStylesFor('MALE').map((s) => s.code).toList();
-      expect(codes, isNot(contains('MODEST_CHIC')));
-      expect(codes, isNot(contains('EVENING')));
-      expect(codes, containsAll(['CLASSIC', 'CASUAL', 'OFFICE_SMART', 'SPORTY']));
+  group('kioskStylesFor — станция LIBAS, по 8 на пол', () {
+    test('мужские стили — в порядке карточек, без «Модест» и «Вечерний»', () {
+      expect(kioskStylesFor('MALE').map((s) => s.code), [
+        'CLASSIC', 'CASUAL', 'BUSINESS', 'SPORT_CHIC', //
+        'SMART_CASUAL', 'STREETWEAR', 'MINIMAL', 'PREPPY',
+      ]);
     });
 
-    test('женщине и без пола — все шесть', () {
-      expect(kioskStylesFor('FEMALE'), hasLength(6));
-      expect(kioskStylesFor(null), hasLength(6));
+    test('женские стили; без пола — женский набор', () {
+      expect(kioskStylesFor('FEMALE').map((s) => s.code), [
+        'CLASSIC', 'CASUAL', 'MODEST', 'EVENING', //
+        'BUSINESS', 'SPORT_CHIC', 'MINIMAL', 'ROMANTIC',
+      ]);
+      expect(kioskStylesFor(null), hasLength(8));
+    });
+
+    test('у каждого стиля, фигуры и гардероба есть картинка и подпись', () {
+      for (final g in ['MALE', 'FEMALE']) {
+        expect(File(kioskGenderPhoto(g)).existsSync(), isTrue, reason: g);
+        for (final st in kioskStylesFor(g)) {
+          expect(File(kioskStylePhoto(g, st.code)!).existsSync(), isTrue, reason: '$g ${st.code}');
+          expect(kioskStyleDescriptions[st.code], isNotNull, reason: st.code);
+        }
+        expect(kioskShapes[g], hasLength(4));
+        for (final sh in kioskShapes[g]!) {
+          expect(File(kioskShapeFigure(g, sh.code)!).existsSync(), isTrue, reason: '$g ${sh.code}');
+          expect(kioskShapeDescriptions[sh.code], isNotNull, reason: sh.code);
+        }
+      }
+    });
+
+    test('12 брендов и 12 цветов — коды совпадают с бэкендом', () {
+      expect(kioskShopBrands.map((b) => b.code), [
+        'BOGGI_MILANO', 'COLINS', 'JACK_JONES', 'DIGEL', 'MARC_O_POLO', 'MEXX',
+        'MOTIVI', 'ONLY', 'NAME_IT', 'SELECTED', 'VERO_MODA', 'YAS',
+      ]);
+      expect(kioskColors.map((c) => c.code), [
+        'red', 'pink', 'khaki', 'yellow', 'green', 'blue',
+        'navy', 'purple', 'brown', 'grey', 'white', 'black',
+      ]);
     });
   });
 
@@ -161,14 +192,15 @@ void main() {
 
   group('MirrorBrand · Lacoste', () {
     test('скрытые стили не показываются, остальные — из справочника', () {
-      final codes = lacosteBrand.styles.map((s) => s.code).toList();
-      expect(codes, isNot(contains('MODEST_CHIC')));
+      final codes = lacosteBrand.stylesFor('FEMALE').map((s) => s.code).toList();
+      expect(codes, isNot(contains('MODEST')));
       expect(codes, isNot(contains('EVENING')));
-      expect(codes, containsAll(['CLASSIC', 'CASUAL', 'OFFICE_SMART', 'SPORTY']));
+      expect(codes, isNot(contains('ROMANTIC')));
+      expect(codes, containsAll(['CLASSIC', 'CASUAL', 'BUSINESS', 'SPORT_CHIC']));
     });
 
     test('подписи: бренд → язык по умолчанию → справочник', () {
-      final sporty = kioskStyles.firstWhere((s) => s.code == 'SPORTY');
+      final sporty = kioskStyles.firstWhere((s) => s.code == 'SPORT_CHIC');
       expect(lacosteBrand.styleLabel(sporty, 'ru'), 'Спорт · Теннис');
       expect(lacosteBrand.styleLabel(sporty, 'uz'), 'Sport · Tennis');
       expect(lacosteBrand.styleLabel(sporty, 'en'), 'Sport · Tennis');

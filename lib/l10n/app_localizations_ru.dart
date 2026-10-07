@@ -3905,4 +3905,108 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get mirrorFinish => 'Завершить';
+
+  @override
+  String get mirrorWardrobeKicker => 'Начнём с вашего гардероба';
+
+  @override
+  String get mirrorWardrobeTitle => 'Для кого подбираем образ?';
+
+  @override
+  String get mirrorWardrobeSubtitle =>
+      'Выберите гардероб — дальше подберём вещи под ваш стиль.';
+
+  @override
+  String get mirrorWardrobeWomen => 'Женский гардероб';
+
+  @override
+  String get mirrorWardrobeMen => 'Мужской гардероб';
+
+  @override
+  String get mirrorWardrobeDesc => 'Образы для вас';
+
+  @override
+  String get mirrorWardrobeFooter => 'Вещи из коллекции этого магазина';
+
+  @override
+  String get mirrorContinue => 'Продолжить';
+
+  @override
+  String get mirrorShapeTitleStation => 'Какая фигура ближе к вашей?';
+
+  @override
+  String get mirrorShapeSubtitleStation =>
+      'Выберите похожий силуэт. Точные мерки не нужны.';
+
+  @override
+  String get mirrorShapeUnknown => 'Не знаю свой тип фигуры';
+
+  @override
+  String get mirrorStyleSubtitleStation => 'Можно выбрать несколько стилей.';
+
+  @override
+  String get mirrorBrandTitle => 'Где вы любите покупать?';
+
+  @override
+  String get mirrorBrandSubtitle =>
+      'Выберите бренд — или любой, подберём из всех.';
+
+  @override
+  String get mirrorBrandAny => 'Любой бренд';
+
+  @override
+  String get mirrorRefineTitle => 'Что изменить?';
+
+  @override
+  String get mirrorRefineSubtitle => 'Выберите вариант — соберём новый образ.';
+
+  @override
+  String get mirrorFaceQuestion => 'Понравилось ли вам сгенерированное лицо?';
+
+  @override
+  String get mirrorFaceNoHint =>
+      'В следующий раз лицо будет ближе к вашему фото.';
+
+  @override
+  String get mirrorYes => 'Да';
+
+  @override
+  String get mirrorNo => 'Нет';
+
+  @override
+  String get mirrorRefineCheaper => 'Дешевле';
+
+  @override
+  String get mirrorRefinePricier => 'Дороже';
+
+  @override
+  String get mirrorRefineColor => 'Другой цвет';
+
+  @override
+  String get mirrorRefineBrand => 'Другой бренд';
+
+  @override
+  String get mirrorRefineStyle => 'Поменять стиль';
+
+  @override
+  String get mirrorRefineAgain => 'Просто пересобрать';
+
+  @override
+  String get mirrorColorsTitle => 'Какие цвета не показывать?';
+
+  @override
+  String get mirrorColorsSubtitle => 'Можно отметить несколько.';
+
+  @override
+  String get mirrorSkip => 'Пропустить';
+
+  @override
+  String mirrorStylesSelected(int count) {
+    return 'Выбрано: $count';
+  }
+
+  @override
+  String mirrorStylesPage(int from, int to, int total) {
+    return '$from–$to из $total';
+  }
 }

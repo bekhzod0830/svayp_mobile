@@ -94,8 +94,10 @@ const MirrorBrand lacosteBrand = MirrorBrand(
     'CASUAL': {'ru': 'Уикенд', 'uz': 'Dam olish', 'en': 'Weekend'},
     'OFFICE_SMART': {'ru': 'Смарт', 'uz': 'Smart', 'en': 'Smart'},
     'SPORTY': {'ru': 'Спорт · Теннис', 'uz': 'Sport · Tennis', 'en': 'Sport · Tennis'},
+    'SMART_CASUAL': {'ru': 'Смарт', 'uz': 'Smart', 'en': 'Smart'},
+    'SPORT_CHIC': {'ru': 'Спорт · Теннис', 'uz': 'Sport · Tennis', 'en': 'Sport · Tennis'},
   },
-  hiddenStyles: {'MODEST_CHIC', 'EVENING'},
+  hiddenStyles: {'MODEST_CHIC', 'EVENING', 'MODEST', 'ROMANTIC'},
   categoryLabels: {
     'TOPWEAR': {
       'ru': 'Поло и верх',

@@ -11,6 +11,7 @@ import 'package:shimmer/shimmer.dart';
 import 'package:swipe/features/onboarding/presentation/widgets/intro/intro_slide.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 
+import '../../data/kiosk_image_cache.dart';
 import '../../data/kiosk_models.dart';
 import '../../data/kiosk_taxonomy.dart';
 import '../mirror_session_controller.dart';
@@ -589,6 +590,7 @@ class _ItemTileState extends State<_ItemTile> {
                       child: item.imageUrl != null
                           ? CachedNetworkImage(
                               imageUrl: item.imageUrl!,
+                              cacheManager: KioskImageCache.instance,
                               fit: BoxFit.cover,
                               memCacheWidth: 240,
                               placeholder: (_, __) =>
@@ -1266,6 +1268,7 @@ class _LookItemRow extends StatelessWidget {
                     child: item.imageUrl != null
                         ? CachedNetworkImage(
                             imageUrl: item.imageUrl!,
+                            cacheManager: KioskImageCache.instance,
                             fit: BoxFit.cover,
                             memCacheWidth: 240,
                             placeholder: (_, __) =>

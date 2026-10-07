@@ -7461,6 +7461,198 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Finish'**
   String get mirrorFinish;
+
+  /// Mirror kiosk (LIBAS station)
+  ///
+  /// In en, this message translates to:
+  /// **'Let\'s start with your wardrobe'**
+  String get mirrorWardrobeKicker;
+
+  /// Mirror kiosk (LIBAS station)
+  ///
+  /// In en, this message translates to:
+  /// **'Who are we styling?'**
+  String get mirrorWardrobeTitle;
+
+  /// Mirror kiosk (LIBAS station)
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a wardrobe — then we\'ll pick pieces in your style.'**
+  String get mirrorWardrobeSubtitle;
+
+  /// Mirror kiosk (LIBAS station)
+  ///
+  /// In en, this message translates to:
+  /// **'Women\'s wardrobe'**
+  String get mirrorWardrobeWomen;
+
+  /// Mirror kiosk (LIBAS station)
+  ///
+  /// In en, this message translates to:
+  /// **'Men\'s wardrobe'**
+  String get mirrorWardrobeMen;
+
+  /// Mirror kiosk (LIBAS station)
+  ///
+  /// In en, this message translates to:
+  /// **'Looks for you'**
+  String get mirrorWardrobeDesc;
+
+  /// Mirror kiosk (LIBAS station)
+  ///
+  /// In en, this message translates to:
+  /// **'Pieces from this store\'s collection'**
+  String get mirrorWardrobeFooter;
+
+  /// Mirror kiosk (LIBAS station)
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get mirrorContinue;
+
+  /// Mirror kiosk (LIBAS station)
+  ///
+  /// In en, this message translates to:
+  /// **'Which figure is closest to yours?'**
+  String get mirrorShapeTitleStation;
+
+  /// Mirror kiosk (LIBAS station)
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a similar silhouette. No exact measurements needed.'**
+  String get mirrorShapeSubtitleStation;
+
+  /// Mirror kiosk (LIBAS station)
+  ///
+  /// In en, this message translates to:
+  /// **'I don\'t know my body type'**
+  String get mirrorShapeUnknown;
+
+  /// Mirror kiosk (LIBAS station)
+  ///
+  /// In en, this message translates to:
+  /// **'You can pick several styles.'**
+  String get mirrorStyleSubtitleStation;
+
+  /// Mirror kiosk (LIBAS station)
+  ///
+  /// In en, this message translates to:
+  /// **'Where do you like to shop?'**
+  String get mirrorBrandTitle;
+
+  /// Mirror kiosk (LIBAS station)
+  ///
+  /// In en, this message translates to:
+  /// **'Pick one brand — or any, and we\'ll choose from all of them.'**
+  String get mirrorBrandSubtitle;
+
+  /// Mirror kiosk (LIBAS station)
+  ///
+  /// In en, this message translates to:
+  /// **'Any brand'**
+  String get mirrorBrandAny;
+
+  /// Mirror kiosk (LIBAS station)
+  ///
+  /// In en, this message translates to:
+  /// **'What should we change?'**
+  String get mirrorRefineTitle;
+
+  /// Mirror kiosk (LIBAS station)
+  ///
+  /// In en, this message translates to:
+  /// **'Choose an option — we\'ll build a new look.'**
+  String get mirrorRefineSubtitle;
+
+  /// Mirror kiosk (LIBAS station)
+  ///
+  /// In en, this message translates to:
+  /// **'Did you like the generated face?'**
+  String get mirrorFaceQuestion;
+
+  /// Mirror kiosk (LIBAS station)
+  ///
+  /// In en, this message translates to:
+  /// **'Next time the face will stay closer to your photo.'**
+  String get mirrorFaceNoHint;
+
+  /// Mirror kiosk (LIBAS station)
+  ///
+  /// In en, this message translates to:
+  /// **'Yes'**
+  String get mirrorYes;
+
+  /// Mirror kiosk (LIBAS station)
+  ///
+  /// In en, this message translates to:
+  /// **'No'**
+  String get mirrorNo;
+
+  /// Mirror kiosk (LIBAS station)
+  ///
+  /// In en, this message translates to:
+  /// **'Cheaper'**
+  String get mirrorRefineCheaper;
+
+  /// Mirror kiosk (LIBAS station)
+  ///
+  /// In en, this message translates to:
+  /// **'More premium'**
+  String get mirrorRefinePricier;
+
+  /// Mirror kiosk (LIBAS station)
+  ///
+  /// In en, this message translates to:
+  /// **'Different colour'**
+  String get mirrorRefineColor;
+
+  /// Mirror kiosk (LIBAS station)
+  ///
+  /// In en, this message translates to:
+  /// **'Different brand'**
+  String get mirrorRefineBrand;
+
+  /// Mirror kiosk (LIBAS station)
+  ///
+  /// In en, this message translates to:
+  /// **'Change style'**
+  String get mirrorRefineStyle;
+
+  /// Mirror kiosk (LIBAS station)
+  ///
+  /// In en, this message translates to:
+  /// **'Just rebuild'**
+  String get mirrorRefineAgain;
+
+  /// Mirror kiosk (LIBAS station)
+  ///
+  /// In en, this message translates to:
+  /// **'Which colours do you want to avoid?'**
+  String get mirrorColorsTitle;
+
+  /// Mirror kiosk (LIBAS station)
+  ///
+  /// In en, this message translates to:
+  /// **'You can mark several.'**
+  String get mirrorColorsSubtitle;
+
+  /// Mirror kiosk (LIBAS station)
+  ///
+  /// In en, this message translates to:
+  /// **'Skip'**
+  String get mirrorSkip;
+
+  /// Mirror kiosk (LIBAS station)
+  ///
+  /// In en, this message translates to:
+  /// **'Selected: {count}'**
+  String mirrorStylesSelected(int count);
+
+  /// Mirror kiosk (LIBAS station)
+  ///
+  /// In en, this message translates to:
+  /// **'{from}–{to} of {total}'**
+  String mirrorStylesPage(int from, int to, int total);
 }
 
 class _AppLocalizationsDelegate

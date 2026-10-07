@@ -12,6 +12,7 @@ class _FakeApi extends KioskApi {
   _FakeApi(super.prefs);
 
   final createLookCalls = <Completer<KioskLook>>[];
+  final createLookArgs = <Map<String, Object?>>[];
   final finishCalls = <Completer<KioskFinish>>[];
   void Function(KioskLook)? onDone;
 
@@ -26,7 +27,21 @@ class _FakeApi extends KioskApi {
     required String bodyShape,
     List<String>? styles,
     List<String>? productIds,
+    String? brand,
+    String? refine,
+    List<String>? excludeColors,
+    bool? faceLiked,
   }) {
+    createLookArgs.add({
+      'gender': gender,
+      'bodyShape': bodyShape,
+      'styles': styles,
+      'productIds': productIds,
+      'brand': brand,
+      'refine': refine,
+      'excludeColors': excludeColors,
+      'faceLiked': faceLiked,
+    });
     final c = Completer<KioskLook>();
     createLookCalls.add(c);
     return c.future;
@@ -135,12 +150,179 @@ void main() {
     api.finishCalls[0].complete(const KioskFinish(code: 'LB-1111', shareUrl: 'https://x/k/LB-1111'));
     await Future<void>.delayed(Duration.zero);
 
-    c.regenerate();
+    c.regenerate(); // ветка «создать» — сначала «Что изменить?»
+    expect(c.screen, MirrorScreen.refine);
+    c.rebuild(null);
     api.createLookCalls[1].complete(_look('l2', KioskLookStatus.completed));
     await Future<void>.delayed(Duration.zero);
     c.revealResult();
 
     // Раньше ensureShare видел старый shareUrl и выходил — QR вёл на первый образ.
     expect(api.finishCalls, hasLength(2));
+  });
+
+  group('«Пересобрать» из каталога', () {
+    Future<void> catalogResult() async {
+      await c.hardReset('manual');
+      await c.begin(MirrorPath.catalog);
+      c.toggleProduct('p1');
+      c.gender = 'MALE';
+      c.bodyShape = 'RECTANGLE';
+      unawaited(c.startGeneration());
+      api.createLookCalls.last.complete(_look('l1', KioskLookStatus.completed));
+      await Future<void>.delayed(Duration.zero);
+      c.revealResult();
+    }
+
+    test('возвращает к выбору вещей, а не собирает тот же образ', () async {
+      await catalogResult();
+      final calls = api.createLookCalls.length;
+
+      c.regenerate();
+
+      expect(c.screen, MirrorScreen.catalog);
+      expect(api.createLookCalls, hasLength(calls)); // генерации нет
+      expect(c.attempt, 0); // попытка — только когда выберет новые вещи
+      expect(c.pickedProductIds, ['p1']); // прежний выбор виден, можно поменять
+    });
+
+    test('после нового выбора — сразу генерация, без камеры и вопросов', () async {
+      await catalogResult();
+      final calls = api.createLookCalls.length;
+      c.regenerate();
+      c.toggleProduct('p1');
+      c.toggleProduct('p2');
+
+      c.confirmCatalogSelection();
+
+      expect(c.screen, MirrorScreen.generating);
+      expect(api.createLookCalls, hasLength(calls + 1));
+      expect(c.attempt, 1);
+      expect(c.rebuildingFromCatalog, isFalse);
+    });
+
+    test('«Назад» из каталога при пересборке — к готовому образу, сессия жива', () async {
+      await catalogResult();
+      c.regenerate();
+
+      c.goBack();
+
+      expect(c.screen, MirrorScreen.result);
+      expect(c.sessionId, isNotNull);
+      expect(c.rebuildingFromCatalog, isFalse);
+    });
+
+    test('в пути «создать» «Пересобрать» спрашивает «Что изменить?», потом генерирует', () async {
+      unawaited(c.startGeneration());
+      api.createLookCalls.single.complete(_look('l1', KioskLookStatus.completed));
+      await Future<void>.delayed(Duration.zero);
+      c.revealResult();
+
+      c.regenerate();
+      expect(c.screen, MirrorScreen.refine);
+      c.rebuild(null);
+
+      expect(c.screen, MirrorScreen.generating);
+      expect(api.createLookCalls, hasLength(2));
+      expect(c.attempt, 1);
+    });
+  });
+
+  test('окно «Вы ещё здесь?» — через 20 секунд без касаний', () {
+    expect(MirrorSessionController.idleTimeout, const Duration(seconds: 20));
+  });
+
+  group('станция LIBAS: шаги, бренд и уточнения', () {
+    Future<void> result() async {
+      unawaited(c.startGeneration());
+      api.createLookCalls.last.complete(_look('l${api.createLookCalls.length}', KioskLookStatus.completed));
+      await Future<void>.delayed(Duration.zero);
+      c.revealResult();
+    }
+
+    test('гардероб выбирается касанием, а дальше — только по «Продолжить»', () {
+      c.confirmPhoto();
+      expect(c.screen, MirrorScreen.gender);
+      c.setGender('MALE');
+      expect(c.screen, MirrorScreen.gender);
+      c.confirmGender();
+      expect(c.screen, MirrorScreen.shape);
+    });
+
+    test('«Не знаю свой тип фигуры» — шлём UNKNOWN и идём к стилям', () {
+      c.confirmPhoto();
+      c.setGender('FEMALE');
+      c.confirmGender();
+      c.skipShape();
+      expect(c.bodyShape, 'UNKNOWN');
+      expect(c.screen, MirrorScreen.style);
+    });
+
+    test('после стилей — шаг бренда, бренд уходит в запрос', () async {
+      c.toggleStyle('CASUAL');
+      c.confirmStyles();
+      expect(c.screen, MirrorScreen.brand);
+
+      c.confirmShopBrand(); // бренд не выбран — дальше нельзя
+      expect(c.screen, MirrorScreen.brand);
+
+      c.chooseShopBrand('VERO_MODA');
+      c.confirmShopBrand();
+      expect(c.screen, MirrorScreen.generating);
+      expect(api.createLookArgs.last['brand'], 'VERO_MODA');
+      expect(api.createLookArgs.last['refine'], isNull);
+    });
+
+    test('«Пересобрать» в ветке «создать» спрашивает, что изменить', () async {
+      await result();
+      c.regenerate();
+      expect(c.screen, MirrorScreen.refine);
+      expect(api.createLookCalls, hasLength(1));
+
+      c.goBack();
+      expect(c.screen, MirrorScreen.result);
+    });
+
+    test('«Дешевле» и ответ про лицо уходят в запрос', () async {
+      await result();
+      c.regenerate();
+      c.setFaceLiked(false);
+      c.rebuild('CHEAPER');
+
+      expect(c.screen, MirrorScreen.generating);
+      expect(c.attempt, 1);
+      expect(api.createLookArgs.last['refine'], 'CHEAPER');
+      expect(api.createLookArgs.last['faceLiked'], false);
+    });
+
+    test('«Другой цвет» шлёт цвета, «Другой бренд» и «Поменять стиль» меняют выбор', () async {
+      c.toggleStyle('CASUAL');
+      c.chooseShopBrand('ONLY');
+      await result();
+
+      c.rebuild('COLOR', colors: ['black', 'red']);
+      expect(api.createLookArgs.last['excludeColors'], ['black', 'red']);
+
+      c.rebuild('BRAND', brand: 'MEXX');
+      expect(c.shopBrand, 'MEXX');
+      expect(api.createLookArgs.last['brand'], 'MEXX');
+      expect(api.createLookArgs.last['excludeColors'], isEmpty); // цвета — только для «Другой цвет»
+
+      c.rebuild('STYLE', style: 'BUSINESS');
+      expect(c.styles, ['BUSINESS']);
+      expect(api.createLookArgs.last['styles'], ['BUSINESS']);
+    });
+
+    test('сброс сессии очищает бренд, ответ про лицо и уточнения', () async {
+      c.chooseShopBrand('ONLY');
+      c.setFaceLiked(false);
+      c.rebuild('COLOR', colors: ['black']);
+      await c.hardReset('timeout');
+
+      expect(c.shopBrand, isNull);
+      expect(c.faceLiked, isNull);
+      expect(c.refineKind, isNull);
+      expect(c.excludeColors, isEmpty);
+    });
   });
 }

@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 
@@ -44,16 +45,23 @@ class _MirrorGeneratingScreenState extends State<MirrorGeneratingScreen>
 
   /// Плавный прогресс. Контроллер считает целые секунды; между ними время
   /// досчитывается по секундомеру, и прогресс пересчитывается каждый кадр
-  /// (кадры даёт [_scan]) — рама заполняется непрерывно, без рывков
+  /// (кадры даёт [_progressTicker]) — рама заполняется непрерывно, без рывков
   /// «прыгнул — встал».
   final Stopwatch _sinceTick = Stopwatch();
   int _lastElapsed = -1;
   double _shown = 0;
   Duration? _lastFrame;
 
+  /// Кадры для прогресса — свои, не от [_scan]. Декор при системном «отключить
+  /// анимации» (на киосках включают часто) стоит, а прогресс — это информация:
+  /// без своих кадров он двигался рывком раз в секунду.
+  final ValueNotifier<int> _progressFrames = ValueNotifier(0);
+  late final Ticker _progressTicker = createTicker((_) => _progressFrames.value++);
+
   @override
   void initState() {
     super.initState();
+    _progressTicker.start();
     _scan = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2600),
@@ -123,6 +131,8 @@ class _MirrorGeneratingScreenState extends State<MirrorGeneratingScreen>
 
   @override
   void dispose() {
+    _progressTicker.dispose();
+    _progressFrames.dispose();
     _sinceTick.stop();
     _scan.dispose();
     _ambient.dispose();
@@ -219,7 +229,7 @@ class _MirrorGeneratingScreenState extends State<MirrorGeneratingScreen>
         children: [
           Expanded(
             child: AnimatedBuilder(
-              animation: _scan,
+              animation: Listenable.merge([_scan, _progressFrames]),
               builder: (context, _) => _DevelopingMirror(
                 progress: _progressFrame(c),
                 stage: activeStage,

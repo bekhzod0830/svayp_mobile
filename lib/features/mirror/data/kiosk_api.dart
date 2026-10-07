@@ -193,6 +193,10 @@ class KioskApi {
     required String bodyShape,
     List<String>? styles,
     List<String>? productIds,
+    String? brand,
+    String? refine,
+    List<String>? excludeColors,
+    bool? faceLiked,
   }) async {
     final res = await _request(
       () => _dio.post<dynamic>(
@@ -204,6 +208,11 @@ class KioskApi {
           if (styles != null && styles.isNotEmpty) 'styles': styles,
           if (productIds != null && productIds.isNotEmpty)
             'productIds': productIds,
+          if (brand != null) 'brand': brand,
+          if (refine != null) 'refine': refine,
+          if (excludeColors != null && excludeColors.isNotEmpty)
+            'excludeColors': excludeColors,
+          if (faceLiked != null) 'faceLiked': faceLiked,
         },
       ),
     );

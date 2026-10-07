@@ -4,13 +4,12 @@ import 'package:swipe/l10n/app_localizations.dart';
 import '../../data/kiosk_taxonomy.dart';
 import '../mirror_session_controller.dart';
 import '../mirror_theme.dart';
-import '../widgets/mirror_body_figure.dart';
 import '../widgets/mirror_buttons.dart';
-import '../widgets/mirror_choice.dart';
-import '../widgets/mirror_style_figure.dart';
+import '../widgets/mirror_station_card.dart';
 
-/// Экран 2а — пол. Отдельная страница (решение владельца): две карточки
-/// той же сетки, что фигура и стиль; касание сразу ведёт к выбору фигуры.
+/// Шаг 01 станции — гардероб (женский / мужской). Дизайн LIBAS 10.2026: две высокие
+/// карточки с фото, круглый индикатор; переход — только по «Продолжить», чтобы
+/// случайное касание не уводило дальше.
 class MirrorGenderScreen extends StatelessWidget {
   const MirrorGenderScreen({super.key, required this.controller});
 
@@ -20,59 +19,53 @@ class MirrorGenderScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final t = MirrorTheme.of(context);
-    final s = MirrorTheme.scale(context);
+    final s = mirrorStationScale(context);
+
+    Widget card(String gender, String title) => MirrorStationCard(
+          title: title,
+          description: l10n.mirrorWardrobeDesc,
+          photo: kioskGenderPhoto(gender),
+          selected: controller.gender == gender,
+          onTap: () => controller.setGender(gender),
+        );
 
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 28 * s),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(height: 28 * s),
-          MirrorFadeIn(
-            child: Text(
-              t.kickerCase(l10n.mirrorGenderLabel),
-              style: t.kicker(s),
-            ),
-          ),
-          SizedBox(height: 14 * s),
-          MirrorFadeIn(
-            delayMs: 60,
-            child: Text(l10n.mirrorBodyTitle, style: t.headline(36 * s)),
-          ),
-          SizedBox(height: 8 * s),
-          MirrorFadeIn(
-            delayMs: 110,
-            child: Text(
-              controller.menswearAvailable
-                  ? l10n.mirrorBodySubtitle
-                  : l10n.mirrorWomenOnly,
-              style: t.subtitle(16 * s),
-            ),
+          SizedBox(height: 24 * s),
+          MirrorStationHeading(
+            kicker: l10n.mirrorWardrobeKicker,
+            title: l10n.mirrorWardrobeTitle,
+            subtitle: controller.menswearAvailable ? l10n.mirrorWardrobeSubtitle : l10n.mirrorWomenOnly,
           ),
           SizedBox(height: 24 * s),
           Expanded(
-            child: MirrorChoiceGrid(
-              alignment: WrapAlignment.center,
+            child: MirrorStationGrid(
+              aspect: 464 / 852,
               children: [
-                MirrorChoiceCard(
-                  label: l10n.mirrorFemale,
-                  figure: const MirrorGenderFigure(gender: 'FEMALE'),
-                  selected: controller.gender == 'FEMALE',
-                  fadeInDelayMs: 180,
-                  onTap: () => controller.setGender('FEMALE'),
-                ),
-                // Мужская одежда в зале есть не всегда: без неё мужчина
-                // снял бы фото и ждал генерацию ради пустого результата.
-                if (controller.menswearAvailable)
-                  MirrorChoiceCard(
-                    label: l10n.mirrorMale,
-                    figure: const MirrorGenderFigure(gender: 'MALE'),
-                    selected: controller.gender == 'MALE',
-                    fadeInDelayMs: 250,
-                    onTap: () => controller.setGender('MALE'),
-                  ),
+                card('FEMALE', l10n.mirrorWardrobeWomen),
+                // Мужской одежды в зале может не быть: без неё мужчина снял бы фото
+                // и ждал генерацию ради пустого результата.
+                if (controller.menswearAvailable) card('MALE', l10n.mirrorWardrobeMen),
               ],
             ),
+          ),
+          SizedBox(height: 12 * s),
+          Center(
+            child: Text(
+              l10n.mirrorWardrobeFooter,
+              style: t.subtitle(15 * s),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          SizedBox(height: 16 * s),
+          MirrorPrimaryButton(
+            label: l10n.mirrorContinue,
+            height: 64 * s,
+            enabled: controller.gender != null,
+            onTap: controller.confirmGender,
           ),
           SizedBox(height: 24 * s),
         ],
@@ -81,7 +74,8 @@ class MirrorGenderScreen extends StatelessWidget {
   }
 }
 
-/// Экран 2б — тип фигуры. Список зависит от пола; варианта «не знаю» нет.
+/// Шаг 02 — тип фигуры: четыре силуэта пола, один выбор; «Не знаю свой тип фигуры»
+/// не угадывает фигуру, а честно отправляет «не знаю».
 class MirrorShapeScreen extends StatelessWidget {
   const MirrorShapeScreen({super.key, required this.controller});
 
@@ -90,57 +84,53 @@ class MirrorShapeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final t = MirrorTheme.of(context);
-    final s = MirrorTheme.scale(context);
+    final s = mirrorStationScale(context);
     final lang = controller.shopperLang;
     final gender = controller.gender ?? 'FEMALE';
     final shapes = kioskShapes[gender] ?? const <KioskLabeled>[];
-    final isFemale = gender == 'FEMALE';
 
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 28 * s),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(height: 28 * s),
-          MirrorFadeIn(
-            child: Text(t.kickerCase(l10n.mirrorBodyTitle), style: t.kicker(s)),
-          ),
-          SizedBox(height: 14 * s),
-          MirrorFadeIn(
-            delayMs: 60,
-            child: Text(l10n.mirrorShapeLabel, style: t.headline(36 * s)),
+          SizedBox(height: 24 * s),
+          MirrorStationHeading(
+            kicker: gender == 'MALE' ? l10n.mirrorWardrobeMen : l10n.mirrorWardrobeWomen,
+            title: l10n.mirrorShapeTitleStation,
+            subtitle: l10n.mirrorShapeSubtitleStation,
           ),
           SizedBox(height: 24 * s),
           Expanded(
-            child: MirrorChoiceGrid(
+            child: MirrorStationGrid(
               children: [
-                for (var i = 0; i < shapes.length; i++)
-                  MirrorChoiceCard(
-                    label: shapes[i].label(lang),
-                    asset: isFemale
-                        ? kioskFemaleShapeAssets[shapes[i].code]
-                        : null,
-                    // Мужские силуэты рисуются кодом: готовых картинок нет.
-                    figure: !isFemale &&
-                            MirrorMaleBodyFigure.supports(shapes[i].code)
-                        ? MirrorMaleBodyFigure(shape: shapes[i].code!)
-                        : null,
-                    glyph: Icons.accessibility_new_rounded,
-                    selected: controller.bodyShape == shapes[i].code,
-                    fadeInDelayMs: 120 + 50 * i,
-                    onTap: () => controller.setShape(shapes[i].code!),
+                for (final shape in shapes)
+                  MirrorStationCard(
+                    title: shape.label(lang),
+                    description: kioskShapeDescriptions[shape.code]?.label(lang),
+                    photo: kioskShapeFigure(gender, shape.code),
+                    photoFit: BoxFit.contain,
+                    selected: controller.bodyShape == shape.code,
+                    onTap: () => controller.setShape(shape.code!),
                   ),
               ],
             ),
           ),
-          SizedBox(height: 16 * s),
+          SizedBox(height: 12 * s),
+          Center(
+            child: MirrorGhostButton(
+              label: l10n.mirrorShapeUnknown,
+              height: 52 * s,
+              onTap: controller.skipShape,
+            ),
+          ),
+          SizedBox(height: 14 * s),
           MirrorPrimaryButton(
-            label: controller.path == MirrorPath.create
-                ? l10n.mirrorNext
-                : l10n.mirrorCtaCreate,
+            label: controller.path == MirrorPath.create ? l10n.mirrorContinue : l10n.mirrorCtaCreate,
             height: 64 * s,
-            enabled: controller.gender != null && controller.bodyShape != null,
+            enabled: controller.gender != null &&
+                controller.bodyShape != null &&
+                controller.bodyShape != kioskShapeUnknown,
             onTap: controller.confirmProfile,
           ),
           SizedBox(height: 24 * s),

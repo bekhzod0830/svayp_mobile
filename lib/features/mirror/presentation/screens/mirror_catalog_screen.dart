@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 
+import '../../data/kiosk_image_cache.dart';
 import '../../data/kiosk_models.dart';
 import '../../data/kiosk_taxonomy.dart';
 import '../mirror_session_controller.dart';
@@ -216,6 +217,10 @@ class _CatalogCard extends StatelessWidget {
                       child: item.imageUrl != null
                           ? CachedNetworkImage(
                               imageUrl: item.imageUrl!,
+                              cacheManager: KioskImageCache.instance,
+                              // Декодируем под размер плитки, а не исходник.
+                              memCacheWidth: 600,
+                              fadeInDuration: const Duration(milliseconds: 120),
                               fit: BoxFit.cover,
                               placeholder: (_, __) =>
                                   ColoredBox(color: t.surface),

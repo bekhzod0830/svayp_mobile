@@ -13,6 +13,9 @@
          API 29+ uses scoped storage and requires no permission. -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
+    <!-- Magic Mirror: USB-вебкамера напрямую (flutter_ffi_uvc). Не обязательна:
+         на телефонах без USB-host зеркало работает с фронталкой. -->
+    <uses-feature android:name="android.hardware.usb.host" android:required="false" />
 
     
     <application

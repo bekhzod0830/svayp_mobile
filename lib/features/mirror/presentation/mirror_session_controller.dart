@@ -10,7 +10,9 @@ import '../../../core/analytics/analytics_service.dart';
 import '../brand/mirror_brands.dart';
 import '../data/kiosk_api.dart';
 import '../data/kiosk_demo.dart';
+import '../data/kiosk_image_cache.dart';
 import '../data/kiosk_models.dart';
+import '../data/kiosk_taxonomy.dart';
 
 /// Экраны киоска. Пол и фигура — два отдельных экрана (решение владельца),
 /// но делят один сегмент прогресса. «Как это работает» живёт на постере,
@@ -21,9 +23,15 @@ enum MirrorScreen {
   gender,
   shape,
   style,
+
+  /// «Где вы любите покупать?» — бренд или «любой» (только ветка «создать»).
+  brand,
   catalog,
   generating,
   result,
+
+  /// «Что изменить?» — уточнения перед «Пересобрать» в ветке «создать».
+  refine,
   buy,
 }
 
@@ -59,7 +67,8 @@ class MirrorSessionController extends ChangeNotifier {
   }
 
   static const _storeLabelKey = 'kiosk_store_label';
-  static const idleTimeout = Duration(seconds: 45);
+  /// Окно «Вы ещё здесь?» — после 20 с без касаний (задачи по планшетам, 07.10.2026).
+  static const idleTimeout = Duration(seconds: 20);
   static const idleGraceSeconds = 10;
   static const maxRegenerations = 3;
   // Киоск генерирует через FASHN по шагам: замер на проде ≈105 c на 3 вещи
@@ -105,6 +114,19 @@ class MirrorSessionController extends ChangeNotifier {
   String? gender;
   String? bodyShape;
   final List<String> styles = [];
+
+  /// Бренд с шага «Где вы любите покупать?»: код ([kioskShopBrands]),
+  /// [kioskAnyBrand] — любой, null — ещё не выбран.
+  String? shopBrand;
+
+  /// «Понравилось ли вам лицо?» на экране уточнений; null — не отвечал.
+  bool? faceLiked;
+
+  /// Уточнение последней пересборки (CHEAPER | PRICIER | COLOR | BRAND | STYLE) и
+  /// цвета, которых не должно быть. Живут до следующей пересборки: повтор после
+  /// ошибки шлёт тот же запрос.
+  String? refineKind;
+  final List<String> excludeColors = [];
   final List<String> pickedProductIds = [];
 
   List<KioskCatalogItem> catalog = [];
@@ -141,6 +163,10 @@ class MirrorSessionController extends ChangeNotifier {
   bool genFailed = false;
   String? genReason;
   int attempt = 0;
+
+  /// «Пересобрать» в пути «из каталога»: человек вернулся к выбору вещей. Снимок и
+  /// ответы уже есть — после выбора сразу генерация, без камеры и вопросов.
+  bool rebuildingFromCatalog = false;
 
   String? sellerCode;
   String? shareUrl;
@@ -197,9 +223,11 @@ class MirrorSessionController extends ChangeNotifier {
         case MirrorScreen.shape:
           return 1;
         case MirrorScreen.style:
+        case MirrorScreen.brand:
           return 2;
         case MirrorScreen.generating:
         case MirrorScreen.result:
+        case MirrorScreen.refine:
         case MirrorScreen.buy:
           return 3;
       }
@@ -213,9 +241,11 @@ class MirrorSessionController extends ChangeNotifier {
       case MirrorScreen.gender:
       case MirrorScreen.shape:
       case MirrorScreen.style:
+      case MirrorScreen.brand:
         return 2;
       case MirrorScreen.generating:
       case MirrorScreen.result:
+      case MirrorScreen.refine:
       case MirrorScreen.buy:
         return 3;
     }
@@ -432,6 +462,14 @@ class MirrorSessionController extends ChangeNotifier {
     if (!force && fresh) return;
 
     await _refreshCatalogCache(demo: wantDemo, cancelled: () => _disposed);
+    // Пока станция на постере — докачиваем фото каталога на диск, чтобы в
+    // каталоге они открывались сразу. Ушли с постера — прогрев уступает сеть.
+    unawaited(
+      KioskImageCache.prefetch(
+        _catalogAllCache.map((i) => i.imageUrl).whereType<String>(),
+        cancelled: () => _disposed || screen != MirrorScreen.idle,
+      ),
+    );
   }
 
   void _armCoverRefresh() {
@@ -467,6 +505,14 @@ class MirrorSessionController extends ChangeNotifier {
       'count': pickedProductIds.length.toString(),
       'ids': pickedProductIds.join(','),
     });
+    if (rebuildingFromCatalog) {
+      rebuildingFromCatalog = false;
+      attempt += 1;
+      _track('kiosk_regenerate', {'attempt': attempt.toString(), 'path': 'catalog'});
+      _clearShare();
+      startGeneration();
+      return;
+    }
     _go(MirrorScreen.camera);
   }
 
@@ -518,6 +564,8 @@ class MirrorSessionController extends ChangeNotifier {
 
   // ── Пол и фигура ───────────────────────────────────────────────────────────
 
+  /// Выбор гардероба. Переход — только по «Продолжить» ([confirmGender]): случайное
+  /// касание не должно уводить на следующий экран (дизайн станции).
   void setGender(String g) {
     touch();
     if (gender != g) {
@@ -527,6 +575,10 @@ class MirrorSessionController extends ChangeNotifier {
       styles.clear();
     }
     _notify();
+  }
+
+  void confirmGender() {
+    if (gender == null) return;
     _go(MirrorScreen.shape);
   }
 
@@ -534,6 +586,13 @@ class MirrorSessionController extends ChangeNotifier {
     touch();
     bodyShape = shape;
     _notify();
+  }
+
+  /// «Не знаю свой тип фигуры»: фигуру не угадываем — шлём «не знаю» и идём дальше.
+  void skipShape() {
+    touch();
+    bodyShape = kioskShapeUnknown;
+    confirmProfile();
   }
 
   void confirmProfile() {
@@ -562,6 +621,58 @@ class MirrorSessionController extends ChangeNotifier {
 
   void confirmStyles() {
     _track('kiosk_style_selected', {'styles': styles.join(',')});
+    _go(MirrorScreen.brand);
+  }
+
+  // ── Бренд ──────────────────────────────────────────────────────────────────
+
+  void chooseShopBrand(String code) {
+    touch();
+    shopBrand = code;
+    _notify();
+  }
+
+  void confirmShopBrand() {
+    if (shopBrand == null) return;
+    _track('kiosk_brand_selected', {'brand': shopBrand!});
+    startGeneration();
+  }
+
+  // ── «Пересобрать» с уточнениями ─────────────────────────────────────────────
+
+  void setFaceLiked(bool liked) {
+    touch();
+    faceLiked = liked;
+    _notify();
+  }
+
+  /// Пересобрать образ с уточнением ([kind] — CHEAPER | PRICIER | COLOR | BRAND |
+  /// STYLE; null — «просто пересобрать»). [style] и [brand] меняют выбор человека
+  /// (стиль — один, из списка), [colors] — цвета, которых не должно быть.
+  void rebuild(
+    String? kind, {
+    List<String> colors = const [],
+    String? style,
+    String? brand,
+  }) {
+    if (!canRegenerate) return;
+    refineKind = kind;
+    excludeColors
+      ..clear()
+      ..addAll(colors);
+    if (style != null) {
+      styles
+        ..clear()
+        ..add(style);
+    }
+    if (brand != null) shopBrand = brand;
+    attempt += 1;
+    _track('kiosk_regenerate', {
+      'attempt': attempt.toString(),
+      'refine': kind ?? '',
+      'face_liked': faceLiked?.toString() ?? '',
+    });
+    _clearShare();
     startGeneration();
   }
 
@@ -618,6 +729,10 @@ class MirrorSessionController extends ChangeNotifier {
         styles: path == MirrorPath.create ? List.of(styles) : null,
         productIds:
             path == MirrorPath.catalog ? List.of(pickedProductIds) : null,
+        brand: path == MirrorPath.create ? shopBrand : null,
+        refine: refineKind,
+        excludeColors: List.of(excludeColors),
+        faceLiked: faceLiked,
       );
       if (stale() || screen != MirrorScreen.generating) return;
       if (created.isTerminal) {
@@ -708,18 +823,27 @@ class MirrorSessionController extends ChangeNotifier {
 
   void regenerate() {
     if (!canRegenerate) return;
-    attempt += 1;
-    _track('kiosk_regenerate', {'attempt': attempt.toString()});
-    // Код и QR выданы для прошлого образа — снимаем их сразу, чтобы новый
-    // результат не показался со старым QR. ensureShare на новом результате
-    // запросит свежие (до этого — шиммер, «Отложить» ждёт код).
+    if (path == MirrorPath.catalog) {
+      // Из каталога «Пересобрать» — это выбрать другие вещи, а не тот же образ
+      // заново. Попытка засчитается, когда человек подтвердит новый выбор.
+      rebuildingFromCatalog = true;
+      _go(MirrorScreen.catalog);
+      return;
+    }
+    // Ветка «создать»: сначала спрашиваем, что изменить (дешевле, цвет, бренд…).
+    _go(MirrorScreen.refine);
+  }
+
+  /// Код и QR выданы для прошлого образа — снимаем их сразу, чтобы новый
+  /// результат не показался со старым QR. ensureShare на новом результате
+  /// запросит свежие (до этого — шиммер, «Отложить» ждёт код).
+  void _clearShare() {
     _shareRetryTimer?.cancel();
     _shareRetryTimer = null;
     _shareRetries = 0;
     sellerCode = null;
     shareUrl = null;
     _sharedLookId = null;
-    startGeneration();
   }
 
   void _stopGeneration({bool keepElapsed = false}) {
@@ -784,6 +908,10 @@ class MirrorSessionController extends ChangeNotifier {
 
   void goBack() {
     switch (screen) {
+      case MirrorScreen.catalog when rebuildingFromCatalog && look != null:
+        // Передумал пересобирать — обратно к готовому образу, сессия жива.
+        rebuildingFromCatalog = false;
+        _go(MirrorScreen.result);
       case MirrorScreen.idle:
       case MirrorScreen.catalog:
         hardReset('manual');
@@ -802,6 +930,10 @@ class MirrorSessionController extends ChangeNotifier {
         _go(MirrorScreen.gender);
       case MirrorScreen.style:
         _go(MirrorScreen.shape);
+      case MirrorScreen.brand:
+        _go(MirrorScreen.style);
+      case MirrorScreen.refine:
+        _go(MirrorScreen.result);
       case MirrorScreen.result:
         _go(
           path == MirrorPath.create ? MirrorScreen.style : MirrorScreen.catalog,
@@ -906,6 +1038,10 @@ class MirrorSessionController extends ChangeNotifier {
     bodyShape = null;
     styles.clear();
     pickedProductIds.clear();
+    shopBrand = null;
+    faceLiked = null;
+    refineKind = null;
+    excludeColors.clear();
     catalog = [];
     catalogLoading = false;
     category = null;
@@ -920,6 +1056,7 @@ class MirrorSessionController extends ChangeNotifier {
     genFailed = false;
     genReason = null;
     attempt = 0;
+    rebuildingFromCatalog = false;
     sellerCode = null;
     shareUrl = null;
     _sharedLookId = null;

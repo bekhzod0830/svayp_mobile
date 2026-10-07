@@ -1,5 +1,8 @@
-import 'package:camera/camera.dart';
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_ffi_uvc/flutter_ffi_uvc.dart';
 
 import '../../data/kiosk_api.dart';
 import '../../data/kiosk_camera.dart';
@@ -22,6 +25,10 @@ class MirrorSetupSheet extends StatefulWidget {
     this.onChooseBrand,
     this.cameraName,
     this.onCameraChanged,
+    this.uvcMaxWidth = kUvcMaxWidth,
+    this.onUvcMaxWidthChanged,
+    this.cameraDebug = false,
+    this.onCameraDebugChanged,
   });
 
   final KioskApi api;
@@ -37,6 +44,14 @@ class MirrorSetupSheet extends StatefulWidget {
   final String? cameraName;
   final ValueChanged<String?>? onCameraChanged;
 
+  /// Планка качества USB-камеры напрямую (ширина кадра) и её смена.
+  final int uvcMaxWidth;
+  final ValueChanged<int>? onUvcMaxWidthChanged;
+
+  /// Диагностика потока в углу экрана камеры и её тумблер.
+  final bool cameraDebug;
+  final ValueChanged<bool>? onCameraDebugChanged;
+
   static Future<void> show(
     BuildContext context, {
     required KioskApi api,
@@ -47,6 +62,10 @@ class MirrorSetupSheet extends StatefulWidget {
     VoidCallback? onChooseBrand,
     String? cameraName,
     ValueChanged<String?>? onCameraChanged,
+    int uvcMaxWidth = kUvcMaxWidth,
+    ValueChanged<int>? onUvcMaxWidthChanged,
+    bool cameraDebug = false,
+    ValueChanged<bool>? onCameraDebugChanged,
   }) {
     return showModalBottomSheet<void>(
       context: context,
@@ -64,6 +83,10 @@ class MirrorSetupSheet extends StatefulWidget {
         onChooseBrand: onChooseBrand,
         cameraName: cameraName,
         onCameraChanged: onCameraChanged,
+        uvcMaxWidth: uvcMaxWidth,
+        onUvcMaxWidthChanged: onUvcMaxWidthChanged,
+        cameraDebug: cameraDebug,
+        onCameraDebugChanged: onCameraDebugChanged,
       ),
     );
   }
@@ -80,10 +103,15 @@ class _MirrorSetupSheetState extends State<MirrorSetupSheet> {
   bool _testing = false;
 
   String? _cameraName;
+  late int _uvcMaxWidth;
+  late bool _cameraDebug;
 
-  /// Что видит Android прямо сейчас; null — ещё ищем.
-  List<CameraDescription>? _cameras;
-  String? _camerasError;
+  /// Что видит планшет прямо сейчас (USB напрямую + камеры Android);
+  /// null — ещё ищем.
+  List<KioskCameraOption>? _cameras;
+
+  /// Втыкание/выдёргивание USB-камеры — список обновляется сам.
+  StreamSubscription<UvcDeviceEvent>? _usbSub;
 
   @override
   void initState() {
@@ -92,25 +120,22 @@ class _MirrorSetupSheetState extends State<MirrorSetupSheet> {
     _demoForced = widget.demo.forced;
     _fullscreen = widget.fullscreen;
     _cameraName = widget.cameraName;
-    if (widget.onCameraChanged != null) _scanCameras();
+    _uvcMaxWidth = widget.uvcMaxWidth;
+    _cameraDebug = widget.cameraDebug;
+    if (widget.onCameraChanged != null) {
+      _scanCameras();
+      if (Platform.isAndroid) {
+        try {
+          _usbSub = uvcCamera.deviceEvents.listen((_) => _scanCameras());
+        } catch (_) {}
+      }
+    }
   }
 
   Future<void> _scanCameras() async {
-    setState(() {
-      _cameras = null;
-      _camerasError = null;
-    });
-    try {
-      final cameras = await availableCameras();
-      if (mounted) setState(() => _cameras = cameras);
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _cameras = const [];
-          _camerasError = '$e';
-        });
-      }
-    }
+    setState(() => _cameras = null);
+    final cameras = await listKioskCameras();
+    if (mounted) setState(() => _cameras = cameras);
   }
 
   void _chooseCamera(String? name) {
@@ -118,13 +143,61 @@ class _MirrorSetupSheetState extends State<MirrorSetupSheet> {
     widget.onCameraChanged!(name);
   }
 
+  void _chooseUvcMaxWidth(int width) {
+    setState(() => _uvcMaxWidth = width);
+    widget.onUvcMaxWidthChanged?.call(width);
+  }
+
+  /// Что реально отдала USB-камера при последнем запуске: режим потока и
+  /// почему не крупнее. Пока экран камеры не открывался — пусто.
+  Widget _buildUvcStatus(TextTheme textTheme) {
+    return ValueListenableBuilder<KioskUvcStatus?>(
+      valueListenable: kioskUvcStatus,
+      builder: (context, status, _) {
+        if (status == null) {
+          return Text(
+            'Поток: ещё не запускался — откройте экран камеры, и здесь '
+            'появится реальный режим.',
+            style: textTheme.bodySmall,
+          );
+        }
+        final mode = status.mode;
+        final mjpeg = status.supportedModes
+            .where((m) => m.formatName == 'MJPEG')
+            .map((m) => '${m.width}x${m.height}@${m.fps}')
+            .toSet()
+            .join(', ');
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              mode == null
+                  ? 'Поток: не запустился ни в одном режиме'
+                  : 'Поток сейчас: ${mode.label}',
+              style: textTheme.bodyMedium,
+            ),
+            if (status.attempts.length > 1)
+              Text(
+                'Пробовали: ${status.attempts.join('; ')}',
+                style: textTheme.bodySmall,
+              ),
+            if (mjpeg.isNotEmpty)
+              Text('Камера умеет (MJPEG): $mjpeg', style: textTheme.bodySmall),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildCameraSection(TextTheme textTheme) {
     final cameras = _cameras;
     final auto = cameras == null ? null : pickKioskCamera(cameras);
     // Выбранная вручную камера сейчас не подключена — киоск откроет авто.
-    final missing = _cameraName != null &&
+    final missing =
+        _cameraName != null &&
         cameras != null &&
-        cameras.every((c) => c.name != _cameraName);
+        cameras.every((c) => c.id != _cameraName);
+    final hasUvc = cameras?.any((c) => c.kind == KioskCameraKind.uvc) ?? false;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -145,11 +218,9 @@ class _MirrorSetupSheetState extends State<MirrorSetupSheet> {
           )
         else if (cameras.isEmpty)
           Text(
-            'Android не видит ни одной камеры. Подключите USB-камеру до '
-            'запуска приложения и перезапустите его. Если камеру не видит '
-            'и системное приложение «Камера» — планшет не поддерживает '
-            'USB-камеры (UVC).'
-            '${_camerasError != null ? '\n$_camerasError' : ''}',
+            'Планшет не видит ни одной камеры. Проверьте, что USB-камера '
+            'воткнута в порт с поддержкой USB-host (OTG) и горит индикатор; '
+            'список обновится сам.',
             style: textTheme.bodySmall,
           )
         else
@@ -162,24 +233,58 @@ class _MirrorSetupSheetState extends State<MirrorSetupSheet> {
                   contentPadding: EdgeInsets.zero,
                   value: null,
                   title: const Text('Авто — USB-камера, если подключена'),
-                  subtitle: Text(
-                    auto == null ? '—' : 'Сейчас: ${kioskCameraLabel(auto)}',
-                  ),
+                  subtitle: Text(auto == null ? '—' : 'Сейчас: ${auto.label}'),
                 ),
                 for (final c in cameras)
                   RadioListTile<String?>(
                     contentPadding: EdgeInsets.zero,
-                    value: c.name,
-                    title: Text(kioskCameraLabel(c)),
+                    value: c.id,
+                    title: Text(c.label),
                   ),
               ],
             ),
           ),
         if (missing)
           Text(
-            'Выбранная камера (id $_cameraName) не подключена — '
+            'Выбранная камера ($_cameraName) не подключена — '
             'используется авто.',
             style: textTheme.bodySmall,
+          ),
+        if (hasUvc && widget.onUvcMaxWidthChanged != null) ...[
+          const SizedBox(height: 12),
+          Text('Качество USB-камеры', style: textTheme.titleSmall),
+          const SizedBox(height: 4),
+          Text(
+            'Верхняя планка кадра. 2K даёт больше деталей, но тяжелее для '
+            'USB и процессора планшета и может идти рывками — тогда Full HD. '
+            'На экране 1080p разницы в резкости между 2K и Full HD нет.',
+            style: textTheme.bodySmall,
+          ),
+          const SizedBox(height: 8),
+          SegmentedButton<int>(
+            segments: [
+              for (final e in kUvcQualityOptions.entries)
+                ButtonSegment(value: e.key, label: Text(e.value)),
+            ],
+            selected: {_uvcMaxWidth},
+            onSelectionChanged: (s) => _chooseUvcMaxWidth(s.first),
+          ),
+          const SizedBox(height: 8),
+          _buildUvcStatus(textTheme),
+        ],
+        if (widget.onCameraDebugChanged != null)
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Диагностика камеры на экране'),
+            subtitle: const Text(
+              'Режим, реальные fps и пропуски кадров мелким текстом в углу '
+              'экрана камеры. Для настройки, покупателям выключить.',
+            ),
+            value: _cameraDebug,
+            onChanged: (v) {
+              setState(() => _cameraDebug = v);
+              widget.onCameraDebugChanged!(v);
+            },
           ),
       ],
     );
@@ -187,6 +292,7 @@ class _MirrorSetupSheetState extends State<MirrorSetupSheet> {
 
   @override
   void dispose() {
+    _usbSub?.cancel();
     _keyController.dispose();
     super.dispose();
   }

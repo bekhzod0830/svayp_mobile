@@ -3883,4 +3883,109 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get mirrorFinish => 'Finish';
+
+  @override
+  String get mirrorWardrobeKicker => 'Let\'s start with your wardrobe';
+
+  @override
+  String get mirrorWardrobeTitle => 'Who are we styling?';
+
+  @override
+  String get mirrorWardrobeSubtitle =>
+      'Choose a wardrobe — then we\'ll pick pieces in your style.';
+
+  @override
+  String get mirrorWardrobeWomen => 'Women\'s wardrobe';
+
+  @override
+  String get mirrorWardrobeMen => 'Men\'s wardrobe';
+
+  @override
+  String get mirrorWardrobeDesc => 'Looks for you';
+
+  @override
+  String get mirrorWardrobeFooter => 'Pieces from this store\'s collection';
+
+  @override
+  String get mirrorContinue => 'Continue';
+
+  @override
+  String get mirrorShapeTitleStation => 'Which figure is closest to yours?';
+
+  @override
+  String get mirrorShapeSubtitleStation =>
+      'Pick a similar silhouette. No exact measurements needed.';
+
+  @override
+  String get mirrorShapeUnknown => 'I don\'t know my body type';
+
+  @override
+  String get mirrorStyleSubtitleStation => 'You can pick several styles.';
+
+  @override
+  String get mirrorBrandTitle => 'Where do you like to shop?';
+
+  @override
+  String get mirrorBrandSubtitle =>
+      'Pick one brand — or any, and we\'ll choose from all of them.';
+
+  @override
+  String get mirrorBrandAny => 'Any brand';
+
+  @override
+  String get mirrorRefineTitle => 'What should we change?';
+
+  @override
+  String get mirrorRefineSubtitle =>
+      'Choose an option — we\'ll build a new look.';
+
+  @override
+  String get mirrorFaceQuestion => 'Did you like the generated face?';
+
+  @override
+  String get mirrorFaceNoHint =>
+      'Next time the face will stay closer to your photo.';
+
+  @override
+  String get mirrorYes => 'Yes';
+
+  @override
+  String get mirrorNo => 'No';
+
+  @override
+  String get mirrorRefineCheaper => 'Cheaper';
+
+  @override
+  String get mirrorRefinePricier => 'More premium';
+
+  @override
+  String get mirrorRefineColor => 'Different colour';
+
+  @override
+  String get mirrorRefineBrand => 'Different brand';
+
+  @override
+  String get mirrorRefineStyle => 'Change style';
+
+  @override
+  String get mirrorRefineAgain => 'Just rebuild';
+
+  @override
+  String get mirrorColorsTitle => 'Which colours do you want to avoid?';
+
+  @override
+  String get mirrorColorsSubtitle => 'You can mark several.';
+
+  @override
+  String get mirrorSkip => 'Skip';
+
+  @override
+  String mirrorStylesSelected(int count) {
+    return 'Selected: $count';
+  }
+
+  @override
+  String mirrorStylesPage(int from, int to, int total) {
+    return '$from–$to of $total';
+  }
 }
