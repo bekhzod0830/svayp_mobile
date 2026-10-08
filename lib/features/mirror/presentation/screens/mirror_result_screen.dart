@@ -123,7 +123,7 @@ class _MirrorResultScreenState extends State<MirrorResultScreen>
           child: Column(
             children: [
               SizedBox(height: pad.top + 10 * s),
-              // Шапка: «назад» и знак бренда по центру.
+              // Шапка: «назад», знак бренда по центру, «Завершить».
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: 20 * s),
                 child: Entrance(
@@ -131,15 +131,25 @@ class _MirrorResultScreenState extends State<MirrorResultScreen>
                   kind: IntroEntranceKind.rise,
                   child: Row(
                     children: [
-                      _RoundButton(
-                        icon: Icons.arrow_back_ios_new_rounded,
-                        size: 44 * s,
-                        onTap: c.goBack,
-                      ),
                       Expanded(
-                        child: Center(child: MirrorBrandMark(height: 15 * s)),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: _RoundButton(
+                            icon: Icons.arrow_back_ios_new_rounded,
+                            size: 44 * s,
+                            onTap: c.goBack,
+                          ),
+                        ),
                       ),
-                      SizedBox(width: 44 * s),
+                      MirrorBrandMark(height: 15 * s),
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: MirrorFinishButton(
+                            onTap: () => c.hardReset('finish'),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),

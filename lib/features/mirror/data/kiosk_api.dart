@@ -194,7 +194,9 @@ class KioskApi {
     List<String>? styles,
     List<String>? productIds,
     String? brand,
+    List<String>? brands,
     String? refine,
+    List<String>? refines,
     List<String>? excludeColors,
     bool? faceLiked,
   }) async {
@@ -209,7 +211,11 @@ class KioskApi {
           if (productIds != null && productIds.isNotEmpty)
             'productIds': productIds,
           if (brand != null) 'brand': brand,
+          // Несколько брендов: `brand` тогда ANY, а сам выбор — здесь.
+          if (brands != null && brands.isNotEmpty) 'brands': brands,
           if (refine != null) 'refine': refine,
+          // Несколько уточнений сразу: в `refine` — главное, весь список — здесь.
+          if (refines != null && refines.isNotEmpty) 'refines': refines,
           if (excludeColors != null && excludeColors.isNotEmpty)
             'excludeColors': excludeColors,
           if (faceLiked != null) 'faceLiked': faceLiked,

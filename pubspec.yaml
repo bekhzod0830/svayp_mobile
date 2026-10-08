@@ -103,6 +103,9 @@ dependencies:
   # Camera (custom Pinterest-style camera screen)
   camera: ^0.11.0
 
+  # Mirroring the kiosk camera shot so it matches the mirrored preview
+  image: ^4.5.4
+
   # Path Provider (for writing cropped images to temp dir)
   path_provider: ^2.1.4
 

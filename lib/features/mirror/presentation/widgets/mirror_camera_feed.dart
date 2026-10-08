@@ -1,14 +1,48 @@
+import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_ffi_uvc/flutter_ffi_uvc.dart';
+import 'package:image/image.dart' as img;
 
 import '../../data/kiosk_camera.dart';
+
+/// Закрытие предыдущей камеры, которого обязана дождаться следующая. Общее для
+/// всех лент: Rapoo видна и как UVC напрямую, и как «external» камера Android —
+/// это одно устройство, и пока прежняя лента его держит, новая получает «занято»
+/// или зависает. Поэтому открытия и закрытия идут строго по очереди.
+Future<void> _released = Future.value();
+
+/// Сколько ждём закрытия камеры. Дольше — считаем, что закрытие зависло, и
+/// отпускаем очередь: иначе одна зависшая лента навсегда оставляла киоск без
+/// камеры (горит индикатор, на экране вечная загрузка).
+const _releaseTimeout = Duration(seconds: 6);
+
+/// Поставить закрытие ленты в общую очередь. Ошибки и зависания не рвут очередь.
+Future<void> _enqueueRelease(String label, Future<void> Function() release) {
+  final next = _released.then((_) async {
+    try {
+      await release().timeout(_releaseTimeout);
+    } on TimeoutException {
+      debugPrint('[mirror/camera] $label: release timed out');
+    } catch (e) {
+      debugPrint('[mirror/camera] $label: release failed: $e');
+    }
+  });
+  _released = next;
+  return next;
+}
 
 /// Живая картинка одной камеры киоска: запуск, превью, снимок, остановка.
 /// Экран камеры работает с ней одинаково, откуда бы кадр ни шёл — из
 /// камерного сервиса Android или напрямую с USB-вебкамеры.
+///
+/// Ни один шаг не ждёт бесконечно: запуск, снимок и закрытие ограничены по
+/// времени, а [dispose] можно звать в любой момент, в том числе посреди
+/// [start] — запуск прервётся, камера освободится.
 abstract class MirrorCameraFeed {
   KioskCameraOption get option;
 
@@ -24,11 +58,17 @@ abstract class MirrorCameraFeed {
   /// через Android никто.
   bool get previewNeedsFlip;
 
-  /// Снять кадр в файл [path] (JPEG). В файле — оригинал, без зеркала.
+  /// Снять кадр в файл [path] (JPEG). В файле — ровно то, что человек видел
+  /// на превью (с зеркалом): иначе готовый снимок «переворачивался» после
+  /// отсчёта, и в бэкенд уходил не тот кадр, что на экране.
   Future<File> capture(String path);
 
   /// Строка диагностики для оверлея на экране камеры: что идёт и как.
   String diagnostics();
+
+  /// Сколько кадров пришло с камеры с запуска; null — лента этого не знает.
+  /// Экран камеры по нему замечает, что поток встал, и перезапускает камеру.
+  int? get frameCount;
 
   Future<void> dispose();
 
@@ -50,9 +90,12 @@ class AndroidCameraFeed implements MirrorCameraFeed {
   final KioskCameraOption option;
 
   CameraController? _controller;
+  Future<void>? _disposing;
 
   @override
   Future<void> start() async {
+    await _released;
+    if (_disposing != null) throw StateError('camera feed disposed');
     final controller = CameraController(
       option.android!,
       ResolutionPreset.high,
@@ -60,8 +103,13 @@ class AndroidCameraFeed implements MirrorCameraFeed {
       imageFormatGroup: ImageFormatGroup.jpeg,
     );
     _controller = controller;
-    await controller.initialize();
+    // USB-камера через Camera2 при повторном открытии иногда не отвечает
+    // вовсе — без предела экран ждал бы её вечно.
+    await controller.initialize().timeout(const Duration(seconds: 12));
   }
+
+  @override
+  int? get frameCount => null;
 
   @override
   bool get previewNeedsFlip => option.kind == KioskCameraKind.external;
@@ -92,13 +140,25 @@ class AndroidCameraFeed implements MirrorCameraFeed {
     if (controller == null || !controller.value.isInitialized) {
       throw StateError('camera not initialized');
     }
-    final xfile = await controller.takePicture();
+    final xfile = await controller.takePicture().timeout(
+      const Duration(seconds: 8),
+    );
     final file = await File(xfile.path).copy(path);
     try {
       await File(xfile.path).delete();
     } catch (_) {}
+    // Превью фронталки зеркалит плагин camera, внешней — экран; снимок оба
+    // отдают без зеркала. Отражаем файл, чтобы он совпал с превью.
+    if (_previewMirrored) {
+      final mirrored = await compute(_mirrorJpeg, await file.readAsBytes());
+      await file.writeAsBytes(mirrored, flush: true);
+    }
     return file;
   }
+
+  bool get _previewMirrored =>
+      option.kind == KioskCameraKind.front ||
+      option.kind == KioskCameraKind.external;
 
   @override
   String diagnostics() {
@@ -110,18 +170,18 @@ class AndroidCameraFeed implements MirrorCameraFeed {
   }
 
   @override
-  Future<void> dispose() async {
-    final controller = _controller;
-    _controller = null;
-    if (controller != null) await controller.dispose();
-  }
+  Future<void> dispose() => _disposing ??= _enqueueRelease(option.label, () async {
+        final controller = _controller;
+        _controller = null;
+        if (controller != null) await controller.dispose();
+      });
 }
 
 /// USB-вебкамера напрямую (flutter_ffi_uvc, libuvc поверх USB host).
 ///
 /// Превью рисуется в Texture как есть, зеркалит его экран (GPU). Снимок
-/// берётся без зеркала — в бэкенд уходит «как в жизни», как и у остальных
-/// камер. Поворота нет: камера висит горизонтально, как и отдаёт кадр.
+/// отражается так же — в бэкенд уходит тот кадр, что человек видел на
+/// экране. Поворота нет: камера висит горизонтально, как и отдаёт кадр.
 class UvcCameraFeed implements MirrorCameraFeed {
   UvcCameraFeed(this.option, {this.maxWidth = kUvcMaxWidth})
     : assert(option.uvc != null);
@@ -139,30 +199,34 @@ class UvcCameraFeed implements MirrorCameraFeed {
   /// Режим, в котором реально идёт поток (после запуска).
   UvcCameraMode? get mode => _mode;
 
-  /// Закрытие предыдущей UVC-ленты, за которым новая обязана дождаться:
-  /// экран камеры не ждёт dispose в своём dispose(), а следующий экран
-  /// открывает то же USB-устройство — пока старая лента его держит, открытие
-  /// падает с «busy».
-  static Future<void> _lastTeardown = Future.value();
+  Future<void>? _disposing;
 
   @override
   Future<void> start() async {
-    await _lastTeardown;
+    // Пока прежняя лента держит то же USB-устройство, открытие падает с
+    // «busy» — ждём её закрытия (см. [_released]).
+    await _released;
+    if (_disposing != null) throw StateError('camera feed disposed');
     // Первое открытие на планшете покажет системный диалог «Разрешить
     // приложению доступ к USB-устройству?» — продавец ставит галочку
-    // «всегда», дальше без вопросов.
-    await _openWithRetry();
+    // «всегда», дальше без вопросов. Предел щедрый — успеть нажать.
+    await _openWithRetry().timeout(const Duration(seconds: 45));
     final supported = _camera.supportedModes();
     final candidates = rankUvcModes(supported, maxWidth: maxWidth);
-    final result = await _camera.startPreviewAuto(
-      candidates: candidates,
-      maxCandidates: candidates.isEmpty ? 8 : candidates.length,
-      preference: UvcAutoPreviewPreference.quality,
-      // Крупный MJPEG на слабом процессоре раскачивается не сразу: даём
-      // режиму больше времени, чем 2 с по умолчанию, прежде чем откатиться
-      // на меньший.
-      perModeTimeout: const Duration(seconds: 4),
-    );
+    final result = await _camera
+        .startPreviewAuto(
+          candidates: candidates,
+          // Не больше четырёх режимов: первый подходящий MJPEG у Rapoo
+          // заводится сразу, а перебор всего списка по 4 с растягивал
+          // «загрузку» камеры на минуту.
+          maxCandidates: candidates.isEmpty ? 4 : math.min(candidates.length, 4),
+          preference: UvcAutoPreviewPreference.quality,
+          // Крупный MJPEG на слабом процессоре раскачивается не сразу: даём
+          // режиму больше времени, чем 2 с по умолчанию, прежде чем
+          // откатиться на меньший.
+          perModeTimeout: const Duration(seconds: 4),
+        )
+        .timeout(const Duration(seconds: 25));
     final mode = result.mode;
     final attempts = [
       for (final a in result.attempts)
@@ -258,6 +322,16 @@ class UvcCameraFeed implements MirrorCameraFeed {
   bool get previewNeedsFlip => true;
 
   @override
+  int? get frameCount {
+    if (_mode == null) return null;
+    try {
+      return _camera.getStreamStats().inputFrameCount;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
   Widget buildPreview() {
     final textureId = _textureId;
     final mode = _mode;
@@ -282,7 +356,8 @@ class UvcCameraFeed implements MirrorCameraFeed {
     // без потерь.
     final picture = _camera.takePicture(
       quality: 96,
-      transform: UvcPreviewTransform.identity,
+      // Как на превью: экран зеркалит текстуру, кадр зеркалим при кодировании.
+      transform: const UvcPreviewTransform(flipHorizontal: true),
     );
     if (picture == null) {
       throw StateError('UVC capture failed: ${_camera.lastError}');
@@ -290,12 +365,10 @@ class UvcCameraFeed implements MirrorCameraFeed {
     return File(path).writeAsBytes(picture.jpegBytes, flush: true);
   }
 
+  /// Можно звать посреди [start]: закрытие плагина прерывает запуск потока.
   @override
-  Future<void> dispose() {
-    final teardown = _lastTeardown.then((_) => _teardown());
-    _lastTeardown = teardown;
-    return teardown;
-  }
+  Future<void> dispose() =>
+      _disposing ??= _enqueueRelease(option.label, _teardown);
 
   Future<void> _teardown() async {
     final textureId = _textureId;
@@ -310,4 +383,14 @@ class UvcCameraFeed implements MirrorCameraFeed {
       } catch (_) {}
     }
   }
+}
+
+/// JPEG, отражённый по горизонтали. Ориентацию из EXIF сначала «запекаем» в
+/// пиксели — иначе после отражения повёрнутый кадр перевернулся бы не по той оси.
+/// Верхнеуровневая функция — для [compute]: декод крупного кадра не держит UI.
+Uint8List _mirrorJpeg(Uint8List bytes) {
+  final decoded = img.decodeJpg(bytes);
+  if (decoded == null) throw StateError('JPEG decode failed');
+  final upright = img.bakeOrientation(decoded);
+  return img.encodeJpg(img.flipHorizontal(upright), quality: 95);
 }

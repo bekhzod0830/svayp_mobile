@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:swipe/l10n/app_localizations.dart';
 
 import '../mirror_theme.dart';
 
@@ -151,20 +152,24 @@ class MirrorLangToggle extends StatelessWidget {
 }
 
 /// Верхняя планка внутренних экранов: тонкий шеврон «назад», знак бренда по
-/// центру, опциональный переключатель языка. Прозрачная, с волосяной
-/// линией снизу: под планкой ничего не прокручивается, а фон экрана (ровный
-/// или фактура бренда) должен проходить под ней без шва.
+/// центру, справа — опциональный переключатель языка и «Завершить». Прозрачная,
+/// с волосяной линией снизу: под планкой ничего не прокручивается, а фон экрана
+/// (ровный или фактура бренда) должен проходить под ней без шва.
 class MirrorTopBar extends StatelessWidget {
   const MirrorTopBar({
     super.key,
     this.onBack,
     this.langCode,
     this.onLangChanged,
+    this.onFinish,
   });
 
   final VoidCallback? onBack;
   final String? langCode;
   final ValueChanged<String>? onLangChanged;
+
+  /// «Завершить»: закрыть сессию и вернуться на постер.
+  final VoidCallback? onFinish;
 
   @override
   Widget build(BuildContext context) {
@@ -173,6 +178,7 @@ class MirrorTopBar extends StatelessWidget {
     final size = 44 * s;
     final lang = langCode;
     final onLang = onLangChanged;
+    final finish = onFinish;
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -180,37 +186,106 @@ class MirrorTopBar extends StatelessWidget {
       ),
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: 20 * s, vertical: 10 * s),
+        // Боковые слоты равной ширины — знак бренда всегда ровно по центру;
+        // правый (язык + «Завершить») на узком экране ужимается, а не наезжает.
         child: Row(
           children: [
-            SizedBox(
-              width: size,
-              height: size,
-              child: onBack == null
-                  ? null
-                  : Material(
-                      color: Colors.transparent,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(t.rButton),
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: InkWell(
-                        onTap: onBack,
-                        child: Icon(
-                          Icons.arrow_back_ios_new_rounded,
-                          size: 18 * s,
-                          color: t.ink,
-                        ),
-                      ),
-                    ),
-            ),
             Expanded(
-              child: Center(child: MirrorBrandMark(height: 14 * s)),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: SizedBox(
+                  width: size,
+                  height: size,
+                  child: onBack == null
+                      ? null
+                      : Material(
+                          color: Colors.transparent,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(t.rButton),
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: InkWell(
+                            onTap: onBack,
+                            child: Icon(
+                              Icons.arrow_back_ios_new_rounded,
+                              size: 18 * s,
+                              color: t.ink,
+                            ),
+                          ),
+                        ),
+                ),
+              ),
             ),
-            if (lang == null || onLang == null)
-              SizedBox(width: size)
-            else
-              MirrorLangToggle(langCode: lang, onChanged: onLang),
+            SizedBox(width: 12 * s),
+            MirrorBrandMark(height: 14 * s),
+            SizedBox(width: 12 * s),
+            Expanded(
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (lang != null && onLang != null)
+                        MirrorLangToggle(langCode: lang, onChanged: onLang),
+                      if (lang != null && onLang != null && finish != null)
+                        SizedBox(width: 10 * s),
+                      if (finish != null) MirrorFinishButton(onTap: finish),
+                      if (finish == null && (lang == null || onLang == null))
+                        SizedBox(width: size, height: size),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// «Завершить» в шапке: компактная кнопка-пилюля с крестиком. Закрывает сессию
+/// покупателя и возвращает киоск на постер с любого экрана.
+class MirrorFinishButton extends StatelessWidget {
+  const MirrorFinishButton({super.key, required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final t = MirrorTheme.of(context);
+    final s = MirrorTheme.scale(context);
+    return Semantics(
+      button: true,
+      label: l10n.mirrorFinish,
+      excludeSemantics: true,
+      child: Material(
+        color: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(t.rChip + 3 * s),
+          side: BorderSide(color: t.ink.withValues(alpha: 0.35), width: 1.2),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 14 * s, vertical: 11 * s),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.close_rounded, size: 16 * s, color: t.ink),
+                SizedBox(width: 6 * s),
+                Text(
+                  l10n.mirrorFinish,
+                  style: t.label(12.5 * s, color: t.ink),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

@@ -7,9 +7,8 @@ import '../mirror_theme.dart';
 import '../widgets/mirror_buttons.dart';
 import '../widgets/mirror_station_card.dart';
 
-/// Шаг 01 станции — гардероб (женский / мужской). Дизайн LIBAS 10.2026: две высокие
-/// карточки с фото, круглый индикатор; переход — только по «Продолжить», чтобы
-/// случайное касание не уводило дальше.
+/// Шаг 01 станции — для кого образ (женщина / мужчина). Дизайн LIBAS 10.2026: две
+/// высокие карточки с фото, круглый индикатор; касание карточки сразу ведёт дальше.
 class MirrorGenderScreen extends StatelessWidget {
   const MirrorGenderScreen({super.key, required this.controller});
 
@@ -36,9 +35,8 @@ class MirrorGenderScreen extends StatelessWidget {
         children: [
           SizedBox(height: 24 * s),
           MirrorStationHeading(
-            kicker: l10n.mirrorWardrobeKicker,
             title: l10n.mirrorWardrobeTitle,
-            subtitle: controller.menswearAvailable ? l10n.mirrorWardrobeSubtitle : l10n.mirrorWomenOnly,
+            subtitle: controller.menswearAvailable ? null : l10n.mirrorWomenOnly,
           ),
           SizedBox(height: 24 * s),
           Expanded(
@@ -60,22 +58,15 @@ class MirrorGenderScreen extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
           ),
-          SizedBox(height: 16 * s),
-          MirrorPrimaryButton(
-            label: l10n.mirrorContinue,
-            height: 64 * s,
-            enabled: controller.gender != null,
-            onTap: controller.confirmGender,
-          ),
-          SizedBox(height: 24 * s),
+          SizedBox(height: 32 * s),
         ],
       ),
     );
   }
 }
 
-/// Шаг 02 — тип фигуры: четыре силуэта пола, один выбор; «Не знаю свой тип фигуры»
-/// не угадывает фигуру, а честно отправляет «не знаю».
+/// Шаг 02 — тип фигуры: четыре силуэта пола сеткой 2×2, один выбор;
+/// «Не знаю свой тип фигуры» не угадывает фигуру, а честно отправляет «не знаю».
 class MirrorShapeScreen extends StatelessWidget {
   const MirrorShapeScreen({super.key, required this.controller});
 
@@ -98,7 +89,6 @@ class MirrorShapeScreen extends StatelessWidget {
           MirrorStationHeading(
             kicker: gender == 'MALE' ? l10n.mirrorWardrobeMen : l10n.mirrorWardrobeWomen,
             title: l10n.mirrorShapeTitleStation,
-            subtitle: l10n.mirrorShapeSubtitleStation,
           ),
           SizedBox(height: 24 * s),
           Expanded(

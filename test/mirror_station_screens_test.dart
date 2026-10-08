@@ -8,6 +8,7 @@ import 'package:swipe/features/mirror/data/kiosk_demo.dart';
 import 'package:swipe/features/mirror/data/kiosk_models.dart';
 import 'package:swipe/features/mirror/presentation/mirror_session_controller.dart';
 import 'package:swipe/features/mirror/presentation/screens/mirror_body_screens.dart';
+import 'package:swipe/features/mirror/presentation/screens/mirror_colors_screen.dart';
 import 'package:swipe/features/mirror/presentation/screens/mirror_refine_screen.dart';
 import 'package:swipe/features/mirror/presentation/screens/mirror_shop_brand_screen.dart';
 import 'package:swipe/features/mirror/presentation/screens/mirror_style_screen.dart';
@@ -68,11 +69,14 @@ void main() {
         await tester.pump(const Duration(seconds: 1));
       }
 
-      testWidgets('гардероб: «Продолжить» неактивна до выбора', (tester) async {
+      testWidgets('пол: касание карточки сразу ведёт к фигуре', (tester) async {
         final c = await _controller();
         c.gender = null;
         await pump(tester, _listening(c, () => MirrorGenderScreen(controller: c)));
-        expect(find.text('Женский гардероб'), findsOneWidget);
+        expect(find.text('Продолжить'), findsNothing);
+        await tester.tap(find.text('Для женщин'));
+        expect(c.gender, 'FEMALE');
+        expect(c.screen, MirrorScreen.shape);
         expect(tester.takeException(), isNull);
       });
 
@@ -91,37 +95,68 @@ void main() {
         await tester.tap(find.text('Кэжуал'));
         await tester.pump();
         expect(find.text('Выбрано: 1'), findsOneWidget);
-        await tester.tap(find.text('5–8 из 8'));
-        await tester.pump(const Duration(milliseconds: 400));
+        await tester.tap(find.bySemanticsLabel('Следующие стили'));
+        await tester.pumpAndSettle();
         expect(find.text('Преппи'), findsOneWidget);
+        expect(find.text('Выбрано: 1'), findsOneWidget);
         expect(tester.takeException(), isNull);
       });
 
-      testWidgets('бренд: «Любой бренд» и 12 брендов', (tester) async {
+      testWidgets('бренд: «Все бренды» и 12 брендов', (tester) async {
         final c = await _controller();
         await pump(tester, _listening(c, () => MirrorShopBrandScreen(controller: c)));
-        await tester.tap(find.text('Любой бренд'));
+        await tester.tap(find.text('Все бренды'));
         await tester.pump();
-        expect(c.shopBrand, 'ANY');
+        expect(c.shopBrands, {'ANY'});
         expect(tester.takeException(), isNull);
       });
 
-      testWidgets('«Что изменить?»: вопрос про лицо, цвета, список стилей', (tester) async {
+      testWidgets('цвета: отмеченные исключаются', (tester) async {
+        final c = await _controller();
+        await pump(tester, _listening(c, () => MirrorColorsScreen(controller: c)));
+        expect(find.text('Ничего не исключено — покажем все цвета'), findsOneWidget);
+        await tester.tap(find.text('Красные'));
+        await tester.pump();
+        expect(c.avoidColors, ['red']);
+        expect(find.text('Исключено цветов: 1'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('«Что изменить?»: несколько причин, раскрытые выборы, одна кнопка', (tester) async {
         final c = await _controller();
         c.styles.add('CASUAL');
         await pump(tester, _listening(c, () => MirrorRefineScreen(controller: c)));
         await tester.tap(find.text('Нет'));
         await tester.pump();
         expect(c.faceLiked, isFalse);
+        expect(find.text('Просто пересобрать'), findsOneWidget);
 
-        await tester.tap(find.text('Поменять стиль'));
+        // Дешевле и дороже — одно из двух.
+        await tester.tap(find.bySemanticsLabel('Дешевле'));
+        await tester.tap(find.bySemanticsLabel('Дороже'));
         await tester.pump();
-        expect(find.text('Деловой'), findsOneWidget);
 
-        await tester.tap(find.text('Другой цвет'));
+        await tester.tap(find.bySemanticsLabel('Поменять стиль'));
+        await tester.pumpAndSettle();
+        expect(find.text('Выберите стиль ниже'), findsOneWidget);
+        await tester.ensureVisible(find.text('Деловой'));
+        await tester.tap(find.text('Деловой'));
         await tester.pump();
-        expect(find.text('Какие цвета не показывать?'), findsOneWidget);
-        expect(find.text('Тёмно-синие'), findsOneWidget);
+        expect(find.text('Выберите стиль ниже'), findsNothing);
+
+        await tester.tap(find.bySemanticsLabel('Другой цвет'));
+        await tester.pumpAndSettle();
+        expect(find.text('Какие цвета убрать?'), findsOneWidget);
+        // Раскрыт один выбор: стили свернулись, отметка стиля осталась.
+        expect(find.text('Какой стиль попробовать?'), findsNothing);
+        expect(find.text('Выбрано: 3'), findsOneWidget);
+
+        // Повторное касание отмеченной плитки раскрывает её выбор снова.
+        await tester.tap(find.bySemanticsLabel('Поменять стиль'));
+        await tester.pumpAndSettle();
+        expect(find.text('Какой стиль попробовать?'), findsOneWidget);
+        expect(find.text('Какие цвета убрать?'), findsNothing);
+        expect(find.text('Выбрано: 3'), findsOneWidget);
         expect(tester.takeException(), isNull);
       });
     });

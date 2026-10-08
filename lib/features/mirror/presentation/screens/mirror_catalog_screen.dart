@@ -29,6 +29,10 @@ class MirrorCatalogScreen extends StatelessWidget {
     final lang = c.shopperLang;
     final picked = c.pickedProductIds.length;
     final brand = t.brand;
+    // Снимок списка: сетка строит карточки лениво, уже после build, а
+    // контроллер подменяет `catalog` целиком (сброс сессии — на пустой).
+    // Уходящий экран, читая живое поле, падал с RangeError посреди fade-out.
+    final items = c.catalog;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -73,7 +77,7 @@ class MirrorCatalogScreen extends StatelessWidget {
         ),
         SizedBox(height: 14 * s),
         Expanded(
-          child: c.catalog.isEmpty
+          child: items.isEmpty
               ? (c.catalogLoading
                   ? _ShimmerGrid(s: s)
                   : Center(
@@ -91,9 +95,9 @@ class MirrorCatalogScreen extends StatelessWidget {
                     crossAxisSpacing: 14 * s,
                     mainAxisExtent: 256 * s,
                   ),
-                  itemCount: c.catalog.length,
+                  itemCount: items.length,
                   itemBuilder: (context, i) {
-                    final item = c.catalog[i];
+                    final item = items[i];
                     return _CatalogCard(
                       item: item,
                       lang: lang,

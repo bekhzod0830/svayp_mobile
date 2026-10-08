@@ -19,6 +19,7 @@ import 'screens/mirror_body_screens.dart';
 import 'screens/mirror_brand_picker.dart';
 import 'screens/mirror_camera_screen.dart';
 import 'screens/mirror_catalog_screen.dart';
+import 'screens/mirror_colors_screen.dart';
 import 'screens/mirror_cover_screen.dart';
 import 'screens/mirror_generating_screen.dart';
 import 'widgets/mirror_arch.dart';
@@ -322,6 +323,11 @@ class _MirrorTabState extends State<MirrorTab> with WidgetsBindingObserver {
           key: const ValueKey('brand'),
           controller: _controller,
         );
+      case MirrorScreen.colors:
+        return MirrorColorsScreen(
+          key: const ValueKey('colors'),
+          controller: _controller,
+        );
       case MirrorScreen.refine:
         return MirrorRefineScreen(
           key: const ValueKey('refine'),
@@ -422,6 +428,8 @@ class _MirrorTabState extends State<MirrorTab> with WidgetsBindingObserver {
                                                 : null,
                                             onLangChanged:
                                                 _controller.setShopperLang,
+                                            onFinish: () =>
+                                                _controller.hardReset('finish'),
                                           ),
                                           MirrorSteps(
                                             current: _controller.stepIndex,

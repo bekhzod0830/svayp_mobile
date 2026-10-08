@@ -24,8 +24,12 @@ enum MirrorScreen {
   shape,
   style,
 
-  /// «Где вы любите покупать?» — бренд или «любой» (только ветка «создать»).
+  /// «Где вы любите покупать?» — бренды или «все» (только ветка «создать»).
   brand,
+
+  /// «Какие цвета не показывать?» — цвета, которых не должно быть в образе
+  /// (только ветка «создать», сразу после брендов).
+  colors,
   catalog,
   generating,
   result,
@@ -115,17 +119,27 @@ class MirrorSessionController extends ChangeNotifier {
   String? bodyShape;
   final List<String> styles = [];
 
-  /// Бренд с шага «Где вы любите покупать?»: код ([kioskShopBrands]),
-  /// [kioskAnyBrand] — любой, null — ещё не выбран.
-  String? shopBrand;
+  /// Бренды с шага «Где вы любите покупать?»: коды ([kioskShopBrands]) в
+  /// порядке выбора; `{kioskAnyBrand}` — все бренды, пусто — ещё не выбраны.
+  final Set<String> shopBrands = {};
+
+  /// Цвета с шага «Какие цвета не показывать?». Живут всю сессию и уходят в
+  /// каждую генерацию — вместе с цветами уточнения «Другой цвет».
+  final List<String> avoidColors = [];
 
   /// «Понравилось ли вам лицо?» на экране уточнений; null — не отвечал.
   bool? faceLiked;
 
-  /// Уточнение последней пересборки (CHEAPER | PRICIER | COLOR | BRAND | STYLE) и
-  /// цвета, которых не должно быть. Живут до следующей пересборки: повтор после
-  /// ошибки шлёт тот же запрос.
-  String? refineKind;
+  /// Уточнения последней пересборки ([kioskRefineOrder]: CHEAPER | PRICIER |
+  /// COLOR | BRAND | STYLE, можно несколько) и цвета, которых не должно быть.
+  /// Живут до следующей пересборки: повтор после ошибки шлёт тот же запрос.
+  final List<String> refineKinds = [];
+
+  /// Порядок уточнений: цена главнее — она и уходит в `refine` (бэкенд
+  /// понимает одно), полный список — в `refines`.
+  static const kioskRefineOrder = ['CHEAPER', 'PRICIER', 'COLOR', 'BRAND', 'STYLE'];
+
+  String? get refineKind => refineKinds.firstOrNull;
   final List<String> excludeColors = [];
   final List<String> pickedProductIds = [];
 
@@ -224,6 +238,7 @@ class MirrorSessionController extends ChangeNotifier {
           return 1;
         case MirrorScreen.style:
         case MirrorScreen.brand:
+        case MirrorScreen.colors:
           return 2;
         case MirrorScreen.generating:
         case MirrorScreen.result:
@@ -242,6 +257,7 @@ class MirrorSessionController extends ChangeNotifier {
       case MirrorScreen.shape:
       case MirrorScreen.style:
       case MirrorScreen.brand:
+      case MirrorScreen.colors:
         return 2;
       case MirrorScreen.generating:
       case MirrorScreen.result:
@@ -564,21 +580,15 @@ class MirrorSessionController extends ChangeNotifier {
 
   // ── Пол и фигура ───────────────────────────────────────────────────────────
 
-  /// Выбор гардероба. Переход — только по «Продолжить» ([confirmGender]): случайное
-  /// касание не должно уводить на следующий экран (дизайн станции).
+  /// Выбор гардероба — один вопрос с одним ответом, поэтому касание карточки
+  /// сразу ведёт к фигуре, без «Продолжить».
   void setGender(String g) {
-    touch();
     if (gender != g) {
       gender = g;
       // Списки фигур и стилей зависят от пола — прежний выбор не имеет смысла.
       bodyShape = null;
       styles.clear();
     }
-    _notify();
-  }
-
-  void confirmGender() {
-    if (gender == null) return;
     _go(MirrorScreen.shape);
   }
 
@@ -626,15 +636,52 @@ class MirrorSessionController extends ChangeNotifier {
 
   // ── Бренд ──────────────────────────────────────────────────────────────────
 
-  void chooseShopBrand(String code) {
+  /// Мультивыбор брендов. «Все бренды» ([kioskAnyBrand]) исключает остальные:
+  /// касание по нему снимает отдельные бренды, касание по бренду — снимает «все».
+  void toggleShopBrand(String code) {
     touch();
-    shopBrand = code;
+    if (code == kioskAnyBrand) {
+      final wasAll = shopBrands.contains(kioskAnyBrand);
+      shopBrands.clear();
+      if (!wasAll) shopBrands.add(kioskAnyBrand);
+    } else {
+      shopBrands.remove(kioskAnyBrand);
+      if (!shopBrands.remove(code)) shopBrands.add(code);
+    }
     _notify();
   }
 
   void confirmShopBrand() {
-    if (shopBrand == null) return;
-    _track('kiosk_brand_selected', {'brand': shopBrand!});
+    if (shopBrands.isEmpty) return;
+    _track('kiosk_brand_selected', {'brand': shopBrands.join(',')});
+    _go(MirrorScreen.colors);
+  }
+
+  /// `brand` для бэкенда: один бренд — его код, несколько или все —
+  /// [kioskAnyBrand] (контракт с одним брендом). Сам список — в [_apiBrands].
+  String? get _apiBrand => switch (shopBrands.length) {
+        0 => null,
+        1 => shopBrands.first,
+        _ => kioskAnyBrand,
+      };
+
+  List<String>? get _apiBrands =>
+      shopBrands.isEmpty || shopBrands.contains(kioskAnyBrand)
+          ? null
+          : List.of(shopBrands);
+
+  // ── Цвета, которых не должно быть ──────────────────────────────────────────
+
+  void toggleAvoidColor(String code) {
+    touch();
+    if (!avoidColors.remove(code)) avoidColors.add(code);
+    _notify();
+  }
+
+  /// [skip] — «Пропустить»: отмеченное не учитываем, показываем все цвета.
+  void confirmColors({bool skip = false}) {
+    if (skip) avoidColors.clear();
+    _track('kiosk_colors_excluded', {'colors': avoidColors.join(',')});
     startGeneration();
   }
 
@@ -646,30 +693,38 @@ class MirrorSessionController extends ChangeNotifier {
     _notify();
   }
 
-  /// Пересобрать образ с уточнением ([kind] — CHEAPER | PRICIER | COLOR | BRAND |
-  /// STYLE; null — «просто пересобрать»). [style] и [brand] меняют выбор человека
-  /// (стиль — один, из списка), [colors] — цвета, которых не должно быть.
-  void rebuild(
-    String? kind, {
+  /// Пересобрать образ с уточнениями ([reasons] — любые из [kioskRefineOrder],
+  /// пусто — «просто пересобрать»; «Дешевле» и «Дороже» вместе не бывают).
+  /// [styles] и [brands] заменяют выбор человека, [colors] — цвета, которых не
+  /// должно быть (вдобавок к исключённым на шаге цветов).
+  void rebuild({
+    Set<String> reasons = const {},
     List<String> colors = const [],
-    String? style,
-    String? brand,
+    List<String>? styles,
+    Set<String>? brands,
   }) {
     if (!canRegenerate) return;
-    refineKind = kind;
+    assert(!(reasons.contains('CHEAPER') && reasons.contains('PRICIER')));
+    refineKinds
+      ..clear()
+      ..addAll(kioskRefineOrder.where(reasons.contains));
     excludeColors
       ..clear()
       ..addAll(colors);
-    if (style != null) {
-      styles
+    if (styles != null && styles.isNotEmpty) {
+      this.styles
         ..clear()
-        ..add(style);
+        ..addAll(styles);
     }
-    if (brand != null) shopBrand = brand;
+    if (brands != null && brands.isNotEmpty) {
+      shopBrands
+        ..clear()
+        ..addAll(brands);
+    }
     attempt += 1;
     _track('kiosk_regenerate', {
       'attempt': attempt.toString(),
-      'refine': kind ?? '',
+      'refine': refineKinds.join(','),
       'face_liked': faceLiked?.toString() ?? '',
     });
     _clearShare();
@@ -729,9 +784,11 @@ class MirrorSessionController extends ChangeNotifier {
         styles: path == MirrorPath.create ? List.of(styles) : null,
         productIds:
             path == MirrorPath.catalog ? List.of(pickedProductIds) : null,
-        brand: path == MirrorPath.create ? shopBrand : null,
+        brand: path == MirrorPath.create ? _apiBrand : null,
+        brands: path == MirrorPath.create ? _apiBrands : null,
         refine: refineKind,
-        excludeColors: List.of(excludeColors),
+        refines: refineKinds.length > 1 ? List.of(refineKinds) : null,
+        excludeColors: {...avoidColors, ...excludeColors}.toList(),
         faceLiked: faceLiked,
       );
       if (stale() || screen != MirrorScreen.generating) return;
@@ -932,6 +989,8 @@ class MirrorSessionController extends ChangeNotifier {
         _go(MirrorScreen.shape);
       case MirrorScreen.brand:
         _go(MirrorScreen.style);
+      case MirrorScreen.colors:
+        _go(MirrorScreen.brand);
       case MirrorScreen.refine:
         _go(MirrorScreen.result);
       case MirrorScreen.result:
@@ -999,8 +1058,8 @@ class MirrorSessionController extends ChangeNotifier {
 
   // ── Полный сброс ───────────────────────────────────────────────────────────
 
-  /// Полная зачистка сессии. Обещание «фото удалится» написано на экране —
-  /// исполняем буквально: файл с диска, битмапы из кэша, сессию на бэкенде.
+  /// Полная зачистка сессии: файл фото с диска, битмапы из кэша, сессию на
+  /// бэкенде. Её же вызывает «Завершить» в шапке любого экрана.
   Future<void> hardReset(String reason) async {
     final hadSession = sessionId != null;
     if (hadSession) {
@@ -1038,9 +1097,10 @@ class MirrorSessionController extends ChangeNotifier {
     bodyShape = null;
     styles.clear();
     pickedProductIds.clear();
-    shopBrand = null;
+    shopBrands.clear();
+    avoidColors.clear();
     faceLiked = null;
-    refineKind = null;
+    refineKinds.clear();
     excludeColors.clear();
     catalog = [];
     catalogLoading = false;

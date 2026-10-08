@@ -77,6 +77,22 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
   /// Раз в секунду перерисовывает диагностику, пока она включена.
   Timer? _diagTimer;
 
+  /// Лента, которая сейчас запускается (ещё не [_feed]). Уходя с экрана,
+  /// закрываем и её — иначе запуск, переживший экран, держал камеру занятой
+  /// (горит индикатор), и следующий экран камеры её уже не открывал.
+  MirrorCameraFeed? _starting;
+
+  /// Сторож камеры: замечает зависший запуск и вставший поток и сам
+  /// перезапускает камеру, не дожидаясь продавца.
+  Timer? _watchdog;
+  DateTime? _initStartedAt;
+  int? _lastFrameCount;
+  DateTime? _framesStalledSince;
+  int _autoRestarts = 0;
+  static const _maxAutoRestarts = 3;
+  static const _stallLimit = Duration(seconds: 5);
+  static const _initLimit = Duration(seconds: 90);
+
   _CamPhase _phase = _CamPhase.live;
   int _countdown = _countdownFrom;
   Timer? _countdownTimer;
@@ -109,6 +125,59 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
     }
     if (widget.cameraAllowed) _initCamera();
     _syncDiagTimer();
+    _watchdog = Timer.periodic(const Duration(seconds: 1), (_) => _checkCamera());
+  }
+
+  /// Раз в секунду: запуск не идёт дольше [_initLimit], поток живой. Кадры
+  /// не приходят [_stallLimit] (индикатор камеры горит, а картинки нет) —
+  /// перезапуск. Подряд не больше [_maxAutoRestarts] раз, дальше — экран
+  /// ошибки с кнопкой «Повторить», а не вечный цикл.
+  void _checkCamera() {
+    if (!mounted || !widget.cameraAllowed) return;
+    final now = DateTime.now();
+    final startedAt = _initStartedAt;
+    if (_initInFlight &&
+        startedAt != null &&
+        now.difference(startedAt) > _initLimit) {
+      _autoRestart('start hung');
+      return;
+    }
+    final feed = _feed;
+    if (!_initialized || feed == null) return;
+    final frames = feed.frameCount;
+    if (frames == null) return;
+    if (frames != _lastFrameCount) {
+      _lastFrameCount = frames;
+      _framesStalledSince = null;
+      // Кадры идут — счётчик автоперезапусков обнуляем.
+      if (frames > 0) _autoRestarts = 0;
+      return;
+    }
+    _framesStalledSince ??= now;
+    if (now.difference(_framesStalledSince!) > _stallLimit) {
+      _autoRestart('no frames');
+    }
+  }
+
+  void _autoRestart(String reason) {
+    debugPrint('[mirror/camera] auto restart: $reason');
+    _framesStalledSince = null;
+    _lastFrameCount = null;
+    if (_autoRestarts >= _maxAutoRestarts) {
+      _teardownCamera();
+      if (mounted) {
+        setState(() {
+          _initFailed = true;
+          _failReason = reason;
+        });
+      }
+      return;
+    }
+    _autoRestarts++;
+    _teardownCamera();
+    // Зависший запуск держит очередь запусков этого экрана — начинаем новую.
+    _initChain = Future.value();
+    _initCamera();
   }
 
   void _syncDiagTimer() {
@@ -184,8 +253,11 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
     _autoStartTimer?.cancel();
     _softHintTimer?.cancel();
     _diagTimer?.cancel();
+    _watchdog?.cancel();
     _usbSub?.cancel();
     _initSeq++;
+    _starting?.dispose();
+    _starting = null;
     _feed?.dispose();
     _feed = null;
     super.dispose();
@@ -210,6 +282,9 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
     bool stale() => !mounted || seq != _initSeq;
 
     _initInFlight = true;
+    _initStartedAt = DateTime.now();
+    _lastFrameCount = null;
+    _framesStalledSince = null;
     try {
       // Явно просим разрешение: системный диалог при первом заходе, а не
       // молчаливый экран «нет доступа». USB напрямую в нём не нуждается,
@@ -217,12 +292,32 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
       final status = await Permission.camera.request();
       if (stale()) return;
 
-      final cameras = await listKioskCameras(androidAllowed: status.isGranted);
+      // Сначала только USB напрямую. Камерный сервис Android видит ту же
+      // Rapoo как камеру №1; его опрос (availableCameras) поднимает CameraX,
+      // и тот дёргается на каждое наше открытие и закрытие Rapoo — лишняя
+      // возня вокруг того же устройства (в логах планшета — его внутренние
+      // ошибки). Камеры Android спрашиваем, только если продавец выбрал
+      // именно такую, USB-камеры нет или она не завелась.
+      final preferred = widget.preferredCamera;
+      final preferAndroid = preferred != null && !preferred.startsWith('uvc:');
+      Future<List<KioskCameraOption>> list({
+        required bool uvc,
+        required bool android,
+      }) =>
+          listKioskCameras(
+            includeUvc: uvc,
+            androidAllowed: android && status.isGranted,
+          ).timeout(const Duration(seconds: 8), onTimeout: () => const []);
+
+      var androidListed = preferAndroid;
+      var cameras = await list(uvc: true, android: preferAndroid);
       if (stale()) return;
-      final ranked = rankKioskCameras(
-        cameras,
-        preferredId: widget.preferredCamera,
-      );
+      if (cameras.isEmpty && !androidListed) {
+        androidListed = true;
+        cameras = await list(uvc: false, android: true);
+        if (stale()) return;
+      }
+      var ranked = rankKioskCameras(cameras, preferredId: preferred);
 
       // Прежняя лента уходит в любом случае: даже если камер не осталось
       // (выдернули единственную), мёртвое превью висеть не должно.
@@ -244,27 +339,47 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
 
       // Первая, что завелась, и остаётся: UVC напрямую может не отдать
       // кадры (режим согласовался, поток пустой), тогда очередь за встроенной.
-      MirrorCameraFeed? started;
       final errors = <String>[];
-      for (final option in ranked) {
-        final feed = MirrorCameraFeed.create(
-          option,
-          uvcMaxWidth: widget.uvcMaxWidth,
+      Future<MirrorCameraFeed?> firstThatStarts(
+        List<KioskCameraOption> options,
+      ) async {
+        for (final option in options) {
+          final feed = MirrorCameraFeed.create(
+            option,
+            uvcMaxWidth: widget.uvcMaxWidth,
+          );
+          _starting = feed;
+          try {
+            await feed.start();
+          } catch (e) {
+            debugPrint('[mirror/camera] ${option.label}: start failed: $e');
+            errors.add('${option.label}: $e');
+            if (identical(_starting, feed)) _starting = null;
+            await feed.dispose();
+            if (stale()) return null;
+            continue;
+          }
+          if (identical(_starting, feed)) _starting = null;
+          if (stale()) {
+            await feed.dispose();
+            return null;
+          }
+          return feed;
+        }
+        return null;
+      }
+
+      var started = await firstThatStarts(ranked);
+      if (stale()) return;
+      if (started == null && !androidListed && status.isGranted) {
+        // USB напрямую не завелась — запасной путь через камеры Android.
+        ranked = rankKioskCameras(
+          await list(uvc: false, android: true),
+          preferredId: preferred,
         );
-        try {
-          await feed.start();
-        } catch (e) {
-          errors.add('${option.label}: $e');
-          await feed.dispose();
-          if (stale()) return;
-          continue;
-        }
-        if (stale()) {
-          await feed.dispose();
-          return;
-        }
-        started = feed;
-        break;
+        if (stale()) return;
+        started = await firstThatStarts(ranked);
+        if (stale()) return;
       }
       if (started == null) {
         setState(() {
@@ -295,11 +410,15 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
   }
 
   void _teardownCamera() {
-    // Запуск, что шёл, становится «чужим» и сам уберёт за собой.
+    // Запуск, что шёл, становится «чужим»; его ленту закрываем сразу —
+    // закрытие прерывает запуск, и камера освобождается, а не ждёт его конца.
     _initSeq++;
     _initInFlight = false;
+    _initStartedAt = null;
     _countdownTimer?.cancel();
     _autoStartTimer?.cancel();
+    _starting?.dispose();
+    _starting = null;
     _feed?.dispose();
     _feed = null;
     if (mounted) {
@@ -308,6 +427,15 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
         if (_phase == _CamPhase.countdown) _phase = _CamPhase.live;
       });
     }
+  }
+
+  /// Фото принято — камера больше не нужна. Закрываем её ещё на этом экране,
+  /// пока превью на месте, а не когда экран уже исчез: следующий покупатель
+  /// получает свободную камеру.
+  void _releaseCameraAndContinue() {
+    _watchdog?.cancel();
+    _teardownCamera();
+    widget.controller.confirmPhoto();
   }
 
   void _scheduleAutoCountdown() {
@@ -353,7 +481,7 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
     }
     try {
       // Кадр — собственность контроллера сессии: файл в temp живёт до
-      // hardReset (обещание «удалится через 15 минут» исполняется буквально).
+      // hardReset, затем удаляется.
       final dir = await getTemporaryDirectory();
       final path =
           '${dir.path}/mirror_face_${DateTime.now().millisecondsSinceEpoch}.jpg';
@@ -404,8 +532,9 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
     }
   }
 
-  /// Кадр, который так и не ушёл в контроллер, — удаляем: на экране обещано, что
-  /// фото не останется. Отправленный кадр принадлежит контроллеру, он удалит его сам.
+  /// Кадр, который так и не ушёл в контроллер, — удаляем: фото покупателя не
+  /// должно оставаться на планшете. Отправленный кадр принадлежит контроллеру,
+  /// он удалит его сам.
   void _discardShot() {
     final shot = _shot;
     if (shot == null || shot.path == widget.controller.capturedPhoto?.path) {
@@ -450,7 +579,7 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
       }
       final soft = _softHintFor(validation, l10n);
       if (soft == null) {
-        widget.controller.confirmPhoto();
+        _releaseCameraAndContinue();
         return;
       }
       // Мягкие подсказки не блокируют (веб-паритет): показываем полторы
@@ -459,7 +588,7 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
       setState(() => _softHint = soft);
       _softHintTimer?.cancel();
       _softHintTimer = Timer(const Duration(milliseconds: 1800), () {
-        if (mounted) widget.controller.confirmPhoto();
+        if (mounted) _releaseCameraAndContinue();
       });
     } on KioskApiException {
       if (!mounted) return;
@@ -555,6 +684,8 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
                         _initFailed = false;
                         _permissionDenied = false;
                       });
+                      _autoRestarts = 0;
+                      _initChain = Future.value();
                       _initCamera();
                     },
                   ),
@@ -623,12 +754,12 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
-                          captured && _shot != null
-                              // Готовый снимок — как снято, без отражения
-                              // (как и на генерации, и в образе). Зеркальным
-                              // остаётся только живое превью ниже.
-                              ? Image.file(_shot!, fit: BoxFit.cover)
-                              : _initialized && _feed != null
+                          // Живое превью остаётся в дереве и под готовым
+                          // снимком: пока камера отдаёт кадры, их должен
+                          // кто-то забирать с текстуры. Снятое с экрана
+                          // превью при работающем потоке — подозреваемый в
+                          // «камера горит, а картинки нет» после снимка.
+                          _initialized && _feed != null
                               ? Transform.flip(
                                   flipX: _feed!.previewNeedsFlip,
                                   child: _feed!.buildPreview(),
@@ -642,6 +773,11 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
                                     ),
                                   ),
                                 ),
+                          // Снимок уже отражён при съёмке (см.
+                          // MirrorCameraFeed.capture) — показываем как есть,
+                          // он совпадает с живым превью.
+                          if (captured && _shot != null)
+                            Image.file(_shot!, fit: BoxFit.cover),
                           if (counting)
                             ColoredBox(
                               color: Colors.black.withValues(alpha: 0.25),
@@ -740,24 +876,7 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
           padding: EdgeInsets.symmetric(horizontal: 28 * s),
           child: Column(
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.lock_outline_rounded,
-                    size: 14 * s,
-                    color: t.muted,
-                  ),
-                  SizedBox(width: 6 * s),
-                  Flexible(
-                    child: Text(
-                      l10n.mirrorPrivacyShort,
-                      style: t.subtitle(13 * s),
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 10 * s),
+              SizedBox(height: 6 * s),
               if (!captured) ...[
                 MirrorPrimaryButton(
                   label: l10n.mirrorShoot,

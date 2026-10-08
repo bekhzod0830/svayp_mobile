@@ -193,14 +193,15 @@ List<UvcCameraMode> rankUvcModes(
 }
 
 /// Все камеры, которые видит планшет прямо сейчас: UVC-устройства по USB
-/// плюс то, что отдаёт камерный сервис Android (последнее — только с
-/// разрешением на камеру, [androidAllowed]). Ошибки каждого источника
-/// глотаются: пустой список, а не падение киоска.
+/// ([includeUvc]) плюс то, что отдаёт камерный сервис Android (последнее —
+/// только с разрешением на камеру, [androidAllowed]). Ошибки каждого
+/// источника глотаются: пустой список, а не падение киоска.
 Future<List<KioskCameraOption>> listKioskCameras({
   bool androidAllowed = true,
+  bool includeUvc = true,
 }) async {
   final result = <KioskCameraOption>[];
-  if (Platform.isAndroid) {
+  if (includeUvc && Platform.isAndroid) {
     try {
       for (final d in await uvcCamera.listUsbDevices()) {
         result.add(KioskCameraOption.uvc(d));

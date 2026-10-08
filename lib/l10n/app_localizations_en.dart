@@ -3515,9 +3515,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Your face photo is kept for 15 minutes and deleted automatically. We never show your face on the image and sellers never see the photo.';
 
   @override
-  String get mirrorPrivacyShort => 'The photo is deleted after 15 minutes';
-
-  @override
   String get mirrorCamAim => 'Place your face in the frame';
 
   @override
@@ -3885,20 +3882,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mirrorFinish => 'Finish';
 
   @override
-  String get mirrorWardrobeKicker => 'Let\'s start with your wardrobe';
-
-  @override
   String get mirrorWardrobeTitle => 'Who are we styling?';
 
   @override
-  String get mirrorWardrobeSubtitle =>
-      'Choose a wardrobe — then we\'ll pick pieces in your style.';
+  String get mirrorWardrobeWomen => 'For women';
 
   @override
-  String get mirrorWardrobeWomen => 'Women\'s wardrobe';
-
-  @override
-  String get mirrorWardrobeMen => 'Men\'s wardrobe';
+  String get mirrorWardrobeMen => 'For men';
 
   @override
   String get mirrorWardrobeDesc => 'Looks for you';
@@ -3927,17 +3917,17 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get mirrorBrandSubtitle =>
-      'Pick one brand — or any, and we\'ll choose from all of them.';
+      'Pick one or several — or all brands at once.';
 
   @override
-  String get mirrorBrandAny => 'Any brand';
+  String get mirrorBrandAny => 'All brands';
 
   @override
   String get mirrorRefineTitle => 'What should we change?';
 
   @override
   String get mirrorRefineSubtitle =>
-      'Choose an option — we\'ll build a new look.';
+      'Pick one or more — we’ll build a new look.';
 
   @override
   String get mirrorFaceQuestion => 'Did you like the generated face?';
@@ -3985,7 +3975,55 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String mirrorStylesPage(int from, int to, int total) {
-    return '$from–$to of $total';
+  String get mirrorAvoidKicker => 'We’ll leave these out';
+
+  @override
+  String get mirrorAvoidSubtitle =>
+      'Mark the colours you don’t like — they won’t appear in your look.';
+
+  @override
+  String get mirrorAvoidNone => 'Nothing excluded — we’ll show every colour';
+
+  @override
+  String mirrorAvoidCount(int count) {
+    return 'Colours excluded: $count';
+  }
+
+  @override
+  String get mirrorStylesPrev => 'Previous styles';
+
+  @override
+  String get mirrorStylesNext => 'Next styles';
+
+  @override
+  String get mirrorRefineFaceShort => 'Did you like the face?';
+
+  @override
+  String get mirrorRefineReasons => 'What to change';
+
+  @override
+  String get mirrorRefinePrice => 'Price';
+
+  @override
+  String get mirrorRefineLook => 'Look';
+
+  @override
+  String get mirrorRefineColorsPick => 'Which colours should go?';
+
+  @override
+  String get mirrorRefineBrandsPick => 'Which brands to show?';
+
+  @override
+  String get mirrorRefineStylesPick => 'Which style to try?';
+
+  @override
+  String get mirrorRefineNeedBrand => 'Pick a brand below';
+
+  @override
+  String get mirrorRefineNeedStyle => 'Pick a style below';
+
+  @override
+  String mirrorRefineChosen(int count) {
+    return 'Selected: $count';
   }
 }

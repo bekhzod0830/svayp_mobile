@@ -28,7 +28,9 @@ class _FakeApi extends KioskApi {
     List<String>? styles,
     List<String>? productIds,
     String? brand,
+    List<String>? brands,
     String? refine,
+    List<String>? refines,
     List<String>? excludeColors,
     bool? faceLiked,
   }) {
@@ -38,7 +40,9 @@ class _FakeApi extends KioskApi {
       'styles': styles,
       'productIds': productIds,
       'brand': brand,
+      'brands': brands,
       'refine': refine,
+      'refines': refines,
       'excludeColors': excludeColors,
       'faceLiked': faceLiked,
     });
@@ -152,7 +156,7 @@ void main() {
 
     c.regenerate(); // ветка «создать» — сначала «Что изменить?»
     expect(c.screen, MirrorScreen.refine);
-    c.rebuild(null);
+    c.rebuild();
     api.createLookCalls[1].complete(_look('l2', KioskLookStatus.completed));
     await Future<void>.delayed(Duration.zero);
     c.revealResult();
@@ -220,7 +224,7 @@ void main() {
 
       c.regenerate();
       expect(c.screen, MirrorScreen.refine);
-      c.rebuild(null);
+      c.rebuild();
 
       expect(c.screen, MirrorScreen.generating);
       expect(api.createLookCalls, hasLength(2));
@@ -240,25 +244,23 @@ void main() {
       c.revealResult();
     }
 
-    test('гардероб выбирается касанием, а дальше — только по «Продолжить»', () {
+    test('касание карточки пола сразу ведёт к фигуре', () {
       c.confirmPhoto();
       expect(c.screen, MirrorScreen.gender);
       c.setGender('MALE');
-      expect(c.screen, MirrorScreen.gender);
-      c.confirmGender();
+      expect(c.gender, 'MALE');
       expect(c.screen, MirrorScreen.shape);
     });
 
     test('«Не знаю свой тип фигуры» — шлём UNKNOWN и идём к стилям', () {
       c.confirmPhoto();
       c.setGender('FEMALE');
-      c.confirmGender();
       c.skipShape();
       expect(c.bodyShape, 'UNKNOWN');
       expect(c.screen, MirrorScreen.style);
     });
 
-    test('после стилей — шаг бренда, бренд уходит в запрос', () async {
+    test('после стилей — бренд, затем цвета; бренд уходит в запрос', () async {
       c.toggleStyle('CASUAL');
       c.confirmStyles();
       expect(c.screen, MirrorScreen.brand);
@@ -266,11 +268,70 @@ void main() {
       c.confirmShopBrand(); // бренд не выбран — дальше нельзя
       expect(c.screen, MirrorScreen.brand);
 
-      c.chooseShopBrand('VERO_MODA');
+      c.toggleShopBrand('VERO_MODA');
       c.confirmShopBrand();
+      expect(c.screen, MirrorScreen.colors);
+
+      c.goBack();
+      expect(c.screen, MirrorScreen.brand);
+      c.confirmShopBrand();
+
+      c.confirmColors();
       expect(c.screen, MirrorScreen.generating);
       expect(api.createLookArgs.last['brand'], 'VERO_MODA');
+      expect(api.createLookArgs.last['brands'], ['VERO_MODA']);
       expect(api.createLookArgs.last['refine'], isNull);
+    });
+
+    test('несколько брендов: brand = ANY, список — в brands; «Все бренды» снимает отдельные', () {
+      c.toggleShopBrand('ONLY');
+      c.toggleShopBrand('MEXX');
+      expect(c.shopBrands, {'ONLY', 'MEXX'});
+      c.toggleShopBrand('ONLY');
+      expect(c.shopBrands, {'MEXX'});
+      c.toggleShopBrand('ONLY');
+
+      unawaited(c.startGeneration());
+      expect(api.createLookArgs.last['brand'], 'ANY');
+      expect(api.createLookArgs.last['brands'], ['MEXX', 'ONLY']);
+
+      c.toggleShopBrand('ANY');
+      expect(c.shopBrands, {'ANY'});
+      unawaited(c.startGeneration());
+      expect(api.createLookArgs.last['brand'], 'ANY');
+      expect(api.createLookArgs.last['brands'], isNull);
+
+      c.toggleShopBrand('YAS');
+      expect(c.shopBrands, {'YAS'});
+    });
+
+    test('исключённые цвета уходят в каждую генерацию, «Пропустить» их снимает', () async {
+      c.toggleShopBrand('ANY');
+      c.toggleAvoidColor('red');
+      c.toggleAvoidColor('black');
+      c.toggleAvoidColor('red');
+      expect(c.avoidColors, ['black']);
+
+      c.confirmColors();
+      expect(api.createLookArgs.last['excludeColors'], ['black']);
+
+      api.createLookCalls.last.complete(_look('l1', KioskLookStatus.completed));
+      await Future<void>.delayed(Duration.zero);
+      c.revealResult();
+      c.rebuild(reasons: {'COLOR'}, colors: ['red']);
+      expect(api.createLookArgs.last['excludeColors'], ['black', 'red']);
+
+      c.toggleAvoidColor('pink');
+      c.confirmColors(skip: true);
+      expect(c.avoidColors, isEmpty);
+    });
+
+    test('«Завершить» с любого шага возвращает на постер', () async {
+      c.toggleStyle('CASUAL');
+      c.confirmStyles();
+      await c.hardReset('finish');
+      expect(c.screen, MirrorScreen.idle);
+      expect(c.styles, isEmpty);
     });
 
     test('«Пересобрать» в ветке «создать» спрашивает, что изменить', () async {
@@ -287,41 +348,66 @@ void main() {
       await result();
       c.regenerate();
       c.setFaceLiked(false);
-      c.rebuild('CHEAPER');
+      c.rebuild(reasons: {'CHEAPER'});
 
       expect(c.screen, MirrorScreen.generating);
       expect(c.attempt, 1);
       expect(api.createLookArgs.last['refine'], 'CHEAPER');
+      expect(api.createLookArgs.last['refines'], isNull);
       expect(api.createLookArgs.last['faceLiked'], false);
+    });
+
+    test('несколько причин сразу: главная — в refine, все — в refines', () async {
+      c.toggleStyle('CASUAL');
+      c.toggleShopBrand('ONLY');
+      await result();
+      c.regenerate();
+      c.rebuild(
+        reasons: {'STYLE', 'COLOR', 'PRICIER', 'BRAND'},
+        colors: ['red'],
+        brands: {'MEXX', 'YAS'},
+        styles: ['BUSINESS', 'MINIMAL'],
+      );
+
+      final args = api.createLookArgs.last;
+      expect(args['refine'], 'PRICIER');
+      expect(args['refines'], ['PRICIER', 'COLOR', 'BRAND', 'STYLE']);
+      expect(args['excludeColors'], ['red']);
+      expect(args['brand'], 'ANY');
+      expect(args['brands'], ['MEXX', 'YAS']);
+      expect(args['styles'], ['BUSINESS', 'MINIMAL']);
     });
 
     test('«Другой цвет» шлёт цвета, «Другой бренд» и «Поменять стиль» меняют выбор', () async {
       c.toggleStyle('CASUAL');
-      c.chooseShopBrand('ONLY');
+      c.toggleShopBrand('ONLY');
       await result();
 
-      c.rebuild('COLOR', colors: ['black', 'red']);
+      c.rebuild(reasons: {'COLOR'}, colors: ['black', 'red']);
       expect(api.createLookArgs.last['excludeColors'], ['black', 'red']);
 
-      c.rebuild('BRAND', brand: 'MEXX');
-      expect(c.shopBrand, 'MEXX');
+      c.rebuild(reasons: {'BRAND'}, brands: {'MEXX'});
+      expect(c.shopBrands, {'MEXX'});
       expect(api.createLookArgs.last['brand'], 'MEXX');
       expect(api.createLookArgs.last['excludeColors'], isEmpty); // цвета — только для «Другой цвет»
 
-      c.rebuild('STYLE', style: 'BUSINESS');
+      c.rebuild(reasons: {'STYLE'}, styles: ['BUSINESS']);
       expect(c.styles, ['BUSINESS']);
       expect(api.createLookArgs.last['styles'], ['BUSINESS']);
     });
 
     test('сброс сессии очищает бренд, ответ про лицо и уточнения', () async {
-      c.chooseShopBrand('ONLY');
+      c.toggleShopBrand('ONLY');
+      c.toggleAvoidColor('red');
       c.setFaceLiked(false);
-      c.rebuild('COLOR', colors: ['black']);
+      c.rebuild(reasons: {'COLOR', 'CHEAPER'}, colors: ['black']);
       await c.hardReset('timeout');
 
-      expect(c.shopBrand, isNull);
+      expect(c.shopBrands, isEmpty);
+      expect(c.avoidColors, isEmpty);
       expect(c.faceLiked, isNull);
       expect(c.refineKind, isNull);
+      expect(c.refineKinds, isEmpty);
       expect(c.excludeColors, isEmpty);
     });
   });

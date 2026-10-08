@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -43,24 +44,39 @@ class _MirrorGeneratingScreenState extends State<MirrorGeneratingScreen>
   /// Общее «дыхание»: свечение, искры, точка на конце линии прогресса.
   late final AnimationController _ambient;
 
-  /// Плавный прогресс. Контроллер считает целые секунды; между ними время
-  /// досчитывается по секундомеру, и прогресс пересчитывается каждый кадр
-  /// (кадры даёт [_progressTicker]) — рама заполняется непрерывно, без рывков
-  /// «прыгнул — встал».
-  final Stopwatch _sinceTick = Stopwatch();
-  int _lastElapsed = -1;
+  /// Плавный прогресс. Время генерации считается по времени кадров тикера
+  /// (монотонное, как у любой анимации), а не по целым секундам контроллера: его Timer.periodic «плывёт», и досчёт между
+  /// тиками раньше упирался в границу секунды — линия рамы замирала и
+  /// дёргалась раз в секунду. Значение пересчитывается каждый кадр
+  /// ([_progressTicker]) и раздаётся через [_progress] только тем слоям, что от
+  /// него зависят, — экран целиком на каждый кадр не перестраивается.
+  /// Время кадра, с которого идёт текущая генерация, и сколько секунд
+  /// контроллер уже насчитал к открытию экрана (обычно 0).
+  Duration _genStart = Duration.zero;
+  double _baseSec = 0;
+  int _lastElapsed = 0;
+  bool _sawFailure = false;
   double _shown = 0;
-  Duration? _lastFrame;
+  Duration _lastFrame = Duration.zero;
+
+  /// Прогресс 0..1 — каждый кадр (рама, процент).
+  final ValueNotifier<double> _progress = ValueNotifier(0);
+
+  /// Он же ступеньками по 2,5% — для проявления фото. Размытие и цвет снимка
+  /// дорого пересчитывать каждый кадр (на планшете это и роняло кадры), а
+  /// шаг в 2,5% на глаз не виден.
+  final ValueNotifier<double> _develop = ValueNotifier(0);
 
   /// Кадры для прогресса — свои, не от [_scan]. Декор при системном «отключить
   /// анимации» (на киосках включают часто) стоит, а прогресс — это информация:
-  /// без своих кадров он двигался рывком раз в секунду.
-  final ValueNotifier<int> _progressFrames = ValueNotifier(0);
-  late final Ticker _progressTicker = createTicker((_) => _progressFrames.value++);
+  /// без своих кадров он двигался бы рывком раз в секунду.
+  late final Ticker _progressTicker = createTicker(_onProgressFrame);
 
   @override
   void initState() {
     super.initState();
+    _lastElapsed = widget.controller.elapsedSec;
+    _baseSec = _lastElapsed.toDouble();
     _progressTicker.start();
     _scan = AnimationController(
       vsync: this,
@@ -88,52 +104,50 @@ class _MirrorGeneratingScreenState extends State<MirrorGeneratingScreen>
     }
   }
 
-  /// Непрерывное время генерации в секундах.
-  double _smoothElapsed(int elapsed) {
-    if (elapsed != _lastElapsed) {
-      // Новая генерация («Пересобрать», повтор) — начинаем с нуля.
-      if (elapsed < _lastElapsed) _shown = 0;
-      _lastElapsed = elapsed;
-      _sinceTick
-        ..reset()
-        ..start();
-    }
-    // Не убегаем дальше следующей секунды, если тик контроллера запоздал.
-    return elapsed + math.min(_sinceTick.elapsedMilliseconds / 1000, 1.0);
-  }
-
-  /// Та же кривая, что и раньше: до [MirrorSessionController.reassureAfterSec]
-  /// easeOut к 90%, дальше медленный хвост к 95%, — но от непрерывного времени.
+  /// Та же кривая: до [MirrorSessionController.reassureAfterSec] easeOut к
+  /// 90%, дальше медленный хвост к 95%, — от непрерывного времени.
   double _targetFor(double t) {
     const reassure = MirrorSessionController.reassureAfterSec;
     final base = Curves.easeOut.transform((t / reassure).clamp(0.0, 1.0)) * 0.9;
     final crawl = t > reassure ? math.min(0.05, (t - reassure) * 0.005) : 0.0;
-    return (base + crawl).clamp(0.03, 0.95);
+    return (base + crawl).clamp(0.0, 0.95);
   }
 
-  double _progressFrame(MirrorSessionController c) {
-    final now = _sinceTick.elapsed;
-    final last = _lastFrame;
-    final dt =
-        last == null || now < last ? 0.016 : (now - last).inMicroseconds / 1e6;
+  void _onProgressFrame(Duration now) {
+    final c = widget.controller;
+    final dt = (now - _lastFrame).inMicroseconds / 1e6;
     _lastFrame = now;
+
+    // Новая генерация (повтор после ошибки): счётчик контроллера пошёл заново.
+    if (c.genFailed) _sawFailure = true;
+    final restarted = c.elapsedSec < _lastElapsed || (_sawFailure && !c.genFailed);
+    _lastElapsed = c.elapsedSec;
+    if (restarted) {
+      _sawFailure = false;
+      _shown = 0;
+      _genStart = now;
+      _baseSec = 0;
+    }
+    if (c.genFailed) return;
+
     if (c.resultReady) {
       // Образ готов — мягко добегаем до 100% примерно за полсекунды.
-      _shown += (1 - _shown) * (1 - math.exp(-dt * 9));
+      _shown += (1 - _shown) * (1 - math.exp(-dt.clamp(0.0, 0.1) * 9));
       if (_shown > 0.998) _shown = 1;
     } else {
-      // Прогресс только растёт: на стыке секунд досчитанное время может
-      // оказаться чуть впереди.
-      _shown = math.max(_shown, _targetFor(_smoothElapsed(c.elapsedSec)));
+      // Прогресс только растёт.
+      final t = _baseSec + (now - _genStart).inMicroseconds / 1e6;
+      _shown = math.max(_shown, _targetFor(t));
     }
-    return _shown;
+    _progress.value = _shown;
+    _develop.value = (_shown * 40).round() / 40;
   }
 
   @override
   void dispose() {
     _progressTicker.dispose();
-    _progressFrames.dispose();
-    _sinceTick.stop();
+    _progress.dispose();
+    _develop.dispose();
     _scan.dispose();
     _ambient.dispose();
     super.dispose();
@@ -228,16 +242,14 @@ class _MirrorGeneratingScreenState extends State<MirrorGeneratingScreen>
       child: Column(
         children: [
           Expanded(
-            child: AnimatedBuilder(
-              animation: Listenable.merge([_scan, _progressFrames]),
-              builder: (context, _) => _DevelopingMirror(
-                progress: _progressFrame(c),
-                stage: activeStage,
-                photo: c.capturedPhoto,
-                answers: _answers(l10n),
-                scan: _scan,
-                ambient: _ambient,
-              ),
+            child: _DevelopingMirror(
+              progress: _progress,
+              develop: _develop,
+              stage: activeStage,
+              photo: c.capturedPhoto,
+              answers: _answers(l10n),
+              scan: _scan,
+              ambient: _ambient,
             ),
           ),
           SizedBox(height: 16 * s),
@@ -508,10 +520,14 @@ class _Answer {
 }
 
 /// Сцена экрана генерации: арочное зеркало с фото покупателя, рама-прогресс,
-/// сканирование, ответы на раме, процент на нижней кромке.
+/// сканирование, ответы на раме, процент на нижней кромке. Каждый слой слушает
+/// только своё: рама и процент — [progress] каждый кадр, фото — ступенчатый
+/// [develop]; слои разделены RepaintBoundary, чтобы бегущая линия рамы не
+/// заставляла перерисовывать размытое фото.
 class _DevelopingMirror extends StatelessWidget {
   const _DevelopingMirror({
     required this.progress,
+    required this.develop,
     required this.stage,
     required this.photo,
     required this.answers,
@@ -519,7 +535,8 @@ class _DevelopingMirror extends StatelessWidget {
     required this.ambient,
   });
 
-  final double progress;
+  final ValueListenable<double> progress;
+  final ValueListenable<double> develop;
   final int stage;
   final File? photo;
   final List<_Answer> answers;
@@ -550,44 +567,51 @@ class _DevelopingMirror extends StatelessWidget {
           children: [
             // Мягкое свечение цветом бренда за зеркалом.
             Positioned.fill(
-              child: AnimatedBuilder(
-                animation: ambient,
-                builder: (context, _) => CustomPaint(
-                  painter: MirrorArchHaloPainter(
-                    arch: arch,
-                    color: t.glow,
-                    strength: 0.14 +
-                        0.10 * progress +
-                        0.05 * Curves.easeInOut.transform(ambient.value),
-                    shape: t.mirror,
-                    s: s,
+              child: RepaintBoundary(
+                child: AnimatedBuilder(
+                  animation: Listenable.merge([ambient, develop]),
+                  builder: (context, _) => CustomPaint(
+                    painter: MirrorArchHaloPainter(
+                      arch: arch,
+                      color: t.glow,
+                      strength: 0.14 +
+                          0.10 * develop.value +
+                          0.05 * Curves.easeInOut.transform(ambient.value),
+                      shape: t.mirror,
+                      s: s,
+                    ),
                   ),
                 ),
               ),
             ),
             Positioned.fromRect(
               rect: arch,
-              child: _MirrorGlass(
-                photo: photo,
-                progress: progress,
-                stage: stage,
-                scan: scan,
+              child: ValueListenableBuilder<double>(
+                valueListenable: develop,
+                builder: (context, value, _) => _MirrorGlass(
+                  photo: photo,
+                  develop: value,
+                  stage: stage,
+                  scan: scan,
+                ),
               ),
             ),
             // Рама: тонкий контур и поверх — линия прогресса с точкой.
             Positioned.fromRect(
               rect: arch.inflate(mirrorFrameInset(t.mirror, s)),
               child: IgnorePointer(
-                child: AnimatedBuilder(
-                  animation: ambient,
-                  builder: (context, _) => CustomPaint(
-                    painter: MirrorArchFramePainter(
-                      shape: t.mirror,
-                      progress: progress,
-                      track: t.hairline,
-                      color: t.primary,
-                      glow: Curves.easeInOut.transform(ambient.value),
-                      s: s,
+                child: RepaintBoundary(
+                  child: AnimatedBuilder(
+                    animation: Listenable.merge([ambient, progress]),
+                    builder: (context, _) => CustomPaint(
+                      painter: MirrorArchFramePainter(
+                        shape: t.mirror,
+                        progress: progress.value,
+                        track: t.hairline,
+                        color: t.primary,
+                        glow: Curves.easeInOut.transform(ambient.value),
+                        s: s,
+                      ),
                     ),
                   ),
                 ),
@@ -618,7 +642,13 @@ class _DevelopingMirror extends StatelessWidget {
               top: arch.bottom + mirrorFrameInset(t.mirror, s),
               child: FractionalTranslation(
                 translation: const Offset(0, -0.5),
-                child: Center(child: _PercentBadge(progress: progress)),
+                child: Center(
+                  child: ValueListenableBuilder<double>(
+                    valueListenable: progress,
+                    builder: (context, value, _) =>
+                        _PercentBadge(percent: (value * 100).floor()),
+                  ),
+                ),
               ),
             ),
           ],
@@ -634,13 +664,15 @@ class _DevelopingMirror extends StatelessWidget {
 class _MirrorGlass extends StatelessWidget {
   const _MirrorGlass({
     required this.photo,
-    required this.progress,
+    required this.develop,
     required this.stage,
     required this.scan,
   });
 
   final File? photo;
-  final double progress;
+
+  /// Насколько фото проявилось, 0..1 (ступеньками, см. `_develop`).
+  final double develop;
   final int stage;
   final Animation<double> scan;
 
@@ -650,7 +682,7 @@ class _MirrorGlass extends StatelessWidget {
     final s = MirrorTheme.scale(context);
     final file = photo;
     // Проявление: насыщенность 10% → 100%, размытие 5 → 0.
-    final develop = progress.clamp(0.0, 1.0);
+    final develop = this.develop.clamp(0.0, 1.0);
     final saturation = 0.1 + 0.9 * develop;
     final blur = 5 * (1 - develop);
 
@@ -688,7 +720,9 @@ class _MirrorGlass extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           ColoredBox(color: t.surface),
-          image,
+          // Своим слоем: полоса сканирования бежит каждый кадр, а фото с
+          // фильтрами перерисовывается только на шаге проявления.
+          RepaintBoundary(child: image),
           // Лёгкая «вуаль» цвета бренда, которая уходит по мере проявления.
           IgnorePointer(
             child: ColoredBox(
@@ -696,10 +730,12 @@ class _MirrorGlass extends StatelessWidget {
             ),
           ),
           // Полоса сканирования.
-          AnimatedBuilder(
-            animation: scan,
-            builder: (context, _) => CustomPaint(
-              painter: _ScanPainter(value: scan.value, color: t.primary, s: s),
+          RepaintBoundary(
+            child: AnimatedBuilder(
+              animation: scan,
+              builder: (context, _) => CustomPaint(
+                painter: _ScanPainter(value: scan.value, color: t.primary, s: s),
+              ),
             ),
           ),
           // Этап «лицо»: уголки фокуса вокруг лица.
@@ -900,9 +936,9 @@ class _AnswerChip extends StatelessWidget {
 
 /// Процент готовности плашкой на нижней кромке рамы.
 class _PercentBadge extends StatelessWidget {
-  const _PercentBadge({required this.progress});
+  const _PercentBadge({required this.percent});
 
-  final double progress;
+  final int percent;
 
   @override
   Widget build(BuildContext context) {
@@ -910,7 +946,7 @@ class _PercentBadge extends StatelessWidget {
     final s = MirrorTheme.scale(context);
     return MirrorArchBadge(
       child: Text(
-        '${(progress * 100).round()}%',
+        '$percent%',
         style: t.price(16 * s, color: t.onPrimary),
       ),
     );
