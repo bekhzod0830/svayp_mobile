@@ -1430,5 +1430,10 @@
   "mirrorRefineStylesPick": "Qaysi uslubni sinab koʻramiz?",
   "mirrorRefineNeedBrand": "Quyida brendni tanlang",
   "mirrorRefineNeedStyle": "Quyida uslubni tanlang",
-  "mirrorRefineChosen": "Tanlandi: {count}"
+  "mirrorRefineChosen": "Tanlandi: {count}",
+  "mirrorStationSetupTitle": "Stansiya sozlanmagan",
+  "mirrorStationSetupNoKey": "Boshlash uchun ushbu doʻkon stansiyasi kalitini kiriting",
+  "mirrorStationSetupRejected": "Stansiya kaliti qabul qilinmadi. Uni tekshiring yoki stansiyani qaytadan roʻyxatdan oʻtkazing",
+  "mirrorStationSetupAction": "Kalitni kiritish",
+  "mirrorLookVariant": "Obraz {number}"
 }

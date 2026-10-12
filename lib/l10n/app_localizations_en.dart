@@ -4026,4 +4026,23 @@ class AppLocalizationsEn extends AppLocalizations {
   String mirrorRefineChosen(int count) {
     return 'Selected: $count';
   }
+
+  @override
+  String get mirrorStationSetupTitle => 'Station is not set up';
+
+  @override
+  String get mirrorStationSetupNoKey =>
+      'Enter this store\'s station key to start';
+
+  @override
+  String get mirrorStationSetupRejected =>
+      'The station key was not accepted. Check it or register the station again';
+
+  @override
+  String get mirrorStationSetupAction => 'Enter key';
+
+  @override
+  String mirrorLookVariant(int number) {
+    return 'Look $number';
+  }
 }

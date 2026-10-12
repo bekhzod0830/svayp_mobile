@@ -1430,5 +1430,10 @@
   "mirrorRefineStylesPick": "Какой стиль попробовать?",
   "mirrorRefineNeedBrand": "Выберите бренд ниже",
   "mirrorRefineNeedStyle": "Выберите стиль ниже",
-  "mirrorRefineChosen": "Выбрано: {count}"
+  "mirrorRefineChosen": "Выбрано: {count}",
+  "mirrorStationSetupTitle": "Станция не настроена",
+  "mirrorStationSetupNoKey": "Чтобы начать, введите ключ станции этого магазина",
+  "mirrorStationSetupRejected": "Ключ станции не принят. Проверьте его или зарегистрируйте станцию заново",
+  "mirrorStationSetupAction": "Ввести ключ",
+  "mirrorLookVariant": "Образ {number}"
 }

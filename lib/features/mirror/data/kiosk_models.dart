@@ -21,10 +21,30 @@ KioskLookStatus kioskStatusFrom(String? s) {
   }
 }
 
+/// Кто эта станция для бэкенда (`GET /kiosk/station`).
+class KioskStation {
+  final String storeLabel;
+
+  /// Ключ принят и станция привязана к магазину. false — общий каталог всех
+  /// магазинов (ключа нет, он отозван или введён с ошибкой).
+  final bool storeScoped;
+
+  const KioskStation({required this.storeLabel, required this.storeScoped});
+
+  factory KioskStation.fromJson(Map data) => KioskStation(
+        storeLabel: (data['storeLabel'] ?? '').toString(),
+        storeScoped: data['storeScoped'] == true,
+      );
+}
+
 class KioskSession {
   final String sessionId;
   final String storeLabel;
   final int catalogSize;
+
+  /// Сессия открыта в магазине станции. Старый бэкенд поля не шлёт — тогда
+  /// считаем, что да (как раньше).
+  final bool storeScoped;
 
   /// Собирается ли в зале мужской образ. Нет — киоск прячет кнопку «Мужчина».
   /// Старый бэкенд поля не шлёт: тогда ведём себя как раньше (кнопка есть).
@@ -35,6 +55,7 @@ class KioskSession {
     required this.storeLabel,
     required this.catalogSize,
     this.menswearAvailable = true,
+    this.storeScoped = true,
   });
 
   factory KioskSession.fromJson(Map data) => KioskSession(
@@ -44,6 +65,8 @@ class KioskSession {
         menswearAvailable: data['menswearAvailable'] is bool
             ? data['menswearAvailable'] as bool
             : true,
+        storeScoped:
+            data['storeScoped'] is bool ? data['storeScoped'] as bool : true,
       );
 }
 
@@ -122,6 +145,10 @@ class KioskLook {
   final bool canRegenerate;
   final String? failureReason;
 
+  /// Остальные образы той же пачки (запрос с `variants` > 1); пусто — образ
+  /// один. Каждый опрашивается отдельно через `GET /kiosk/looks/{id}`.
+  final List<String> variantIds;
+
   const KioskLook({
     required this.lookId,
     required this.status,
@@ -132,7 +159,10 @@ class KioskLook {
     this.regenerateCount = 0,
     this.canRegenerate = true,
     this.failureReason,
+    this.variantIds = const [],
   });
+
+  bool get isCompleted => status == KioskLookStatus.completed;
 
   bool get isTerminal =>
       status == KioskLookStatus.completed || status == KioskLookStatus.failed;
@@ -158,6 +188,11 @@ class KioskLook {
         regenerateCount: (data['regenerateCount'] as num?)?.toInt() ?? 0,
         canRegenerate: data['canRegenerate'] as bool? ?? true,
         failureReason: data['failureReason']?.toString(),
+        variantIds: (data['variantIds'] as List?)
+                ?.map((e) => e.toString())
+                .where((e) => e.isNotEmpty)
+                .toList() ??
+            const [],
       );
 }
 

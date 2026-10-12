@@ -53,6 +53,30 @@ class _MirrorResultScreenState extends State<MirrorResultScreen>
   GlobalKey _keyFor(KioskLookItem item) =>
       _thumbKeys.putIfAbsent(item.productId, GlobalKey.new);
 
+  /// Картинки образов пачки, которые уже прогреты: переключение между
+  /// образами не должно грузить картинку на глазах.
+  final Set<String> _warmed = {};
+
+  void _warmVariants(List<KioskLook> pack) {
+    for (final look in pack) {
+      if (!look.isCompleted || !_warmed.add(look.lookId)) continue;
+      final image = _lookImage(look);
+      if (image == null) continue;
+      precacheImage(image, context, onError: (_, __) {});
+    }
+  }
+
+  /// Листание пальцем по зеркалу: следующий/предыдущий готовый образ.
+  void _swipeVariant(int direction) {
+    final c = widget.controller;
+    final ready = c.packLooks.where((l) => l.isCompleted).toList();
+    final at = ready.indexWhere((l) => l.lookId == c.look?.lookId);
+    if (at < 0) return;
+    final next = at + direction;
+    if (next < 0 || next >= ready.length) return;
+    c.selectLook(ready[next].lookId);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -112,6 +136,8 @@ class _MirrorResultScreenState extends State<MirrorResultScreen>
 
     final lang = c.shopperLang;
     final pad = MediaQuery.paddingOf(context);
+    final pack = c.packLooks;
+    _warmVariants(pack);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: t.dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
@@ -164,6 +190,9 @@ class _MirrorResultScreenState extends State<MirrorResultScreen>
                   qrUrl: c.shareUrl,
                   qrPulse: _qrPulse,
                   onQrTap: _onDownloadTap,
+                  variants: pack,
+                  onVariantTap: c.selectLook,
+                  onSwipe: _swipeVariant,
                 ),
               ),
               // Под рамой плотно: стекло — общего размера с другими
@@ -250,6 +279,9 @@ class _ResultMirror extends StatelessWidget {
     required this.qrUrl,
     required this.qrPulse,
     required this.onQrTap,
+    this.variants = const [],
+    this.onVariantTap,
+    this.onSwipe,
   });
 
   final KioskLook look;
@@ -259,6 +291,13 @@ class _ResultMirror extends StatelessWidget {
   final String? qrUrl;
   final bool qrPulse;
   final VoidCallback onQrTap;
+
+  /// Образы пачки (готовые и ещё генерируемые); один образ — переключателя нет.
+  final List<KioskLook> variants;
+  final ValueChanged<String>? onVariantTap;
+
+  /// Листание по стеклу: +1 — следующий образ, -1 — предыдущий.
+  final ValueChanged<int>? onSwipe;
 
   @override
   Widget build(BuildContext context) {
@@ -312,7 +351,17 @@ class _ResultMirror extends StatelessWidget {
             ),
             Positioned.fromRect(
               rect: arch,
-              child: _RevealGlass(image: image, entrance: entrance),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onHorizontalDragEnd: onSwipe == null || variants.length < 2
+                    ? null
+                    : (details) {
+                        final v = details.primaryVelocity ?? 0;
+                        if (v.abs() < 120) return;
+                        onSwipe!(v < 0 ? 1 : -1);
+                      },
+                child: _RevealGlass(image: image, entrance: entrance),
+              ),
             ),
             Positioned.fromRect(
               rect: arch.inflate(mirrorFrameInset(t.mirror, s)),
@@ -345,6 +394,22 @@ class _ResultMirror extends StatelessWidget {
                   color: t.glow,
                   size: sz * s,
                   delaySeconds: delay,
+                ),
+              ),
+            // Переключатель образов пачки — слева сверху на раме, зеркально QR.
+            if (variants.length > 1)
+              Positioned(
+                left: math.max(6 * s, arch.left - 22 * s),
+                top: arch.top + arch.height * 0.04,
+                child: Entrance(
+                  parent: entrance,
+                  kind: IntroEntranceKind.flyL,
+                  delay: 0.42,
+                  child: _VariantSwitcher(
+                    variants: variants,
+                    currentId: look.lookId,
+                    onTap: onVariantTap,
+                  ),
                 ),
               ),
             // QR — справа сверху на раме.
@@ -397,6 +462,92 @@ class _ResultMirror extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// Столбик номеров образов пачки на раме. Готовый образ — номер (выбранный
+/// залит цветом бренда), образ в работе — индикатор: человек видит, что
+/// варианты ещё дорисовываются, и не уходит с первым.
+class _VariantSwitcher extends StatelessWidget {
+  const _VariantSwitcher({
+    required this.variants,
+    required this.currentId,
+    required this.onTap,
+  });
+
+  final List<KioskLook> variants;
+  final String currentId;
+  final ValueChanged<String>? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final t = MirrorTheme.of(context);
+    final s = MirrorTheme.scale(context);
+    final size = 44 * s;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final (i, variant) in variants.indexed)
+          Padding(
+            padding: EdgeInsets.only(bottom: 8 * s),
+            child: Semantics(
+              button: variant.isCompleted,
+              selected: variant.lookId == currentId,
+              label: l10n.mirrorLookVariant(i + 1),
+              child: GestureDetector(
+                key: ValueKey('variant-${variant.lookId}'),
+                behavior: HitTestBehavior.opaque,
+                onTap: variant.isCompleted && onTap != null
+                    ? () => onTap!(variant.lookId)
+                    : null,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 220),
+                  width: size,
+                  height: size,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: variant.lookId == currentId ? t.primary : t.surface,
+                    border: Border.all(
+                      color: variant.lookId == currentId
+                          ? t.primary
+                          : t.hairline,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: t.ink.withValues(alpha: 0.10),
+                        blurRadius: 10 * s,
+                        offset: Offset(0, 3 * s),
+                      ),
+                    ],
+                  ),
+                  child: variant.isCompleted
+                      ? Text(
+                          '${i + 1}',
+                          style: t.label(
+                            16 * s,
+                            weight: FontWeight.w600,
+                            color: variant.lookId == currentId
+                                ? t.onPrimary
+                                : t.ink,
+                          ),
+                        )
+                      : SizedBox(
+                          width: 16 * s,
+                          height: 16 * s,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: t.muted,
+                          ),
+                        ),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

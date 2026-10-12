@@ -4048,4 +4048,23 @@ class AppLocalizationsRu extends AppLocalizations {
   String mirrorRefineChosen(int count) {
     return 'Выбрано: $count';
   }
+
+  @override
+  String get mirrorStationSetupTitle => 'Станция не настроена';
+
+  @override
+  String get mirrorStationSetupNoKey =>
+      'Чтобы начать, введите ключ станции этого магазина';
+
+  @override
+  String get mirrorStationSetupRejected =>
+      'Ключ станции не принят. Проверьте его или зарегистрируйте станцию заново';
+
+  @override
+  String get mirrorStationSetupAction => 'Ввести ключ';
+
+  @override
+  String mirrorLookVariant(int number) {
+    return 'Образ $number';
+  }
 }

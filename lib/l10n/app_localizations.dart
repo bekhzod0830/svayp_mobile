@@ -7725,6 +7725,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Selected: {count}'**
   String mirrorRefineChosen(int count);
+
+  /// Mirror kiosk (LIBAS station)
+  ///
+  /// In en, this message translates to:
+  /// **'Station is not set up'**
+  String get mirrorStationSetupTitle;
+
+  /// Mirror kiosk (LIBAS station)
+  ///
+  /// In en, this message translates to:
+  /// **'Enter this store\'s station key to start'**
+  String get mirrorStationSetupNoKey;
+
+  /// Mirror kiosk (LIBAS station)
+  ///
+  /// In en, this message translates to:
+  /// **'The station key was not accepted. Check it or register the station again'**
+  String get mirrorStationSetupRejected;
+
+  /// Mirror kiosk (LIBAS station)
+  ///
+  /// In en, this message translates to:
+  /// **'Enter key'**
+  String get mirrorStationSetupAction;
+
+  /// Mirror kiosk (LIBAS station)
+  ///
+  /// In en, this message translates to:
+  /// **'Look {number}'**
+  String mirrorLookVariant(int number);
 }
 
 class _AppLocalizationsDelegate

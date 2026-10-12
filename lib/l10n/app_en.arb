@@ -1622,5 +1622,15 @@
   "mirrorRefineNeedStyle": "Pick a style below",
   "@mirrorRefineNeedStyle": {"description": "Mirror kiosk (LIBAS station)"},
   "mirrorRefineChosen": "Selected: {count}",
-  "@mirrorRefineChosen": {"description": "Mirror kiosk (LIBAS station)", "placeholders": {"count": {"type": "int"}}}
+  "@mirrorRefineChosen": {"description": "Mirror kiosk (LIBAS station)", "placeholders": {"count": {"type": "int"}}},
+  "mirrorStationSetupTitle": "Station is not set up",
+  "@mirrorStationSetupTitle": {"description": "Mirror kiosk (LIBAS station)"},
+  "mirrorStationSetupNoKey": "Enter this store's station key to start",
+  "@mirrorStationSetupNoKey": {"description": "Mirror kiosk (LIBAS station)"},
+  "mirrorStationSetupRejected": "The station key was not accepted. Check it or register the station again",
+  "@mirrorStationSetupRejected": {"description": "Mirror kiosk (LIBAS station)"},
+  "mirrorStationSetupAction": "Enter key",
+  "@mirrorStationSetupAction": {"description": "Mirror kiosk (LIBAS station)"},
+  "mirrorLookVariant": "Look {number}",
+  "@mirrorLookVariant": {"description": "Mirror kiosk (LIBAS station)", "placeholders": {"number": {"type": "int"}}}
 }

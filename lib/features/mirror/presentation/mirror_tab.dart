@@ -31,6 +31,7 @@ import 'widgets/mirror_chrome.dart';
 import 'widgets/mirror_idle_warning.dart';
 import 'widgets/mirror_offline_screen.dart';
 import 'widgets/mirror_setup_sheet.dart';
+import 'widgets/mirror_station_setup_screen.dart';
 
 /// Корень вкладки «Зеркало» в партнёрском шелле (таб 0).
 ///
@@ -220,6 +221,7 @@ class _MirrorTabState extends State<MirrorTab> with WidgetsBindingObserver {
   }
 
   void _openSetup() {
+    // Ключ в шите мог смениться — после закрытия перепроверяем станцию.
     MirrorSetupSheet.show(
       context,
       api: getIt<KioskApi>(),
@@ -234,7 +236,9 @@ class _MirrorTabState extends State<MirrorTab> with WidgetsBindingObserver {
       onUvcMaxWidthChanged: _setUvcMaxWidth,
       cameraDebug: _cameraDebug,
       onCameraDebugChanged: _setCameraDebug,
-    );
+    ).whenComplete(() {
+      if (mounted) _controller.onSetupClosed();
+    });
   }
 
   void _setCameraDebug(bool value) {
@@ -473,6 +477,13 @@ class _MirrorTabState extends State<MirrorTab> with WidgetsBindingObserver {
                                 child: MirrorIdleWarning(
                                   secondsLeft: _controller.idleLeft,
                                   onStay: _controller.touch,
+                                ),
+                              ),
+                            if (_controller.stationBlocked)
+                              Positioned.fill(
+                                child: MirrorStationSetupScreen(
+                                  keyRejected: _controller.stationKeyRejected,
+                                  onOpenSetup: _openSetup,
                                 ),
                               ),
                             if (_controller.offline)
