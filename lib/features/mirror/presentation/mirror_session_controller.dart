@@ -1279,7 +1279,26 @@ class MirrorSessionController extends ChangeNotifier {
   void openBuy() {
     _track('kiosk_buy_opened', {'code': sellerCode ?? ''});
     ensureShare();
+    _requestFitting();
     _go(MirrorScreen.buy);
+  }
+
+  /// Для какого образа продавцу уже ушло сообщение о примерке.
+  String? _fittingLookId;
+
+  /// Сообщить магазину о примерке: бэкенд пишет в его Telegram-группу. Один раз
+  /// на образ — возврат на экран с кодом сообщение не дублирует (бэкенд тоже
+  /// это проверяет). Сбой не показываем: код у человека на экране уже есть.
+  void _requestFitting() {
+    final id = sessionId;
+    final lookId = _completedLook?.lookId;
+    if (id == null || lookId == null || demoActive || _disposed) return;
+    if (_fittingLookId == lookId) return;
+    _fittingLookId = lookId;
+    _api.requestFitting(id, lookId: lookId).catchError((Object _) {
+      // Не ушло — следующая попытка «Отложить» повторит.
+      if (_fittingLookId == lookId) _fittingLookId = null;
+    });
   }
 
   // ── Навигация ──────────────────────────────────────────────────────────────
@@ -1450,6 +1469,7 @@ class MirrorSessionController extends ChangeNotifier {
     _pack.clear();
     _readyOrder.clear();
     _baseLookId = null;
+    _fittingLookId = null;
     resultReady = false;
     elapsedSec = 0;
     genFailed = false;

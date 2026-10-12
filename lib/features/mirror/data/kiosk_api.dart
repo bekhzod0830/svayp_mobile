@@ -254,6 +254,17 @@ class KioskApi {
     return KioskFinish.fromJson(_unwrap(res.data));
   }
 
+  /// «Отложить на примерку»: бэкенд один раз на образ шлёт сообщение в
+  /// Telegram-группу магазина (код, вещи, сумма) и отмечает образ забранным.
+  Future<void> requestFitting(String sessionId, {String? lookId}) async {
+    await _request(
+      () => _dio.post<dynamic>(
+        '/kiosk/sessions/$sessionId/fitting',
+        queryParameters: {if (lookId != null) 'lookId': lookId},
+      ),
+    );
+  }
+
   /// Бэкенд удаляет фото лица немедленно. Вызывается fire-and-forget.
   Future<void> resetSession(String sessionId) async {
     await _request(() => _dio.post<dynamic>('/kiosk/sessions/$sessionId/reset'));

@@ -115,6 +115,18 @@ class _FakeApi extends KioskApi {
 
   @override
   Future<void> resetSession(String sessionId) async {}
+
+  /// Запросы «Отложить на примерку»: id образа; [fittingFails] — сеть моргнула.
+  final fittingLookIds = <String?>[];
+  bool fittingFails = false;
+
+  @override
+  Future<void> requestFitting(String sessionId, {String? lookId}) async {
+    fittingLookIds.add(lookId);
+    if (fittingFails) {
+      throw const KioskApiException(message: 'offline', isNetwork: true);
+    }
+  }
 }
 
 KioskLook _look(
@@ -749,6 +761,68 @@ void main() {
 
       expect(c.resultReady, isFalse);
       expect(c.packLooks.map((l) => l.lookId), ['n1', 'n2']);
+    });
+  });
+
+  group('«Отложить на примерку»', () {
+    Future<void> result() async {
+      unawaited(c.startGeneration());
+      api.createLookCalls.last.complete(
+        _look('l1', KioskLookStatus.pending, variants: ['l2']),
+      );
+      await Future<void>.delayed(Duration.zero);
+      api.doneById['l1']!(_look('l1', KioskLookStatus.completed));
+      api.doneById['l2']!(_look('l2', KioskLookStatus.completed));
+      c.revealResult();
+    }
+
+    test('магазину уходит одно сообщение на образ', () async {
+      await result();
+
+      c.openBuy();
+      expect(api.fittingLookIds, ['l1']);
+
+      // Вернулся к образу и снова открыл экран с кодом — не дублируем.
+      c.goBack();
+      c.openBuy();
+      expect(api.fittingLookIds, ['l1']);
+
+      // Выбрал другой образ пачки — это уже другая примерка.
+      c.goBack();
+      c.selectLook('l2');
+      c.openBuy();
+      expect(api.fittingLookIds, ['l1', 'l2']);
+    });
+
+    test('сообщение не ушло — следующее «Отложить» повторит', () async {
+      await result();
+      api.fittingFails = true;
+      c.openBuy();
+      await Future<void>.delayed(Duration.zero);
+      expect(c.screen, MirrorScreen.buy); // сбой человеку не показываем
+
+      api.fittingFails = false;
+      c.goBack();
+      c.openBuy();
+      expect(api.fittingLookIds, ['l1', 'l1']);
+    });
+
+    test('следующий покупатель начинает с чистого листа', () async {
+      await result();
+      c.openBuy();
+      await c.hardReset('finish');
+
+      await c.begin(MirrorPath.create);
+      c.gender = 'FEMALE';
+      c.bodyShape = 'HOURGLASS';
+      unawaited(c.startGeneration());
+      api.createLookCalls.last.complete(_look('l1', KioskLookStatus.completed));
+      await Future<void>.delayed(Duration.zero);
+      c.revealResult();
+      c.openBuy();
+
+      // Тот же id образа у нового человека (в тесте) — сообщение всё равно уходит.
+      expect(api.fittingLookIds, ['l1', 'l1']);
     });
   });
 
