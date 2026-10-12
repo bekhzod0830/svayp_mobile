@@ -73,17 +73,6 @@ class _MirrorResultScreenState extends State<MirrorResultScreen>
     }
   }
 
-  /// Листание пальцем по зеркалу: следующий/предыдущий готовый образ.
-  void _swipeVariant(int direction) {
-    final c = widget.controller;
-    final ready = c.packLooks.where((l) => l.isCompleted).toList();
-    final at = ready.indexWhere((l) => l.lookId == c.look?.lookId);
-    if (at < 0) return;
-    final next = at + direction;
-    if (next < 0 || next >= ready.length) return;
-    c.selectLook(ready[next].lookId);
-  }
-
   @override
   void initState() {
     super.initState();
@@ -250,7 +239,6 @@ class _MirrorResultScreenState extends State<MirrorResultScreen>
                 onQrTap: _onDownloadTap,
                 variants: pack,
                 onVariantTap: c.selectLook,
-                onSwipe: _swipeVariant,
               ),
             ),
             // Под рамой плотно: стекло — общего размера с другими
@@ -448,7 +436,6 @@ class _ResultMirror extends StatelessWidget {
     required this.onQrTap,
     this.variants = const [],
     this.onVariantTap,
-    this.onSwipe,
   });
 
   final KioskLook look;
@@ -459,12 +446,11 @@ class _ResultMirror extends StatelessWidget {
   final bool qrPulse;
   final VoidCallback onQrTap;
 
-  /// Образы пачки (готовые и ещё генерируемые); один образ — переключателя нет.
+  /// Образы пачки (готовые и ещё генерируемые). Больше одного — зеркало
+  /// становится лентой: текущий образ по центру, соседние выглядывают по
+  /// бокам, листание — вбок. Один образ — обычное зеркало.
   final List<KioskLook> variants;
   final ValueChanged<String>? onVariantTap;
-
-  /// Листание по стеклу: +1 — следующий образ, -1 — предыдущий.
-  final ValueChanged<int>? onSwipe;
 
   @override
   Widget build(BuildContext context) {
@@ -484,19 +470,30 @@ class _ResultMirror extends StatelessWidget {
         // место плашке с суммой.
         final glass = mirrorGlassSizeOf(context);
         final frame = mirrorFrameInset(t.mirror, s);
-        final arch = mirrorGlassRect(
+        final full = mirrorGlassRect(
           context,
           size,
           center: Offset(size.width / 2, frame + glass.height / 2),
         );
+        // Лента образов: стекло уже (высота та же), чтобы по бокам
+        // выглядывали соседние образы — видно, что их можно листать.
+        final carousel = variants.length > 1;
+        final arch = carousel
+            ? Rect.fromCenter(
+                center: full.center,
+                width: math.min(full.width, size.width * 0.74 - frame * 2),
+                height: full.height,
+              )
+            : full;
+        final pageGap = 14 * s;
         final inset = arch.width * 0.06;
         final qrSize = (compact ? 70 : 84) * s;
         final qrPad = (compact ? 7 : 10) * s;
-        // Карточка QR не должна уходить за край экрана.
-        final qrLeft = math.min(
-          arch.right - inset,
-          size.width - (qrSize + qrPad * 2) - 6 * s,
-        );
+        // Карточка QR не должна уходить за край экрана. В ленте образов она
+        // прижата к правому краю — поверх выглядывающего соседа, а не
+        // текущего образа.
+        final qrEdge = size.width - (qrSize + qrPad * 2) - 6 * s;
+        final qrLeft = carousel ? qrEdge : math.min(arch.right - inset, qrEdge);
 
         return Stack(
           clipBehavior: Clip.none,
@@ -516,38 +513,34 @@ class _ResultMirror extends StatelessWidget {
                 ),
               ),
             ),
-            Positioned.fromRect(
-              rect: arch,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onHorizontalDragEnd: onSwipe == null || variants.length < 2
-                    ? null
-                    : (details) {
-                        final v = details.primaryVelocity ?? 0;
-                        if (v.abs() < 120) return;
-                        onSwipe!(v < 0 ? 1 : -1);
-                      },
+            if (carousel)
+              Positioned(
+                left: 0,
+                right: 0,
+                top: arch.top - frame,
+                height: arch.height + frame * 2,
+                child: _LookCarousel(
+                  variants: variants,
+                  currentId: look.lookId,
+                  glass: arch.size,
+                  frame: frame,
+                  viewportFraction:
+                      (arch.width + frame * 2 + pageGap) / size.width,
+                  entrance: entrance,
+                  ambient: ambient,
+                  onSelect: onVariantTap,
+                ),
+              )
+            else ...[
+              Positioned.fromRect(
+                rect: arch,
                 child: _RevealGlass(image: image, entrance: entrance),
               ),
-            ),
-            Positioned.fromRect(
-              rect: arch.inflate(mirrorFrameInset(t.mirror, s)),
-              child: IgnorePointer(
-                child: AnimatedBuilder(
-                  animation: ambient,
-                  builder: (context, _) => CustomPaint(
-                    painter: MirrorArchFramePainter(
-                      shape: t.mirror,
-                      progress: 1,
-                      track: t.hairline,
-                      color: t.primary,
-                      glow: Curves.easeInOut.transform(ambient.value),
-                      s: s,
-                    ),
-                  ),
-                ),
+              Positioned.fromRect(
+                rect: arch.inflate(frame),
+                child: IgnorePointer(child: _LookFrame(ambient: ambient)),
               ),
-            ),
+            ],
             // Искры у рамы — образ готов.
             for (final (dx, dy, sz, delay) in const [
               (-0.10, 0.08, 16.0, 0.0),
@@ -561,22 +554,6 @@ class _ResultMirror extends StatelessWidget {
                   color: t.glow,
                   size: sz * s,
                   delaySeconds: delay,
-                ),
-              ),
-            // Переключатель образов пачки — слева сверху на раме, зеркально QR.
-            if (variants.length > 1)
-              Positioned(
-                left: math.max(6 * s, arch.left - 22 * s),
-                top: arch.top + arch.height * 0.04,
-                child: Entrance(
-                  parent: entrance,
-                  kind: IntroEntranceKind.flyL,
-                  delay: 0.42,
-                  child: _VariantSwitcher(
-                    variants: variants,
-                    currentId: look.lookId,
-                    onTap: onVariantTap,
-                  ),
                 ),
               ),
             // QR — справа сверху на раме.
@@ -626,6 +603,26 @@ class _ResultMirror extends StatelessWidget {
                 ),
               ),
             ),
+            // Точки образов пачки — под плашкой суммы, не на фото.
+            if (carousel)
+              Positioned(
+                left: 0,
+                right: 0,
+                top: arch.bottom + frame + 25 * s,
+                child: IgnorePointer(
+                  child: Center(
+                    child: Entrance(
+                      parent: entrance,
+                      kind: IntroEntranceKind.pop,
+                      delay: 0.42,
+                      child: _VariantDots(
+                        variants: variants,
+                        currentId: look.lookId,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
           ],
         );
       },
@@ -633,85 +630,273 @@ class _ResultMirror extends StatelessWidget {
   }
 }
 
-/// Столбик номеров образов пачки на раме. Готовый образ — номер (выбранный
-/// залит цветом бренда), образ в работе — индикатор: человек видит, что
-/// варианты ещё дорисовываются, и не уходит с первым.
-class _VariantSwitcher extends StatelessWidget {
-  const _VariantSwitcher({
+/// Рама зеркала с готовым образом: замкнутая линия цвета бренда, свечение
+/// «дышит» вместе со сценой.
+class _LookFrame extends StatelessWidget {
+  const _LookFrame({required this.ambient});
+
+  final Animation<double> ambient;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = MirrorTheme.of(context);
+    final s = MirrorTheme.scale(context);
+    return AnimatedBuilder(
+      animation: ambient,
+      builder: (context, _) => CustomPaint(
+        painter: MirrorArchFramePainter(
+          shape: t.mirror,
+          progress: 1,
+          track: t.hairline,
+          color: t.primary,
+          glow: Curves.easeInOut.transform(ambient.value),
+          s: s,
+        ),
+      ),
+    );
+  }
+}
+
+/// Лента образов пачки: зеркала в ряд, текущее по центру, соседние
+/// выглядывают по бокам притушенными. Листается вбок (или касанием по
+/// соседнему); выбранным становится готовый образ, на котором лента
+/// остановилась. Образ в работе — стекло-заглушка с индикатором: его видно,
+/// но код, QR и вещи остаются от последнего готового, пока он не дорисуется.
+class _LookCarousel extends StatefulWidget {
+  const _LookCarousel({
     required this.variants,
     required this.currentId,
-    required this.onTap,
+    required this.glass,
+    required this.frame,
+    required this.viewportFraction,
+    required this.entrance,
+    required this.ambient,
+    required this.onSelect,
   });
 
   final List<KioskLook> variants;
   final String currentId;
-  final ValueChanged<String>? onTap;
+  final Size glass;
+  final double frame;
+  final double viewportFraction;
+  final Animation<double> entrance;
+  final Animation<double> ambient;
+  final ValueChanged<String>? onSelect;
+
+  @override
+  State<_LookCarousel> createState() => _LookCarouselState();
+}
+
+class _LookCarouselState extends State<_LookCarousel> {
+  late PageController _pages;
+
+  /// Страница, на которой лента остановилась.
+  late int _page;
+
+  int _indexOf(String id) {
+    final i = widget.variants.indexWhere((l) => l.lookId == id);
+    return i < 0 ? 0 : i;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _page = _indexOf(widget.currentId);
+    _pages = PageController(
+      initialPage: _page,
+      viewportFraction: widget.viewportFraction,
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _LookCarousel old) {
+    super.didUpdateWidget(old);
+    if ((old.viewportFraction - widget.viewportFraction).abs() > 0.001) {
+      // Другая ширина экрана — та же страница в новой геометрии.
+      _pages.dispose();
+      _pages = PageController(
+        initialPage: _page,
+        viewportFraction: widget.viewportFraction,
+      );
+    }
+    if (old.currentId != widget.currentId) {
+      // Образ сменили не листанием — лента догоняет.
+      final at = _indexOf(widget.currentId);
+      if (at != _page) _goTo(at);
+      return;
+    }
+    // Стояли на образе, который дорисовывался, — он готов: выбираем его.
+    final here = _page < widget.variants.length ? widget.variants[_page] : null;
+    if (here != null && here.isCompleted && here.lookId != widget.currentId) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) widget.onSelect?.call(here.lookId);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _pages.dispose();
+    super.dispose();
+  }
+
+  void _goTo(int index) {
+    if (!_pages.hasClients) return;
+    _pages.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  void _onPage(int index) {
+    _page = index;
+    final look = widget.variants[index];
+    if (look.isCompleted && look.lookId != widget.currentId) {
+      widget.onSelect?.call(look.lookId);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final frame = widget.frame;
+    return PageView.builder(
+      controller: _pages,
+      clipBehavior: Clip.none,
+      physics: const BouncingScrollPhysics(),
+      itemCount: widget.variants.length,
+      onPageChanged: _onPage,
+      itemBuilder: (context, i) {
+        final look = widget.variants[i];
+        final image = look.isCompleted ? _lookImage(look) : null;
+        return AnimatedBuilder(
+          animation: _pages,
+          builder: (context, child) {
+            // Насколько страница далеко от центра: соседние — притушены и
+            // чуть меньше, текущая — в полную силу.
+            var d = (i - _page).abs().toDouble();
+            if (_pages.hasClients && _pages.position.haveDimensions) {
+              d = ((_pages.page ?? _page.toDouble()) - i).abs();
+            }
+            d = d.clamp(0.0, 1.0);
+            return Opacity(
+              opacity: 1 - 0.5 * d,
+              child: Transform.scale(scale: 1 - 0.04 * d, child: child),
+            );
+          },
+          child: Center(
+            child: Semantics(
+              button: true,
+              selected: look.lookId == widget.currentId,
+              label: l10n.mirrorLookVariant(i + 1),
+              child: GestureDetector(
+                key: ValueKey('variant-${look.lookId}'),
+                behavior: HitTestBehavior.opaque,
+                // Касание по выглядывающему образу — перейти к нему.
+                onTap: () {
+                  if (i != _page) _goTo(i);
+                },
+                child: SizedBox(
+                  width: widget.glass.width + frame * 2,
+                  height: widget.glass.height + frame * 2,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Padding(
+                        padding: EdgeInsets.all(frame),
+                        child: look.isCompleted
+                            ? _RevealGlass(
+                                image: image,
+                                entrance: widget.entrance,
+                              )
+                            : _PendingGlass(number: i + 1),
+                      ),
+                      IgnorePointer(child: _LookFrame(ambient: widget.ambient)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Стекло образа, который ещё рисуется: человек видит, что варианты на
+/// подходе, и не уходит с первым.
+class _PendingGlass extends StatelessWidget {
+  const _PendingGlass({required this.number});
+
+  final int number;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final t = MirrorTheme.of(context);
     final s = MirrorTheme.scale(context);
-    final size = 44 * s;
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (final (i, variant) in variants.indexed)
-          Padding(
-            padding: EdgeInsets.only(bottom: 8 * s),
-            child: Semantics(
-              button: variant.isCompleted,
-              selected: variant.lookId == currentId,
-              label: l10n.mirrorLookVariant(i + 1),
-              child: GestureDetector(
-                key: ValueKey('variant-${variant.lookId}'),
-                behavior: HitTestBehavior.opaque,
-                onTap: variant.isCompleted && onTap != null
-                    ? () => onTap!(variant.lookId)
-                    : null,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 220),
-                  width: size,
-                  height: size,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: variant.lookId == currentId ? t.primary : t.surface,
-                    border: Border.all(
-                      color: variant.lookId == currentId
-                          ? t.primary
-                          : t.hairline,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: t.ink.withValues(alpha: 0.10),
-                        blurRadius: 10 * s,
-                        offset: Offset(0, 3 * s),
-                      ),
-                    ],
-                  ),
-                  child: variant.isCompleted
-                      ? Text(
-                          '${i + 1}',
-                          style: t.label(
-                            16 * s,
-                            weight: FontWeight.w600,
-                            color: variant.lookId == currentId
-                                ? t.onPrimary
-                                : t.ink,
-                          ),
-                        )
-                      : SizedBox(
-                          width: 16 * s,
-                          height: 16 * s,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: t.muted,
-                          ),
-                        ),
+    return ClipPath(
+      clipper: MirrorArchClipper(t.mirror),
+      child: ColoredBox(
+        color: t.surface,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 28 * s,
+                height: 28 * s,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: t.muted,
                 ),
               ),
+              SizedBox(height: 14 * s),
+              Text(
+                l10n.mirrorLookVariant(number),
+                style: t.label(15 * s, weight: FontWeight.w600, color: t.muted),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Точки образов пачки под плашкой суммы: текущий — вытянутая, готовые —
+/// точки, образ в работе — бледная. Цветом текста темы, чтобы читались и на
+/// тёмном, и на светлом фоне. Только показывают, где ты; переключают листанием.
+class _VariantDots extends StatelessWidget {
+  const _VariantDots({required this.variants, required this.currentId});
+
+  final List<KioskLook> variants;
+  final String currentId;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = MirrorTheme.of(context);
+    final s = MirrorTheme.scale(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final (i, look) in variants.indexed)
+          AnimatedContainer(
+            key: ValueKey('variant-dot-${look.lookId}'),
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            margin: EdgeInsets.only(left: i == 0 ? 0 : 7 * s),
+            width: (look.lookId == currentId ? 24 : 8) * s,
+            height: 8 * s,
+            decoration: BoxDecoration(
+              color: t.ink.withValues(
+                alpha: look.lookId == currentId
+                    ? 1
+                    : (look.isCompleted ? 0.5 : 0.22),
+              ),
+              borderRadius: BorderRadius.circular(999),
             ),
           ),
       ],

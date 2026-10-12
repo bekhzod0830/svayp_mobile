@@ -26,6 +26,23 @@ class _FakeApi extends KioskApi {
   int startSessionCalls = 0;
   bool sessionScoped = true;
 
+  /// Каталог «по страницам»: каждый шаг — всё, что скачано к этому моменту.
+  /// null — сети нет, каталог не приходит.
+  List<List<KioskCatalogItem>>? catalogSteps;
+
+  @override
+  Future<void> fetchWholeCatalog(
+    void Function(List<KioskCatalogItem> items) onPage, {
+    String? category,
+    required bool Function() cancelled,
+  }) async {
+    for (final step in catalogSteps ?? const <List<KioskCatalogItem>>[]) {
+      if (cancelled()) return;
+      onPage(step);
+      await Future<void>.delayed(Duration.zero);
+    }
+  }
+
   @override
   Future<KioskStation> fetchStation() async =>
       station ??
@@ -236,6 +253,52 @@ void main() {
       expect(c.catalog.map((i) => i.id), ['u-bag']); // унисекс виден обоим
       c.selectCategory('BOTTOMWEAR');
       expect(c.catalog.map((i) => i.id), ['x-pants']); // без пола — тоже
+    });
+
+    test('освежение страницами не обрубает каталог: открывается «Верх»', () async {
+      await c.hardReset('manual');
+      c.seedCatalogForTest(catalog); // полный каталог уже на планшете
+      // Первая страница освежения — без верха, вторая — всё.
+      api.catalogSteps = [
+        catalog.where((i) => i.category != 'TOPWEAR').toList(),
+        catalog,
+      ];
+      await c.begin(MirrorPath.catalog);
+
+      c.setGender('MALE'); // человек выбрал пол, пока каталог докачивается
+      expect(c.category, 'TOPWEAR');
+      expect(c.catalogTabs.first.code, 'TOPWEAR');
+      expect(c.catalog.map((i) => i.id), ['m-top']);
+
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      expect(c.category, 'TOPWEAR');
+      expect(c.catalogPreview.length, catalog.length);
+    });
+
+    test('вкладка «Верх» пришла позже — открытой становится она, пока человек не выбрал сам', () async {
+      await c.hardReset('manual');
+      final noTops = catalog.where((i) => i.category != 'TOPWEAR').toList();
+      c.seedCatalogForTest(noTops); // первая загрузка: верха ещё нет
+      await c.begin(MirrorPath.catalog);
+      c.setGender('MALE');
+      expect(c.category, 'BOTTOMWEAR');
+
+      c.seedCatalogForTest(catalog); // докачался верх
+      expect(c.category, 'TOPWEAR');
+
+      c.selectCategory('FOOTWEAR'); // выбрал сам — больше не трогаем
+      c.seedCatalogForTest(catalog);
+      expect(c.category, 'FOOTWEAR');
+    });
+
+    test('каталог стал короче — после полной докачки берём новый', () async {
+      await c.hardReset('manual');
+      c.seedCatalogForTest(catalog);
+      final fewer = catalog.take(3).toList();
+      api.catalogSteps = [fewer.take(2).toList(), fewer];
+      await c.begin(MirrorPath.catalog);
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      expect(c.catalogPreview.length, 3);
     });
 
     test('женский гардероб: платья есть, мужских вещей нет', () async {
@@ -597,11 +660,16 @@ void main() {
       expect(c.look?.lookId, 'l2');
       c.revealResult();
       expect(c.screen, MirrorScreen.result);
-      expect(c.packLooks.map((l) => l.isCompleted), [false, true, false]);
+      // Лента — в порядке готовности: готовый первым стоит первым.
+      expect(c.packLooks.map((l) => l.lookId), ['l2', 'l1', 'l3']);
+      expect(c.packLooks.map((l) => l.isCompleted), [true, false, false]);
 
       api.doneById['l1']!(_look('l1', KioskLookStatus.completed));
       expect(c.look?.lookId, 'l2'); // образ на экране сам не меняется
-      expect(c.packLooks.where((l) => l.isCompleted).map((l) => l.lookId), ['l1', 'l2']);
+      expect(c.packLooks.map((l) => l.lookId), ['l2', 'l1', 'l3']);
+
+      api.doneById['l3']!(_look('l3', KioskLookStatus.completed));
+      expect(c.packLooks.map((l) => l.lookId), ['l2', 'l1', 'l3']);
     });
 
     test('один образ упал — не ошибка; упали все — честная ошибка', () async {

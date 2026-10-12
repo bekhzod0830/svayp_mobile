@@ -211,11 +211,22 @@ class MirrorSessionController extends ChangeNotifier {
   /// на экране в момент «Пересобрать».
   String? _baseLookId;
 
-  /// Образы пачки для переключателя на результате: готовые и те, что ещё
-  /// генерируются; упавшие не показываем.
-  List<KioskLook> get packLooks => List.unmodifiable(
-        _pack.values.where((l) => l.status != KioskLookStatus.failed),
-      );
+  /// В каком порядке образы пачки дорисовались. Лента на результате идёт в
+  /// этом порядке: образ, готовый первым, — первый, и результат открывается на
+  /// нём (в порядке бэкенда первым готовым мог оказаться третий, и лента
+  /// открывалась с конца).
+  final List<String> _readyOrder = [];
+
+  /// Образы пачки для ленты на результате: готовые — в порядке готовности,
+  /// за ними те, что ещё генерируются (в порядке бэкенда); упавшие не
+  /// показываем.
+  List<KioskLook> get packLooks => List.unmodifiable([
+        for (final id in _readyOrder)
+          if (_pack[id]?.isCompleted ?? false) _pack[id]!,
+        for (final l in _pack.values)
+          if (!l.isCompleted && l.status != KioskLookStatus.failed) l,
+      ]);
+
   bool resultReady = false;
   int elapsedSec = 0;
   bool genFailed = false;
@@ -522,12 +533,19 @@ class MirrorSessionController extends ChangeNotifier {
     return n;
   }
 
-  /// Вкладка каталога всегда конкретная: первая по порядку сборки образа,
-  /// если текущей нет среди доступных.
+  /// Человек сам выбрал вкладку каталога. Пока нет — открыта первая по
+  /// порядку сборки образа, даже если она появилась позже остальных (каталог
+  /// докачивается страницами, и «Верх» мог прийти после «Низа»).
+  bool _categoryPicked = false;
+
+  /// Вкладка каталога всегда конкретная: выбранная человеком, пока она есть
+  /// среди доступных, иначе первая по порядку сборки образа.
   void _ensureCategory() {
     final tabs = catalogTabs;
     if (tabs.isEmpty) return;
-    if (!tabs.any((t) => t.code == category)) category = tabs.first.code;
+    if (!_categoryPicked || !tabs.any((t) => t.code == category)) {
+      category = tabs.first.code;
+    }
   }
 
   void _setCatalogCache(List<KioskCatalogItem> items, {required bool demo}) {
@@ -538,6 +556,7 @@ class MirrorSessionController extends ChangeNotifier {
   /// Смена категории — мгновенный локальный фильтр по кэшу, без сети.
   void selectCategory(String? code) {
     category = code;
+    _categoryPicked = true;
     _ensureCategory();
     catalog = _applyCategory(_catalogAllCache);
     touch();
@@ -554,8 +573,7 @@ class MirrorSessionController extends ChangeNotifier {
     if (_catalogFetchInFlight) return;
     _catalogFetchInFlight = true;
 
-    void onPage(List<KioskCatalogItem> items) {
-      if (_disposed || cancelled()) return;
+    void apply(List<KioskCatalogItem> items) {
       _setCatalogCache(items, demo: demo);
       if (screen == MirrorScreen.catalog) {
         _ensureCategory();
@@ -564,13 +582,34 @@ class MirrorSessionController extends ChangeNotifier {
       _notify();
     }
 
+    // Освежение идёт страницами, и каждая приносит «всё, что скачано к этому
+    // моменту». Полный каталог того же источника этим обрубком не подменяем:
+    // иначе на время докачки пропадали целые вкладки (нет «Верха» — каталог
+    // открывался с «Низа»). Свежий список встаёт, когда догнал старый или
+    // докачался.
+    final hadFull = _catalogAllCache.isNotEmpty && _catalogCacheIsDemo == demo;
+    List<KioskCatalogItem>? latest;
+    void onPage(List<KioskCatalogItem> items) {
+      if (_disposed || cancelled()) return;
+      latest = items;
+      if (hadFull && items.length < _catalogAllCache.length) return;
+      latest = null;
+      apply(items);
+    }
+
     try {
       if (demo) {
         await _demo.catalog(onPage: onPage, cancelled: cancelled);
       } else {
         await _api.fetchWholeCatalog(onPage, cancelled: cancelled);
       }
-      if (!cancelled()) _catalogWarmedAt = DateTime.now();
+      if (!cancelled()) {
+        // Докачался и оказался короче прежнего (вещи ушли из зала) — теперь
+        // можно: это уже весь каталог, а не его начало.
+        final rest = latest;
+        if (rest != null && !_disposed) apply(rest);
+        _catalogWarmedAt = DateTime.now();
+      }
     } catch (_) {
       // Сеть моргнула — показываем кэш/то, что успело прийти; пустое
       // состояние экран отрисует сам.
@@ -665,6 +704,11 @@ class MirrorSessionController extends ChangeNotifier {
   void seedCatalogForTest(List<KioskCatalogItem> items, {bool demo = false}) {
     _setCatalogCache(items, demo: demo);
     _catalogWarmedAt = DateTime.now();
+    // Как при приходе страницы: открытая витрина пересчитывается.
+    if (screen == MirrorScreen.catalog) {
+      _ensureCategory();
+      catalog = _applyCategory(_catalogAllCache);
+    }
     _notify();
   }
 
@@ -674,6 +718,14 @@ class MirrorSessionController extends ChangeNotifier {
     _pack
       ..clear()
       ..addEntries(looks.map((l) => MapEntry(l.lookId, l)));
+    // Готовые — в порядке списка, как будто дорисовались по очереди; уже
+    // известный порядок сохраняем (повторная подсадка в том же тесте).
+    _readyOrder.removeWhere((id) => !(_pack[id]?.isCompleted ?? false));
+    for (final l in looks) {
+      if (l.isCompleted && !_readyOrder.contains(l.lookId)) {
+        _readyOrder.add(l.lookId);
+      }
+    }
     look = _pack[current];
     _completedLook = look;
     _notify();
@@ -770,6 +822,7 @@ class MirrorSessionController extends ChangeNotifier {
     if (path == MirrorPath.catalog) {
       // «Из каталога»: после пола — вещи этого гардероба, с первой вкладки.
       category = null;
+      _categoryPicked = false;
       _ensureCategory();
       catalog = _applyCategory(_catalogAllCache);
       _go(MirrorScreen.catalog);
@@ -931,6 +984,7 @@ class MirrorSessionController extends ChangeNotifier {
     _completedLook = null;
     generatingItems = const [];
     _pack.clear();
+    _readyOrder.clear();
     elapsedSec = 0;
     _go(MirrorScreen.generating);
 
@@ -1033,6 +1087,7 @@ class MirrorSessionController extends ChangeNotifier {
   void _onPackLook(KioskLook l) {
     _pack[l.lookId] = l;
     if (l.isCompleted) {
+      if (!_readyOrder.contains(l.lookId)) _readyOrder.add(l.lookId);
       final url = l.resultImageUrl;
       if (url != null) _resultUrls.add(url);
       if (_completedLook == null) {
@@ -1076,6 +1131,7 @@ class MirrorSessionController extends ChangeNotifier {
     // последней секунде их не подменяем, даже если первым дорисовался вариант.
     if (generatingItems.isEmpty && l.items.isNotEmpty) generatingItems = l.items;
     _pack.putIfAbsent(l.lookId, () => l);
+    if (!_readyOrder.contains(l.lookId)) _readyOrder.add(l.lookId);
     final url = l.resultImageUrl;
     if (url != null) _resultUrls.add(url);
     resultReady = true;
@@ -1383,6 +1439,7 @@ class MirrorSessionController extends ChangeNotifier {
     catalog = [];
     catalogLoading = false;
     category = null;
+    _categoryPicked = false;
     _catalogRequestToken++;
     capturedPhoto = null;
     photoBlobKey = null;
@@ -1391,6 +1448,7 @@ class MirrorSessionController extends ChangeNotifier {
     _completedLook = null;
     generatingItems = const [];
     _pack.clear();
+    _readyOrder.clear();
     _baseLookId = null;
     resultReady = false;
     elapsedSec = 0;

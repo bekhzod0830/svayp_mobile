@@ -193,7 +193,7 @@ void main() {
           currency: 'UZS',
         );
 
-    testWidgets('переключатель: готовые образы — номера, образ в работе — индикатор',
+    testWidgets('лента образов: соседний выглядывает, листание вбок выбирает образ',
         (tester) async {
       _tabletSurface(tester);
       final c = await _controller(withCode: true);
@@ -208,8 +208,33 @@ void main() {
       await tester.pumpWidget(_liveHarness(c));
       await tester.pump();
 
-      expect(find.byKey(const ValueKey('variant-l1')), findsOneWidget);
-      expect(find.byKey(const ValueKey('variant-l2')), findsOneWidget);
+      // Текущий образ по центру, следующий выглядывает справа.
+      final screen = tester.getSize(find.byType(MirrorResultScreen)).width;
+      final current = tester.getRect(find.byKey(const ValueKey('variant-l1')));
+      final next = tester.getRect(find.byKey(const ValueKey('variant-l2')));
+      expect(current.center.dx, closeTo(screen / 2, 1));
+      expect(next.left, greaterThan(current.right));
+      expect(next.left, lessThan(screen)); // край следующего виден
+      // Точки: три образа, третий ещё рисуется.
+      expect(find.byKey(const ValueKey('variant-dot-l1')), findsOneWidget);
+      expect(find.byKey(const ValueKey('variant-dot-l3')), findsOneWidget);
+      expect(find.text('Жакет'), findsOneWidget);
+
+      // Листаем влево — выбран второй образ, вещи и сумма его.
+      await tester.fling(find.byType(PageView), const Offset(-400, 0), 1200);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(c.look?.lookId, 'l2');
+      expect(find.text('Свитер'), findsOneWidget);
+      expect(find.text('Жакет'), findsNothing);
+
+      // Третий ещё в работе: его видно (заглушка с индикатором), но выбран
+      // по-прежнему второй.
+      await tester.fling(find.byType(PageView), const Offset(-400, 0), 1200);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump(const Duration(milliseconds: 600));
       expect(
         find.descendant(
           of: find.byKey(const ValueKey('variant-l3')),
@@ -217,26 +242,52 @@ void main() {
         ),
         findsOneWidget,
       );
-      expect(find.text('Жакет'), findsOneWidget);
-
-      // Образ в работе выбрать нельзя.
-      await tester.tap(find.byKey(const ValueKey('variant-l3')));
-      await tester.pump();
-      expect(c.look?.lookId, 'l1');
-
-      await tester.tap(find.byKey(const ValueKey('variant-l2')));
-      await tester.pump(const Duration(milliseconds: 300));
       expect(c.look?.lookId, 'l2');
-      // Вещи и сумма — выбранного образа.
-      expect(find.text('Свитер'), findsOneWidget);
-      expect(find.text('Жакет'), findsNothing);
+
+      // Дорисовался, пока человек на нём стоит, — выбирается сам.
+      c.seedPackForTest(
+        [
+          look('l1', KioskLookStatus.completed, 'Жакет'),
+          look('l2', KioskLookStatus.completed, 'Свитер'),
+          look('l3', KioskLookStatus.completed, 'Пальто'),
+        ],
+        current: 'l2',
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(c.look?.lookId, 'l3');
       expect(tester.takeException(), isNull);
 
       await tester.pumpWidget(const SizedBox.shrink());
       c.dispose();
     });
 
-    testWidgets('один образ — переключателя нет', (tester) async {
+    testWidgets('касание по выглядывающему образу переходит к нему', (tester) async {
+      _tabletSurface(tester);
+      final c = await _controller(withCode: true);
+      c.seedPackForTest(
+        [
+          look('l1', KioskLookStatus.completed, 'Жакет'),
+          look('l2', KioskLookStatus.completed, 'Свитер'),
+        ],
+        current: 'l1',
+      );
+      await tester.pumpWidget(_liveHarness(c));
+      await tester.pump();
+
+      final peek = tester.getRect(find.byKey(const ValueKey('variant-l2')));
+      // Нижняя часть выглядывающего образа: сверху его прикрывает карточка QR.
+      await tester.tapAt(Offset(peek.left + 12, peek.bottom - 40));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(c.look?.lookId, 'l2');
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      c.dispose();
+    });
+
+    testWidgets('один образ — ленты нет', (tester) async {
       _tabletSurface(tester);
       final c = await _controller(withCode: true);
       c.seedPackForTest(
@@ -246,7 +297,8 @@ void main() {
       await tester.pumpWidget(_liveHarness(c));
       await tester.pump();
 
-      expect(find.byKey(const ValueKey('variant-l1')), findsNothing);
+      expect(find.byType(PageView), findsNothing);
+      expect(find.byKey(const ValueKey('variant-dot-l1')), findsNothing);
 
       await tester.pumpWidget(const SizedBox.shrink());
       c.dispose();
