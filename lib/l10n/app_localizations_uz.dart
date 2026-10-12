@@ -4074,4 +4074,23 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get mirrorModelSizes => 'Model oʻlchamlari';
+
+  @override
+  String get mirrorStationSetupTitle => 'Stansiya sozlanmagan';
+
+  @override
+  String get mirrorStationSetupNoKey =>
+      'Boshlash uchun ushbu doʻkon stansiyasi kalitini kiriting';
+
+  @override
+  String get mirrorStationSetupRejected =>
+      'Stansiya kaliti qabul qilinmadi. Uni tekshiring yoki stansiyani qaytadan roʻyxatdan oʻtkazing';
+
+  @override
+  String get mirrorStationSetupAction => 'Kalitni kiritish';
+
+  @override
+  String mirrorLookVariant(int number) {
+    return 'Obraz $number';
+  }
 }

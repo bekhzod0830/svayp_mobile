@@ -25,6 +25,7 @@ import 'mirror_brand.dart';
 const MirrorBrand storexxBrand = MirrorBrand(
   id: 'storexx',
   variantId: 'storexx_dark',
+  requiresStationKey: true,
   name: 'Storexx',
   wordmark: 'STORE XX',
   logoAsset: _logo,
@@ -82,6 +83,7 @@ const MirrorBrand storexxDarkBrand = MirrorBrand(
   id: 'storexx_dark',
   baseId: 'storexx',
   variantId: 'storexx',
+  requiresStationKey: true,
   name: 'Storexx',
   wordmark: 'STORE XX',
   logoAsset: _logo,

@@ -83,6 +83,10 @@ class MirrorSessionController extends ChangeNotifier {
   static const idleTimeout = Duration(seconds: 60);
   static const idleGraceSeconds = 10;
   static const maxRegenerations = 3;
+
+  /// Сколько образов просим за раз в ветке «создать»: человек листает их на
+  /// результате. Каждый образ — отдельная генерация на бэкенде.
+  static const lookVariants = 3;
   // Киоск генерирует через FASHN по шагам: замер на проде ≈105 c на 3 вещи
   // (gpt-image — ~30 c). Бюджет ML — 200 c, наш порог выше, чтобы первым
   // приходил честный отказ сервера.
@@ -178,6 +182,8 @@ class MirrorSessionController extends ChangeNotifier {
   String? photoBlobKey;
   KioskPhotoValidation? validation;
 
+  /// Образ на экране: до результата — первый образ пачки (сцена генерации
+  /// листает его вещи), на результате — выбранный человеком.
   KioskLook? look;
   KioskLook? _completedLook;
 
@@ -196,6 +202,20 @@ class MirrorSessionController extends ChangeNotifier {
   /// До первого образа на станции. На планшете зала генерация шла ~40–50 с;
   /// дальше станция подстраивается под своё время сама.
   static const double defaultGenSec = 60;
+
+  /// Образы текущей пачки в порядке бэкенда, по id: последнее известное
+  /// состояние каждого (готов, генерируется, упал).
+  final Map<String, KioskLook> _pack = {};
+
+  /// Образ, от которого считается уточнение («Дешевле» и т.п.): тот, что был
+  /// на экране в момент «Пересобрать».
+  String? _baseLookId;
+
+  /// Образы пачки для переключателя на результате: готовые и те, что ещё
+  /// генерируются; упавшие не показываем.
+  List<KioskLook> get packLooks => List.unmodifiable(
+        _pack.values.where((l) => l.status != KioskLookStatus.failed),
+      );
   bool resultReady = false;
   int elapsedSec = 0;
   bool genFailed = false;
@@ -229,12 +249,24 @@ class MirrorSessionController extends ChangeNotifier {
   /// только последнюю — на прошлых пересборках тоже лицо покупателя.
   final Set<String> _resultUrls = {};
 
-  KioskLookWatch? _watch;
+  /// Опрос каждого образа пачки. Первый готовый открывает результат,
+  /// остальные дорисовываются уже на нём.
+  final List<KioskLookWatch> _watches = [];
   Timer? _idleTimer;
   Timer? _graceTicker;
   Timer? _elapsedTicker;
   Timer? _demoGenTimer;
   Timer? _shareRetryTimer;
+
+  /// Оформление магазина без принятого ключа станции: киоск закрыт экраном
+  /// настройки, а не работает молча по каталогу всех магазинов.
+  bool stationBlocked = false;
+
+  /// Причина блокировки: ключ введён, но бэкенд его не принял (true) или
+  /// ключа нет вовсе (false).
+  bool stationKeyRejected = false;
+
+  bool get _needsStationKey => _brand.requiresStationKey && !_demo.forced;
 
   String? get storeLabel => _storeLabel;
   KioskApi get api => _api;
@@ -333,6 +365,51 @@ class MirrorSessionController extends ChangeNotifier {
     } catch (_) {}
   }
 
+  // ── Станция ────────────────────────────────────────────────────────────────
+
+  /// Принят ли ключ станции. Зовётся на постере (до сессии) и после шита
+  /// настройки. Сеть моргнула или бэкенд старый — при введённом ключе не
+  /// блокируем: закрыть рабочий киоск из-за сбоя хуже.
+  Future<void> checkStation() async {
+    if (!_needsStationKey) {
+      _setStationBlocked(false);
+      return;
+    }
+    final key = _api.deviceKey;
+    if (key == null || key.isEmpty) {
+      _setStationBlocked(true, rejected: false);
+      return;
+    }
+    try {
+      final station = await _api.fetchStation();
+      if (_disposed || !_needsStationKey) return;
+      _setStationBlocked(!station.storeScoped, rejected: true);
+    } on KioskApiException {
+      // Оставляем как было.
+    }
+  }
+
+  void _setStationBlocked(bool blocked, {bool rejected = false}) {
+    final keyRejected = blocked && rejected;
+    if (stationBlocked == blocked && stationKeyRejected == keyRejected) return;
+    stationBlocked = blocked;
+    stationKeyRejected = keyRejected;
+    if (blocked) {
+      // Каталог мог успеть прийти общий — под вывеской магазина его не держим.
+      _setCatalogCache(const [], demo: false);
+      _catalogWarmedAt = null;
+      catalog = [];
+    }
+    _notify();
+  }
+
+  /// Шит настройки закрыт: ключ мог смениться — перепроверяем станцию и
+  /// перечитываем каталог (он у другого ключа другой).
+  Future<void> onSetupClosed() async {
+    await checkStation();
+    if (!stationBlocked) await warmCatalog(force: true);
+  }
+
   // ── Старт сессии ───────────────────────────────────────────────────────────
 
   bool _beginning = false;
@@ -342,7 +419,7 @@ class MirrorSessionController extends ChangeNotifier {
   /// оффлайн-оверлей выигрывает (его ставит MirrorTab).
   Future<void> begin(MirrorPath p) async {
     // Двойное касание CTA не должно открыть две сессии.
-    if (_beginning || screen != MirrorScreen.idle) return;
+    if (_beginning || screen != MirrorScreen.idle || stationBlocked) return;
     _beginning = true;
     try {
       await _begin(p);
@@ -367,6 +444,13 @@ class MirrorSessionController extends ChangeNotifier {
           apiLang,
           p == MirrorPath.create ? 'create' : 'catalog',
         );
+        if (_needsStationKey && !session.storeScoped) {
+          // Ключ отозвали уже после проверки на постере: сессию открыл общий
+          // каталог. Закрываем её и показываем экран настройки.
+          _api.resetSession(session.sessionId).catchError((_) {});
+          _setStationBlocked(true, rejected: true);
+          return;
+        }
         _demo.disableAuto();
         demoActive = false;
         sessionId = session.sessionId;
@@ -539,6 +623,9 @@ class MirrorSessionController extends ChangeNotifier {
   Future<void> warmCatalog({bool force = false}) async {
     if (_disposed || screen != MirrorScreen.idle || !_active || offline) return;
 
+    await checkStation();
+    if (_disposed || stationBlocked || screen != MirrorScreen.idle) return;
+
     final wantDemo = _demo.forced;
     if (_catalogCacheIsDemo != wantDemo && _catalogAllCache.isNotEmpty) {
       _setCatalogCache(const [], demo: wantDemo);
@@ -578,6 +665,17 @@ class MirrorSessionController extends ChangeNotifier {
   void seedCatalogForTest(List<KioskCatalogItem> items, {bool demo = false}) {
     _setCatalogCache(items, demo: demo);
     _catalogWarmedAt = DateTime.now();
+    _notify();
+  }
+
+  /// Подсадить пачку образов в тестах экрана результата, минуя генерацию.
+  @visibleForTesting
+  void seedPackForTest(List<KioskLook> looks, {required String current}) {
+    _pack
+      ..clear()
+      ..addEntries(looks.map((l) => MapEntry(l.lookId, l)));
+    look = _pack[current];
+    _completedLook = look;
     _notify();
   }
 
@@ -811,6 +909,7 @@ class MirrorSessionController extends ChangeNotifier {
         ..addAll(brands);
     }
     attempt += 1;
+    _baseLookId = look?.lookId;
     _track('kiosk_regenerate', {
       'attempt': attempt.toString(),
       'refine': refineKinds.join(','),
@@ -831,6 +930,7 @@ class MirrorSessionController extends ChangeNotifier {
     resultReady = false;
     _completedLook = null;
     generatingItems = const [];
+    _pack.clear();
     elapsedSec = 0;
     _go(MirrorScreen.generating);
 
@@ -880,46 +980,102 @@ class MirrorSessionController extends ChangeNotifier {
         refines: refineKinds.length > 1 ? List.of(refineKinds) : null,
         excludeColors: {...avoidColors, ...excludeColors}.toList(),
         faceLiked: faceLiked,
+        // Пачка — только в ветке «создать»: из каталога человек сам выбрал
+        // вещи, и варианты отличались бы от них лишь досыпанным.
+        variants: path == MirrorPath.create ? lookVariants : null,
+        baseLookId: _baseLookId,
       );
       if (stale() || screen != MirrorScreen.generating) return;
+      // Вещи образа известны уже по ответу на создание — экран генерации
+      // показывает их, пока картинка рисуется.
       if (created.items.isNotEmpty) {
         generatingItems = created.items;
         _notify();
       }
-      if (created.isTerminal) {
-        created.status == KioskLookStatus.completed
-            ? _onGenerationCompleted(created)
-            : _onGenerationFailed(created.failureReason ?? 'FAILED');
-        return;
-      }
       look = created;
-      _watch = _api.watchLook(
-        created.lookId,
-        onProgress: (l) {
-          if (stale()) return;
-          look = l;
-          if (l.items.isNotEmpty) generatingItems = l.items;
-          _notify();
-        },
-        onDone: (l) {
-          if (stale()) return;
-          l.status == KioskLookStatus.completed
-              ? _onGenerationCompleted(l)
-              : _onGenerationFailed(l.failureReason ?? 'FAILED');
-        },
-      );
+      // Порядок пачки — как у бэкенда: первый образ, затем варианты. До
+      // первого опроса вариант известен только по id.
+      _pack[created.lookId] = created;
+      for (final id in created.variantIds) {
+        _pack[id] = KioskLook(lookId: id, status: KioskLookStatus.pending);
+      }
+      if (created.isTerminal) _onPackLook(created);
+      for (final id in _pack.keys.toList()) {
+        if (_pack[id]!.isTerminal) continue;
+        _watches.add(
+          _api.watchLook(
+            id,
+            onProgress: (l) {
+              if (stale()) return;
+              _pack[id] = l;
+              // Сцена генерации листает вещи первого образа.
+              if (id == created.lookId && _completedLook == null) {
+                look = l;
+                if (l.items.isNotEmpty) generatingItems = l.items;
+              }
+              _notify();
+            },
+            onDone: (l) {
+              if (stale()) return;
+              _onPackLook(l);
+            },
+          ),
+        );
+      }
     } on KioskApiException catch (e) {
       if (stale()) return;
       _onGenerationFailed(e.code ?? (e.isNetwork ? 'NETWORK' : 'FAILED'));
     }
   }
 
+  /// Образ пачки дошёл до конца. Первый готовый открывает результат; следующие
+  /// появляются в переключателе уже на нём. Ошибка — только когда упали все.
+  void _onPackLook(KioskLook l) {
+    _pack[l.lookId] = l;
+    if (l.isCompleted) {
+      final url = l.resultImageUrl;
+      if (url != null) _resultUrls.add(url);
+      if (_completedLook == null) {
+        _onGenerationCompleted(l);
+      } else {
+        _track('kiosk_variant_ready', {'look_id': l.lookId});
+        _notify();
+      }
+      return;
+    }
+    if (_completedLook == null && _pack.values.every((v) => v.isTerminal)) {
+      // Причина — первого образа пачки: она и есть ответ на запрос человека.
+      final first = _pack.values.first;
+      _onGenerationFailed(first.failureReason ?? l.failureReason ?? 'FAILED');
+      return;
+    }
+    _notify();
+  }
+
+  /// Показать другой готовый образ пачки. Код и QR — для выбранного: продавец
+  /// должен получить ровно тот образ, что человек видит.
+  void selectLook(String lookId) {
+    final next = _pack[lookId];
+    if (next == null || !next.isCompleted || next.lookId == look?.lookId) return;
+    look = next;
+    _completedLook = next;
+    touch();
+    _track('kiosk_variant_selected', {'look_id': lookId});
+    _clearShare();
+    ensureShare();
+    _notify();
+  }
+
   void _onGenerationCompleted(KioskLook l) {
     if (screen != MirrorScreen.generating) return;
-    _stopGeneration(keepElapsed: true);
+    // Остальные образы пачки продолжают генерироваться — их опрос оставляем.
+    _stopGeneration(keepElapsed: true, keepWatches: true);
     look = l;
     _completedLook = l;
-    if (l.items.isNotEmpty) generatingItems = l.items;
+    // Вещи на экране генерации уже показаны (первого образа пачки) — на
+    // последней секунде их не подменяем, даже если первым дорисовался вариант.
+    if (generatingItems.isEmpty && l.items.isNotEmpty) generatingItems = l.items;
+    _pack.putIfAbsent(l.lookId, () => l);
     final url = l.resultImageUrl;
     if (url != null) _resultUrls.add(url);
     resultReady = true;
@@ -1005,9 +1161,13 @@ class MirrorSessionController extends ChangeNotifier {
     _sharedLookId = null;
   }
 
-  void _stopGeneration({bool keepElapsed = false}) {
-    _watch?.close();
-    _watch = null;
+  void _stopGeneration({bool keepElapsed = false, bool keepWatches = false}) {
+    if (!keepWatches) {
+      for (final watch in _watches) {
+        watch.close();
+      }
+      _watches.clear();
+    }
     _elapsedTicker?.cancel();
     _elapsedTicker = null;
     _demoGenTimer?.cancel();
@@ -1027,11 +1187,19 @@ class MirrorSessionController extends ChangeNotifier {
     if (id == null || _disposed || _shareInFlight) return;
     if (shareUrl != null && _sharedLookId == lookId) return;
     _shareInFlight = true;
+    var lookChanged = false;
     try {
-      final finish = demoActive ? _demo.finish() : await _api.finishSession(id);
+      final finish = demoActive
+          ? _demo.finish()
+          : await _api.finishSession(id, lookId: lookId);
       // Пока ждали ответ, сессия могла смениться (сброс по бездействию) — тогда
       // код и QR принадлежат прошлому покупателю.
       if (_disposed || sessionId != id) return;
+      // Человек успел выбрать другой образ пачки: этот ответ — про прошлый.
+      if (_completedLook?.lookId != lookId) {
+        lookChanged = true;
+        return;
+      }
       sellerCode = finish.code;
       shareUrl = finish.shareUrl;
       _sharedLookId = lookId;
@@ -1048,6 +1216,7 @@ class MirrorSessionController extends ChangeNotifier {
       }
     } finally {
       _shareInFlight = false;
+      if (lookChanged) unawaited(ensureShare());
     }
   }
 
@@ -1221,6 +1390,8 @@ class MirrorSessionController extends ChangeNotifier {
     look = null;
     _completedLook = null;
     generatingItems = const [];
+    _pack.clear();
+    _baseLookId = null;
     resultReady = false;
     elapsedSec = 0;
     genFailed = false;
@@ -1292,6 +1463,9 @@ class MirrorSessionController extends ChangeNotifier {
     _track('kiosk_brand_selected', {'brand': next.id});
     _brand = next;
     await hardReset('brand');
+    // hardReset прогревает каталог только на активном табе; блокировку
+    // оформления без ключа ставим (и снимаем) в любом случае.
+    await checkStation();
   }
 
   /// Язык для бэкенда. Киоск-API рассчитан на RU/UZ; английский экран

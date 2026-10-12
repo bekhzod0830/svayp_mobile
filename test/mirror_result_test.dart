@@ -46,6 +46,10 @@ Future<MirrorSessionController> _controller({required bool withCode}) async {
   return c;
 }
 
+/// Как в MirrorTab: экран перестраивается на каждое изменение контроллера.
+Widget _liveHarness(MirrorSessionController c) =>
+    ListenableBuilder(listenable: c, builder: (context, _) => _harness(c));
+
 Widget _harness(MirrorSessionController c) => MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
@@ -178,5 +182,74 @@ void main() {
 
     await tester.pumpWidget(const SizedBox.shrink());
     c.dispose();
+  });
+
+  group('пачка образов', () {
+    KioskLook look(String id, KioskLookStatus status, String title) => KioskLook(
+          lookId: id,
+          status: status,
+          items: [KioskLookItem(productId: 'p-$id', title: title, price: 100000)],
+          totalPrice: 100000,
+          currency: 'UZS',
+        );
+
+    testWidgets('переключатель: готовые образы — номера, образ в работе — индикатор',
+        (tester) async {
+      _tabletSurface(tester);
+      final c = await _controller(withCode: true);
+      c.seedPackForTest(
+        [
+          look('l1', KioskLookStatus.completed, 'Жакет'),
+          look('l2', KioskLookStatus.completed, 'Свитер'),
+          look('l3', KioskLookStatus.processing, 'Пальто'),
+        ],
+        current: 'l1',
+      );
+      await tester.pumpWidget(_liveHarness(c));
+      await tester.pump();
+
+      expect(find.byKey(const ValueKey('variant-l1')), findsOneWidget);
+      expect(find.byKey(const ValueKey('variant-l2')), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('variant-l3')),
+          matching: find.byType(CircularProgressIndicator),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Жакет'), findsOneWidget);
+
+      // Образ в работе выбрать нельзя.
+      await tester.tap(find.byKey(const ValueKey('variant-l3')));
+      await tester.pump();
+      expect(c.look?.lookId, 'l1');
+
+      await tester.tap(find.byKey(const ValueKey('variant-l2')));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(c.look?.lookId, 'l2');
+      // Вещи и сумма — выбранного образа.
+      expect(find.text('Свитер'), findsOneWidget);
+      expect(find.text('Жакет'), findsNothing);
+      expect(tester.takeException(), isNull);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      c.dispose();
+    });
+
+    testWidgets('один образ — переключателя нет', (tester) async {
+      _tabletSurface(tester);
+      final c = await _controller(withCode: true);
+      c.seedPackForTest(
+        [look('l1', KioskLookStatus.completed, 'Жакет')],
+        current: 'l1',
+      );
+      await tester.pumpWidget(_liveHarness(c));
+      await tester.pump();
+
+      expect(find.byKey(const ValueKey('variant-l1')), findsNothing);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      c.dispose();
+    });
   });
 }

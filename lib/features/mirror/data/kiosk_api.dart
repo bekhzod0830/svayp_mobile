@@ -76,6 +76,12 @@ class KioskApi {
   /// `/products/all` тем же клиентом — без JWT).
   Dio get dio => _dio;
 
+  /// Принят ли ключ и привязана ли станция к магазину — без открытия сессии.
+  Future<KioskStation> fetchStation() async {
+    final res = await _request(() => _dio.get<dynamic>('/kiosk/station'));
+    return KioskStation.fromJson(_unwrap(res.data));
+  }
+
   Future<KioskSession> startSession(String lang, String path) async {
     final res = await _request(
       () => _dio.post<dynamic>(
@@ -199,6 +205,8 @@ class KioskApi {
     List<String>? refines,
     List<String>? excludeColors,
     bool? faceLiked,
+    int? variants,
+    String? baseLookId,
   }) async {
     final res = await _request(
       () => _dio.post<dynamic>(
@@ -219,6 +227,10 @@ class KioskApi {
           if (excludeColors != null && excludeColors.isNotEmpty)
             'excludeColors': excludeColors,
           if (faceLiked != null) 'faceLiked': faceLiked,
+          // Сколько образов сделать сразу: остальные придут в `variantIds`.
+          if (variants != null && variants > 1) 'variants': variants,
+          // Какой образ пачки уточняем («Дешевле» и т.п.) — тот, что на экране.
+          if (baseLookId != null) 'baseLookId': baseLookId,
         },
       ),
     );
@@ -230,9 +242,14 @@ class KioskApi {
     return KioskLook.fromJson(_unwrap(res.data));
   }
 
-  Future<KioskFinish> finishSession(String sessionId) async {
+  /// [lookId] — образ, который человек выбрал из пачки: он и уйдёт продавцу.
+  /// Без него бэкенд берёт последний готовый.
+  Future<KioskFinish> finishSession(String sessionId, {String? lookId}) async {
     final res = await _request(
-      () => _dio.post<dynamic>('/kiosk/sessions/$sessionId/finish'),
+      () => _dio.post<dynamic>(
+        '/kiosk/sessions/$sessionId/finish',
+        queryParameters: {if (lookId != null) 'lookId': lookId},
+      ),
     );
     return KioskFinish.fromJson(_unwrap(res.data));
   }

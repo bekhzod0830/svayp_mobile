@@ -1432,5 +1432,10 @@
   "mirrorRefineNeedStyle": "Quyida uslubni tanlang",
   "mirrorRefineChosen": "Tanlandi: {count}",
   "mirrorGenItemsShown": "{shown} / {total}",
-  "mirrorModelSizes": "Model oʻlchamlari"
+  "mirrorModelSizes": "Model oʻlchamlari",
+  "mirrorStationSetupTitle": "Stansiya sozlanmagan",
+  "mirrorStationSetupNoKey": "Boshlash uchun ushbu doʻkon stansiyasi kalitini kiriting",
+  "mirrorStationSetupRejected": "Stansiya kaliti qabul qilinmadi. Uni tekshiring yoki stansiyani qaytadan roʻyxatdan oʻtkazing",
+  "mirrorStationSetupAction": "Kalitni kiritish",
+  "mirrorLookVariant": "Obraz {number}"
 }

@@ -4034,4 +4034,23 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get mirrorModelSizes => 'Sizes';
+
+  @override
+  String get mirrorStationSetupTitle => 'Station is not set up';
+
+  @override
+  String get mirrorStationSetupNoKey =>
+      'Enter this store\'s station key to start';
+
+  @override
+  String get mirrorStationSetupRejected =>
+      'The station key was not accepted. Check it or register the station again';
+
+  @override
+  String get mirrorStationSetupAction => 'Enter key';
+
+  @override
+  String mirrorLookVariant(int number) {
+    return 'Look $number';
+  }
 }

@@ -1432,5 +1432,10 @@
   "mirrorRefineNeedStyle": "Выберите стиль ниже",
   "mirrorRefineChosen": "Выбрано: {count}",
   "mirrorGenItemsShown": "{shown} из {total}",
-  "mirrorModelSizes": "Размеры модели"
+  "mirrorModelSizes": "Размеры модели",
+  "mirrorStationSetupTitle": "Станция не настроена",
+  "mirrorStationSetupNoKey": "Чтобы начать, введите ключ станции этого магазина",
+  "mirrorStationSetupRejected": "Ключ станции не принят. Проверьте его или зарегистрируйте станцию заново",
+  "mirrorStationSetupAction": "Ввести ключ",
+  "mirrorLookVariant": "Образ {number}"
 }

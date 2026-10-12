@@ -457,7 +457,13 @@ class MirrorBrand {
     this.styleLabels = const {},
     this.categoryLabels = const {},
     this.hiddenStyles = const {},
+    this.requiresStationKey = false,
   });
+
+  /// Оформление конкретного магазина: без принятого ключа станции киоск не
+  /// работает. Иначе он молча показывал бы вещи всех магазинов под вывеской
+  /// этого (Storexx, 10.2026: ключ стёрся при переустановке приложения).
+  final bool requiresStationKey;
 
   final String id;
   final String name;

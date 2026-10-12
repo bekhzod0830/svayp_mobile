@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:swipe/features/mirror/brand/storexx_brand.dart';
 import 'package:swipe/features/mirror/data/kiosk_api.dart';
 import 'package:swipe/features/mirror/data/kiosk_demo.dart';
 import 'package:swipe/features/mirror/data/kiosk_models.dart';
@@ -14,11 +15,32 @@ class _FakeApi extends KioskApi {
   final createLookCalls = <Completer<KioskLook>>[];
   final createLookArgs = <Map<String, Object?>>[];
   final finishCalls = <Completer<KioskFinish>>[];
+  final finishLookIds = <String?>[];
   void Function(KioskLook)? onDone;
 
+  /// Опрос каждого образа пачки — по его id.
+  final doneById = <String, void Function(KioskLook)>{};
+
+  /// Ответ `/kiosk/station`; null — эндпоинта нет (старый бэкенд).
+  KioskStation? station;
+  int startSessionCalls = 0;
+  bool sessionScoped = true;
+
   @override
-  Future<KioskSession> startSession(String lang, String path) async =>
-      const KioskSession(sessionId: 's1', storeLabel: 'Test', catalogSize: 10);
+  Future<KioskStation> fetchStation() async =>
+      station ??
+      (throw const KioskApiException(message: 'no endpoint', statusCode: 404));
+
+  @override
+  Future<KioskSession> startSession(String lang, String path) async {
+    startSessionCalls++;
+    return KioskSession(
+      sessionId: 's1',
+      storeLabel: 'Test',
+      catalogSize: 10,
+      storeScoped: sessionScoped,
+    );
+  }
 
   @override
   Future<KioskLook> createLook({
@@ -33,8 +55,12 @@ class _FakeApi extends KioskApi {
     List<String>? refines,
     List<String>? excludeColors,
     bool? faceLiked,
+    int? variants,
+    String? baseLookId,
   }) {
     createLookArgs.add({
+      'variants': variants,
+      'baseLookId': baseLookId,
       'gender': gender,
       'bodyShape': bodyShape,
       'styles': styles,
@@ -58,11 +84,13 @@ class _FakeApi extends KioskApi {
     required void Function(KioskLook look) onDone,
   }) {
     this.onDone = onDone;
+    doneById[lookId] = onDone;
     return super.watchLook('never-polled', onDone: (_) {})..close();
   }
 
   @override
-  Future<KioskFinish> finishSession(String sessionId) {
+  Future<KioskFinish> finishSession(String sessionId, {String? lookId}) {
+    finishLookIds.add(lookId);
     final c = Completer<KioskFinish>();
     finishCalls.add(c);
     return c.future;
@@ -72,8 +100,18 @@ class _FakeApi extends KioskApi {
   Future<void> resetSession(String sessionId) async {}
 }
 
-KioskLook _look(String id, KioskLookStatus status, {String? reason}) =>
-    KioskLook(lookId: id, status: status, failureReason: reason);
+KioskLook _look(
+  String id,
+  KioskLookStatus status, {
+  String? reason,
+  List<String> variants = const [],
+}) =>
+    KioskLook(
+      lookId: id,
+      status: status,
+      failureReason: reason,
+      variantIds: variants,
+    );
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -524,6 +562,205 @@ void main() {
       expect(c.refineKind, isNull);
       expect(c.refineKinds, isEmpty);
       expect(c.excludeColors, isEmpty);
+    });
+  });
+
+  group('пачка из трёх образов', () {
+    Future<void> startPack() async {
+      unawaited(c.startGeneration());
+      api.createLookCalls.last.complete(
+        _look('l1', KioskLookStatus.pending, variants: ['l2', 'l3']),
+      );
+      await Future<void>.delayed(Duration.zero);
+    }
+
+    test('ветка «создать» просит 3 образа, из каталога — один', () async {
+      await startPack();
+      expect(api.createLookArgs.last['variants'], 3);
+
+      await c.hardReset('manual');
+      await c.begin(MirrorPath.catalog);
+      c.toggleProduct('p1');
+      c.gender = 'FEMALE';
+      c.bodyShape = 'HOURGLASS';
+      unawaited(c.startGeneration());
+      expect(api.createLookArgs.last['variants'], isNull);
+    });
+
+    test('первый готовый образ открывает результат, остальные дорисовываются на нём', () async {
+      await startPack();
+      expect(api.doneById.keys, containsAll(['l1', 'l2', 'l3']));
+
+      // Второй образ пришёл раньше первого — показываем его, не ждём.
+      api.doneById['l2']!(_look('l2', KioskLookStatus.completed));
+      expect(c.resultReady, isTrue);
+      expect(c.look?.lookId, 'l2');
+      c.revealResult();
+      expect(c.screen, MirrorScreen.result);
+      expect(c.packLooks.map((l) => l.isCompleted), [false, true, false]);
+
+      api.doneById['l1']!(_look('l1', KioskLookStatus.completed));
+      expect(c.look?.lookId, 'l2'); // образ на экране сам не меняется
+      expect(c.packLooks.where((l) => l.isCompleted).map((l) => l.lookId), ['l1', 'l2']);
+    });
+
+    test('один образ упал — не ошибка; упали все — честная ошибка', () async {
+      await startPack();
+      api.doneById['l1']!(_look('l1', KioskLookStatus.failed, reason: 'TIMEOUT'));
+      api.doneById['l2']!(_look('l2', KioskLookStatus.failed, reason: 'FAILED'));
+      expect(c.genFailed, isFalse);
+      // Упавшие в переключатель не попадают.
+      expect(c.packLooks.map((l) => l.lookId), ['l3']);
+
+      api.doneById['l3']!(_look('l3', KioskLookStatus.failed, reason: 'FAILED'));
+      expect(c.genFailed, isTrue);
+      expect(c.genReason, 'TIMEOUT'); // причина первого образа пачки
+    });
+
+    test('выбор образа: код и QR запрашиваются для выбранного', () async {
+      await startPack();
+      api.doneById['l1']!(_look('l1', KioskLookStatus.completed));
+      c.revealResult();
+      api.finishCalls[0].complete(const KioskFinish(code: 'LB-1111', shareUrl: 'https://x/k/LB-1111'));
+      await Future<void>.delayed(Duration.zero);
+      expect(api.finishLookIds, ['l1']);
+      expect(c.sellerCode, 'LB-1111');
+
+      api.doneById['l3']!(_look('l3', KioskLookStatus.completed));
+      c.selectLook('l3');
+
+      expect(c.look?.lookId, 'l3');
+      expect(c.sellerCode, isNull); // код прошлого образа снят сразу
+      expect(api.finishLookIds, ['l1', 'l3']);
+
+      // Не готовый образ выбрать нельзя.
+      c.selectLook('l2');
+      expect(c.look?.lookId, 'l3');
+    });
+
+    test('выбор сменился, пока ждали код — код прошлого образа не показываем', () async {
+      await startPack();
+      api.doneById['l1']!(_look('l1', KioskLookStatus.completed));
+      api.doneById['l2']!(_look('l2', KioskLookStatus.completed));
+      c.revealResult(); // finish для l1 ушёл и ещё не ответил
+      c.selectLook('l2');
+      expect(api.finishCalls, hasLength(1));
+
+      api.finishCalls[0].complete(const KioskFinish(code: 'LB-OLD', shareUrl: 'https://x/k/LB-OLD'));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(c.sellerCode, isNull);
+      expect(api.finishLookIds, ['l1', 'l2']); // сразу запросили для выбранного
+    });
+
+    test('уточнение считается от образа на экране', () async {
+      await startPack();
+      api.doneById['l1']!(_look('l1', KioskLookStatus.completed));
+      api.doneById['l2']!(_look('l2', KioskLookStatus.completed));
+      c.revealResult();
+      c.selectLook('l2');
+
+      c.rebuild(reasons: {'CHEAPER'});
+
+      expect(api.createLookArgs.last['baseLookId'], 'l2');
+      expect(api.createLookArgs.last['refine'], 'CHEAPER');
+    });
+
+    test('ответ образа прошлой пачки не попадает в новую', () async {
+      await startPack();
+      final stale = api.doneById['l2']!;
+      api.doneById['l1']!(_look('l1', KioskLookStatus.completed));
+      c.revealResult();
+      c.rebuild();
+      api.createLookCalls.last.complete(
+        _look('n1', KioskLookStatus.pending, variants: ['n2']),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      stale(_look('l2', KioskLookStatus.completed));
+
+      expect(c.resultReady, isFalse);
+      expect(c.packLooks.map((l) => l.lookId), ['n1', 'n2']);
+    });
+  });
+
+  group('станция магазина без ключа', () {
+    late SharedPreferences prefs;
+    late MirrorSessionController store;
+
+    setUp(() async {
+      prefs = await SharedPreferences.getInstance();
+      api.startSessionCalls = 0;
+      store = MirrorSessionController(
+        api: api,
+        demo: KioskDemoService(api, prefs),
+        prefs: prefs,
+        brand: storexxBrand,
+        logEvent: (name, {parameters}) async {},
+      );
+    });
+
+    tearDown(() => store.dispose());
+
+    test('ключа нет — киоск закрыт экраном настройки, сессия не начинается', () async {
+      await store.checkStation();
+
+      expect(store.stationBlocked, isTrue);
+      expect(store.stationKeyRejected, isFalse);
+
+      await store.begin(MirrorPath.create);
+      expect(store.screen, MirrorScreen.idle);
+      expect(api.startSessionCalls, 0);
+    });
+
+    test('ключ введён, но бэкенд его не принял — блокировка с этой причиной', () async {
+      await api.setDeviceKey('stale-key');
+      api.station = const KioskStation(storeLabel: 'LIBAS', storeScoped: false);
+
+      await store.checkStation();
+
+      expect(store.stationBlocked, isTrue);
+      expect(store.stationKeyRejected, isTrue);
+    });
+
+    test('ключ принят — киоск работает; ключ ввели заново — блокировка снимается', () async {
+      await store.checkStation();
+      expect(store.stationBlocked, isTrue);
+
+      await api.setDeviceKey('good-key');
+      api.station = const KioskStation(storeLabel: 'Storexx', storeScoped: true);
+      await store.onSetupClosed();
+
+      expect(store.stationBlocked, isFalse);
+      await store.begin(MirrorPath.create);
+      expect(store.screen, MirrorScreen.camera);
+    });
+
+    test('сеть моргнула или бэкенд старый — рабочий киоск с ключом не закрываем', () async {
+      await api.setDeviceKey('good-key');
+      api.station = null; // fetchStation бросает
+
+      await store.checkStation();
+
+      expect(store.stationBlocked, isFalse);
+    });
+
+    test('ключ отозвали после проверки — сессия открылась по общему каталогу и закрыта', () async {
+      await api.setDeviceKey('revoked-key');
+      api.station = const KioskStation(storeLabel: 'Storexx', storeScoped: true);
+      await store.checkStation();
+      api.sessionScoped = false;
+
+      await store.begin(MirrorPath.create);
+
+      expect(store.stationBlocked, isTrue);
+      expect(store.sessionId, isNull);
+      expect(store.screen, MirrorScreen.idle);
+    });
+
+    test('общее оформление LIBAS ключа не требует', () async {
+      await c.checkStation();
+      expect(c.stationBlocked, isFalse);
     });
   });
 }
