@@ -6,6 +6,7 @@ import 'package:swipe/features/mirror/brand/mirror_brands.dart';
 import 'package:swipe/features/mirror/data/kiosk_api.dart';
 import 'package:swipe/features/mirror/data/kiosk_demo.dart';
 import 'package:swipe/features/mirror/data/kiosk_models.dart';
+import 'package:swipe/features/mirror/data/kiosk_taxonomy.dart';
 import 'package:swipe/features/mirror/presentation/mirror_session_controller.dart';
 import 'package:swipe/features/mirror/presentation/screens/mirror_body_screens.dart';
 import 'package:swipe/features/mirror/presentation/screens/mirror_colors_screen.dart';
@@ -80,6 +81,16 @@ void main() {
         expect(tester.takeException(), isNull);
       });
 
+      testWidgets('фигура: касание карточки сразу ведёт дальше', (tester) async {
+        final c = await _controller();
+        await pump(tester, _listening(c, () => MirrorShapeScreen(controller: c)));
+        expect(find.text('Продолжить'), findsNothing);
+        await tester.tap(find.text('Овал'));
+        expect(c.bodyShape, 'OVAL');
+        expect(c.screen, MirrorScreen.style);
+        expect(tester.takeException(), isNull);
+      });
+
       testWidgets('фигура: четыре силуэта и «Не знаю свой тип фигуры»', (tester) async {
         final c = await _controller();
         await pump(tester, _listening(c, () => MirrorShapeScreen(controller: c)));
@@ -138,12 +149,24 @@ void main() {
 
         await tester.tap(find.bySemanticsLabel('Поменять стиль'));
         await tester.pumpAndSettle();
+        // Текущий стиль уже отмечен — выбор правят, а не начинают заново.
+        expect(find.text('Выберите стиль ниже'), findsNothing);
+        await tester.ensureVisible(find.text('Кэжуал'));
+        await tester.tap(find.text('Кэжуал'));
+        await tester.pump();
         expect(find.text('Выберите стиль ниже'), findsOneWidget);
         await tester.ensureVisible(find.text('Деловой'));
         await tester.tap(find.text('Деловой'));
         await tester.pump();
         expect(find.text('Выберите стиль ниже'), findsNothing);
 
+        // Панель стилей длинная: плитки причин уехали вверх — листаем к ним.
+        await tester.dragUntilVisible(
+          find.bySemanticsLabel('Другой цвет'),
+          find.byType(ListView).first,
+          const Offset(0, 300),
+        );
+        await tester.pumpAndSettle();
         await tester.tap(find.bySemanticsLabel('Другой цвет'));
         await tester.pumpAndSettle();
         expect(find.text('Какие цвета убрать?'), findsOneWidget);
@@ -152,11 +175,60 @@ void main() {
         expect(find.text('Выбрано: 3'), findsOneWidget);
 
         // Повторное касание отмеченной плитки раскрывает её выбор снова.
+        // Панель стилей длинная: плитки причин уехали вверх — листаем к ним.
+        await tester.dragUntilVisible(
+          find.bySemanticsLabel('Поменять стиль'),
+          find.byType(ListView).first,
+          const Offset(0, 300),
+        );
+        await tester.pumpAndSettle();
         await tester.tap(find.bySemanticsLabel('Поменять стиль'));
         await tester.pumpAndSettle();
         expect(find.text('Какой стиль попробовать?'), findsOneWidget);
         expect(find.text('Какие цвета убрать?'), findsNothing);
         expect(find.text('Выбрано: 3'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('бренды и стили в «Что изменить?» — те же, что на основных шагах', (tester) async {
+        // Подписи плиток брендов (Semantics label у каждой плитки), по порядку.
+        List<String> brandTiles() => [
+              for (final n in tester.widgetList<Semantics>(find.byType(Semantics)))
+                if (n.properties.button == true &&
+                    n.properties.label != null &&
+                    (n.properties.label == 'Все бренды' ||
+                        kioskShopBrands.any((b) => b.name == n.properties.label)))
+                  n.properties.label!,
+            ];
+
+        final c = await _controller();
+        c.styles.add('CASUAL');
+        c.toggleShopBrand('ONLY');
+
+        await pump(tester, _listening(c, () => MirrorShopBrandScreen(controller: c)));
+        final mainBrands = brandTiles();
+
+        await pump(tester, _listening(c, () => MirrorRefineScreen(controller: c)));
+        await tester.tap(find.bySemanticsLabel('Другой бренд'));
+        await tester.pumpAndSettle();
+        final refineBrands = brandTiles();
+
+        expect(mainBrands, ['Все бренды', for (final b in kioskShopBrands) b.name]);
+        expect(refineBrands, mainBrands);
+
+        // Стили — все стили гардероба, теми же подписями.
+        // Панель стилей длинная: плитки причин уехали вверх — листаем к ним.
+        await tester.dragUntilVisible(
+          find.bySemanticsLabel('Поменять стиль'),
+          find.byType(ListView).first,
+          const Offset(0, 300),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.bySemanticsLabel('Поменять стиль'));
+        await tester.pumpAndSettle();
+        for (final st in libasBrand.stylesFor(c.gender)) {
+          expect(find.text(libasBrand.styleLabel(st, 'ru')), findsOneWidget, reason: st.code);
+        }
         expect(tester.takeException(), isNull);
       });
     });

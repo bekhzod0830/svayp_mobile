@@ -7369,7 +7369,7 @@ abstract class AppLocalizations {
   /// No description provided for @mirrorPoweredBy.
   ///
   /// In en, this message translates to:
-  /// **'Powered by Libas AI'**
+  /// **'Powered by LIBAS AI'**
   String get mirrorPoweredBy;
 
   /// Mirror kiosk: small label above the style picker title (seller-facing)
@@ -7725,6 +7725,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Selected: {count}'**
   String mirrorRefineChosen(int count);
+
+  /// Mirror kiosk generation screen: items revealed so far
+  ///
+  /// In en, this message translates to:
+  /// **'{shown} of {total}'**
+  String mirrorGenItemsShown(int shown, int total);
+
+  /// Mirror kiosk item details: all sizes of the product from the store catalog
+  ///
+  /// In en, this message translates to:
+  /// **'Sizes'**
+  String get mirrorModelSizes;
 }
 
 class _AppLocalizationsDelegate

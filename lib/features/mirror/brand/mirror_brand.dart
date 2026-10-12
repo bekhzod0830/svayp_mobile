@@ -283,6 +283,8 @@ class MirrorWindowCover {
     required this.backdropAsset,
     required this.slides,
     this.slideSeconds = 5,
+    this.video,
+    this.videoPoster,
     this.marquee = const [],
     this.kicker = const {},
     this.headline = const {},
@@ -302,6 +304,12 @@ class MirrorWindowCover {
   /// наездом. Один кадр — статичная витрина.
   final List<String> slides;
   final int slideSeconds;
+
+  /// Видео в витрине вместо смены кадров (без звука, по кругу).
+  /// [videoPoster] — его первый кадр: виден, пока видео грузится, и
+  /// остаётся, если видео не завелось.
+  final MirrorWindowVideo? video;
+  final String? videoPoster;
 
   /// Бренды зала для бегущей строки под витриной. Пусто — строки нет.
   final List<String> marquee;
@@ -323,6 +331,14 @@ class MirrorWindowCover {
   final Color glow;
   final Color cta;
   final Color onCta;
+}
+
+/// Видео витрины: файл и его пропорции (ширина / высота).
+class MirrorWindowVideo {
+  const MirrorWindowVideo({required this.asset, required this.aspect});
+
+  final String asset;
+  final double aspect;
 }
 
 class MirrorCoverPiece {

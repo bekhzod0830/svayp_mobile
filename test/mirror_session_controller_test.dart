@@ -165,6 +165,88 @@ void main() {
     expect(api.finishCalls, hasLength(2));
   });
 
+  group('ветка «из каталога»: пол → вещи → камера → фигура', () {
+    const catalog = [
+      KioskCatalogItem(id: 'w-top', title: 'Блузка', category: 'TOPWEAR', gender: 'FEMALE'),
+      KioskCatalogItem(id: 'w-dress', title: 'Платье', category: 'DRESSES', gender: 'FEMALE'),
+      KioskCatalogItem(id: 'm-top', title: 'Рубашка', category: 'TOPWEAR', gender: 'MALE'),
+      KioskCatalogItem(id: 'm-shoes', title: 'Кеды', category: 'FOOTWEAR', gender: 'MALE'),
+      KioskCatalogItem(id: 'u-bag', title: 'Сумка', category: 'ACCESSORIES', gender: 'UNISEX'),
+      KioskCatalogItem(id: 'x-pants', title: 'Брюки', category: 'BOTTOMWEAR'),
+    ];
+
+    Future<void> start() async {
+      await c.hardReset('manual');
+      c.seedCatalogForTest(catalog);
+      await c.begin(MirrorPath.catalog);
+    }
+
+    test('начинается с пола, затем вещи этого гардероба с первой вкладки', () async {
+      await start();
+      expect(c.screen, MirrorScreen.gender);
+      expect(c.stepIndex, 0);
+
+      c.setGender('MALE');
+      expect(c.screen, MirrorScreen.catalog);
+      expect(c.category, 'TOPWEAR');
+      expect(c.catalog.map((i) => i.id), ['m-top']);
+
+      // Вкладки — в порядке сборки образа, только непустые, без «Все» и платьев.
+      expect(c.catalogTabs.map((t) => t.code), ['TOPWEAR', 'BOTTOMWEAR', 'FOOTWEAR', 'ACCESSORIES']);
+
+      c.selectCategory('ACCESSORIES');
+      expect(c.catalog.map((i) => i.id), ['u-bag']); // унисекс виден обоим
+      c.selectCategory('BOTTOMWEAR');
+      expect(c.catalog.map((i) => i.id), ['x-pants']); // без пола — тоже
+    });
+
+    test('женский гардероб: платья есть, мужских вещей нет', () async {
+      await start();
+      c.setGender('FEMALE');
+      expect(c.catalogTabs.map((t) => t.code), ['TOPWEAR', 'BOTTOMWEAR', 'DRESSES', 'ACCESSORIES']);
+      expect(c.catalog.map((i) => i.id), ['w-top']);
+    });
+
+    test('счётчик выбранного по вкладке, смена пола снимает выбор', () async {
+      await start();
+      c.setGender('MALE');
+      c.toggleProduct('m-top');
+      c.toggleProduct('m-shoes');
+      expect(c.pickedIn('TOPWEAR'), 1);
+      expect(c.pickedIn('FOOTWEAR'), 1);
+      expect(c.pickedIn('BOTTOMWEAR'), 0);
+
+      c.goBack();
+      expect(c.screen, MirrorScreen.gender);
+      c.setGender('MALE'); // тот же пол — выбор цел
+      expect(c.pickedProductIds, ['m-top', 'm-shoes']);
+      c.goBack();
+      c.setGender('FEMALE');
+      expect(c.pickedProductIds, isEmpty);
+    });
+
+    test('после фото пол не спрашиваем: сразу фигура; назад — по шагам', () async {
+      await start();
+      c.setGender('FEMALE');
+      c.toggleProduct('w-top');
+      c.confirmCatalogSelection();
+      expect(c.screen, MirrorScreen.camera);
+
+      c.confirmPhoto();
+      expect(c.screen, MirrorScreen.shape);
+
+      c.goBack();
+      expect(c.screen, MirrorScreen.camera);
+      c.goBack();
+      expect(c.screen, MirrorScreen.catalog);
+      c.goBack();
+      expect(c.screen, MirrorScreen.gender);
+      c.goBack();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(c.screen, MirrorScreen.idle);
+    });
+  });
+
   group('«Пересобрать» из каталога', () {
     Future<void> catalogResult() async {
       await c.hardReset('manual');
@@ -232,8 +314,41 @@ void main() {
     });
   });
 
-  test('окно «Вы ещё здесь?» — через 20 секунд без касаний', () {
-    expect(MirrorSessionController.idleTimeout, const Duration(seconds: 20));
+  test('окно «Вы ещё здесь?» — через 60 секунд без касаний', () {
+    expect(MirrorSessionController.idleTimeout, const Duration(seconds: 60));
+  });
+
+  test('вещи образа видны с ответа на создание, до картинки', () async {
+    unawaited(c.startGeneration());
+    expect(c.generatingItems, isEmpty);
+    api.createLookCalls.last.complete(const KioskLook(
+      lookId: 'l1',
+      status: KioskLookStatus.pending,
+      items: [KioskLookItem(productId: 'p1', title: 'Рубашка', price: 300000)],
+    ));
+    await Future<void>.delayed(Duration.zero);
+    expect(c.screen, MirrorScreen.generating);
+    expect(c.generatingItems.map((i) => i.productId), ['p1']);
+
+    // Новая генерация не показывает вещи прошлой.
+    unawaited(c.startGeneration());
+    expect(c.generatingItems, isEmpty);
+  });
+
+  test('станция выучивает обычное время генерации', () async {
+    expect(c.expectedGenSec, MirrorSessionController.defaultGenSec);
+    unawaited(c.startGeneration());
+    c.elapsedSec = 50;
+    api.createLookCalls.last.complete(_look('l1', KioskLookStatus.completed));
+    await Future<void>.delayed(Duration.zero);
+    expect(c.resultReady, isTrue);
+    expect(c.expectedGenSec, 50);
+
+    unawaited(c.startGeneration());
+    c.elapsedSec = 60;
+    api.createLookCalls.last.complete(_look('l2', KioskLookStatus.completed));
+    await Future<void>.delayed(Duration.zero);
+    expect(c.expectedGenSec, closeTo(54, 0.01)); // 50·0,6 + 60·0,4
   });
 
   group('станция LIBAS: шаги, бренд и уточнения', () {

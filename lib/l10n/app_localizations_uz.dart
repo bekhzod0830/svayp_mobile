@@ -3872,7 +3872,7 @@ class AppLocalizationsUz extends AppLocalizations {
   String get mirrorCoverCta => 'Obrazimni yaratish';
 
   @override
-  String get mirrorPoweredBy => 'Libas AI asosida';
+  String get mirrorPoweredBy => 'LIBAS AI asosida';
 
   @override
   String get mirrorPickerKicker => 'Magic Mirror';
@@ -4066,4 +4066,12 @@ class AppLocalizationsUz extends AppLocalizations {
   String mirrorRefineChosen(int count) {
     return 'Tanlandi: $count';
   }
+
+  @override
+  String mirrorGenItemsShown(int shown, int total) {
+    return '$shown / $total';
+  }
+
+  @override
+  String get mirrorModelSizes => 'Model oʻlchamlari';
 }

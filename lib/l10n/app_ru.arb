@@ -1371,7 +1371,7 @@
   "mirrorCoverSubline": "Подберём образ и примерим его на ваше фото",
   "mirrorCoverInspiration": "Вдохновение\nиз коллекции",
   "mirrorCoverCta": "Создать мой образ",
-  "mirrorPoweredBy": "На базе Libas AI",
+  "mirrorPoweredBy": "На базе LIBAS AI",
   "mirrorPickerKicker": "Magic Mirror",
   "mirrorPickerTitle": "Выберите оформление",
   "mirrorPickerSubtitle": "Так зеркало встретит покупателей. Сменить потом — 5 касаний по логотипу.",
@@ -1430,5 +1430,7 @@
   "mirrorRefineStylesPick": "Какой стиль попробовать?",
   "mirrorRefineNeedBrand": "Выберите бренд ниже",
   "mirrorRefineNeedStyle": "Выберите стиль ниже",
-  "mirrorRefineChosen": "Выбрано: {count}"
+  "mirrorRefineChosen": "Выбрано: {count}",
+  "mirrorGenItemsShown": "{shown} из {total}",
+  "mirrorModelSizes": "Размеры модели"
 }

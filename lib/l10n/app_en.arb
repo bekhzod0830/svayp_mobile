@@ -1471,7 +1471,7 @@
   "mirrorCoverSubline": "We’ll style a look and try it on your photo",
   "mirrorCoverInspiration": "Inspired\nby the collection",
   "mirrorCoverCta": "Create my look",
-  "mirrorPoweredBy": "Powered by Libas AI",
+  "mirrorPoweredBy": "Powered by LIBAS AI",
   "mirrorPickerKicker": "Magic Mirror",
     "@mirrorPickerKicker": {
       "description": "Mirror kiosk: small label above the style picker title (seller-facing)"
@@ -1622,5 +1622,9 @@
   "mirrorRefineNeedStyle": "Pick a style below",
   "@mirrorRefineNeedStyle": {"description": "Mirror kiosk (LIBAS station)"},
   "mirrorRefineChosen": "Selected: {count}",
-  "@mirrorRefineChosen": {"description": "Mirror kiosk (LIBAS station)", "placeholders": {"count": {"type": "int"}}}
+  "@mirrorRefineChosen": {"description": "Mirror kiosk (LIBAS station)", "placeholders": {"count": {"type": "int"}}},
+  "mirrorGenItemsShown": "{shown} of {total}",
+  "@mirrorGenItemsShown": {"description": "Mirror kiosk generation screen: items revealed so far", "placeholders": {"shown": {"type": "int"}, "total": {"type": "int"}}},
+  "mirrorModelSizes": "Sizes",
+  "@mirrorModelSizes": {"description": "Mirror kiosk item details: all sizes of the product from the store catalog"}
 }

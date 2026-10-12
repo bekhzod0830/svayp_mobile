@@ -65,7 +65,7 @@ class MirrorGenderScreen extends StatelessWidget {
   }
 }
 
-/// Шаг 02 — тип фигуры: четыре силуэта пола сеткой 2×2, один выбор;
+/// Шаг 02 — тип фигуры: четыре силуэта пола сеткой 2×2, касание сразу ведёт дальше;
 /// «Не знаю свой тип фигуры» не угадывает фигуру, а честно отправляет «не знаю».
 class MirrorShapeScreen extends StatelessWidget {
   const MirrorShapeScreen({super.key, required this.controller});
@@ -75,6 +75,7 @@ class MirrorShapeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final t = MirrorTheme.of(context);
     final s = mirrorStationScale(context);
     final lang = controller.shopperLang;
     final gender = controller.gender ?? 'FEMALE';
@@ -92,14 +93,20 @@ class MirrorShapeScreen extends StatelessWidget {
           ),
           SizedBox(height: 24 * s),
           Expanded(
+            // Карточки выше обычных: иллюстрации — человек в полный рост (2:3),
+            // в приземистой карточке он выходил мелким. Сетка сама ужмёт их
+            // по высоте, если места меньше.
             child: MirrorStationGrid(
+              aspect: 0.6,
               children: [
                 for (final shape in shapes)
                   MirrorStationCard(
                     title: shape.label(lang),
                     description: kioskShapeDescriptions[shape.code]?.label(lang),
-                    photo: kioskShapeFigure(gender, shape.code),
-                    photoFit: BoxFit.contain,
+                    picture: _ShapeFigure(
+                      asset: kioskShapeFigure(gender, shape.code),
+                      dark: t.dark,
+                    ),
                     selected: controller.bodyShape == shape.code,
                     onTap: () => controller.setShape(shape.code!),
                   ),
@@ -114,18 +121,49 @@ class MirrorShapeScreen extends StatelessWidget {
               onTap: controller.skipShape,
             ),
           ),
-          SizedBox(height: 14 * s),
-          MirrorPrimaryButton(
-            label: controller.path == MirrorPath.create ? l10n.mirrorContinue : l10n.mirrorCtaCreate,
-            height: 64 * s,
-            enabled: controller.gender != null &&
-                controller.bodyShape != null &&
-                controller.bodyShape != kioskShapeUnknown,
-            onTap: controller.confirmProfile,
-          ),
-          SizedBox(height: 24 * s),
+          SizedBox(height: 32 * s),
         ],
       ),
+    );
+  }
+}
+
+/// Иллюстрация фигуры в карточке (комплект LIBAS, 10.2026): человек целиком,
+/// от макушки до стоп — по `contain`, без обрезки, на мягком градиенте макета
+/// (светлый или графитовый по теме). Иллюстрации на прозрачном фоне, одни и те
+/// же для обеих тем.
+class _ShapeFigure extends StatelessWidget {
+  const _ShapeFigure({required this.asset, required this.dark});
+
+  final String? asset;
+  final bool dark;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = mirrorStationScale(context);
+    final asset = this.asset;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: dark
+              ? const [Color(0xFF292C31), Color(0xFF202226)]
+              : const [Color(0xFFF7F6F2), Color(0xFFEDECE7)],
+        ),
+      ),
+      child: asset == null
+          ? const SizedBox.expand()
+          : Padding(
+              padding: EdgeInsets.fromLTRB(8 * s, 10 * s, 8 * s, 6 * s),
+              child: Image.asset(
+                asset,
+                fit: BoxFit.contain,
+                alignment: Alignment.bottomCenter,
+                filterQuality: FilterQuality.medium,
+                errorBuilder: (_, __, ___) => const SizedBox.expand(),
+              ),
+            ),
     );
   }
 }

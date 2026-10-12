@@ -45,6 +45,13 @@ class _MirrorResultScreenState extends State<MirrorResultScreen>
   bool _started = false;
 
   bool _qrPulse = false;
+
+  /// QR во весь экран: на раме он маленький, телефоном издалека его не
+  /// поймать. Касание по QR открывает крупный, любое касание — закрывает.
+  bool _qrZoomed = false;
+
+  /// Слой крупного QR в дереве: открыт или ещё гаснет после закрытия.
+  bool _qrLayer = false;
   Timer? _pulseTimer;
 
   /// Ключи миниатюр ленты: из них вырастает карточка подробностей.
@@ -94,6 +101,16 @@ class _MirrorResultScreenState extends State<MirrorResultScreen>
   /// «Скачать фото» — скачивать на киоске некуда: подсвечиваем QR и
   /// объясняем, что фото уедет в телефон.
   void _onDownloadTap() {
+    // Пока ссылки нет (finish ещё не ответил), увеличивать нечего —
+    // остаётся подсказка.
+    if (widget.controller.shareUrl != null) {
+      // Слой появляется прозрачным и проявляется со следующего кадра.
+      setState(() => _qrLayer = true);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _qrZoomed = true);
+      });
+      return;
+    }
     setState(() => _qrPulse = true);
     _pulseTimer?.cancel();
     _pulseTimer = Timer(const Duration(milliseconds: 2500), () {
@@ -103,9 +120,7 @@ class _MirrorResultScreenState extends State<MirrorResultScreen>
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
     final t = MirrorTheme.of(context);
-    final s = MirrorTheme.scale(context);
     final c = widget.controller;
     final look = c.look;
     if (look == null) return const SizedBox.shrink();
@@ -115,123 +130,275 @@ class _MirrorResultScreenState extends State<MirrorResultScreen>
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: t.dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
-      child: MirrorItemDetails(
-        lang: lang,
-        // Фон — фактура бренда из MirrorTab; здесь только вёрстка.
-        child: ColoredBox(
-          color: Colors.transparent,
-          child: Column(
-            children: [
-              SizedBox(height: pad.top + 10 * s),
-              // Шапка: «назад», знак бренда по центру, «Завершить».
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20 * s),
-                child: Entrance(
-                  parent: _entrance,
-                  kind: IntroEntranceKind.rise,
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: _RoundButton(
-                            icon: Icons.arrow_back_ios_new_rounded,
-                            size: 44 * s,
-                            onTap: c.goBack,
-                          ),
-                        ),
-                      ),
-                      MirrorBrandMark(height: 15 * s),
-                      Expanded(
-                        child: Align(
-                          alignment: Alignment.centerRight,
-                          child: MirrorFinishButton(
-                            onTap: () => c.hardReset('finish'),
-                          ),
-                        ),
-                      ),
-                    ],
+      child: Stack(
+        children: [
+          Positioned.fill(child: _buildBody(context, look, lang, pad)),
+          // Крупный QR — поверх экрана, внутри киоска (свои тема и язык),
+          // а не системным диалогом над всем приложением. Слой всегда на
+          // месте, пока открыт или гаснет; закрытый не ловит касания.
+          if (_qrLayer && c.shareUrl != null)
+            Positioned.fill(
+              child: IgnorePointer(
+                ignoring: !_qrZoomed,
+                child: AnimatedOpacity(
+                  opacity: _qrZoomed ? 1 : 0,
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  onEnd: () {
+                    if (!_qrZoomed && mounted) {
+                      setState(() => _qrLayer = false);
+                    }
+                  },
+                  child: _QrZoom(
+                    url: c.shareUrl!,
+                    open: _qrZoomed,
+                    onClose: () => setState(() => _qrZoomed = false),
                   ),
                 ),
               ),
-              SizedBox(height: 6 * s),
-              Expanded(
-                child: _ResultMirror(
-                  look: look,
-                  lang: lang,
-                  entrance: _entrance,
-                  ambient: _ambient,
-                  qrUrl: c.shareUrl,
-                  qrPulse: _qrPulse,
-                  onQrTap: _onDownloadTap,
-                ),
-              ),
-              // Под рамой плотно: стекло — общего размера с другими
-              // экранами, плашка суммы висит на нижней линии рамы внутри
-              // бокса зеркала, а ленте вещей с кнопками остаётся ровно своё.
-              SizedBox(height: 4 * s),
-              // Вещи образа — одной лентой под суммой; касание открывает
-              // подробности вещи.
-              Entrance(
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBody(
+    BuildContext context,
+    KioskLook look,
+    String lang,
+    EdgeInsets pad,
+  ) {
+    final l10n = AppLocalizations.of(context)!;
+    final t = MirrorTheme.of(context);
+    final s = MirrorTheme.scale(context);
+    final c = widget.controller;
+    return MirrorItemDetails(
+      lang: lang,
+      sizesFor: widget.controller.sizesFor,
+      // Фон — фактура бренда из MirrorTab; здесь только вёрстка.
+      child: ColoredBox(
+        color: Colors.transparent,
+        child: Column(
+          children: [
+            SizedBox(height: pad.top + 10 * s),
+            // Шапка: «назад», знак бренда по центру, «Завершить».
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20 * s),
+              child: Entrance(
                 parent: _entrance,
                 kind: IntroEntranceKind.rise,
-                delay: 0.5,
-                child: Text(
-                  t.kickerCase(
-                    '${l10n.mirrorResultTag} · '
-                    '${l10n.mirrorItemsCount(look.items.length)}',
-                  ),
-                  style: t.kicker(s, color: t.muted),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: _RoundButton(
+                          icon: Icons.arrow_back_ios_new_rounded,
+                          size: 44 * s,
+                          onTap: c.goBack,
+                        ),
+                      ),
+                    ),
+                    MirrorBrandMark(height: 15 * s),
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: MirrorFinishButton(
+                          onTap: () => c.hardReset('finish'),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              SizedBox(height: 4 * s),
-              _ItemsRow(
-                items: look.items,
+            ),
+            SizedBox(height: 6 * s),
+            Expanded(
+              child: _ResultMirror(
+                look: look,
                 lang: lang,
                 entrance: _entrance,
-                keyFor: _keyFor,
+                ambient: _ambient,
+                qrUrl: c.shareUrl,
+                qrPulse: _qrPulse,
+                onQrTap: _onDownloadTap,
               ),
-              SizedBox(height: 8 * s),
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20 * s),
-                child: Entrance(
-                  parent: _entrance,
-                  kind: IntroEntranceKind.rise,
-                  delay: 0.7,
-                  duration: 0.5,
-                  child: Row(
-                    children: [
-                      Expanded(
-                        flex: 100,
-                        child: MirrorGhostButton(
-                          label: c.canRegenerate
-                              ? l10n.mirrorRegenerateLeft(c.regenerationsLeft)
-                              : l10n.mirrorContinueInApp,
-                          height: 56 * s,
-                          enabled: c.canRegenerate,
-                          onTap: c.regenerate,
-                        ),
+            ),
+            // Под рамой плотно: стекло — общего размера с другими
+            // экранами, плашка суммы висит на нижней линии рамы внутри
+            // бокса зеркала, а ленте вещей с кнопками остаётся ровно своё.
+            SizedBox(height: 4 * s),
+            // Вещи образа — одной лентой под суммой; касание открывает
+            // подробности вещи.
+            Entrance(
+              parent: _entrance,
+              kind: IntroEntranceKind.rise,
+              delay: 0.5,
+              child: Text(
+                t.kickerCase(
+                  '${l10n.mirrorResultTag} · '
+                  '${l10n.mirrorItemsCount(look.items.length)}',
+                ),
+                style: t.kicker(s, color: t.muted),
+              ),
+            ),
+            SizedBox(height: 4 * s),
+            _ItemsRow(
+              items: look.items,
+              lang: lang,
+              entrance: _entrance,
+              keyFor: _keyFor,
+            ),
+            SizedBox(height: 8 * s),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20 * s),
+              child: Entrance(
+                parent: _entrance,
+                kind: IntroEntranceKind.rise,
+                delay: 0.7,
+                duration: 0.5,
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 100,
+                      child: MirrorGhostButton(
+                        label: c.canRegenerate
+                            ? l10n.mirrorRegenerate
+                            : l10n.mirrorContinueInApp,
+                        height: 56 * s,
+                        enabled: c.canRegenerate,
+                        onTap: c.regenerate,
                       ),
-                      SizedBox(width: 12 * s),
-                      Expanded(
-                        flex: 145,
-                        child: MirrorPrimaryButton(
-                          label: l10n.mirrorCollect,
-                          height: 56 * s,
-                          // Сессия не должна закончиться без QR или кода: пока
-                          // finish не прошёл, «Отложить» подождёт (ensureShare
-                          // ретраится сам).
-                          enabled: c.sellerCode != null,
-                          gleam: true,
-                          onTap: c.openBuy,
-                        ),
+                    ),
+                    SizedBox(width: 12 * s),
+                    Expanded(
+                      flex: 145,
+                      child: MirrorPrimaryButton(
+                        label: l10n.mirrorCollect,
+                        height: 56 * s,
+                        // Сессия не должна закончиться без QR или кода: пока
+                        // finish не прошёл, «Отложить» подождёт (ensureShare
+                        // ретраится сам).
+                        enabled: c.sellerCode != null,
+                        gleam: true,
+                        onTap: c.openBuy,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
-              SizedBox(height: pad.bottom + 12 * s),
-            ],
+            ),
+            SizedBox(height: pad.bottom + 12 * s),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// QR во весь экран: крупно, чёрным по белому, с подсказкой. Закрывается
+/// касанием в любом месте.
+class _QrZoom extends StatelessWidget {
+  const _QrZoom({required this.url, required this.open, required this.onClose});
+
+  final String url;
+
+  /// Открыт — карточка в полный размер; иначе чуть меньше (вход/выход).
+  /// Масштабируется только карточка: затемнение всегда во весь экран, иначе
+  /// касание у края во время анимации проходило мимо него.
+  final bool open;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final t = MirrorTheme.of(context);
+    final s = MirrorTheme.scale(context);
+    final screen = MediaQuery.sizeOf(context);
+    // Крупно, но с полями: ~70% короткой стороны экрана.
+    final qr = math.min(screen.width, screen.height) * 0.7;
+
+    return Semantics(
+      button: true,
+      label: l10n.mirrorItemClose,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onClose,
+        child: ColoredBox(
+          color: Colors.black.withValues(alpha: 0.72),
+          child: SafeArea(
+            child: Center(
+              child: AnimatedScale(
+                scale: open ? 1 : 0.94,
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(math.max(16.0, qr * 0.06)),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(
+                          math.min(t.rCard, 20 * s),
+                        ),
+                      ),
+                      child: QrImageView(
+                        data: url,
+                        size: qr,
+                        padding: EdgeInsets.zero,
+                        backgroundColor: Colors.white,
+                        eyeStyle: const QrEyeStyle(
+                          eyeShape: QrEyeShape.square,
+                          color: Color(0xFF111111),
+                        ),
+                        dataModuleStyle: const QrDataModuleStyle(
+                          dataModuleShape: QrDataModuleShape.square,
+                          color: Color(0xFF111111),
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 24 * s),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 32 * s),
+                      child: Text(
+                        l10n.mirrorDownloadHint,
+                        textAlign: TextAlign.center,
+                        style: t.headline(24 * s, color: Colors.white),
+                      ),
+                    ),
+                    SizedBox(height: 20 * s),
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 22 * s,
+                        vertical: 12 * s,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(t.rChip + 4 * s),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.6),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.close_rounded,
+                            size: 18 * s,
+                            color: Colors.white,
+                          ),
+                          SizedBox(width: 8 * s),
+                          Text(
+                            l10n.mirrorItemClose,
+                            style: t.label(15 * s, color: Colors.white),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -809,6 +976,7 @@ class _MirrorBuyScreenState extends State<MirrorBuyScreen> {
 
     return MirrorItemDetails(
       lang: lang,
+      sizesFor: widget.controller.sizesFor,
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: 24 * s),
         child: Column(

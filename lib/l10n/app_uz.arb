@@ -1371,7 +1371,7 @@
   "mirrorCoverSubline": "Obraz tanlab, uni suratingizda kiyib koʻramiz",
   "mirrorCoverInspiration": "Kolleksiyadan\nilhom",
   "mirrorCoverCta": "Obrazimni yaratish",
-  "mirrorPoweredBy": "Libas AI asosida",
+  "mirrorPoweredBy": "LIBAS AI asosida",
   "mirrorPickerKicker": "Magic Mirror",
   "mirrorPickerTitle": "Koʻrinishni tanlang",
   "mirrorPickerSubtitle": "Oyna xaridorlarni shunday kutib oladi. Keyin almashtirish uchun logotipga 5 marta bosing.",
@@ -1430,5 +1430,7 @@
   "mirrorRefineStylesPick": "Qaysi uslubni sinab koʻramiz?",
   "mirrorRefineNeedBrand": "Quyida brendni tanlang",
   "mirrorRefineNeedStyle": "Quyida uslubni tanlang",
-  "mirrorRefineChosen": "Tanlandi: {count}"
+  "mirrorRefineChosen": "Tanlandi: {count}",
+  "mirrorGenItemsShown": "{shown} / {total}",
+  "mirrorModelSizes": "Model oʻlchamlari"
 }

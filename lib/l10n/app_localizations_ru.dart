@@ -3855,7 +3855,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get mirrorCoverCta => 'Создать мой образ';
 
   @override
-  String get mirrorPoweredBy => 'На базе Libas AI';
+  String get mirrorPoweredBy => 'На базе LIBAS AI';
 
   @override
   String get mirrorPickerKicker => 'Magic Mirror';
@@ -4048,4 +4048,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String mirrorRefineChosen(int count) {
     return 'Выбрано: $count';
   }
+
+  @override
+  String mirrorGenItemsShown(int shown, int total) {
+    return '$shown из $total';
+  }
+
+  @override
+  String get mirrorModelSizes => 'Размеры модели';
 }

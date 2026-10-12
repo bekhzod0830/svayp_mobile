@@ -26,8 +26,10 @@ class MirrorRefineScreen extends StatefulWidget {
 class _MirrorRefineScreenState extends State<MirrorRefineScreen> {
   final Set<String> _reasons = {};
   final Set<String> _colors = {};
-  final Set<String> _brands = {};
-  final Set<String> _styles = {};
+  // Бренды и стили — как на основных шагах, с уже сделанным выбором: человек
+  // правит его, а не начинает заново.
+  late final Set<String> _brands = Set.of(widget.controller.shopBrands);
+  late final Set<String> _styles = Set.of(widget.controller.styles);
 
   /// Причина, чей выбор (цвета, бренды, стили) сейчас раскрыт под плитками.
   /// Раскрыт всегда один: иначе новый выбор открывался под прежним, за краем
@@ -124,7 +126,7 @@ class _MirrorRefineScreenState extends State<MirrorRefineScreen> {
     final t = MirrorTheme.of(context);
     final s = mirrorStationScale(context);
     final lang = c.shopperLang;
-    final otherStyles = t.brand.stylesFor(c.gender).where((st) => !c.styles.contains(st.code)).toList();
+    final styles = t.brand.stylesFor(c.gender);
 
     Widget reason(String code, String label, IconData icon) => Expanded(
           child: _ReasonTile(
@@ -158,28 +160,23 @@ class _MirrorRefineScreenState extends State<MirrorRefineScreen> {
       'BRAND' => _Panel(
           key: const ValueKey('BRAND'),
           title: l10n.mirrorRefineBrandsPick,
+          // Та же сетка, что на шаге брендов: «Все бренды» и все бренды зала.
           child: MirrorBrandGrid(
             shrinkWrap: true,
             selected: _brands,
-            // Один бренд — его и прячем: «другой» значит не этот.
-            exclude: c.shopBrands.length == 1 ? c.shopBrands.first : null,
             onPick: _toggleBrand,
           ),
         ),
       'STYLE' => _Panel(
           key: const ValueKey('STYLE'),
           title: l10n.mirrorRefineStylesPick,
-          child: Wrap(
-            spacing: 10 * s,
-            runSpacing: 10 * s,
-            children: [
-              for (final st in otherStyles)
-                _Pill(
-                  label: t.brand.styleLabel(st, lang),
-                  selected: _styles.contains(st.code),
-                  onTap: () => _toggleIn(_styles, st.code!),
-                ),
-            ],
+          // Те же карточки, что на шаге стилей: фото, название, описание.
+          child: _StyleCards(
+            styles: styles,
+            gender: c.gender,
+            lang: lang,
+            selected: _styles,
+            onToggle: (code) => _toggleIn(_styles, code),
           ),
         ),
       _ => null,
@@ -453,6 +450,59 @@ class _Pill extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Стили для «Поменять стиль» — карточками шага стилей ([MirrorStationCard]:
+/// фото, название, описание, квадратный чек), три в ряд, чтобы все стили
+/// гардероба помещались в раскрытую панель без страниц.
+class _StyleCards extends StatelessWidget {
+  const _StyleCards({
+    required this.styles,
+    required this.gender,
+    required this.lang,
+    required this.selected,
+    required this.onToggle,
+  });
+
+  final List<KioskLabeled> styles;
+  final String? gender;
+  final String lang;
+  final Set<String> selected;
+  final ValueChanged<String> onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = MirrorTheme.of(context);
+    final s = mirrorStationScale(context);
+    return LayoutBuilder(
+      builder: (context, box) {
+        const columns = 3;
+        final gap = 12 * s;
+        final w = (box.maxWidth - gap * (columns - 1)) / columns;
+        // Пропорции карточки шага стилей (464×578 в макете).
+        final h = w / (464 / 578);
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: [
+            for (final style in styles)
+              SizedBox(
+                width: w,
+                height: h,
+                child: MirrorStationCard(
+                  title: t.brand.styleLabel(style, lang),
+                  description: kioskStyleDescriptions[style.code]?.label(lang),
+                  photo: kioskStylePhoto(gender, style.code),
+                  multi: true,
+                  selected: selected.contains(style.code),
+                  onTap: () => onToggle(style.code!),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }

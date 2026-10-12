@@ -62,6 +62,8 @@ const MirrorBrand storexxBrand = MirrorBrand(
   windowCover: MirrorWindowCover(
     backdropAsset: 'assets/brands/storexx/marble_light.webp',
     slides: _slides,
+    video: _video,
+    videoPoster: _videoPoster,
     kicker: _kicker,
     headline: _headline,
     marquee: _marquee,
@@ -118,6 +120,8 @@ const MirrorBrand storexxDarkBrand = MirrorBrand(
   windowCover: MirrorWindowCover(
     backdropAsset: 'assets/brands/storexx/marble.webp',
     slides: _slides,
+    video: _video,
+    videoPoster: _videoPoster,
     kicker: _kicker,
     headline: _headline,
     marquee: _marquee,
@@ -171,6 +175,15 @@ const _slides = [
   'assets/brands/storexx/window_5.webp',
 ];
 
+// Ролик витрины (MEXX, 55 с, без звука): H.264 720×1280 ~3 Мбит/с — исходник
+// с iPhone (HEVC 1080p, 82 МБ) пережат, чтобы не раздувать сборку и играть на
+// любом планшете.
+const _video = MirrorWindowVideo(
+  asset: 'lib/video/kiosk_poster/storexx_cover.mp4',
+  aspect: 720 / 1280,
+);
+const _videoPoster = 'assets/brands/storexx/cover_video_poster.webp';
+
 const _kicker = {
   'ru': '#ВИРТУАЛЬНАЯ ПРИМЕРКА',
   'uz': '#VIRTUAL KIYIB KOʻRISH',
@@ -178,9 +191,9 @@ const _kicker = {
 };
 
 const _headline = {
-  'ru': 'Ваш образ\nиз мировых брендов',
-  'uz': 'Jahon brendlaridan\nsizning obrazingiz',
-  'en': 'Your look\nfrom world brands',
+  'ru': 'Соберите образ\nиз мировых брендов',
+  'uz': 'Jahon brendlaridan\nobraz yarating',
+  'en': 'Create a look\nfrom world brands',
 };
 
 // Марки одежды с сайта storexx.uz плюс BOSS и Boggi со второго этажа

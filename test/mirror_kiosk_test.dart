@@ -277,13 +277,13 @@ void main() {
       }
     });
 
-    test('stepIndex: ветка «каталог»', () {
+    test('stepIndex: ветка «каталог» — пол и вещи, камера, фигура, образ', () {
       c.path = MirrorPath.catalog;
       const expected = {
         MirrorScreen.idle: 0,
+        MirrorScreen.gender: 0,
         MirrorScreen.catalog: 0,
         MirrorScreen.camera: 1,
-        MirrorScreen.gender: 2,
         MirrorScreen.shape: 2,
         MirrorScreen.style: 2,
         MirrorScreen.generating: 3,
@@ -309,12 +309,18 @@ void main() {
       expect(c.screen, MirrorScreen.idle);
     });
 
-    test('язык покупателя — из бренда, сброс возвращает его', () async {
+    test('выбранный язык переживает сброс сессии и перезапуск', () async {
       expect(c.shopperLang, lacosteBrand.defaultLang);
       c.setShopperLang('uz');
       expect(c.shopperLang, 'uz');
       await c.hardReset('manual');
-      expect(c.shopperLang, lacosteBrand.defaultLang);
+      expect(c.shopperLang, 'uz');
+      await c.hardReset('finish');
+      expect(c.shopperLang, 'uz');
+
+      // Новый контроллер (перезапуск приложения) берёт язык из prefs.
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('kiosk_shopper_lang'), 'uz');
     });
 
     test('подсаженный каталог виден на витрине', () {

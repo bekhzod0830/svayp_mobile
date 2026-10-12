@@ -113,6 +113,35 @@ const List<KioskLabeled> kioskCategories = [
   KioskLabeled('ACCESSORIES', 'Аксессуары', 'Aksessuarlar', 'Accessories'),
 ];
 
+/// Вкладки каталога в ветке «из каталога» — в том порядке, в каком собирают
+/// образ: сначала основа (верх и низ, либо платье или комплект вместо них),
+/// потом то, что поверх, и в конце — обувь и аксессуары. «Все» нет: вещи
+/// выбирают по частям образа. Платья — только в женском гардеробе.
+const List<String> _catalogTabOrder = [
+  'TOPWEAR',
+  'BOTTOMWEAR',
+  'DRESSES',
+  'TWO_PIECE_SET',
+  'OUTERWEAR',
+  'FOOTWEAR',
+  'ACCESSORIES',
+];
+
+List<KioskLabeled> kioskCatalogTabs(String? gender) => [
+      for (final code in _catalogTabOrder)
+        if (!(gender == 'MALE' && code == 'DRESSES'))
+          kioskCategories.firstWhere((c) => c.code == code),
+    ];
+
+/// Вещь подходит гардеробу [gender]. Пол у вещи бэкенд может не прислать
+/// (поле пока не в контракте каталога) — тогда показываем её всем, как и
+/// унисекс.
+bool kioskFitsGender(String? itemGender, String? gender) {
+  if (gender == null || itemGender == null) return true;
+  final g = itemGender.toUpperCase();
+  return g == 'UNISEX' || g == gender;
+}
+
 /// Типы фигуры по полу — по четыре, как в дизайне станции. Вариант «не знаю»
 /// — отдельная кнопка «Не знаю свой тип фигуры» (код [kioskShapeUnknown]).
 const Map<String, List<KioskLabeled>> kioskShapes = {
@@ -154,7 +183,8 @@ const Map<String, String> _shapeSlug = {
   'OVAL': 'oval',
 };
 
-/// Силуэт фигуры из комплекта станции.
+/// Иллюстрация фигуры из комплекта станции (человек целиком, прозрачный фон,
+/// 640×960; одна на светлую и тёмную темы).
 String? kioskShapeFigure(String? gender, String? code) {
   final slug = _shapeSlug[code];
   if (slug == null) return null;
@@ -277,4 +307,37 @@ String kioskSizeLabel(String raw) {
   ).firstMatch(clean);
   if (range != null) return '${range[1]} ${range[2]}–${range[3]}';
   return clean;
+}
+
+/// Есть ли у вещи подсказка размера. Бэкенд шлёт «—», когда размеров нет.
+bool kioskHasSize(String? size) {
+  final v = size?.trim() ?? '';
+  return v.isNotEmpty && v != '—' && v != '-' && v != '–';
+}
+
+String _sizeKey(String s) => s.replaceAll(RegExp(r'[\s_]'), '').toUpperCase();
+
+/// Какие размеры модели ([sizes], в порядке каталога) входят в подсказку
+/// бэкенда [recommended]: один размер («M») или диапазон из середины ряда
+/// («36–40», «S–M», «EU_40–EU_41»; тире любое). Диапазон выделяет и всё
+/// между краями — для «36–40» это 36, 38 и 40. Края не нашлись в ряду —
+/// выделяем то, что совпало.
+Set<int> kioskRecommendedSizes(String? recommended, List<String> sizes) {
+  if (!kioskHasSize(recommended) || sizes.isEmpty) return const {};
+  final keys = [for (final s in sizes) _sizeKey(s)];
+  final parts = [
+    for (final p in recommended!.split(RegExp(r'[–—-]')))
+      if (p.trim().isNotEmpty) _sizeKey(p),
+  ];
+  if (parts.length >= 2) {
+    final a = keys.indexOf(parts.first), b = keys.indexOf(parts.last);
+    if (a >= 0 && b >= 0) {
+      final lo = a < b ? a : b, hi = a < b ? b : a;
+      return {for (var i = lo; i <= hi; i++) i};
+    }
+  }
+  return {
+    for (var i = 0; i < keys.length; i++)
+      if (parts.contains(keys[i])) i,
+  };
 }

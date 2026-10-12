@@ -131,24 +131,50 @@ void main() {
     c.dispose();
   });
 
-  testWidgets('касание QR-карточки показывает подсказку про телефон',
+  testWidgets('касание QR открывает его крупно, касание в любом месте закрывает',
       (tester) async {
     _tabletSurface(tester);
     final c = await _controller(withCode: true);
     await tester.pumpWidget(_harness(c));
     await tester.pump();
 
-    expect(find.text('Заберите образ в телефон'), findsOneWidget);
+    expect(find.byType(QrImageView), findsOneWidget);
     await tester.tap(find.text('Скачать фото'));
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
+
+    // Поверх экрана — второй, крупный QR с подсказкой.
+    final qrs = find.byType(QrImageView);
+    expect(qrs, findsNWidgets(2));
+    final widths = [
+      for (var i = 0; i < 2; i++) tester.getSize(qrs.at(i)).width,
+    ];
+    expect(widths.reduce((a, b) => a > b ? a : b), greaterThan(500));
     expect(
       find.text('Отсканируйте QR — фото сохранится в телефон'),
       findsOneWidget,
     );
-    // Подсказка сама гаснет через 2.5 с.
-    await tester.pump(const Duration(seconds: 3));
+
+    // Закрывает касание и в углу экрана, а не только по «Закрыть».
+    await tester.tapAt(const Offset(20, 20));
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('Заберите образ в телефон'), findsOneWidget);
+    await tester.pump();
+    expect(find.byType(QrImageView), findsOneWidget);
+    expect(c.screen, MirrorScreen.result);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    c.dispose();
+  });
+
+  testWidgets('«Пересобрать» без счётчика оставшихся попыток', (tester) async {
+    _tabletSurface(tester);
+    final c = await _controller(withCode: true);
+    await tester.pumpWidget(_harness(c));
+    await tester.pump();
+
+    expect(find.text('ПЕРЕСОБРАТЬ'), findsOneWidget);
+    expect(find.textContaining('ОСТАЛОСЬ'), findsNothing);
 
     await tester.pumpWidget(const SizedBox.shrink());
     c.dispose();

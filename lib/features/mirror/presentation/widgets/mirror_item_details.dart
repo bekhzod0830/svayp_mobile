@@ -23,22 +23,28 @@ class MirrorItemDetails extends StatefulWidget {
     super.key,
     required this.lang,
     required this.child,
+    this.sizesFor,
+    this.showPrice = true,
   });
 
   /// Язык покупателя — для цены и подписей категорий.
   final String lang;
   final Widget child;
 
+  /// Размеры модели из каталога зала по id товара; пусто — строки нет. В
+  /// образе бэкенд отдаёт только рекомендованный размер, полный список есть
+  /// лишь в каталоге.
+  final List<String> Function(String productId)? sizesFor;
+
+  /// Цена в карточке. На экране генерации её нет — там только образ.
+  final bool showPrice;
+
   /// Открыть карточку [item], вырастая из виджета с ключом [source].
-  static void open(
-    BuildContext context,
-    KioskLookItem item,
-    GlobalKey source,
-  ) {
+  static void open(BuildContext context, KioskLookItem item, GlobalKey source) {
     context.findAncestorStateOfType<_MirrorItemDetailsState>()?._open(
-          item,
-          source,
-        );
+      item,
+      source,
+    );
   }
 
   @override
@@ -126,6 +132,8 @@ class _MirrorItemDetailsState extends State<MirrorItemDetails>
                 builder: (context, box) => _DetailsOverlay(
                   item: item,
                   lang: widget.lang,
+                  sizes: widget.sizesFor?.call(item.productId) ?? const [],
+                  showPrice: widget.showPrice,
                   animation: _anim,
                   size: box.biggest,
                   from: _from,
@@ -143,6 +151,8 @@ class _DetailsOverlay extends StatelessWidget {
   const _DetailsOverlay({
     required this.item,
     required this.lang,
+    required this.sizes,
+    required this.showPrice,
     required this.animation,
     required this.size,
     required this.from,
@@ -151,6 +161,8 @@ class _DetailsOverlay extends StatelessWidget {
 
   final KioskLookItem item;
   final String lang;
+  final List<String> sizes;
+  final bool showPrice;
   final Animation<double> animation;
   final Size size;
   final Rect? from;
@@ -165,7 +177,8 @@ class _DetailsOverlay extends StatelessWidget {
     // Итоговая карточка: по центру, фото сверху 4:5, текст под ним.
     final cardW = math.min(size.width - 40 * s, 440 * s);
     final imageH = math.min(cardW * 1.2, size.height * 0.5);
-    final textH = 210 * s;
+    // Строка размеров модели добавляет высоты карточке.
+    final textH = (sizes.isEmpty ? 210 : 258) * s;
     final cardH = math.min(imageH + textH, size.height - pad.vertical - 40 * s);
     final card = Rect.fromCenter(
       center: Offset(size.width / 2, size.height / 2 + pad.top / 2),
@@ -173,7 +186,8 @@ class _DetailsOverlay extends StatelessWidget {
       height: cardH,
     );
     final imageTo = Rect.fromLTWH(card.left, card.top, card.width, imageH);
-    final start = from ?? Rect.fromCenter(center: card.center, width: 10, height: 10);
+    final start =
+        from ?? Rect.fromCenter(center: card.center, width: 10, height: 10);
     final radius = math.min(t.rCard, 22 * s);
 
     return AnimatedBuilder(
@@ -185,8 +199,11 @@ class _DetailsOverlay extends StatelessWidget {
         // из той же миниатюры, и дорастает до полной высоты.
         final imageRect = Rect.lerp(start, imageTo, k)!;
         final bgRect = Rect.lerp(start, card, k)!;
-        final textIn = const Interval(0.55, 1, curve: Curves.easeOutCubic)
-            .transform(v);
+        final textIn = const Interval(
+          0.55,
+          1,
+          curve: Curves.easeOutCubic,
+        ).transform(v);
 
         return Stack(
           children: [
@@ -195,9 +212,7 @@ class _DetailsOverlay extends StatelessWidget {
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: onClose,
-                child: ColoredBox(
-                  color: t.ink.withValues(alpha: 0.5 * k),
-                ),
+                child: ColoredBox(color: t.ink.withValues(alpha: 0.5 * k)),
               ),
             ),
             Positioned.fromRect(
@@ -252,6 +267,8 @@ class _DetailsOverlay extends StatelessWidget {
                     child: _DetailsText(
                       item: item,
                       lang: lang,
+                      sizes: sizes,
+                      showPrice: showPrice,
                       onClose: onClose,
                     ),
                   ),
@@ -277,11 +294,15 @@ class _DetailsText extends StatelessWidget {
   const _DetailsText({
     required this.item,
     required this.lang,
+    required this.sizes,
+    required this.showPrice,
     required this.onClose,
   });
 
   final KioskLookItem item;
   final String lang;
+  final List<String> sizes;
+  final bool showPrice;
   final VoidCallback onClose;
 
   @override
@@ -292,6 +313,7 @@ class _DetailsText extends StatelessWidget {
     final category = item.category == null
         ? null
         : kioskCategories.where((c) => c.code == item.category).firstOrNull;
+    final recommended = kioskRecommendedSizes(item.size, sizes);
 
     return Padding(
       padding: EdgeInsets.fromLTRB(20 * s, 16 * s, 20 * s, 16 * s),
@@ -318,7 +340,8 @@ class _DetailsText extends StatelessWidget {
           SizedBox(height: 10 * s),
           Row(
             children: [
-              if (item.size != null) ...[
+              // «—» от бэкенда — размеров у вещи нет: плашку не показываем.
+              if (kioskHasSize(item.size)) ...[
                 Container(
                   padding: EdgeInsets.symmetric(
                     horizontal: 10 * s,
@@ -326,9 +349,7 @@ class _DetailsText extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: t.surface,
-                    borderRadius: BorderRadius.circular(
-                      math.min(t.rChip, 999),
-                    ),
+                    borderRadius: BorderRadius.circular(math.min(t.rChip, 999)),
                     border: Border.all(color: t.hairline),
                   ),
                   child: Text(
@@ -336,38 +357,65 @@ class _DetailsText extends StatelessWidget {
                     style: t.label(12.5 * s, weight: FontWeight.w600),
                   ),
                 ),
-                SizedBox(width: 10 * s),
               ],
-              Container(
-                width: 7 * s,
-                height: 7 * s,
-                decoration:
-                    BoxDecoration(color: t.success, shape: BoxShape.circle),
-              ),
-              SizedBox(width: 6 * s),
-              Flexible(
-                child: Text(
-                  l10n.mirrorInStock,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: t.label(
-                    12.5 * s,
-                    weight: FontWeight.w600,
-                    color: t.success,
-                  ),
-                ),
-              ),
             ],
           ),
+          // Все размеры модели из каталога; подобранный — выделен. Наличия
+          // бэкенд не отдаёт, поэтому «в наличии» не обещаем.
+          if (sizes.isNotEmpty) ...[
+            SizedBox(height: 12 * s),
+            Text(
+              l10n.mirrorModelSizes,
+              style: t.label(11.5 * s, weight: FontWeight.w600, color: t.muted),
+            ),
+            SizedBox(height: 6 * s),
+            SizedBox(
+              height: 30 * s,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                itemCount: sizes.length,
+                separatorBuilder: (_, __) => SizedBox(width: 6 * s),
+                itemBuilder: (context, i) {
+                  final picked = recommended.contains(i);
+                  return Container(
+                    alignment: Alignment.center,
+                    padding: EdgeInsets.symmetric(horizontal: 10 * s),
+                    decoration: BoxDecoration(
+                      color: picked ? t.primary : t.surface,
+                      borderRadius: BorderRadius.circular(
+                        math.min(t.rChip, 999),
+                      ),
+                      border: Border.all(
+                        color: picked ? t.primary : t.hairline,
+                      ),
+                    ),
+                    child: Text(
+                      kioskSizeLabel(sizes[i]),
+                      style: t.label(
+                        12 * s,
+                        weight: FontWeight.w600,
+                        color: picked ? t.onPrimary : t.ink,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
           const Spacer(),
           Row(
             children: [
               Expanded(
-                child: Text(
-                  item.price != null ? kioskMoney(item.price!, lang) : '—',
-                  maxLines: 1,
-                  style: t.price(24 * s, color: t.primaryDeep),
-                ),
+                child: showPrice
+                    ? Text(
+                        item.price != null
+                            ? kioskMoney(item.price!, lang)
+                            : '—',
+                        maxLines: 1,
+                        style: t.price(24 * s, color: t.primaryDeep),
+                      )
+                    : const SizedBox.shrink(),
               ),
               SizedBox(width: 12 * s),
               _TextPill(label: l10n.mirrorItemClose, onTap: onClose),

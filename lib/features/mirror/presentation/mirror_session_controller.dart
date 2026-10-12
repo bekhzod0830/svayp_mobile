@@ -67,12 +67,20 @@ class MirrorSessionController extends ChangeNotifier {
         _logEvent = logEvent,
         _brand = brand {
     _storeLabel = _prefs.getString(_storeLabelKey);
-    shopperLang = brand.defaultLang;
+    shopperLang = _langFor(brand, _prefs.getString(_langKey));
   }
 
+  /// Последний выбранный язык киоска — переживает сброс сессии и перезапуск.
+  static const _langKey = 'kiosk_shopper_lang';
+
+  /// [saved], если бренд его поддерживает, иначе язык бренда по умолчанию.
+  static String _langFor(MirrorBrand brand, String? saved) =>
+      saved != null && brand.languages.contains(saved) ? saved : brand.defaultLang;
+
   static const _storeLabelKey = 'kiosk_store_label';
-  /// Окно «Вы ещё здесь?» — после 20 с без касаний (задачи по планшетам, 07.10.2026).
-  static const idleTimeout = Duration(seconds: 20);
+  /// Окно «Вы ещё здесь?» — после 60 с без касаний (было 20 с: человек не
+  /// успевал отсканировать QR или прочитать состав образа).
+  static const idleTimeout = Duration(seconds: 60);
   static const idleGraceSeconds = 10;
   static const maxRegenerations = 3;
   // Киоск генерирует через FASHN по шагам: замер на проде ≈105 c на 3 вещи
@@ -172,6 +180,22 @@ class MirrorSessionController extends ChangeNotifier {
 
   KioskLook? look;
   KioskLook? _completedLook;
+
+  /// Состав образа текущей генерации. Бэкенд собирает его до картинки и
+  /// отдаёт уже в ответе на создание образа (PENDING), — экран генерации
+  /// показывает вещи с первых секунд, пока картинка рисуется.
+  List<KioskLookItem> generatingItems = const [];
+
+  /// Сколько обычно идёт генерация на этой станции, секунд: скользящее
+  /// среднее по прошлым образам (живёт в prefs). По нему экран генерации
+  /// растягивает прогресс — к готовности он подходит к ~90%, а не прыгает
+  /// с середины на 100%.
+  double get expectedGenSec =>
+      (_prefs.getDouble(_genAvgKey) ?? defaultGenSec).clamp(20.0, 180.0);
+  static const _genAvgKey = 'kiosk_gen_avg_sec';
+  /// До первого образа на станции. На планшете зала генерация шла ~40–50 с;
+  /// дальше станция подстраивается под своё время сама.
+  static const double defaultGenSec = 60;
   bool resultReady = false;
   int elapsedSec = 0;
   bool genFailed = false;
@@ -216,6 +240,15 @@ class MirrorSessionController extends ChangeNotifier {
   KioskApi get api => _api;
   KioskDemoService get demoService => _demo;
 
+  /// Размеры модели из каталога зала (по id товара) — для карточки вещи:
+  /// в составе образа бэкенд отдаёт только рекомендованный размер.
+  List<String> sizesFor(String productId) {
+    for (final item in _catalogAllCache) {
+      if (item.id == productId) return item.sizes;
+    }
+    return const [];
+  }
+
   List<KioskCatalogItem> get catalogPreview =>
       List.unmodifiable(_catalogAllCache);
 
@@ -247,13 +280,14 @@ class MirrorSessionController extends ChangeNotifier {
           return 3;
       }
     }
+    // «Из каталога»: пол и вещи → камера → фигура → образ.
     switch (screen) {
       case MirrorScreen.idle:
+      case MirrorScreen.gender:
       case MirrorScreen.catalog:
         return 0;
       case MirrorScreen.camera:
         return 1;
-      case MirrorScreen.gender:
       case MirrorScreen.shape:
       case MirrorScreen.style:
       case MirrorScreen.brand:
@@ -355,8 +389,10 @@ class MirrorSessionController extends ChangeNotifier {
     if (p == MirrorPath.create) {
       _go(MirrorScreen.camera);
     } else {
-      _go(MirrorScreen.catalog);
-      loadCatalog();
+      // Сначала пол: вещи в каталоге — только этого гардероба. Каталог
+      // докачивается, пока человек выбирает.
+      _go(MirrorScreen.gender);
+      unawaited(loadCatalog());
     }
   }
 
@@ -369,10 +405,46 @@ class MirrorSessionController extends ChangeNotifier {
 
   // ── Каталог ────────────────────────────────────────────────────────────────
 
-  List<KioskCatalogItem> _applyCategory(List<KioskCatalogItem> all) =>
-      category == null
-          ? List.of(all)
-          : all.where((i) => i.category == category).toList();
+  /// Вещи гардероба выбранного пола (без учёта вкладки).
+  List<KioskCatalogItem> get _genderCatalog => [
+        for (final i in _catalogAllCache)
+          if (kioskFitsGender(i.gender, gender)) i,
+      ];
+
+  List<KioskCatalogItem> _applyCategory(List<KioskCatalogItem> all) => [
+        for (final i in all)
+          if (kioskFitsGender(i.gender, gender) &&
+              (category == null || i.category == category))
+            i,
+      ];
+
+  /// Вкладки каталога для пола — в порядке сборки образа; пустые (в зале
+  /// таких вещей нет) прячем, пока каталог не пуст.
+  List<KioskLabeled> get catalogTabs {
+    final tabs = kioskCatalogTabs(gender);
+    final pool = _genderCatalog;
+    if (pool.isEmpty) return tabs;
+    final present = {for (final i in pool) i.category};
+    final nonEmpty = [for (final t in tabs) if (present.contains(t.code)) t];
+    return nonEmpty.isEmpty ? tabs : nonEmpty;
+  }
+
+  /// Сколько вещей выбрано во вкладке [code] — подсказка, чего в образе нет.
+  int pickedIn(String? code) {
+    var n = 0;
+    for (final i in _catalogAllCache) {
+      if (i.category == code && pickedProductIds.contains(i.id)) n++;
+    }
+    return n;
+  }
+
+  /// Вкладка каталога всегда конкретная: первая по порядку сборки образа,
+  /// если текущей нет среди доступных.
+  void _ensureCategory() {
+    final tabs = catalogTabs;
+    if (tabs.isEmpty) return;
+    if (!tabs.any((t) => t.code == category)) category = tabs.first.code;
+  }
 
   void _setCatalogCache(List<KioskCatalogItem> items, {required bool demo}) {
     _catalogAllCache = List.of(items);
@@ -382,6 +454,7 @@ class MirrorSessionController extends ChangeNotifier {
   /// Смена категории — мгновенный локальный фильтр по кэшу, без сети.
   void selectCategory(String? code) {
     category = code;
+    _ensureCategory();
     catalog = _applyCategory(_catalogAllCache);
     touch();
     _notify();
@@ -401,6 +474,7 @@ class MirrorSessionController extends ChangeNotifier {
       if (_disposed || cancelled()) return;
       _setCatalogCache(items, demo: demo);
       if (screen == MirrorScreen.catalog) {
+        _ensureCategory();
         catalog = _applyCategory(_catalogAllCache);
       }
       _notify();
@@ -433,6 +507,7 @@ class MirrorSessionController extends ChangeNotifier {
     bool cancelled() => _disposed || token != _catalogRequestToken;
 
     if (_catalogAllCache.isNotEmpty) {
+      _ensureCategory();
       catalog = _applyCategory(_catalogAllCache);
       catalogLoading = false;
     } else {
@@ -575,7 +650,10 @@ class MirrorSessionController extends ChangeNotifier {
       'face_ratio': (validation?.faceRatio ?? 0).toStringAsFixed(2),
       'too_dark': (validation?.tooDark ?? false).toString(),
     });
-    _go(MirrorScreen.gender);
+    // В ветке «из каталога» пол уже выбран перед вещами.
+    _go(path == MirrorPath.catalog && gender != null
+        ? MirrorScreen.shape
+        : MirrorScreen.gender);
   }
 
   // ── Пол и фигура ───────────────────────────────────────────────────────────
@@ -588,14 +666,25 @@ class MirrorSessionController extends ChangeNotifier {
       // Списки фигур и стилей зависят от пола — прежний выбор не имеет смысла.
       bodyShape = null;
       styles.clear();
+      // Вещи другого гардероба — тоже.
+      pickedProductIds.clear();
+    }
+    if (path == MirrorPath.catalog) {
+      // «Из каталога»: после пола — вещи этого гардероба, с первой вкладки.
+      category = null;
+      _ensureCategory();
+      catalog = _applyCategory(_catalogAllCache);
+      _go(MirrorScreen.catalog);
+      return;
     }
     _go(MirrorScreen.shape);
   }
 
+  /// Тип фигуры — один ответ, как и пол: касание карточки сразу ведёт дальше
+  /// (к стилям, а в ветке «из каталога» — к генерации), без «Продолжить».
   void setShape(String shape) {
-    touch();
     bodyShape = shape;
-    _notify();
+    confirmProfile();
   }
 
   /// «Не знаю свой тип фигуры»: фигуру не угадываем — шлём «не знаю» и идём дальше.
@@ -741,6 +830,7 @@ class MirrorSessionController extends ChangeNotifier {
     genReason = null;
     resultReady = false;
     _completedLook = null;
+    generatingItems = const [];
     elapsedSec = 0;
     _go(MirrorScreen.generating);
 
@@ -792,6 +882,10 @@ class MirrorSessionController extends ChangeNotifier {
         faceLiked: faceLiked,
       );
       if (stale() || screen != MirrorScreen.generating) return;
+      if (created.items.isNotEmpty) {
+        generatingItems = created.items;
+        _notify();
+      }
       if (created.isTerminal) {
         created.status == KioskLookStatus.completed
             ? _onGenerationCompleted(created)
@@ -804,6 +898,7 @@ class MirrorSessionController extends ChangeNotifier {
         onProgress: (l) {
           if (stale()) return;
           look = l;
+          if (l.items.isNotEmpty) generatingItems = l.items;
           _notify();
         },
         onDone: (l) {
@@ -824,9 +919,16 @@ class MirrorSessionController extends ChangeNotifier {
     _stopGeneration(keepElapsed: true);
     look = l;
     _completedLook = l;
+    if (l.items.isNotEmpty) generatingItems = l.items;
     final url = l.resultImageUrl;
     if (url != null) _resultUrls.add(url);
     resultReady = true;
+    // Демо отвечает по таймеру — время станции учим только по настоящим.
+    if (!demoActive && elapsedSec > 0) {
+      final avg = _prefs.getDouble(_genAvgKey);
+      final next = avg == null ? elapsedSec.toDouble() : avg * 0.6 + elapsedSec * 0.4;
+      _prefs.setDouble(_genAvgKey, next.clamp(20.0, 180.0));
+    }
     _track('kiosk_generation_completed', {
       'look_id': l.lookId,
       'elapsed': elapsedSec.toString(),
@@ -970,8 +1072,10 @@ class MirrorSessionController extends ChangeNotifier {
         rebuildingFromCatalog = false;
         _go(MirrorScreen.result);
       case MirrorScreen.idle:
-      case MirrorScreen.catalog:
         hardReset('manual');
+      case MirrorScreen.catalog:
+        // «Из каталога» начинается с пола: назад — к нему.
+        _go(MirrorScreen.gender);
       case MirrorScreen.generating:
         cancelGeneration();
       case MirrorScreen.camera:
@@ -982,9 +1086,14 @@ class MirrorSessionController extends ChangeNotifier {
           _go(MirrorScreen.catalog);
         }
       case MirrorScreen.gender:
-        _go(MirrorScreen.camera);
+        // «Из каталога» с пола начинается — назад на постер.
+        if (path == MirrorPath.catalog) {
+          hardReset('manual');
+        } else {
+          _go(MirrorScreen.camera);
+        }
       case MirrorScreen.shape:
-        _go(MirrorScreen.gender);
+        _go(path == MirrorPath.catalog ? MirrorScreen.camera : MirrorScreen.gender);
       case MirrorScreen.style:
         _go(MirrorScreen.shape);
       case MirrorScreen.brand:
@@ -1111,6 +1220,7 @@ class MirrorSessionController extends ChangeNotifier {
     validation = null;
     look = null;
     _completedLook = null;
+    generatingItems = const [];
     resultReady = false;
     elapsedSec = 0;
     genFailed = false;
@@ -1124,8 +1234,9 @@ class MirrorSessionController extends ChangeNotifier {
     _genId++;
     idleWarning = false;
     idleLeft = idleGraceSeconds;
-    // Новый покупатель не должен наследовать язык предыдущего.
-    shopperLang = brand.defaultLang;
+    // Язык не сбрасываем: «Назад» с камеры, «Завершить» и тайм-аут оставляют
+    // выбранный. Меняется он только выбором или сменой бренда без такого языка.
+    shopperLang = _langFor(brand, shopperLang);
 
     screen = MirrorScreen.idle;
     _notify();
@@ -1189,6 +1300,7 @@ class MirrorSessionController extends ChangeNotifier {
 
   void setShopperLang(String code) {
     shopperLang = code;
+    _prefs.setString(_langKey, code);
     touch();
     _notify();
   }

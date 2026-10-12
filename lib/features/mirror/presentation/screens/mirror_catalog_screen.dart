@@ -11,10 +11,20 @@ import '../mirror_theme.dart';
 import '../widgets/mirror_buttons.dart';
 import '../widgets/mirror_chrome.dart';
 
-/// Экран каталога зала (вход ветки «каталог»): текстовые вкладки категорий с
-/// подчёркиванием — как навигация бренда, сетка карточек с фото на белом,
-/// мультивыбор квадратным чеком, счётчик на CTA. Смена категории выбор не
-/// сбрасывает (веб-паритет).
+/// Сколько карточек в ряд: на планшете три (раньше две — фото выходили
+/// огромными), на телефоне две.
+int _catalogColumns(BuildContext context) =>
+    MediaQuery.sizeOf(context).width >= 560 ? 3 : 2;
+
+/// Высота карточки при ширине [w]: фото 4:5, название в две строки и цена.
+double _cardExtent(double w, double s) => w * 1.25 + 76 * s;
+
+/// Экран каталога зала (ветка «из каталога», после выбора пола): вещи только
+/// этого гардероба. Вкладки категорий идут в порядке сборки образа (верх, низ,
+/// платья и комплекты, верхняя одежда, обувь, аксессуары; «Все» нет), у каждой —
+/// сколько в ней уже выбрано: видно, чего в образе не хватает. Сетка — три
+/// карточки в ряд на планшете, мультивыбор квадратным чеком, счётчик на CTA.
+/// Смена категории выбор не сбрасывает.
 class MirrorCatalogScreen extends StatelessWidget {
   const MirrorCatalogScreen({super.key, required this.controller});
 
@@ -29,6 +39,7 @@ class MirrorCatalogScreen extends StatelessWidget {
     final lang = c.shopperLang;
     final picked = c.pickedProductIds.length;
     final brand = t.brand;
+    final tabs = c.catalogTabs;
     // Снимок списка: сетка строит карточки лениво, уже после build, а
     // контроллер подменяет `catalog` целиком (сброс сессии — на пустой).
     // Уходящий экран, читая живое поле, падал с RangeError посреди fade-out.
@@ -58,12 +69,15 @@ class MirrorCatalogScreen extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
             padding: EdgeInsets.symmetric(horizontal: 28 * s),
-            itemCount: kioskCategories.length,
+            itemCount: tabs.length,
             separatorBuilder: (_, __) => SizedBox(width: 22 * s),
             itemBuilder: (context, i) {
-              final cat = kioskCategories[i];
+              final cat = tabs[i];
+              final count = c.pickedIn(cat.code);
               return _CategoryTab(
-                label: brand.categoryLabel(cat, lang),
+                label: count > 0
+                    ? '${brand.categoryLabel(cat, lang)} · $count'
+                    : brand.categoryLabel(cat, lang),
                 selected: c.category == cat.code,
                 onTap: () => c.selectCategory(cat.code),
               );
@@ -86,23 +100,32 @@ class MirrorCatalogScreen extends StatelessWidget {
                         style: t.subtitle(16 * s),
                       ),
                     ))
-              : GridView.builder(
-                  physics: const BouncingScrollPhysics(),
-                  padding: EdgeInsets.fromLTRB(28 * s, 0, 28 * s, 16 * s),
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: MirrorTheme.gridColumns(context),
-                    mainAxisSpacing: 14 * s,
-                    crossAxisSpacing: 14 * s,
-                    mainAxisExtent: 256 * s,
-                  ),
-                  itemCount: items.length,
-                  itemBuilder: (context, i) {
-                    final item = items[i];
-                    return _CatalogCard(
-                      item: item,
-                      lang: lang,
-                      selected: c.pickedProductIds.contains(item.id),
-                      onTap: () => c.toggleProduct(item.id),
+              : LayoutBuilder(
+                  builder: (context, box) {
+                    final cols = _catalogColumns(context);
+                    final gap = 12 * s;
+                    final w = (box.maxWidth - 56 * s - gap * (cols - 1)) / cols;
+                    return GridView.builder(
+                      // Новая вкладка — с начала списка.
+                      key: PageStorageKey('catalog-${c.category}'),
+                      physics: const BouncingScrollPhysics(),
+                      padding: EdgeInsets.fromLTRB(28 * s, 0, 28 * s, 16 * s),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: cols,
+                        mainAxisSpacing: gap,
+                        crossAxisSpacing: gap,
+                        mainAxisExtent: _cardExtent(w, s),
+                      ),
+                      itemCount: items.length,
+                      itemBuilder: (context, i) {
+                        final item = items[i];
+                        return _CatalogCard(
+                          item: item,
+                          lang: lang,
+                          selected: c.pickedProductIds.contains(item.id),
+                          onTap: () => c.toggleProduct(item.id),
+                        );
+                      },
                     );
                   },
                 ),
@@ -187,12 +210,6 @@ class _CatalogCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = MirrorTheme.of(context);
     final s = MirrorTheme.scale(context);
-    final brand = t.brand;
-    final category = kioskCategories
-        .where((c) => c.code != null && c.code == item.category)
-        .toList();
-    final categoryLabel =
-        category.isEmpty ? null : brand.categoryLabel(category.first, lang);
 
     return GestureDetector(
       onTap: onTap,
@@ -223,7 +240,7 @@ class _CatalogCard extends StatelessWidget {
                               imageUrl: item.imageUrl!,
                               cacheManager: KioskImageCache.instance,
                               // Декодируем под размер плитки, а не исходник.
-                              memCacheWidth: 600,
+                              memCacheWidth: 420,
                               fadeInDuration: const Duration(milliseconds: 120),
                               fit: BoxFit.cover,
                               placeholder: (_, __) =>
@@ -237,30 +254,24 @@ class _CatalogCard extends StatelessWidget {
                   Positioned(
                     top: 8 * s,
                     right: 8 * s,
-                    child: MirrorCheck(selected: selected, size: 24 * s),
+                    child: MirrorCheck(selected: selected, size: 22 * s),
                   ),
                 ],
               ),
             ),
             Padding(
-              padding: EdgeInsets.fromLTRB(6 * s, 8 * s, 6 * s, 4 * s),
+              padding: EdgeInsets.fromLTRB(4 * s, 7 * s, 4 * s, 2 * s),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (categoryLabel != null) ...[
-                    Text(
-                      t.kickerCase(categoryLabel),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: t.kicker(s * 0.75, color: t.muted),
-                    ),
-                    SizedBox(height: 4 * s),
-                  ],
+                  // Категорию называет вкладка — на карточке только вещь.
                   Text(
                     item.title,
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: t.label(13.5 * s, weight: FontWeight.w600),
+                    style: t
+                        .label(12.5 * s, weight: FontWeight.w600)
+                        .copyWith(height: 1.2),
                   ),
                   SizedBox(height: 3 * s),
                   Text(
@@ -285,16 +296,19 @@ class _ShimmerGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = MirrorTheme.of(context);
+    final cols = _catalogColumns(context);
+    final gap = 12 * s;
+    final w = (MediaQuery.sizeOf(context).width - 56 * s - gap * (cols - 1)) / cols;
     return GridView.builder(
       physics: const NeverScrollableScrollPhysics(),
       padding: EdgeInsets.fromLTRB(28 * s, 0, 28 * s, 16 * s),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: MirrorTheme.gridColumns(context),
-        mainAxisSpacing: 14 * s,
-        crossAxisSpacing: 14 * s,
-        mainAxisExtent: 256 * s,
+        crossAxisCount: cols,
+        mainAxisSpacing: gap,
+        crossAxisSpacing: gap,
+        mainAxisExtent: _cardExtent(w, s),
       ),
-      itemCount: 6,
+      itemCount: cols * 3,
       itemBuilder: (_, __) => Shimmer.fromColors(
         baseColor: t.hairline,
         highlightColor: t.surface,

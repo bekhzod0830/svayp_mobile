@@ -56,6 +56,9 @@ class KioskCatalogItem {
   final String? imageUrl;
   final List<String> sizes;
 
+  /// MALE | FEMALE | UNISEX; null — бэкенд пол не прислал.
+  final String? gender;
+
   const KioskCatalogItem({
     required this.id,
     required this.title,
@@ -64,6 +67,7 @@ class KioskCatalogItem {
     this.currency,
     this.imageUrl,
     this.sizes = const [],
+    this.gender,
   });
 
   factory KioskCatalogItem.fromJson(Map data) => KioskCatalogItem(
@@ -75,6 +79,7 @@ class KioskCatalogItem {
         imageUrl: data['imageUrl']?.toString(),
         sizes: (data['sizes'] as List?)?.map((e) => e.toString()).toList() ??
             const [],
+        gender: data['gender']?.toString(),
       );
 }
 

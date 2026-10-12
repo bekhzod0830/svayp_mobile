@@ -395,12 +395,20 @@ class _MirrorCoverScreenState extends State<MirrorCoverScreen>
                   fit: StackFit.expand,
                   children: [
                     ColoredBox(color: w.bg),
-                    _WindowSlides(
-                      assets: w.slides,
-                      seconds: w.slideSeconds,
-                      active: plays,
-                      reduceMotion: _reduceMotion,
-                    ),
+                    if (w.video case final video?)
+                      _VideoHero(
+                        asset: video.asset,
+                        active: plays,
+                        aspect: video.aspect,
+                        poster: w.videoPoster,
+                      )
+                    else
+                      _WindowSlides(
+                        assets: w.slides,
+                        seconds: w.slideSeconds,
+                        active: plays,
+                        reduceMotion: _reduceMotion,
+                      ),
                     // Низ кадра чуть темнее: витрина подсвечена сверху.
                     IgnorePointer(
                       child: DecoratedBox(
@@ -3012,9 +3020,11 @@ class _WindowTitle extends StatelessWidget {
               headline.toUpperCase(),
               textAlign: TextAlign.center,
               maxLines: 2,
+              // Жирным гротеском интерфейса: у акцидентного Forum одно
+              // тонкое начертание, и на мраморе заголовок терялся.
               style: t
-                  .display(headlineSize, color: look.text)
-                  .copyWith(letterSpacing: headlineSize * 0.06, height: 1.08),
+                  .label(headlineSize, weight: FontWeight.w700, color: look.text)
+                  .copyWith(letterSpacing: headlineSize * 0.03, height: 1.12),
             ),
           ),
         ),
