@@ -242,30 +242,33 @@ class _MirrorCoverScreenState extends State<MirrorCoverScreen>
                       poster: v.posterAsset,
                     ),
                     // Полоса света медленно проходит по стеклу сверху вниз.
-                    AnimatedBuilder(
-                      animation: _light,
-                      builder: (context, child) => FractionalTranslation(
-                        translation: Offset(
-                          0,
-                          -0.4 + 1.4 * Curves.easeInOut.transform(_light.value),
+                    // Своим слоем: её движение не перерисовывает соседей.
+                    RepaintBoundary(
+                      child: AnimatedBuilder(
+                        animation: _light,
+                        builder: (context, child) => FractionalTranslation(
+                          translation: Offset(
+                            0,
+                            -0.4 + 1.4 * Curves.easeInOut.transform(_light.value),
+                          ),
+                          child: child,
                         ),
-                        child: child,
-                      ),
-                      child: Align(
-                        alignment: Alignment.topCenter,
-                        child: FractionallySizedBox(
-                          heightFactor: 0.28,
-                          widthFactor: 1,
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  Colors.white.withValues(alpha: 0),
-                                  Colors.white.withValues(alpha: 0.16),
-                                  Colors.white.withValues(alpha: 0),
-                                ],
+                        child: Align(
+                          alignment: Alignment.topCenter,
+                          child: FractionallySizedBox(
+                            heightFactor: 0.28,
+                            widthFactor: 1,
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Colors.white.withValues(alpha: 0),
+                                    Colors.white.withValues(alpha: 0.16),
+                                    Colors.white.withValues(alpha: 0),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
@@ -283,8 +286,11 @@ class _MirrorCoverScreenState extends State<MirrorCoverScreen>
                 ),
               ),
               IgnorePointer(
-                child: CustomPaint(
-                  painter: _ArchRimPainter(rim: v.rim, u: u),
+                child: RepaintBoundary(
+                  child: CustomPaint(
+                    isComplex: true,
+                    painter: _ArchRimPainter(rim: v.rim, u: u),
+                  ),
                 ),
               ),
             ],
@@ -443,14 +449,19 @@ class _MirrorCoverScreenState extends State<MirrorCoverScreen>
                 right: -inset,
                 bottom: -inset,
                 child: IgnorePointer(
-                  child: CustomPaint(
-                    painter: MirrorArchFramePainter(
-                      shape: shape,
-                      progress: 1,
-                      track: w.frame,
-                      color: w.frame,
-                      glow: 0,
-                      s: s,
+                  // Свой слой: размытая обводка рамы рисуется один раз, а не
+                  // вместе с каждым кадром блика и ролика.
+                  child: RepaintBoundary(
+                    child: CustomPaint(
+                      isComplex: true,
+                      painter: MirrorArchFramePainter(
+                        shape: shape,
+                        progress: 1,
+                        track: w.frame,
+                        color: w.frame,
+                        glow: 0,
+                        s: s,
+                      ),
                     ),
                   ),
                 ),
@@ -1907,99 +1918,130 @@ class _CoverCtaState extends State<_CoverCta> {
       scale: _pressed ? 0.97 : 1,
       duration: const Duration(milliseconds: 120),
       curve: Curves.easeOut,
-      child: AnimatedBuilder(
-        animation: widget.ambient,
-        builder: (context, child) {
-          final pulse = Curves.easeInOut.transform(widget.ambient.value);
-          return DecoratedBox(
-            decoration: BoxDecoration(
-              borderRadius: radius,
-              boxShadow: [
-                BoxShadow(
-                  color: look.cta.withValues(alpha: 0.18 + 0.16 * pulse),
-                  blurRadius: h * (0.35 + 0.2 * pulse),
-                  spreadRadius: -h * 0.08,
-                  offset: Offset(0, h * 0.12),
-                ),
-              ],
-            ),
-            child: child,
-          );
-        },
-        child: SizedBox(
-          width: double.infinity,
-          height: h,
-          child: Material(
-            color: look.ctaGradient == null ? look.cta : Colors.transparent,
-            shape: shape,
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: widget.onTap,
-              onHighlightChanged: (v) => setState(() => _pressed = v),
-              splashColor: look.onCta.withValues(alpha: 0.10),
-              highlightColor: look.onCta.withValues(alpha: 0.05),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  if (look.ctaGradient case final colors?)
-                    Positioned.fill(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: colors,
-                          ),
-                        ),
-                      ),
-                    ),
-                  const Positioned.fill(
-                    child: Gleam(
-                      durationMs: 4200,
-                      travelFraction: 0.45,
-                      widthFraction: 0.28,
-                      opacity: 0.55,
-                      initialDelayMs: 1600,
-                    ),
-                  ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Flexible(
-                        child: Text(
-                          label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: style,
-                        ),
-                      ),
-                      SizedBox(width: fontSize * 0.45),
-                      AnimatedBuilder(
-                        animation: widget.ambient,
-                        builder: (context, child) => Transform.translate(
-                          offset: Offset(
-                            fontSize *
-                                0.22 *
-                                Curves.easeInOut.transform(
-                                  widget.ambient.value,
-                                ),
-                            0,
-                          ),
-                          child: child,
-                        ),
-                        child: Icon(
-                          Icons.arrow_forward_rounded,
-                          size: fontSize * 1.15,
-                          color: look.onCta,
-                        ),
+      // Свечение «дышит» прозрачностью готового слоя. Менять радиус размытия
+      // каждый кадр нельзя: Skia размывает тень заново 60 раз в секунду, и на
+      // планшете зеркала это заметные рывки.
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(
+            child: IgnorePointer(
+              child: RepaintBoundary(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: radius,
+                    boxShadow: [
+                      BoxShadow(
+                        color: look.cta.withValues(alpha: 0.18),
+                        blurRadius: h * 0.35,
+                        spreadRadius: -h * 0.08,
+                        offset: Offset(0, h * 0.12),
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
-        ),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: FadeTransition(
+                opacity: widget.ambient.drive(
+                  CurveTween(curve: Curves.easeInOut),
+                ),
+                child: RepaintBoundary(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: radius,
+                      boxShadow: [
+                        BoxShadow(
+                          color: look.cta.withValues(alpha: 0.16),
+                          blurRadius: h * 0.55,
+                          spreadRadius: -h * 0.08,
+                          offset: Offset(0, h * 0.12),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          SizedBox(
+            width: double.infinity,
+            height: h,
+            child: Material(
+              color: look.ctaGradient == null ? look.cta : Colors.transparent,
+              shape: shape,
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: widget.onTap,
+                onHighlightChanged: (v) => setState(() => _pressed = v),
+                splashColor: look.onCta.withValues(alpha: 0.10),
+                highlightColor: look.onCta.withValues(alpha: 0.05),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    if (look.ctaGradient case final colors?)
+                      Positioned.fill(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: colors,
+                            ),
+                          ),
+                        ),
+                      ),
+                    const Positioned.fill(
+                      child: Gleam(
+                        durationMs: 4200,
+                        travelFraction: 0.45,
+                        widthFraction: 0.28,
+                        opacity: 0.55,
+                        initialDelayMs: 1600,
+                      ),
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: style,
+                          ),
+                        ),
+                        SizedBox(width: fontSize * 0.45),
+                        AnimatedBuilder(
+                          animation: widget.ambient,
+                          builder: (context, child) => Transform.translate(
+                            offset: Offset(
+                              fontSize *
+                                  0.22 *
+                                  Curves.easeInOut.transform(
+                                    widget.ambient.value,
+                                  ),
+                              0,
+                            ),
+                            child: child,
+                          ),
+                          child: Icon(
+                            Icons.arrow_forward_rounded,
+                            size: fontSize * 1.15,
+                            color: look.onCta,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

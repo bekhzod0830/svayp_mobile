@@ -21,6 +21,9 @@ class _FakeApi extends KioskApi {
   /// Опрос каждого образа пачки — по его id.
   final doneById = <String, void Function(KioskLook)>{};
 
+  /// Промежуточные ответы опроса (образ ещё в работе) — по id образа.
+  final progressById = <String, void Function(KioskLook)>{};
+
   /// Ответ `/kiosk/station`; null — эндпоинта нет (старый бэкенд).
   KioskStation? station;
   int startSessionCalls = 0;
@@ -102,6 +105,7 @@ class _FakeApi extends KioskApi {
   }) {
     this.onDone = onDone;
     doneById[lookId] = onDone;
+    if (onProgress != null) progressById[lookId] = onProgress;
     return super.watchLook('never-polled', onDone: (_) {})..close();
   }
 
@@ -446,6 +450,83 @@ void main() {
     // Новая генерация не показывает вещи прошлой.
     unawaited(c.startGeneration());
     expect(c.generatingItems, isEmpty);
+  });
+
+  group('генерация не перестраивает экран без повода', () {
+    // testWidgets — ради управляемого времени: таймер генерации тикает по pump().
+    testWidgets('счётчик секунд будит экран только на смене этапа и на «почти готово»', (tester) async {
+      unawaited(c.startGeneration());
+      api.createLookCalls.last.complete(_look('l1', KioskLookStatus.pending));
+      await tester.pump();
+      var notified = 0;
+      void count() => notified++;
+      c.addListener(count);
+
+      // Раньше — 24 уведомления, по одному в секунду.
+      await tester.pump(const Duration(seconds: 24));
+      expect(c.elapsedSec, 24);
+      expect(notified, 0);
+
+      // 25-я секунда: подпись этапа сменилась.
+      await tester.pump(const Duration(seconds: 1));
+      expect(c.generationStage, 1);
+      expect(notified, 1);
+
+      // До 100-й: ещё три смены этапа (50, 75, 100), «почти готово» пока нет.
+      await tester.pump(const Duration(seconds: 75));
+      expect(c.generationRunsLong, isFalse);
+      expect(notified, 4);
+
+      // 101-я: генерация идёт дольше обычного — экран должен это показать.
+      await tester.pump(const Duration(seconds: 1));
+      expect(c.generationRunsLong, isTrue);
+      expect(notified, 5);
+
+      c.removeListener(count);
+      await c.hardReset('test');
+    });
+
+    testWidgets('таймаут генерации срабатывает, хотя счётчик молчит', (tester) async {
+      unawaited(c.startGeneration());
+      api.createLookCalls.last.complete(_look('l1', KioskLookStatus.pending));
+      await tester.pump();
+
+      await tester.pump(
+        const Duration(seconds: MirrorSessionController.failAfterSec - 1),
+      );
+      expect(c.genFailed, isFalse);
+      await tester.pump(const Duration(seconds: 1));
+      expect(c.genFailed, isTrue);
+
+      await c.hardReset('test');
+    });
+
+    test('опрос без новостей молчит; новые вещи и готовность — уведомляют', () async {
+      unawaited(c.startGeneration());
+      api.createLookCalls.last.complete(_look('l1', KioskLookStatus.pending));
+      await Future<void>.delayed(Duration.zero);
+      var notified = 0;
+      c.addListener(() => notified++);
+
+      // Сервер ответил тем же, что и в прошлый раз.
+      api.progressById['l1']!(_look('l1', KioskLookStatus.pending));
+      api.progressById['l1']!(_look('l1', KioskLookStatus.pending));
+      expect(notified, 0);
+
+      // В ответе появились вещи образа — сцена генерации их покажет.
+      api.progressById['l1']!(const KioskLook(
+        lookId: 'l1',
+        status: KioskLookStatus.pending,
+        items: [KioskLookItem(productId: 'p1', title: 'Рубашка', price: 300000)],
+      ));
+      expect(notified, 1);
+      expect(c.generatingItems.map((i) => i.productId), ['p1']);
+
+      // Образ готов — результат открывается как раньше.
+      api.onDone!(_look('l1', KioskLookStatus.completed));
+      expect(c.resultReady, isTrue);
+      expect(notified, greaterThan(1));
+    });
   });
 
   test('станция выучивает обычное время генерации', () async {

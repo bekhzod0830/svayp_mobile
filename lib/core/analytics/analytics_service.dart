@@ -10,6 +10,7 @@ import 'package:uuid/uuid.dart';
 import 'analytics_api_service.dart';
 import 'posthog_config.dart';
 import 'session_manager.dart';
+import 'session_replay_pause.dart';
 
 /// Unified analytics dispatcher. Every event fans out to:
 ///   • Firebase Analytics — funnels, retention, custom events (Google console)
@@ -103,8 +104,27 @@ class AnalyticsService {
         ..maskAllImages = false
         ..maskAllTexts = false;
       await Posthog().setup(config);
+      _postHogReady = true;
+      // Киоск мог открыться раньше, чем поднялся PostHog: setup включает запись сам.
+      if (_replayPause.paused) await _replayPause.apply();
     } catch (_) {/* аналитика никогда не роняет приложение */}
   }
+
+  bool _postHogReady = false;
+
+  late final SessionReplayPause _replayPause = SessionReplayPause(
+    enabled: PostHogSettings.enabled,
+    stop: () async {
+      if (_postHogReady) await Posthog().stopSessionRecording();
+    },
+    start: () async {
+      if (_postHogReady) await Posthog().startSessionRecording();
+    },
+  );
+
+  /// Запись экрана на паузе, пока открыт киоск зеркала: она снимает весь экран
+  /// раз в секунду и тормозит слабый планшет, а в кадре — лица покупателей.
+  Future<void> setReplayPaused(bool paused) => _replayPause.set(paused);
 
   /// Wire the auth-token getter so backend events are attributed to the logged-in user.
   /// Anonymous events still flow (and carry anon_id) when no token is available.

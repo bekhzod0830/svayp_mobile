@@ -229,6 +229,16 @@ class MirrorSessionController extends ChangeNotifier {
 
   bool resultReady = false;
   int elapsedSec = 0;
+
+  /// Сколько секунд держится одна подпись этапа на экране генерации.
+  static const int generationStageSec = 25;
+
+  /// Номер этапа генерации по счётчику (экран сам ограничивает его числом
+  /// подписей).
+  int get generationStage => elapsedSec ~/ generationStageSec;
+
+  /// Генерация идёт дольше обычного — экран добавляет «почти готово».
+  bool get generationRunsLong => elapsedSec > reassureAfterSec;
   bool genFailed = false;
   String? genReason;
   int attempt = 0;
@@ -994,12 +1004,17 @@ class MirrorSessionController extends ChangeNotifier {
     });
 
     _elapsedTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+      final stage = generationStage;
+      final long = generationRunsLong;
       elapsedSec += 1;
       if (elapsedSec >= failAfterSec && !genFailed && !resultReady) {
         _onGenerationFailed('TIMEOUT');
         return;
       }
-      _notify();
+      // От счётчика на экране зависят только подпись этапа и «почти готово».
+      // Уведомлять каждую секунду — значит раз в секунду перестраивать всё
+      // дерево киоска.
+      if (generationStage != stage || generationRunsLong != long) _notify();
     });
 
     if (demoActive) {
@@ -1061,13 +1076,19 @@ class MirrorSessionController extends ChangeNotifier {
             id,
             onProgress: (l) {
               if (stale()) return;
+              final before = _pack[id];
               _pack[id] = l;
               // Сцена генерации листает вещи первого образа.
               if (id == created.lookId && _completedLook == null) {
                 look = l;
                 if (l.items.isNotEmpty) generatingItems = l.items;
               }
-              _notify();
+              // Опрос идёт каждые 2,5 с на каждый образ пачки. Экран
+              // перестраиваем, только когда в ответе появилось новое.
+              final changed = before == null ||
+                  before.status != l.status ||
+                  before.items.length != l.items.length;
+              if (changed) _notify();
             },
             onDone: (l) {
               if (stale()) return;
