@@ -8,16 +8,14 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 
-import '../../data/kiosk_api.dart';
 import '../../data/kiosk_camera.dart';
-import '../../data/kiosk_models.dart';
 import '../mirror_session_controller.dart';
 import '../mirror_theme.dart';
 import '../widgets/mirror_arch.dart';
 import '../widgets/mirror_buttons.dart';
 import '../widgets/mirror_camera_feed.dart';
 
-enum _CamPhase { live, countdown, captured, uploading }
+enum _CamPhase { live, countdown, captured }
 
 /// Экран 1 — камера (только лицо). USB-камера зеркала по умолчанию, затем
 /// фронталка (см. [rankKioskCameras]); если первая не завелась, пробуется
@@ -103,18 +101,17 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
   static const _autoStartDelay = Duration(milliseconds: 1400);
   File? _shot;
 
-  /// Жёсткая ошибка (лицо не найдено, фото не ушло) — блокирует.
-  String? _error;
-
-  /// Мягкая подсказка бэкенда (несколько лиц, темно, далеко) — не блокирует:
-  /// показывается перед переходом дальше.
-  String? _softHint;
-  Timer? _softHintTimer;
+  /// Почему человека вернули на камеру (`UPLOAD` — кадр так и не дошёл до
+  /// бэкенда): фото уходит в фоне, уже после «Готово», и о сбое мы узнаём
+  /// только к генерации. Видна, пока не сделан новый снимок.
+  String? _problem;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _problem = widget.controller.photoProblem;
+    widget.controller.clearPhotoProblem();
     widget.controller.onCameraOpened();
     if (Platform.isAndroid) {
       try {
@@ -251,7 +248,6 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
     _discardShot();
     _countdownTimer?.cancel();
     _autoStartTimer?.cancel();
-    _softHintTimer?.cancel();
     _diagTimer?.cancel();
     _watchdog?.cancel();
     _usbSub?.cancel();
@@ -429,13 +425,15 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
     }
   }
 
-  /// Фото принято — камера больше не нужна. Закрываем её ещё на этом экране,
-  /// пока превью на месте, а не когда экран уже исчез: следующий покупатель
-  /// получает свободную камеру.
-  void _releaseCameraAndContinue() {
+  /// «Готово»: камера больше не нужна — закрываем её ещё на этом экране, пока
+  /// превью на месте (следующий покупатель получает свободную камеру), и сразу
+  /// идём к вопросам. Кадр уходит на бэкенд в фоне: человек не ждёт загрузку.
+  void _confirm() {
+    final shot = _shot;
+    if (shot == null) return;
     _watchdog?.cancel();
     _teardownCamera();
-    widget.controller.confirmPhoto();
+    widget.controller.submitPhoto(shot);
   }
 
   void _scheduleAutoCountdown() {
@@ -452,8 +450,6 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
     setState(() {
       _phase = _CamPhase.countdown;
       _countdown = _countdownFrom;
-      _error = null;
-      _softHint = null;
     });
     _countdownTimer = Timer.periodic(_countdownTick, (t) {
       if (!mounted) return;
@@ -490,6 +486,8 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
       if (mounted) {
         setState(() {
           _shot = file;
+          // Новый кадр — прежняя причина возврата больше не про него.
+          _problem = null;
           _phase = _CamPhase.captured;
         });
       }
@@ -522,8 +520,7 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
       if (mounted) {
         setState(() {
           _shot = file;
-          _error = null;
-          _softHint = null;
+          _problem = null;
           _phase = _CamPhase.captured;
         });
       }
@@ -544,80 +541,14 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
   }
 
   void _retake() {
-    _softHintTimer?.cancel();
     widget.controller.onPhotoRetaken();
     _discardShot();
     setState(() {
       _shot = null;
-      _error = null;
-      _softHint = null;
       _phase = _CamPhase.live;
     });
     // «Переснять» — снова сам отсчитает.
     _scheduleAutoCountdown();
-  }
-
-  Future<void> _confirm() async {
-    final shot = _shot;
-    if (shot == null || _phase == _CamPhase.uploading) return;
-    final l10n = AppLocalizations.of(context)!;
-    setState(() {
-      _phase = _CamPhase.uploading;
-      _error = null;
-      _softHint = null;
-    });
-    try {
-      final validation = await widget.controller.uploadAndConfirmPhoto(shot);
-      if (!mounted) return;
-      if (!validation.faceFound) {
-        // Единственный жёсткий блок: без лица дальше нельзя.
-        setState(() {
-          _phase = _CamPhase.captured;
-          _error = l10n.mirrorFaceNotFound;
-        });
-        return;
-      }
-      final soft = _softHintFor(validation, l10n);
-      if (soft == null) {
-        _releaseCameraAndContinue();
-        return;
-      }
-      // Мягкие подсказки не блокируют (веб-паритет): показываем полторы
-      // секунды — и дальше. Фаза остаётся uploading, чтобы «Готово» не ушло
-      // на повторную загрузку.
-      setState(() => _softHint = soft);
-      _softHintTimer?.cancel();
-      _softHintTimer = Timer(const Duration(milliseconds: 1800), () {
-        if (mounted) _releaseCameraAndContinue();
-      });
-    } on KioskApiException {
-      if (!mounted) return;
-      setState(() {
-        _phase = _CamPhase.captured;
-        _error = l10n.mirrorUploadFailed;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _phase = _CamPhase.captured;
-        _error = l10n.mirrorUploadFailed;
-      });
-    }
-  }
-
-  /// FACE_NOT_FOUND обрабатывается отдельно как блок; остальное — совет.
-  String? _softHintFor(KioskPhotoValidation v, AppLocalizations l10n) {
-    switch (v.hint) {
-      case 'MULTIPLE_FACES':
-        return l10n.mirrorFaceMultiple;
-      case 'MOVE_CLOSER':
-        return l10n.mirrorFaceCloser;
-      case 'TOO_DARK':
-        return l10n.mirrorFaceTooDark;
-    }
-    if (v.faceCount > 1) return l10n.mirrorFaceMultiple;
-    if (v.tooDark) return l10n.mirrorFaceTooDark;
-    return null;
   }
 
   @override
@@ -628,9 +559,7 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
 
     // Камера недоступна, но кадр ещё не выбран: даём путь через галерею
     // (это же спасает симулятор без камеры).
-    if (_initFailed &&
-        _phase != _CamPhase.captured &&
-        _phase != _CamPhase.uploading) {
+    if (_initFailed && _phase != _CamPhase.captured) {
       return Center(
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: 40 * s),
@@ -696,17 +625,12 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
       );
     }
 
-    final captured =
-        _phase == _CamPhase.captured || _phase == _CamPhase.uploading;
+    final captured = _phase == _CamPhase.captured;
+    final problemText = _problem == 'UPLOAD' ? l10n.mirrorUploadFailed : null;
     final hintText =
-        _error ??
-        _softHint ??
+        problemText ??
         (captured ? l10n.mirrorCamDoneHint : l10n.mirrorCamLook);
-    final hintColor = _error != null
-        ? t.danger
-        : _softHint != null
-        ? t.accent
-        : t.muted;
+    final hintColor = problemText != null ? t.danger : t.muted;
 
     // Отступы колонки плотные: самый тесный экран киоска, от него считается
     // общий размер стекла (см. mirrorGlassSize).
@@ -900,7 +824,6 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
                       child: MirrorGhostButton(
                         label: l10n.mirrorRetake,
                         height: 64 * s,
-                        enabled: _phase != _CamPhase.uploading,
                         onTap: _retake,
                       ),
                     ),
@@ -909,7 +832,6 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
                       child: MirrorPrimaryButton(
                         label: l10n.mirrorDone,
                         height: 64 * s,
-                        isLoading: _phase == _CamPhase.uploading,
                         onTap: _confirm,
                       ),
                     ),
@@ -922,9 +844,7 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
                   label: l10n.mirrorFromGallery,
                   height: 36 * s,
                   color: t.muted,
-                  onTap: _phase == _CamPhase.uploading
-                      ? null
-                      : _pickFromGallery,
+                  onTap: _pickFromGallery,
                 ),
               ],
               SizedBox(height: 12 * s),

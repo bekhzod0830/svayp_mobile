@@ -765,41 +765,94 @@ class MirrorSessionController extends ChangeNotifier {
 
   void onPhotoRetaken() => _track('kiosk_photo_retaken');
 
-  /// Загрузка + серверная валидация снятого кадра. В демо кадр никуда не
-  /// уходит: он остаётся на устройстве и служит превью результата.
-  Future<KioskPhotoValidation> uploadAndConfirmPhoto(File photo) async {
-    await _replacePhoto(photo);
+  /// Кадр так и не дошёл до бэкенда (`UPLOAD`) — человека вернули на камеру;
+  /// экран камеры показывает причину и снимает её. Содержимое кадра причиной
+  /// не бывает: «плохое» фото (лица не видно, темно) принимаем как есть.
+  String? photoProblem;
+
+  /// Фоновая загрузка текущего кадра; генерация дожидается её конца.
+  Future<void>? _photoUpload;
+
+  /// Загрузка текущего кадра не удалась после всех попыток.
+  bool _photoUploadFailed = false;
+
+  /// Номер кадра: ответ по прежнему кадру (переснял, сбросил сессию) не
+  /// трогает новый.
+  int _photoSeq = 0;
+
+  /// Сколько раз пробуем отправить кадр, прежде чем сдаться.
+  static const _photoUploadAttempts = 3;
+
+  /// Пауза перед повтором (× номер попытки). Тесты обнуляют.
+  @visibleForTesting
+  static Duration photoRetryPause = const Duration(seconds: 1);
+
+  /// «Готово» на камере. Сразу ведёт к вопросам: кадр уходит на бэкенд в фоне,
+  /// пока человек выбирает, — раньше он ждал здесь загрузку и проверку лица.
+  /// В демо кадр никуда не уходит: остаётся на устройстве как превью.
+  void submitPhoto(File photo) {
+    final old = capturedPhoto;
+    capturedPhoto = photo;
+    photoBlobKey = null;
+    validation = null;
+    photoProblem = null;
+    _photoUploadFailed = false;
+    if (old != null && old.path != photo.path) {
+      unawaited(_deletePhotoFile(old));
+    }
+    final seq = ++_photoSeq;
     if (demoActive) {
-      const ok = KioskPhotoValidation(
+      validation = const KioskPhotoValidation(
         faceFound: true,
         faceCount: 1,
         faceRatio: 0.3,
       );
-      validation = ok;
-      return ok;
+      _photoUpload = null;
+    } else {
+      _photoUpload = _uploadPhotoInBackground(photo, seq);
     }
-    final blobKey = await _api.uploadPhoto(sessionId!, photo);
-    photoBlobKey = blobKey;
-    final result = await _api.confirmPhoto(sessionId!, blobKey);
-    validation = result;
-    return result;
+    confirmPhoto();
   }
 
-  Future<void> _replacePhoto(File photo) async {
-    final old = capturedPhoto;
-    if (old != null && old.path != photo.path) {
-      await _deletePhotoFile(old);
+  /// Загрузка кадра и его регистрация за сессией (`/kiosk/photo/confirm` —
+  /// по нему бэкенд знает фото сессии). Вопросы это никогда не прерывает:
+  /// что бэкенд думает о кадре (лица нет, темно, далеко), мы не показываем —
+  /// образ собираем с тем фото, что есть. Сбой сети — тихие повторы; если
+  /// кадр так и не ушёл, об этом скажет генерация (см. [startGeneration]).
+  Future<void> _uploadPhotoInBackground(File photo, int seq) async {
+    final id = sessionId;
+    if (id == null) return;
+    bool stale() => _disposed || seq != _photoSeq || sessionId != id;
+    for (var attempt = 1; attempt <= _photoUploadAttempts; attempt++) {
+      try {
+        // PUT в хранилище идёт без таймаута сети: зависшая загрузка держала
+        // бы генерацию до общего отказа через три с половиной минуты.
+        final blobKey = await _api
+            .uploadPhoto(id, photo)
+            .timeout(const Duration(seconds: 45));
+        if (stale()) return;
+        photoBlobKey = blobKey;
+        final result = await _api.confirmPhoto(id, blobKey);
+        if (stale()) return;
+        validation = result;
+        return;
+      } catch (_) {
+        if (stale()) return;
+        if (attempt < _photoUploadAttempts) {
+          await Future<void>.delayed(photoRetryPause * attempt);
+          if (stale()) return;
+        }
+      }
     }
-    capturedPhoto = photo;
-    photoBlobKey = null;
-    validation = null;
+    _photoUploadFailed = true;
+    _track('kiosk_photo_upload_failed', {'screen': screen.name});
   }
+
+  /// Экран камеры показал причину — больше не нужна.
+  void clearPhotoProblem() => photoProblem = null;
 
   void confirmPhoto() {
-    _track('kiosk_photo_confirmed', {
-      'face_ratio': (validation?.faceRatio ?? 0).toStringAsFixed(2),
-      'too_dark': (validation?.tooDark ?? false).toString(),
-    });
+    _track('kiosk_photo_confirmed');
     // В ветке «из каталога» пол уже выбран перед вещами.
     _go(path == MirrorPath.catalog && gender != null
         ? MirrorScreen.shape
@@ -1018,6 +1071,23 @@ class MirrorSessionController extends ChangeNotifier {
         }
       });
       return;
+    }
+
+    // Кадр мог ещё не уйти (человек ответил быстрее сети) — ждём: бэкенд
+    // собирает образ по фото сессии. Не ушёл вовсе, после всех повторов, —
+    // только теперь, когда вопросы позади, возвращаем на камеру: без фото
+    // образ не собрать. Ответы человека остаются.
+    final upload = _photoUpload;
+    if (upload != null) {
+      await upload;
+      if (stale() || screen != MirrorScreen.generating) return;
+      if (_photoUploadFailed) {
+        _genId++;
+        _stopGeneration();
+        photoProblem = 'UPLOAD';
+        _go(MirrorScreen.camera);
+        return;
+      }
     }
 
     try {
@@ -1463,6 +1533,10 @@ class MirrorSessionController extends ChangeNotifier {
     capturedPhoto = null;
     photoBlobKey = null;
     validation = null;
+    photoProblem = null;
+    _photoUpload = null;
+    _photoUploadFailed = false;
+    _photoSeq++;
     look = null;
     _completedLook = null;
     generatingItems = const [];

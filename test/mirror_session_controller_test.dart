@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -25,6 +26,24 @@ class _FakeApi extends KioskApi {
   KioskStation? station;
   int startSessionCalls = 0;
   bool sessionScoped = true;
+
+  /// Загрузка фото: каждый вызов ждёт, пока тест его завершит.
+  final uploadCalls = <Completer<String>>[];
+  final confirmCalls = <Completer<KioskPhotoValidation>>[];
+
+  @override
+  Future<String> uploadPhoto(String sessionId, File photo) {
+    final c = Completer<String>();
+    uploadCalls.add(c);
+    return c.future;
+  }
+
+  @override
+  Future<KioskPhotoValidation> confirmPhoto(String sessionId, String blobKey) {
+    final c = Completer<KioskPhotoValidation>();
+    confirmCalls.add(c);
+    return c.future;
+  }
 
   /// Каталог «по страницам»: каждый шаг — всё, что скачано к этому моменту.
   /// null — сети нет, каталог не приходит.
@@ -230,6 +249,168 @@ void main() {
 
     // Раньше ensureShare видел старый shareUrl и выходил — QR вёл на первый образ.
     expect(api.finishCalls, hasLength(2));
+  });
+
+  group('фото уходит в фоне, после «Готово»', () {
+    final shot = File('/nonexistent/mirror_face_test.jpg');
+    const ok = KioskPhotoValidation(faceFound: true, faceCount: 1, faceRatio: 0.3);
+    const noFace = KioskPhotoValidation(faceFound: false);
+
+    Future<void> tick() => Future<void>.delayed(Duration.zero);
+
+    setUp(() => MirrorSessionController.photoRetryPause = Duration.zero);
+    tearDown(
+      () => MirrorSessionController.photoRetryPause = const Duration(seconds: 1),
+    );
+
+    Future<void> freshSession() async {
+      await c.hardReset('manual');
+      await c.begin(MirrorPath.create);
+      expect(c.screen, MirrorScreen.camera);
+    }
+
+    test('«Готово» сразу ведёт к вопросам, не дожидаясь загрузки', () async {
+      await freshSession();
+      c.submitPhoto(shot);
+      expect(c.screen, MirrorScreen.gender);
+      expect(api.uploadCalls, hasLength(1));
+      expect(api.confirmCalls, isEmpty); // загрузка ещё идёт
+
+      c.setGender('MALE');
+      c.setShape('RECTANGLE');
+      expect(c.screen, MirrorScreen.style);
+    });
+
+    test('генерация ждёт фото: образ запрашивается, когда кадр дошёл', () async {
+      await freshSession();
+      c.submitPhoto(shot);
+      c.setGender('MALE');
+      c.setShape('RECTANGLE');
+      c.toggleStyle('CASUAL');
+      c.confirmStyles();
+      c.toggleShopBrand('ANY');
+      c.confirmShopBrand();
+      final before = api.createLookCalls.length;
+      c.confirmColors();
+      expect(c.screen, MirrorScreen.generating);
+      await tick();
+      expect(api.createLookCalls, hasLength(before)); // фото ещё не ушло
+
+      api.uploadCalls.last.complete('blob-1');
+      await tick();
+      api.confirmCalls.last.complete(ok);
+      await tick();
+      await tick();
+      expect(api.createLookCalls, hasLength(before + 1));
+      expect(c.screen, MirrorScreen.generating);
+    });
+
+    Future<void> answerAll() async {
+      c.setGender('MALE');
+      c.setShape('RECTANGLE');
+      c.toggleStyle('CASUAL');
+      c.confirmStyles();
+      c.toggleShopBrand('ANY');
+      c.confirmShopBrand();
+    }
+
+    Future<void> failUpload() async {
+      api.uploadCalls.last.completeError(
+        const KioskApiException(message: 'net', statusCode: 0),
+      );
+      await tick();
+      await tick();
+    }
+
+    test('«плохое» фото принимаем: лица нет — вопросы не прерываются, образ собирается', () async {
+      await freshSession();
+      c.submitPhoto(shot);
+      c.setGender('MALE');
+      c.setShape('RECTANGLE');
+      c.toggleStyle('CASUAL');
+
+      api.uploadCalls.last.complete('blob-1');
+      await tick();
+      api.confirmCalls.last.complete(noFace);
+      await tick();
+      expect(c.screen, MirrorScreen.style); // никуда не увели
+      expect(c.photoProblem, isNull);
+
+      c.confirmStyles();
+      c.toggleShopBrand('ANY');
+      c.confirmShopBrand();
+      final before = api.createLookCalls.length;
+      c.confirmColors();
+      await tick();
+      await tick();
+      expect(c.screen, MirrorScreen.generating);
+      expect(api.createLookCalls, hasLength(before + 1));
+    });
+
+    test('сбой сети: тихие повторы, вопросы не прерываются', () async {
+      await freshSession();
+      c.submitPhoto(shot);
+      c.setGender('MALE');
+      c.setShape('RECTANGLE');
+
+      await failUpload(); // первая попытка упала
+      expect(c.screen, MirrorScreen.style);
+      expect(c.photoProblem, isNull);
+      expect(api.uploadCalls, hasLength(2)); // повтор пошёл сам
+
+      api.uploadCalls.last.complete('blob-2');
+      await tick();
+      api.confirmCalls.last.complete(ok);
+      await tick();
+      expect(c.screen, MirrorScreen.style);
+      expect(c.validation?.faceFound, isTrue);
+    });
+
+    test('кадр так и не ушёл — на камеру возвращаем только к генерации, ответы остаются', () async {
+      await freshSession();
+      c.submitPhoto(shot);
+      await answerAll();
+      await failUpload();
+      await failUpload();
+      await failUpload(); // все три попытки
+      expect(api.uploadCalls, hasLength(3));
+      expect(c.screen, MirrorScreen.colors); // посреди вопросов — ничего
+      expect(c.photoProblem, isNull);
+
+      final before = api.createLookCalls.length;
+      c.confirmColors();
+      await tick();
+      await tick();
+      expect(c.screen, MirrorScreen.camera);
+      expect(c.photoProblem, 'UPLOAD');
+      expect(api.createLookCalls, hasLength(before)); // образ не запрашивали
+      expect(c.gender, 'MALE');
+      expect(c.styles, ['CASUAL']);
+    });
+
+    test('переснял — ответ по прежнему кадру не возвращает на камеру', () async {
+      await freshSession();
+      c.submitPhoto(shot);
+      final first = api.uploadCalls.last;
+      c.goBack(); // к камере — переснять
+      expect(c.screen, MirrorScreen.camera);
+      c.submitPhoto(File('/nonexistent/mirror_face_test_2.jpg'));
+      c.setGender('FEMALE');
+      expect(c.screen, MirrorScreen.shape);
+
+      first.completeError(const KioskApiException(message: 'net', statusCode: 0));
+      await tick();
+      expect(c.screen, MirrorScreen.shape);
+      expect(c.photoProblem, isNull);
+      expect(api.uploadCalls, hasLength(2)); // прежний кадр не повторяем
+
+      api.uploadCalls.last.complete('blob-2');
+      await tick();
+      api.confirmCalls.last.complete(ok);
+      await tick();
+      expect(c.photoProblem, isNull);
+      expect(c.validation?.faceFound, isTrue);
+    });
   });
 
   group('ветка «из каталога»: пол → вещи → камера → фигура', () {
