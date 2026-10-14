@@ -29,6 +29,8 @@ class MirrorSetupSheet extends StatefulWidget {
     this.onUvcMaxWidthChanged,
     this.cameraDebug = false,
     this.onCameraDebugChanged,
+    this.perfOverlay = false,
+    this.onPerfOverlayChanged,
   });
 
   final KioskApi api;
@@ -52,6 +54,10 @@ class MirrorSetupSheet extends StatefulWidget {
   final bool cameraDebug;
   final ValueChanged<bool>? onCameraDebugChanged;
 
+  /// Графики времени кадра поверх киоска и их тумблер.
+  final bool perfOverlay;
+  final ValueChanged<bool>? onPerfOverlayChanged;
+
   static Future<void> show(
     BuildContext context, {
     required KioskApi api,
@@ -66,6 +72,8 @@ class MirrorSetupSheet extends StatefulWidget {
     ValueChanged<int>? onUvcMaxWidthChanged,
     bool cameraDebug = false,
     ValueChanged<bool>? onCameraDebugChanged,
+    bool perfOverlay = false,
+    ValueChanged<bool>? onPerfOverlayChanged,
   }) {
     return showModalBottomSheet<void>(
       context: context,
@@ -87,6 +95,8 @@ class MirrorSetupSheet extends StatefulWidget {
         onUvcMaxWidthChanged: onUvcMaxWidthChanged,
         cameraDebug: cameraDebug,
         onCameraDebugChanged: onCameraDebugChanged,
+        perfOverlay: perfOverlay,
+        onPerfOverlayChanged: onPerfOverlayChanged,
       ),
     );
   }
@@ -105,6 +115,7 @@ class _MirrorSetupSheetState extends State<MirrorSetupSheet> {
   String? _cameraName;
   late int _uvcMaxWidth;
   late bool _cameraDebug;
+  late bool _perfOverlay;
 
   /// Что видит планшет прямо сейчас (USB напрямую + камеры Android);
   /// null — ещё ищем.
@@ -122,6 +133,7 @@ class _MirrorSetupSheetState extends State<MirrorSetupSheet> {
     _cameraName = widget.cameraName;
     _uvcMaxWidth = widget.uvcMaxWidth;
     _cameraDebug = widget.cameraDebug;
+    _perfOverlay = widget.perfOverlay;
     if (widget.onCameraChanged != null) {
       _scanCameras();
       if (Platform.isAndroid) {
@@ -284,6 +296,21 @@ class _MirrorSetupSheetState extends State<MirrorSetupSheet> {
             onChanged: (v) {
               setState(() => _cameraDebug = v);
               widget.onCameraDebugChanged!(v);
+            },
+          ),
+        if (widget.onPerfOverlayChanged != null)
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Плавность экрана: графики кадров'),
+            subtitle: const Text(
+              'Два графика вверху экрана: отрисовка и интерфейс. Столбики '
+              'выше линии — кадр не успел, экран дёргается. Для замера, '
+              'покупателям выключить.',
+            ),
+            value: _perfOverlay,
+            onChanged: (v) {
+              setState(() => _perfOverlay = v);
+              widget.onPerfOverlayChanged!(v);
             },
           ),
       ],

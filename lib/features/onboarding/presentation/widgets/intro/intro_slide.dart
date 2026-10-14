@@ -315,47 +315,51 @@ class _GleamState extends State<Gleam> with SingleTickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    // RepaintBoundary: бегущий блик перерисовывает только себя, а не всё, что
+    // лежит с ним в одном слое (на зеркале — рамы с размытой обводкой).
     return IgnorePointer(
-      child: ClipRect(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final w = constraints.maxWidth;
-            final barW = w * widget.widthFraction;
-            return AnimatedBuilder(
-              animation: _c,
-              builder: (context, _) {
-                final t = _c.value;
-                final k = (t / widget.travelFraction).clamp(0.0, 1.0);
-                // Deck: translateX(-160%) → translateX(360%) of the bar width.
-                final x = (-1.6 + 5.2 * Curves.easeInOut.transform(k)) * barW;
-                if (k >= 1.0) return const SizedBox.expand();
-                return Stack(
-                  children: [
-                    Positioned(
-                      left: x,
-                      top: 0,
-                      bottom: 0,
-                      width: barW,
-                      child: Transform(
-                        transform: Matrix4.skewX(-18 * math.pi / 180),
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                Colors.white.withValues(alpha: 0),
-                                Colors.white.withValues(alpha: widget.opacity),
-                                Colors.white.withValues(alpha: 0),
-                              ],
+      child: RepaintBoundary(
+        child: ClipRect(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final w = constraints.maxWidth;
+              final barW = w * widget.widthFraction;
+              return AnimatedBuilder(
+                animation: _c,
+                builder: (context, _) {
+                  final t = _c.value;
+                  final k = (t / widget.travelFraction).clamp(0.0, 1.0);
+                  // Deck: translateX(-160%) → translateX(360%) of the bar width.
+                  final x = (-1.6 + 5.2 * Curves.easeInOut.transform(k)) * barW;
+                  if (k >= 1.0) return const SizedBox.expand();
+                  return Stack(
+                    children: [
+                      Positioned(
+                        left: x,
+                        top: 0,
+                        bottom: 0,
+                        width: barW,
+                        child: Transform(
+                          transform: Matrix4.skewX(-18 * math.pi / 180),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.white.withValues(alpha: 0),
+                                  Colors.white.withValues(alpha: widget.opacity),
+                                  Colors.white.withValues(alpha: 0),
+                                ],
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
-                );
-              },
-            );
-          },
+                    ],
+                  );
+                },
+              );
+            },
+          ),
         ),
       ),
     );

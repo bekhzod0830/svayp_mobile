@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:swipe/app/theme.dart';
+import 'package:swipe/core/analytics/analytics_service.dart';
 import 'package:swipe/core/di/service_locator.dart';
 import 'package:swipe/l10n/app_localizations.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -66,6 +67,9 @@ class _MirrorTabState extends State<MirrorTab> with WidgetsBindingObserver {
   /// Последнее выбранное оформление.
   static const _brandPref = 'kiosk_brand';
 
+  /// Графики времени кадра поверх киоска — замер плавности на планшете.
+  static const _perfOverlayPref = 'kiosk_perf_overlay';
+
   late final MirrorSessionController _controller;
 
   /// Material-виджеты внутри киоска (рипл InkWell, индикаторы, Switch) читают
@@ -82,6 +86,9 @@ class _MirrorTabState extends State<MirrorTab> with WidgetsBindingObserver {
 
   /// Диагностика потока в углу экрана камеры ([kKioskCameraDebugPref]).
   bool _cameraDebug = false;
+
+  /// Графики времени кадра поверх киоска ([_perfOverlayPref]).
+  bool _perfOverlay = false;
 
   /// Экран выбора оформления поверх киоска.
   bool _picking = true;
@@ -105,6 +112,8 @@ class _MirrorTabState extends State<MirrorTab> with WidgetsBindingObserver {
     );
     _cameraDebug =
         getIt<SharedPreferences>().getBool(kKioskCameraDebugPref) ?? false;
+    _perfOverlay =
+        getIt<SharedPreferences>().getBool(_perfOverlayPref) ?? false;
     _controller = MirrorSessionController(
       api: getIt<KioskApi>(),
       demo: getIt<KioskDemoService>(),
@@ -191,8 +200,18 @@ class _MirrorTabState extends State<MirrorTab> with WidgetsBindingObserver {
     _controller.setOffline(offline);
   }
 
+  /// Запись экрана PostHog в киоске не нужна и дорого стоит планшету.
+  void _pauseReplay(bool paused) {
+    try {
+      AnalyticsService.instance.setReplayPaused(paused).ignore();
+    } catch (_) {
+      /* аналитика не поднята — киоску это не мешает */
+    }
+  }
+
   Future<void> _enterKioskMode() async {
     _controller.setActive(true);
+    _pauseReplay(true);
     try {
       await WakelockPlus.enable();
     } catch (_) {}
@@ -208,6 +227,7 @@ class _MirrorTabState extends State<MirrorTab> with WidgetsBindingObserver {
 
   Future<void> _exitKioskMode() async {
     _controller.setActive(false);
+    _pauseReplay(false);
     try {
       await WakelockPlus.disable();
     } catch (_) {}
@@ -236,6 +256,8 @@ class _MirrorTabState extends State<MirrorTab> with WidgetsBindingObserver {
       onUvcMaxWidthChanged: _setUvcMaxWidth,
       cameraDebug: _cameraDebug,
       onCameraDebugChanged: _setCameraDebug,
+      perfOverlay: _perfOverlay,
+      onPerfOverlayChanged: _setPerfOverlay,
     ).whenComplete(() {
       if (mounted) _controller.onSetupClosed();
     });
@@ -244,6 +266,11 @@ class _MirrorTabState extends State<MirrorTab> with WidgetsBindingObserver {
   void _setCameraDebug(bool value) {
     getIt<SharedPreferences>().setBool(kKioskCameraDebugPref, value);
     setState(() => _cameraDebug = value);
+  }
+
+  void _setPerfOverlay(bool value) {
+    getIt<SharedPreferences>().setBool(_perfOverlayPref, value);
+    setState(() => _perfOverlay = value);
   }
 
   void _setUvcMaxWidth(int width) {
@@ -489,6 +516,17 @@ class _MirrorTabState extends State<MirrorTab> with WidgetsBindingObserver {
                             if (_controller.offline)
                               const Positioned.fill(
                                 child: MirrorOfflineScreen(),
+                              ),
+                            // Замер плавности на планшете: графики времени
+                            // кадра, включаются в шите настройки.
+                            if (_perfOverlay)
+                              Positioned(
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                child: IgnorePointer(
+                                  child: PerformanceOverlay.allEnabled(),
+                                ),
                               ),
                           ],
                         ),

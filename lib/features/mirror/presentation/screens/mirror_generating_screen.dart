@@ -296,7 +296,6 @@ class _MirrorGeneratingScreenState extends State<MirrorGeneratingScreen>
 
     if (c.genFailed) return _buildFailure(context, l10n, t, s);
 
-    final elapsed = c.elapsedSec;
     final stages = [
       l10n.mirrorGen1,
       l10n.mirrorGen2,
@@ -304,7 +303,7 @@ class _MirrorGeneratingScreenState extends State<MirrorGeneratingScreen>
       l10n.mirrorGen4,
     ];
     // Этап ~25 секунд (образ через FASHN ≈105 c); последний держится до конца.
-    final activeStage = math.min(elapsed ~/ 25, stages.length - 1);
+    final activeStage = math.min(c.generationStage, stages.length - 1);
     final answers = _answers(l10n);
     _timeline = _timelineFor(c.generatingItems.length, answers.length);
 
@@ -375,7 +374,7 @@ class _MirrorGeneratingScreenState extends State<MirrorGeneratingScreen>
             _StatusLine(text: stages[activeStage], stage: activeStage),
             SizedBox(
               height: 30 * s,
-              child: elapsed > MirrorSessionController.reassureAfterSec
+              child: c.generationRunsLong
                   ? Center(
                       child: Text(
                         l10n.mirrorGenAlmost,
@@ -679,22 +678,19 @@ class _DevelopingMirror extends StatelessWidget {
           clipBehavior: Clip.none,
           children: [
             // Мягкое свечение цветом бренда за зеркалом.
+            // Ореол перерисовывается только на ступеньках проявки; пульс —
+            // прозрачностью готового слоя, а не размытием заново каждый кадр.
             Positioned.fill(
-              child: RepaintBoundary(
-                child: AnimatedBuilder(
-                  animation: Listenable.merge([ambient, develop]),
-                  builder: (context, _) => CustomPaint(
-                    painter: MirrorArchHaloPainter(
-                      arch: arch,
-                      color: t.glow,
-                      strength:
-                          0.14 +
-                          0.10 * develop.value +
-                          0.05 * Curves.easeInOut.transform(ambient.value),
-                      shape: t.mirror,
-                      s: s,
-                    ),
-                  ),
+              child: ValueListenableBuilder<double>(
+                valueListenable: develop,
+                builder: (context, value, _) => MirrorBreathingHalo(
+                  arch: arch,
+                  color: t.glow,
+                  base: 0.14 + 0.10 * value,
+                  swing: 0.05,
+                  pulse: ambient,
+                  shape: t.mirror,
+                  s: s,
                 ),
               ),
             ),

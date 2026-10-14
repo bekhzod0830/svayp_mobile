@@ -660,14 +660,18 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
               return Stack(
                 clipBehavior: Clip.none,
                 children: [
+                  // Свой слой: ореол не рисуется заново с каждым кадром камеры.
                   Positioned.fill(
-                    child: CustomPaint(
-                      painter: MirrorArchHaloPainter(
-                        arch: arch,
-                        color: t.glow,
-                        strength: 0.2,
-                        shape: t.mirror,
-                        s: s,
+                    child: RepaintBoundary(
+                      child: CustomPaint(
+                        isComplex: true,
+                        painter: MirrorArchHaloPainter(
+                          arch: arch,
+                          color: t.glow,
+                          strength: 0.2,
+                          shape: t.mirror,
+                          s: s,
+                        ),
                       ),
                     ),
                   ),
@@ -773,18 +777,23 @@ class _MirrorCameraScreenState extends State<MirrorCameraScreen>
                   Positioned.fromRect(
                     rect: arch.inflate(mirrorFrameInset(t.mirror, s)),
                     child: IgnorePointer(
-                      child: TweenAnimationBuilder<double>(
-                        key: ValueKey(counting),
-                        tween: Tween(begin: counting ? 0 : 1, end: 1),
-                        duration: counting ? _countdownTick * _countdownFrom : Duration.zero,
-                        builder: (context, p, _) => CustomPaint(
-                          painter: MirrorArchFramePainter(
-                            shape: t.mirror,
-                            progress: p,
-                            track: t.hairline,
-                            color: t.primary,
-                            glow: 0.5,
-                            s: s,
+                      // Свой слой: вне отсчёта рама неподвижна и не рисуется
+                      // заново с каждым кадром камеры.
+                      child: RepaintBoundary(
+                        child: TweenAnimationBuilder<double>(
+                          key: ValueKey(counting),
+                          tween: Tween(begin: counting ? 0 : 1, end: 1),
+                          duration: counting ? _countdownTick * _countdownFrom : Duration.zero,
+                          builder: (context, p, _) => CustomPaint(
+                            isComplex: !counting,
+                            painter: MirrorArchFramePainter(
+                              shape: t.mirror,
+                              progress: p,
+                              track: t.hairline,
+                              color: t.primary,
+                              glow: 0.5,
+                              s: s,
+                            ),
                           ),
                         ),
                       ),

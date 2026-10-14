@@ -179,6 +179,149 @@ class MirrorArchHaloPainter extends CustomPainter {
       old.s != s;
 }
 
+/// Ореол за зеркалом, который «дышит». Постоянная часть ([base]) рисуется один
+/// раз; пульс ([swing]) — второй готовый слой, у которого меняется только
+/// прозрачность. Перерисовывать сам ореол каждый кадр нельзя: у витрины это
+/// три размытия за кадр, на планшете зеркала — рывки.
+class MirrorBreathingHalo extends StatelessWidget {
+  const MirrorBreathingHalo({
+    super.key,
+    required this.arch,
+    required this.color,
+    required this.base,
+    required this.swing,
+    required this.pulse,
+    this.shape = MirrorArchShape.arch,
+    this.s = 1,
+  });
+
+  final Rect arch;
+  final Color color;
+
+  /// Сила ореола в покое и прибавка на пике пульса.
+  final double base;
+  final double swing;
+
+  /// Пульс сцены, 0..1 (линейный — плавность добавляется здесь).
+  final Animation<double> pulse;
+  final MirrorArchShape shape;
+  final double s;
+
+  Widget _layer(double strength) => RepaintBoundary(
+    child: CustomPaint(
+      isComplex: true,
+      painter: MirrorArchHaloPainter(
+        arch: arch,
+        color: color,
+        strength: strength,
+        shape: shape,
+        s: s,
+      ),
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        _layer(base),
+        FadeTransition(
+          opacity: pulse.drive(CurveTween(curve: Curves.easeInOut)),
+          child: _layer(swing),
+        ),
+      ],
+    );
+  }
+}
+
+/// Замкнутая рама зеркала со свечением, которое «дышит» вместе со сценой.
+/// Сама рама — готовый слой; пульс — отдельный слой свечения, меняется только
+/// его прозрачность (см. [MirrorBreathingHalo]).
+class MirrorBreathingFrame extends StatelessWidget {
+  const MirrorBreathingFrame({
+    super.key,
+    required this.track,
+    required this.color,
+    required this.s,
+    this.pulse,
+    this.shape = MirrorArchShape.arch,
+  });
+
+  final Color track;
+  final Color color;
+  final double s;
+
+  /// Пульс сцены, 0..1; null — рама без «дыхания».
+  final Animation<double>? pulse;
+  final MirrorArchShape shape;
+
+  @override
+  Widget build(BuildContext context) {
+    final pulse = this.pulse;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        RepaintBoundary(
+          child: CustomPaint(
+            isComplex: true,
+            painter: MirrorArchFramePainter(
+              shape: shape,
+              progress: 1,
+              track: track,
+              color: color,
+              glow: 0,
+              s: s,
+            ),
+          ),
+        ),
+        if (pulse != null)
+          FadeTransition(
+            opacity: pulse.drive(CurveTween(curve: Curves.easeInOut)),
+            child: RepaintBoundary(
+              child: CustomPaint(
+                isComplex: true,
+                painter: _FrameGlowPainter(shape: shape, color: color, s: s),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// Прибавка свечения рамы на пике пульса — та же размытая обводка, что рисует
+/// [MirrorArchFramePainter], без самой линии.
+class _FrameGlowPainter extends CustomPainter {
+  const _FrameGlowPainter({
+    required this.shape,
+    required this.color,
+    required this.s,
+  });
+
+  final MirrorArchShape shape;
+  final Color color;
+  final double s;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final width = shape.doubleLine ? 2.4 * s : 4 * s;
+    canvas.drawPath(
+      mirrorArchPath(size, shape),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = width * 3
+        ..strokeCap = StrokeCap.round
+        ..color = color.withValues(alpha: 0.12)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 6 * s),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_FrameGlowPainter old) =>
+      old.shape != shape || old.color != color || old.s != s;
+}
+
 /// Рама зеркала: контур-дорожка и линия прогресса по нему со светящейся
 /// точкой на конце. При [progress] = 1 рама замкнута и точки нет.
 /// Рисуется на прямоугольнике стекла, расширенном на [mirrorFrameInset];

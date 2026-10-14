@@ -499,18 +499,14 @@ class _ResultMirror extends StatelessWidget {
           clipBehavior: Clip.none,
           children: [
             Positioned.fill(
-              child: AnimatedBuilder(
-                animation: ambient,
-                builder: (context, _) => CustomPaint(
-                  painter: MirrorArchHaloPainter(
-                    arch: arch,
-                    color: t.glow,
-                    strength:
-                        0.22 + 0.06 * Curves.easeInOut.transform(ambient.value),
-                    shape: t.mirror,
-                    s: s,
-                  ),
-                ),
+              child: MirrorBreathingHalo(
+                arch: arch,
+                color: t.glow,
+                base: 0.22,
+                swing: 0.06,
+                pulse: ambient,
+                shape: t.mirror,
+                s: s,
               ),
             ),
             if (carousel)
@@ -633,26 +629,24 @@ class _ResultMirror extends StatelessWidget {
 /// Рама зеркала с готовым образом: замкнутая линия цвета бренда, свечение
 /// «дышит» вместе со сценой.
 class _LookFrame extends StatelessWidget {
-  const _LookFrame({required this.ambient});
+  const _LookFrame({required this.ambient, this.breathe = true});
 
   final Animation<double> ambient;
+
+  /// «Дышит» только рама образа по центру: у притушенных соседей в ленте
+  /// пульс не виден, а их слой из-за него пришлось бы собирать каждый кадр.
+  final bool breathe;
 
   @override
   Widget build(BuildContext context) {
     final t = MirrorTheme.of(context);
     final s = MirrorTheme.scale(context);
-    return AnimatedBuilder(
-      animation: ambient,
-      builder: (context, _) => CustomPaint(
-        painter: MirrorArchFramePainter(
-          shape: t.mirror,
-          progress: 1,
-          track: t.hairline,
-          color: t.primary,
-          glow: Curves.easeInOut.transform(ambient.value),
-          s: s,
-        ),
-      ),
+    return MirrorBreathingFrame(
+      shape: t.mirror,
+      track: t.hairline,
+      color: t.primary,
+      pulse: breathe ? ambient : null,
+      s: s,
     );
   }
 }
@@ -812,7 +806,12 @@ class _LookCarouselState extends State<_LookCarousel> {
                               )
                             : _PendingGlass(number: i + 1),
                       ),
-                      IgnorePointer(child: _LookFrame(ambient: widget.ambient)),
+                      IgnorePointer(
+                        child: _LookFrame(
+                          ambient: widget.ambient,
+                          breathe: i == _page,
+                        ),
+                      ),
                     ],
                   ),
                 ),
